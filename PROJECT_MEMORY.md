@@ -1,0 +1,145 @@
+# Smaran Health Project Memory
+
+Last updated: 4 August 2026
+
+## Authoritative project sources
+
+The project is based on [`docs/source/founder-blueprint-v1.0-2026-07-06.docx`](docs/source/founder-blueprint-v1.0-2026-07-06.docx), prepared for Neelesh as Version 1.0 on 6 July 2026.
+
+Treat the blueprint as the strategic source of truth for product positioning, target users, MVP boundaries, clinical safety, go-to-market assumptions, and execution sequencing. `AGENTS.md` remains authoritative for coding, privacy, access-control, and clinical-safety rules.
+
+[`docs/source/solo-founder-mvp-steps-v1.0-2026-07-12.docx`](docs/source/solo-founder-mvp-steps-v1.0-2026-07-12.docx), Version 1.0 dated 12 July 2026, is the solo-founder operating handbook. Use its scope discipline, phased learning model, synthetic-data-first approach, task templates, and doctor-validation practices. Do not treat its original 30-day pilot schedule, vague quality thresholds, or incomplete data model as approved production requirements; the roadmap review and the revised sequence below take precedence.
+
+## Product thesis
+
+Build an India-first AI clinical memory platform for specialist doctors, not a generic transcription application. The first wedge is specialist follow-up memory, initially focused on diabetes/endocrinology or another follow-up-heavy specialty in private clinics.
+
+The core value is to preserve the longitudinal patient story: what happened previously, what the doctor documented, what changed, what remains pending, and what should be available as context before the next consultation.
+
+## Core workflow
+
+```text
+consented recording
+  -> transcript
+  -> structured extraction JSON
+  -> AI-generated draft note
+  -> doctor review and edit
+  -> doctor approval
+  -> approved patient timeline
+  -> follow-up memory from approved records
+```
+
+AI output is always a draft. The product must not diagnose, prescribe, independently recommend treatment, modify prescriptions, invent clinical facts, or finalize records without doctor approval.
+
+## MVP priorities
+
+1. Doctor authentication and clinic-scoped access
+2. Patient profile and consultation creation
+3. Recording with explicit consent status
+4. Private audio upload and transcription
+5. Schema-validated structured extraction
+6. Draft note editing and explicit doctor approval
+7. Timeline events generated only from approved notes
+8. Follow-up memory generated only from approved clinical truth
+9. Printable or downloadable doctor-approved patient instructions
+10. Audit logs, privacy controls, and doctor feedback
+
+Defer autonomous clinical decision support, billing, patient apps, deep hospital integrations, and production ABDM integration until the core workflow has demonstrated safety, trust, retention, and willingness to pay.
+
+## Target customer and positioning
+
+- Initial buyer: owner-doctor or specialist partner in a private clinic
+- Initial user: high-volume specialist with meaningful repeat consultations
+- Initial specialty hypothesis: diabetes/endocrinology
+- Positioning: documentation and continuity-of-care memory assistant
+- Differentiator: longitudinal, evidence-linked, specialty-aware patient memory for Indian clinic workflows
+
+## Safety and privacy invariants
+
+- Every patient-related record is scoped by `clinic_id`.
+- Raw audio is private and accessed through temporary signed URLs.
+- Patient data and clinical content are never written to application or analytics logs.
+- High-risk fields require explicit review: diagnosis as documented by the doctor, medications, dose, frequency, allergies, investigations, procedures, and follow-up.
+- Approved notes are immutable; later corrections create a new version or amendment.
+- Patient-facing content and sharing require doctor approval.
+- Recording, clinical processing, sharing, and secondary/model-improvement use require separate and appropriately scoped consent.
+- Uncertain speech or clinical content is preserved and surfaced for verification, never silently guessed or normalized.
+
+## Review findings to resolve before production implementation
+
+These are open decisions, not silently approved assumptions:
+
+1. **Production architecture:** The blueprint suggests Next.js/Electron, FastAPI, and PostgreSQL; repository documentation prefers Next.js and Supabase; the existing `apps/website` prototype uses Vinext and Cloudflare D1. Select and document one production architecture before implementing the clinical data layer. Current recommendation: Next.js App Router with Supabase Postgres, Auth, and private Storage.
+2. **Canonical AI contract:** Establish one versioned JSON schema containing source evidence, confidence, speaker/timestamp where available, uncertainty, and verification requirements.
+3. **Record state machines:** Enforce explicit consultation and clinical-note states, approval permissions, immutable approved versions, and idempotent timeline generation.
+4. **Consent model:** Define versioned multilingual notice, recording refusal, pause/stop, guardian handling, sharing-channel consent, withdrawal, and separate optional secondary-use consent.
+5. **Data lifecycle:** Approve concrete retention and deletion rules for audio, transcripts, drafts, approved notes, exports, backups, audit logs, and evaluation data before collecting real patient data.
+6. **Safety release gates:** Replace phrases such as "most notes" and "low critical errors" with measurable thresholds and a critical-incident containment process.
+7. **Pilot sequencing:** Separate synthetic-data alpha, clinician usability review, legal/security readiness, and controlled real-patient pilot.
+8. **Potential clinical suggestion language:** Use "unresolved items from approved records" instead of AI-generated "questions to clarify today."
+
+## Roadmap memory
+
+### Accepted operating principles
+
+- One specialty, one doctor type, one consultation workflow, and one differentiating feature: follow-up memory.
+- Validate the workflow with doctors before investing in backend complexity.
+- Give coding agents small, reviewable tasks with goal, context, constraints, acceptance criteria, and relevant tests.
+- Keep durable coding and safety rules in `AGENTS.md`; keep database schemas, production prompts, migrations, and evaluation fixtures under version control.
+- Use synthetic or properly de-identified consultation material until production privacy, consent, vendor, and security controls are ready.
+- Do not progress merely because code works; every phase needs evidence, safety, and adoption gates.
+
+### Revised solo-founder sequence
+
+The roadmap's original expectation of a real-clinic-ready product within 30 days is not an approved delivery commitment. Use this safer planning baseline:
+
+| Period | Intended outcome |
+| --- | --- |
+| Weeks 1-2 | Doctor discovery, specialty decision, and clickable workflow prototype |
+| Weeks 3-5 | Architecture decision, authentication, clinic isolation, patient and consultation foundation |
+| Weeks 6-8 | Audio-to-draft pipeline tested only with synthetic data |
+| Weeks 9-10 | Clinical evaluation, consent, retention, security, failure handling, and incident readiness |
+| Weeks 11-12 | Supervised doctor usability testing with synthetic or approved de-identified cases |
+| Weeks 13-16 | Controlled real-data pilot with 2-3 doctors, preferably in one clinic |
+| Weeks 17-18 | Follow-up memory validation, retention measurement, and first paid-conversion experiment |
+
+Treat this as a planning baseline rather than a fixed promise. Advance only when the preceding exit gates are satisfied.
+
+### Roadmap gates before real patient data
+
+- Production architecture is selected and documented.
+- Every patient-related table carries `clinic_id` and verified row-level access controls.
+- Consent is stored as a versioned entity with scope, language, method, timestamp, and withdrawal state.
+- Audio, transcription, extraction, and note generation run through retryable, idempotent asynchronous processing states.
+- Approved notes are immutable and amendments create new attributable versions.
+- Raw audio, transcripts, drafts, approved records, exports, backups, audit logs, and evaluation data have approved retention and deletion rules.
+- A frozen, specialty-specific benchmark set and measurable quality thresholds are defined.
+- Critical-error containment, escalation, root-cause review, rollback, and a manual shutdown path are documented.
+- Vendor contracts and data controls are reviewed. API data not being used for model training by default does not eliminate retention, endpoint, data-processing, or configuration obligations.
+- Counsel has reviewed the patient notice, consent workflow, privacy terms, clinic agreement, and intended regulatory posture.
+
+### Pilot measurement rules
+
+Do not use phrases such as "minimal hallucination," "near zero," "most visits," or "uses repeatedly" as exit criteria. Define numeric measures for critical errors per 100 drafts, medication and investigation accuracy, unsupported claims, median approval time, edit burden, approval rate, consent/refusal rate, eligible-consultation capture, follow-up-memory use, active-doctor retention, and paid commitment.
+
+Fifty consultations may validate workflow usability but must not be presented as broad clinical-safety validation. Character-level edit distance alone is not an adequate clinical quality measure; use field-level accuracy, severity-weighted errors, and doctor review time.
+
+### Current repository position on 4 August 2026
+
+- Founder documentation, `AGENTS.md`, and project memory exist.
+- A public-facing landing-page prototype exists under `apps/website`.
+- No completed clickable doctor workflow or doctor-discovery evidence is visible in the repository.
+- The current application database schema is empty.
+- Clinical authentication, recording, transcription, structured extraction, approval, and memory pipelines are not yet implemented.
+- The repository is therefore between founder setup and clickable-prototype validation, not at the technical MVP or clinic-pilot stage.
+
+## Regulatory memory
+
+- The Digital Personal Data Protection Act and Rules follow phased commencement. Build for full readiness, but describe current and future legal obligations accurately and obtain Indian healthcare/privacy counsel before real-patient launch.
+- As of 21 July 2026, CDSCO lists a final `Guidance document on Medical Device Software under MDR-2017`; the blueprint's description of this material as a draft is outdated.
+- ABDM should not block the first MVP, but the data model should remain interoperable and future integration should use the official sandbox, consent flows, and security review.
+- Regulatory, legal, privacy, tax, and medical-device conclusions require qualified professional review; the blueprint is an operating plan, not legal or medical advice.
+
+## Execution principle
+
+Build the narrow product doctors repeatedly trust before expanding into a broad platform. When uncertain, prefer more doctor control, more explicit uncertainty, less automation, less data exposure, and a clearer audit trail.
