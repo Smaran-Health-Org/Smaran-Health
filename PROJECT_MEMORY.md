@@ -8,7 +8,7 @@ The project is based on [`docs/source/founder-blueprint-v1.0-2026-07-06.docx`](d
 
 Treat the blueprint as the strategic source of truth for product positioning, target users, MVP boundaries, clinical safety, go-to-market assumptions, and execution sequencing. `AGENTS.md` remains authoritative for coding, privacy, access-control, and clinical-safety rules.
 
-[`docs/source/solo-founder-mvp-steps-v1.0-2026-07-12.docx`](docs/source/solo-founder-mvp-steps-v1.0-2026-07-12.docx), Version 1.0 dated 12 July 2026, is the solo-founder operating handbook. Use its scope discipline, phased learning model, synthetic-data-first approach, task templates, and doctor-validation practices. Do not treat its original 30-day pilot schedule, vague quality thresholds, or incomplete data model as approved production requirements; the roadmap review and the revised sequence below take precedence.
+[`docs/source/solo-founder-mvp-steps-v1.0-2026-07-12.docx`](docs/source/solo-founder-mvp-steps-v1.0-2026-07-12.docx), Version 1.0 dated 12 July 2026, is the solo-founder operating handbook. Use its scope discipline, phased learning model, synthetic-data-first approach, task templates, and doctor-validation practices. `ROADMAP.md` is authoritative for the current delivery timeline. Do not treat vague quality thresholds or an incomplete data model as approved production requirements; the safety and readiness gates below still govern progression to real patient data.
 
 ## Product thesis
 
@@ -89,21 +89,22 @@ These are open decisions, not silently approved assumptions:
 - Use synthetic or properly de-identified consultation material until production privacy, consent, vendor, and security controls are ready.
 - Do not progress merely because code works; every phase needs evidence, safety, and adoption gates.
 
-### Revised solo-founder sequence
+### Solo-founder sequence aligned with `ROADMAP.md`
 
-The roadmap's original expectation of a real-clinic-ready product within 30 days is not an approved delivery commitment. Use this safer planning baseline:
+| Roadmap phase | Period | Intended outcome |
+| --- | --- | --- |
+| Phase 0 - Founder Setup | Before or alongside Week 1 | Repository, product scope, technology choice, task board, and initial engineering tasks |
+| Phase 1 - Discovery and Narrowing | Weeks 1-2 | Doctor discovery, specialty decision, sample formats, synthetic transcripts, and confirmed MVP workflow |
+| Phase 2 - Clickable Prototype | Weeks 2-3 | Clickable workflow with mock data, doctor feedback, and updated product requirements |
+| Phase 3 - App Foundation | Weeks 3-4 | Authentication, clinic isolation, patient and consultation records, patient profile, and audit-log foundation |
+| Phase 4 - Audio-to-Note Pipeline | Weeks 4-6 | Private recording and upload, transcription, validated structured extraction, draft editing, and doctor approval, initially tested with synthetic data |
+| Phase 5 - Clinical Memory Layer | Weeks 6-7 | Approved-note timeline and follow-up memory based only on approved records |
+| Phase 6 - Safety, Privacy, and Pilot Readiness | Weeks 7-8 | Consent, privacy controls, auditability, safe monitoring, feedback, export, onboarding, and legal-review materials |
+| Phase 7 - Controlled Pilot | Weeks 9-12 | Controlled use by 2-5 doctors across 2-3 clinics, targeting 50-150 consented consultations and measurable workflow evidence |
+| Phase 8 - Paid Beta | Months 4-6 | Convert validated pilot usage into the first paid doctor or clinic and establish repeatable onboarding |
+| Phase 9 - Specialty Expansion | After the expansion criteria are met | Consider a second specialty only after paying usage, acceptable quality, stable workflow, manageable support, and demonstrated demand |
 
-| Period | Intended outcome |
-| --- | --- |
-| Weeks 1-2 | Doctor discovery, specialty decision, and clickable workflow prototype |
-| Weeks 3-5 | Architecture decision, authentication, clinic isolation, patient and consultation foundation |
-| Weeks 6-8 | Audio-to-draft pipeline tested only with synthetic data |
-| Weeks 9-10 | Clinical evaluation, consent, retention, security, failure handling, and incident readiness |
-| Weeks 11-12 | Supervised doctor usability testing with synthetic or approved de-identified cases |
-| Weeks 13-16 | Controlled real-data pilot with 2-3 doctors, preferably in one clinic |
-| Weeks 17-18 | Follow-up memory validation, retention measurement, and first paid-conversion experiment |
-
-Treat this as a planning baseline rather than a fixed promise. Advance only when the preceding exit gates are satisfied.
+The roadmap also sets a 30-day build-and-demo checkpoint, a 60-day target that includes a controlled pilot with at least one clinic, and a 90-day target covering 2-3 pilot clinics, at least 50 consultations, quality and pricing evidence, and a paid-beta conversation. These are targets, not permission to bypass an exit criterion or a safety gate. If a gate is unmet, record the delay and complete the gate before using real patient data or advancing the affected workflow.
 
 ### Roadmap gates before real patient data
 
