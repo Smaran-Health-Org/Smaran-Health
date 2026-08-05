@@ -1,0 +1,8 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": { "transcript_id": "synthetic-invalid-004", "transcript_version": "v1" },
+  "generation": { "model": "synthetic-fixture", "prompt_version": "clinical-extraction/v0.1.0", "generated_at": "2026-08-05T12:00:00Z" },
+  "chief_complaint": [], "history": [], "examination_findings": [], "diagnoses_documented_by_doctor": [], "allergies_documented": [], "medications_mentioned": [], "medication_changes": [], "investigations_requested": [], "investigations_reviewed": [], "procedures_documented": [], "lifestyle_advice": [], "follow_up_plan": [], "patient_instructions": [], "uncertain_items": [], "safety_flags": [],
+  "treatment_recommendation": "Invented recommendation"
+}

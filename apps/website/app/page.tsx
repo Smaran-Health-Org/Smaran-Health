@@ -268,6 +268,9 @@ export default function Home() {
                 <strong>Ask about adherence before changing dose</strong>
               </div>
             </div>
+            <a className="panel-link" href="/memory">
+              Open synthetic memory demo <span aria-hidden="true">→</span>
+            </a>
           </article>
 
           <article className="product-panel timeline-panel" data-reveal>
