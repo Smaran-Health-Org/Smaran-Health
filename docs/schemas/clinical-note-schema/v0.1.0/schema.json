@@ -1,0 +1,707 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://smaran.health/schemas/clinical-note-schema/v0.1.0/schema.json",
+  "title": "Smaran Health Clinical Note Draft",
+  "description": "Architecture-neutral contract for evidence-linked AI clinical note drafts. A conforming document is never a final or approved clinical record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_status",
+    "source",
+    "generation",
+    "chief_complaint",
+    "history",
+    "examination_findings",
+    "diagnoses_documented_by_doctor",
+    "allergies_documented",
+    "medications_mentioned",
+    "medication_changes",
+    "investigations_requested",
+    "investigations_reviewed",
+    "procedures_documented",
+    "lifestyle_advice",
+    "follow_up_plan",
+    "patient_instructions",
+    "uncertain_items",
+    "safety_flags"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "clinical-note-schema/v0.1.0"
+    },
+    "document_status": {
+      "const": "ai_draft",
+      "description": "Approval is deliberately outside this AI-output contract."
+    },
+    "source": {
+      "$ref": "#/$defs/sourceDocument"
+    },
+    "generation": {
+      "$ref": "#/$defs/generationMetadata"
+    },
+    "chief_complaint": {
+      "$ref": "#/$defs/generalItems"
+    },
+    "history": {
+      "$ref": "#/$defs/generalItems"
+    },
+    "examination_findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/doctorAttributedItem"
+      }
+    },
+    "diagnoses_documented_by_doctor": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/doctorAttributedItem"
+      }
+    },
+    "allergies_documented": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/highRiskItem"
+      }
+    },
+    "medications_mentioned": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/medicationMention"
+      }
+    },
+    "medication_changes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/medicationChange"
+      }
+    },
+    "investigations_requested": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/doctorAttributedItem"
+      }
+    },
+    "investigations_reviewed": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/highRiskItem"
+      }
+    },
+    "procedures_documented": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/doctorAttributedItem"
+      }
+    },
+    "lifestyle_advice": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/doctorAttributedItem"
+      }
+    },
+    "follow_up_plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/doctorAttributedItem"
+      }
+    },
+    "patient_instructions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/doctorAttributedItem"
+      }
+    },
+    "uncertain_items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/uncertainItem"
+      }
+    },
+    "safety_flags": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safetyFlag"
+      }
+    }
+  },
+  "$defs": {
+    "sourceDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transcript_id", "transcript_version"],
+      "properties": {
+        "transcript_id": {
+          "$ref": "#/$defs/internalId"
+        },
+        "transcript_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      }
+    },
+    "generationMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "prompt_version", "generated_at"],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "prompt_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "internalId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "speaker": {
+      "type": "string",
+      "enum": ["doctor", "patient", "caregiver", "clinic_staff", "unknown"]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["segment_id", "speaker"],
+      "properties": {
+        "segment_id": {
+          "$ref": "#/$defs/internalId"
+        },
+        "speaker": {
+          "$ref": "#/$defs/speaker"
+        },
+        "start_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "start_ms": ["end_ms"],
+        "end_ms": ["start_ms"]
+      }
+    },
+    "clinicalItem": {
+      "type": "object",
+      "required": [
+        "item_id",
+        "text",
+        "source_quote",
+        "confidence",
+        "requires_verification",
+        "evidence"
+      ],
+      "properties": {
+        "item_id": {
+          "$ref": "#/$defs/internalId"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "source_quote": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "requires_verification": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
+      }
+    },
+    "generalItem": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/clinicalItem"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "generalItems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/generalItem"
+      }
+    },
+    "highRiskItem": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/clinicalItem"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "requires_verification": {
+              "const": true
+            }
+          }
+        }
+      ]
+    },
+    "doctorAttributedItem": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/highRiskItem"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "evidence": {
+              "type": "object",
+              "allOf": [
+                {
+                  "$ref": "#/$defs/evidence"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "speaker": {
+                      "const": "doctor"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "medicationName": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["as_spoken"],
+      "properties": {
+        "as_spoken": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "normalized": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Optional candidate normalization; never replaces as_spoken and always requires verification."
+        }
+      }
+    },
+    "quantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["as_spoken"],
+      "properties": {
+        "as_spoken": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        }
+      }
+    },
+    "codedPhrase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["as_spoken", "code"],
+      "properties": {
+        "as_spoken": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      }
+    },
+    "frequency": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/codedPhrase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "once_daily",
+                "twice_daily",
+                "three_times_daily",
+                "four_times_daily",
+                "every_n_hours",
+                "weekly",
+                "as_needed",
+                "other",
+                "unclear"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "timing": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/codedPhrase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "before_food",
+                "after_food",
+                "with_food",
+                "empty_stomach",
+                "morning",
+                "afternoon",
+                "evening",
+                "bedtime",
+                "other",
+                "unclear"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "duration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["as_spoken", "code"],
+      "properties": {
+        "as_spoken": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "code": {
+          "enum": ["fixed", "ongoing", "until_review", "other", "unclear"]
+        },
+        "value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "enum": ["hours", "days", "weeks", "months"]
+        }
+      },
+      "if": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "const": "fixed"
+          }
+        }
+      },
+      "then": {
+        "required": ["value", "unit"]
+      }
+    },
+    "medicationRegimen": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strengths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/quantity"
+          }
+        },
+        "dose": {
+          "$ref": "#/$defs/quantity"
+        },
+        "frequency": {
+          "$ref": "#/$defs/frequency"
+        },
+        "timing": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/timing"
+          }
+        },
+        "route": {
+          "$ref": "#/$defs/codedPhrase"
+        },
+        "duration": {
+          "$ref": "#/$defs/duration"
+        }
+      },
+      "minProperties": 1
+    },
+    "medicationMention": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/highRiskItem"
+        },
+        {
+          "type": "object",
+          "required": ["medication_name"],
+          "properties": {
+            "medication_name": {
+              "$ref": "#/$defs/medicationName"
+            },
+            "regimen": {
+              "$ref": "#/$defs/medicationRegimen"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "medicationChange": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/highRiskItem"
+        },
+        {
+          "type": "object",
+          "required": ["medication_name", "change_action", "change_context"],
+          "properties": {
+            "medication_name": {
+              "$ref": "#/$defs/medicationName"
+            },
+            "change_action": {
+              "enum": [
+                "started",
+                "continued",
+                "increased",
+                "decreased",
+                "stopped",
+                "held",
+                "restarted",
+                "resumed",
+                "substituted",
+                "unclear"
+              ]
+            },
+            "change_context": {
+              "enum": [
+                "doctor_plan",
+                "patient_reported_history",
+                "caregiver_reported_history",
+                "existing_record_review",
+                "unclear"
+              ]
+            },
+            "previous_regimen": {
+              "$ref": "#/$defs/medicationRegimen"
+            },
+            "new_regimen": {
+              "$ref": "#/$defs/medicationRegimen"
+            },
+            "replaces_medication_as_spoken": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "changed_fields": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "medication",
+                  "strength",
+                  "dose",
+                  "frequency",
+                  "timing",
+                  "route",
+                  "duration",
+                  "status",
+                  "unclear"
+                ]
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "type": "object",
+                "properties": {
+                  "change_context": {
+                    "const": "doctor_plan"
+                  }
+                }
+              },
+              "then": {
+                "type": "object",
+                "properties": {
+                  "evidence": {
+                    "type": "object",
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/evidence"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "speaker": {
+                            "const": "doctor"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "type": "object",
+                "properties": {
+                  "change_action": {
+                    "const": "substituted"
+                  }
+                }
+              },
+              "then": {
+                "type": "object",
+                "required": ["replaces_medication_as_spoken"]
+              }
+            }
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "uncertainItem": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/highRiskItem"
+        },
+        {
+          "type": "object",
+          "required": ["uncertainty_type", "reason", "affected_paths"],
+          "properties": {
+            "uncertainty_type": {
+              "enum": [
+                "unclear_audio",
+                "ambiguous_speaker",
+                "ambiguous_clinical_term",
+                "conflicting_statements",
+                "incomplete_information",
+                "possible_normalization_error",
+                "other"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "affected_paths": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^/([A-Za-z0-9_~-]+)(/[A-Za-z0-9_~-]+)*$"
+              }
+            },
+            "related_item_ids": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/internalId"
+              }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "safetyFlag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flag_id", "code", "severity", "message", "affected_paths"],
+      "properties": {
+        "flag_id": {
+          "$ref": "#/$defs/internalId"
+        },
+        "code": {
+          "enum": [
+            "unsupported_claim",
+            "conflicting_evidence",
+            "missing_evidence",
+            "unclear_medication_name",
+            "incomplete_medication_details",
+            "unclear_diagnosis_attribution",
+            "unclear_investigation",
+            "unclear_follow_up",
+            "possible_transcription_error",
+            "schema_validation_issue",
+            "requires_manual_review"
+          ]
+        },
+        "severity": {
+          "enum": ["information", "warning", "blocking"]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "affected_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^/([A-Za-z0-9_~-]+)(/[A-Za-z0-9_~-]+)*$"
+          }
+        },
+        "related_item_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/internalId"
+          }
+        }
+      }
+    }
+  }
+}

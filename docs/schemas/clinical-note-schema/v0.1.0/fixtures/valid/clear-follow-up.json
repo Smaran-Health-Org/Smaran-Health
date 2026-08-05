@@ -1,0 +1,143 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": {
+    "transcript_id": "synthetic-transcript-001",
+    "transcript_version": "v1"
+  },
+  "generation": {
+    "model": "synthetic-fixture",
+    "prompt_version": "clinical-extraction/v0.1.0",
+    "generated_at": "2026-08-05T12:00:00Z"
+  },
+  "chief_complaint": [
+    {
+      "item_id": "complaint-1",
+      "text": "Increased thirst for two weeks",
+      "source_quote": "I have been feeling more thirsty for about two weeks.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": {
+        "segment_id": "segment-001",
+        "speaker": "patient",
+        "start_ms": 1200,
+        "end_ms": 4800
+      }
+    }
+  ],
+  "history": [],
+  "examination_findings": [],
+  "diagnoses_documented_by_doctor": [
+    {
+      "item_id": "diagnosis-1",
+      "text": "Type 2 diabetes mellitus",
+      "source_quote": "I am documenting type 2 diabetes mellitus.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": {
+        "segment_id": "segment-010",
+        "speaker": "doctor",
+        "start_ms": 21000,
+        "end_ms": 24200
+      }
+    }
+  ],
+  "allergies_documented": [],
+  "medications_mentioned": [
+    {
+      "item_id": "medication-1",
+      "text": "Metformin 500 mg twice daily",
+      "source_quote": "You are currently taking metformin five hundred milligrams twice daily.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": {
+        "segment_id": "segment-012",
+        "speaker": "doctor",
+        "start_ms": 26100,
+        "end_ms": 30200
+      },
+      "medication_name": {
+        "as_spoken": "metformin"
+      },
+      "regimen": {
+        "strengths": [
+          {
+            "as_spoken": "five hundred milligrams",
+            "value": 500,
+            "unit": "mg"
+          }
+        ],
+        "frequency": {
+          "as_spoken": "twice daily",
+          "code": "twice_daily"
+        }
+      }
+    }
+  ],
+  "medication_changes": [
+    {
+      "item_id": "medication-change-1",
+      "text": "Continue metformin 500 mg twice daily",
+      "source_quote": "Continue metformin five hundred milligrams twice daily.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": {
+        "segment_id": "segment-014",
+        "speaker": "doctor",
+        "start_ms": 33200,
+        "end_ms": 36600
+      },
+      "medication_name": {
+        "as_spoken": "metformin"
+      },
+      "change_action": "continued",
+      "change_context": "doctor_plan",
+      "new_regimen": {
+        "strengths": [
+          {
+            "as_spoken": "five hundred milligrams",
+            "value": 500,
+            "unit": "mg"
+          }
+        ],
+        "frequency": {
+          "as_spoken": "twice daily",
+          "code": "twice_daily"
+        }
+      },
+      "changed_fields": ["status"]
+    }
+  ],
+  "investigations_requested": [
+    {
+      "item_id": "investigation-request-1",
+      "text": "HbA1c before next visit",
+      "source_quote": "Please get an HbA1c before your next visit.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": {
+        "segment_id": "segment-016",
+        "speaker": "doctor"
+      }
+    }
+  ],
+  "investigations_reviewed": [],
+  "procedures_documented": [],
+  "lifestyle_advice": [],
+  "follow_up_plan": [
+    {
+      "item_id": "follow-up-1",
+      "text": "Follow up in three months",
+      "source_quote": "Come back for follow-up in three months.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": {
+        "segment_id": "segment-018",
+        "speaker": "doctor"
+      }
+    }
+  ],
+  "patient_instructions": [],
+  "uncertain_items": [],
+  "safety_flags": []
+}
