@@ -1,12 +1,25 @@
 export type WorkflowState =
   | "patient"
   | "consent"
+  | "consent_declined"
   | "recording"
+  | "recording_interrupted"
   | "processing"
   | "review"
   | "approved"
   | "rejected"
   | "failed";
+
+export type Confidence = "high" | "medium" | "low";
+
+export type DraftField = {
+  id: "summary" | "medicationChanges" | "investigations" | "uncertainItems";
+  label: string;
+  value: string;
+  evidence: string[];
+  confidence: Confidence;
+  requiresVerification: boolean;
+};
 
 export type ApprovedTimelineEvent = {
   id: string;
@@ -148,3 +161,38 @@ export const aiDraft = {
   investigations: "HbA1c report remains to be reviewed when available.",
   uncertainItems: "The transcript does not state the dates of the two missed log entries.",
 };
+
+export const aiDraftFields: DraftField[] = [
+  {
+    id: "summary",
+    label: "Consultation summary",
+    value: aiDraft.summary,
+    evidence: [syntheticTranscript[1], syntheticTranscript[2], syntheticTranscript[3], syntheticTranscript[4]],
+    confidence: "high",
+    requiresVerification: false,
+  },
+  {
+    id: "medicationChanges",
+    label: "Medication changes",
+    value: aiDraft.medicationChanges,
+    evidence: ["No medication name, dose, frequency, or change is stated in the transcript."],
+    confidence: "high",
+    requiresVerification: true,
+  },
+  {
+    id: "investigations",
+    label: "Investigations",
+    value: aiDraft.investigations,
+    evidence: [syntheticTranscript[4]],
+    confidence: "high",
+    requiresVerification: true,
+  },
+  {
+    id: "uncertainItems",
+    label: "Uncertain items",
+    value: aiDraft.uncertainItems,
+    evidence: [syntheticTranscript[1]],
+    confidence: "medium",
+    requiresVerification: true,
+  },
+];

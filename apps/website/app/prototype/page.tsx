@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  aiDraft,
+  aiDraftFields,
   approvedTimeline,
   preVisitMemory,
   syntheticPatient,
@@ -16,7 +16,9 @@ import styles from "./prototype.module.css";
 const activeStep: Record<WorkflowState, number> = {
   patient: 0,
   consent: 1,
+  consent_declined: 1,
   recording: 2,
+  recording_interrupted: 2,
   processing: 3,
   review: 4,
   approved: 5,
@@ -48,8 +50,11 @@ function MemoryColumn({ title, items }: { title: string; items: string[] }) {
 
 export default function PrototypePage() {
   const [state, setState] = useState<WorkflowState>("patient");
-  const [draftSummary, setDraftSummary] = useState(aiDraft.summary);
+  const [draftFields, setDraftFields] = useState(() =>
+    Object.fromEntries(aiDraftFields.map((field) => [field.id, field.value])),
+  );
   const [consentConfirmed, setConsentConfirmed] = useState(false);
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
   const step = activeStep[state];
 
@@ -61,21 +66,36 @@ export default function PrototypePage() {
               id: "approved-prototype-current",
               date: "Today · Synthetic",
               title: "Current follow-up",
-              detail: draftSummary,
+              detail: draftFields.summary,
               source: "Approved in prototype · Doctor action",
               status: "approved" as const,
             },
             ...approvedTimeline,
           ]
         : approvedTimeline,
-    [draftSummary, isApproved],
+    [draftFields.summary, isApproved],
   );
+
+  const approvedMemory = isApproved
+    ? {
+        visit: draftFields.summary,
+        medication: draftFields.medicationChanges,
+        investigation: draftFields.investigations,
+        uncertainty: draftFields.uncertainItems,
+      }
+    : null;
+
+  function updateDraftField(id: keyof typeof draftFields, value: string) {
+    setDraftFields((current) => ({ ...current, [id]: value }));
+    setReviewConfirmed(false);
+  }
 
   function reset() {
     setState("patient");
     setConsentConfirmed(false);
+    setReviewConfirmed(false);
     setIsApproved(false);
-    setDraftSummary(aiDraft.summary);
+    setDraftFields(Object.fromEntries(aiDraftFields.map((field) => [field.id, field.value])));
   }
 
   return (
@@ -90,7 +110,7 @@ export default function PrototypePage() {
 
       <section className={styles.intro}>
         <div>
-          <p className={styles.eyebrow}>Task 10 prototype</p>
+          <p className={styles.eyebrow}>Task 14 · doctor workflow</p>
           <h1>One safe path from patient context to approved memory.</h1>
           <p>
             A clickable returning-patient scenario for doctor feedback. Every clinical detail is
@@ -136,6 +156,22 @@ export default function PrototypePage() {
               <p>{syntheticPatient.followUpReason}</p>
             </div>
 
+            {approvedMemory && (
+              <section className={styles.approvedMemory} aria-label="Approved follow-up memory">
+                <div>
+                  <p className={styles.eyebrow}>Approved follow-up memory</p>
+                  <h3>Context for the next visit</h3>
+                </div>
+                <dl>
+                  <div><dt>Current visit</dt><dd>{approvedMemory.visit}</dd></div>
+                  <div><dt>Medication record</dt><dd>{approvedMemory.medication}</dd></div>
+                  <div><dt>Pending investigation</dt><dd>{approvedMemory.investigation}</dd></div>
+                  <div><dt>Verify next time</dt><dd>{approvedMemory.uncertainty}</dd></div>
+                </dl>
+                <small>✓ Derived only from the doctor-approved synthetic note · Today</small>
+              </section>
+            )}
+
             <div className={styles.memoryGrid}>
               <MemoryColumn title="Medication record" items={preVisitMemory.medicationChanges} />
               <MemoryColumn title="Pending investigations" items={preVisitMemory.investigations} />
@@ -173,6 +209,7 @@ export default function PrototypePage() {
             <dl className={styles.consentDetails}>
               <div><dt>Notice</dt><dd>{syntheticPatient.consent.noticeVersion}</dd></div>
               <div><dt>Language</dt><dd>{syntheticPatient.consent.language}</dd></div>
+              <div><dt>Method</dt><dd>{syntheticPatient.consent.method}</dd></div>
               <div><dt>Included</dt><dd>{syntheticPatient.consent.scopes.join(" · ")}</dd></div>
               <div><dt>Not included</dt><dd>{syntheticPatient.consent.excludedScopes.join(" · ")}</dd></div>
             </dl>
@@ -186,8 +223,19 @@ export default function PrototypePage() {
             </label>
             <div className={styles.actions}>
               <button type="button" className={styles.secondaryButton} onClick={() => setState("patient")}>Cancel</button>
+              <button type="button" className={styles.declineButton} onClick={() => setState("consent_declined")}>Patient declined recording</button>
               <button type="button" className={styles.primaryButton} disabled={!consentConfirmed} onClick={() => setState("recording")}>Begin recording</button>
             </div>
+          </div>
+        )}
+
+        {state === "consent_declined" && (
+          <div className={styles.outcomePanel}>
+            <span className={styles.neutralIcon} aria-hidden="true">—</span>
+            <p className={styles.eyebrow}>Recording declined</p>
+            <h2>Continue care without recording</h2>
+            <p>No audio, transcript, draft, or clinical memory was created. Declining recording does not affect the patient&apos;s care.</p>
+            <button type="button" className={styles.primaryButton} onClick={() => setState("patient")}>Return to patient profile</button>
           </div>
         )}
 
@@ -202,7 +250,23 @@ export default function PrototypePage() {
             <div className={styles.transcriptPreview}>
               {syntheticTranscript.slice(0, 3).map((line) => <p key={line}>{line}</p>)}
             </div>
-            <button type="button" className={styles.stopButton} onClick={() => setState("processing")}>Stop and process</button>
+            <div className={styles.actions}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setState("recording_interrupted")}>Simulate interruption</button>
+              <button type="button" className={styles.stopButton} onClick={() => setState("processing")}>Stop and process</button>
+            </div>
+          </div>
+        )}
+
+        {state === "recording_interrupted" && (
+          <div className={styles.outcomePanel} role="alert">
+            <span className={styles.failedIcon} aria-hidden="true">!</span>
+            <p className={styles.eyebrow}>Recording interrupted</p>
+            <h2>The recording stopped safely</h2>
+            <p>No draft or memory was created. Restart only after confirming the patient still consents to recording.</p>
+            <div className={styles.actions}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setState("patient")}>Return to profile</button>
+              <button type="button" className={styles.primaryButton} onClick={() => { setConsentConfirmed(false); setState("consent"); }}>Confirm consent again</button>
+            </div>
           </div>
         )}
 
@@ -229,24 +293,37 @@ export default function PrototypePage() {
               <div><p className={styles.eyebrow}>Unapproved clinical note</p><h2>Review every field</h2></div>
               <span className={styles.draftBadge}>AI draft</span>
             </div>
-            <label className={styles.editorLabel}>
-              Consultation summary
-              <textarea value={draftSummary} onChange={(event) => setDraftSummary(event.target.value)} rows={6} />
-            </label>
-            <div className={styles.draftGrid}>
-              <section><strong>Medication changes</strong><p>{aiDraft.medicationChanges}</p></section>
-              <section><strong>Investigations</strong><p>{aiDraft.investigations}</p></section>
-              <section className={styles.uncertain}><strong>Uncertain item</strong><p>{aiDraft.uncertainItems}</p></section>
+            <div className={styles.fieldList}>
+              {aiDraftFields.map((field) => (
+                <section className={field.id === "uncertainItems" ? styles.uncertainField : styles.draftField} key={field.id}>
+                  <div className={styles.fieldHeading}>
+                    <label htmlFor={`draft-${field.id}`}>{field.label}</label>
+                    <span className={`${styles.confidence} ${styles[field.confidence]}`}>{field.confidence} confidence</span>
+                  </div>
+                  <textarea
+                    id={`draft-${field.id}`}
+                    value={draftFields[field.id]}
+                    onChange={(event) => updateDraftField(field.id, event.target.value)}
+                    rows={field.id === "summary" ? 5 : 3}
+                  />
+                  {field.requiresVerification && <p className={styles.verifyFlag}>Doctor verification required</p>}
+                  <details className={styles.evidence}>
+                    <summary>View supporting evidence</summary>
+                    {field.evidence.map((line) => <p key={line}>{line}</p>)}
+                  </details>
+                </section>
+              ))}
             </div>
-            <details className={styles.evidence}>
-              <summary>View source transcript</summary>
-              {syntheticTranscript.map((line) => <p key={line}>{line}</p>)}
-            </details>
+            <label className={styles.reviewCheck}>
+              <input type="checkbox" checked={reviewConfirmed} onChange={(event) => setReviewConfirmed(event.target.checked)} />
+              <span>I reviewed every field, supporting evidence, and uncertainty in this draft.</span>
+            </label>
             <div className={styles.reviewActions}>
               <button type="button" className={styles.rejectButton} onClick={() => setState("rejected")}>Reject draft</button>
               <button
                 type="button"
                 className={styles.primaryButton}
+                disabled={!reviewConfirmed}
                 onClick={() => {
                   setIsApproved(true);
                   setState("approved");
@@ -264,7 +341,7 @@ export default function PrototypePage() {
             <p className={styles.eyebrow}>Doctor action recorded</p>
             <h2>Note approved and added to memory</h2>
             <p>The synthetic timeline now includes this visit. Approval is the only path that creates the new event.</p>
-            <div className={styles.outcomeEvent}><strong>Today · Current follow-up</strong><p>{draftSummary}</p><small>Approved in prototype · Doctor action</small></div>
+            <div className={styles.outcomeEvent}><strong>Today · Current follow-up</strong><p>{draftFields.summary}</p><small>Approved in prototype · Doctor action</small></div>
             <button type="button" className={styles.primaryButton} onClick={() => setState("patient")}>View updated patient profile</button>
           </div>
         )}
