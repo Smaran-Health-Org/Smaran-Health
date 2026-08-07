@@ -1,0 +1,97 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": { "transcript_id": "SYN-DM-009", "transcript_version": "1.0" },
+  "generation": { "model": "human-authored-reference", "prompt_version": "clinical-extraction/v0.1.0", "generated_at": "2026-08-06T00:00:00Z" },
+  "chief_complaint": [],
+  "history": [
+    {
+      "item_id": "SYN-DM-009-history-1",
+      "text": "Patient reports sweetened tea with biscuits at breakfast and canteen rice and dal at lunch",
+      "source_quote": "Breakfast mein chai with two teaspoons sugar aur two biscuits. Lunch office canteen mein rice aur dal hota hai.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-009-S002", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-009-history-2",
+      "text": "Patient reports dinner around 10:30, usually three rotis",
+      "source_quote": "Dinner around ten-thirty, usually three rotis.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-009-S003", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-009-history-3",
+      "text": "Patient reports walking mainly on weekends and not on weekdays",
+      "source_quote": "Walking weekend par hoti hai, weekdays par nahi.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-009-S003", "speaker": "patient" }
+    }
+  ],
+  "examination_findings": [],
+  "diagnoses_documented_by_doctor": [],
+  "allergies_documented": [],
+  "medications_mentioned": [],
+  "medication_changes": [],
+  "investigations_requested": [],
+  "investigations_reviewed": [],
+  "procedures_documented": [],
+  "lifestyle_advice": [
+    {
+      "item_id": "SYN-DM-009-advice-1",
+      "text": "Remove added sugar from both cups of tea",
+      "source_quote": "remove the added sugar from both cups of tea",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-009-S006", "speaker": "doctor" }
+    },
+    {
+      "item_id": "SYN-DM-009-advice-2",
+      "text": "Replace breakfast biscuits with the meal option discussed in clinic",
+      "source_quote": "replace the breakfast biscuits with the meal option we discussed in clinic",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-009-S006", "speaker": "doctor" }
+    },
+    {
+      "item_id": "SYN-DM-009-advice-3",
+      "text": "Walk for twenty minutes after dinner on at least five days each week",
+      "source_quote": "walk for twenty minutes after dinner on at least five days each week.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-009-S006", "speaker": "doctor" }
+    },
+    {
+      "item_id": "SYN-DM-009-advice-4",
+      "text": "Move dinner to before 9:30 when the work schedule allows",
+      "source_quote": "Please move dinner to before nine-thirty when your work schedule allows",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-009-S007", "speaker": "doctor" }
+    }
+  ],
+  "follow_up_plan": [
+    {
+      "item_id": "SYN-DM-009-follow-up-1",
+      "text": "Review the lifestyle log and fasting readings in four weeks",
+      "source_quote": "Review the lifestyle log and fasting readings in four weeks.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-009-S009", "speaker": "doctor" }
+    }
+  ],
+  "patient_instructions": [
+    {
+      "item_id": "SYN-DM-009-instruction-1",
+      "text": "Record the number of days the after-dinner walk is completed",
+      "source_quote": "record how many days you complete the walk.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-009-S007", "speaker": "doctor" }
+    }
+  ],
+  "uncertain_items": [],
+  "safety_flags": []
+}

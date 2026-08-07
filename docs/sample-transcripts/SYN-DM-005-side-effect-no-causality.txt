@@ -1,0 +1,17 @@
+TRANSCRIPT_ID: SYN-DM-005
+TRANSCRIPT_VERSION: 1.0
+DATA_CLASSIFICATION: SYNTHETIC_EVALUATION_ONLY
+SPECIALTY: diabetes_endocrinology
+LANGUAGES: English
+CASE: side_effect_without_inferred_causality
+
+[SYN-DM-005-S001 | 00:00 | doctor] Doctor: What would you like me to review today?
+[SYN-DM-005-S002 | 00:05 | patient] Patient: I have felt nauseated on three mornings this week. It started two days after I began the new tablet.
+[SYN-DM-005-S003 | 00:16 | doctor] Doctor: Which tablet do you mean, and who started it?
+[SYN-DM-005-S004 | 00:22 | patient] Patient: The strip says empagliflozin 10 milligrams. You started it at my last visit, once in the morning.
+[SYN-DM-005-S005 | 00:34 | doctor] Doctor: Any vomiting, abdominal pain, fever, burning urine, or reduced food intake?
+[SYN-DM-005-S006 | 00:43 | patient] Patient: No vomiting or fever. No abdominal pain or burning urine. I have been eating normally.
+[SYN-DM-005-S007 | 00:55 | doctor] Doctor: I will document the nausea and that it began after the new tablet was started, but this conversation does not establish that the tablet caused it.
+[SYN-DM-005-S008 | 01:09 | doctor] Doctor: I am making no medication change today. Please bring your glucose readings and all medicine strips for review in one week. Seek direct clinical help sooner if the symptoms worsen; this instruction is from me, not an automated recommendation.
+[SYN-DM-005-S009 | 01:28 | patient] Patient: Okay, I will bring everything next week.
+

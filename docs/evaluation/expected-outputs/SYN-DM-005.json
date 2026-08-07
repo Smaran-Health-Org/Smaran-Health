@@ -1,0 +1,107 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": { "transcript_id": "SYN-DM-005", "transcript_version": "1.0" },
+  "generation": { "model": "human-authored-reference", "prompt_version": "clinical-extraction/v0.1.0", "generated_at": "2026-08-06T00:00:00Z" },
+  "chief_complaint": [
+    {
+      "item_id": "SYN-DM-005-complaint-1",
+      "text": "Nausea on three mornings this week",
+      "source_quote": "I have felt nauseated on three mornings this week.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-005-S002", "speaker": "patient" }
+    }
+  ],
+  "history": [
+    {
+      "item_id": "SYN-DM-005-history-1",
+      "text": "Nausea began two days after the patient reports starting a new tablet",
+      "source_quote": "It started two days after I began the new tablet.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-005-S002", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-005-history-2",
+      "text": "No vomiting, fever, abdominal pain, burning urination, or reduced food intake reported",
+      "source_quote": "No vomiting or fever. No abdominal pain or burning urine. I have been eating normally.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-005-S006", "speaker": "patient" }
+    }
+  ],
+  "examination_findings": [],
+  "diagnoses_documented_by_doctor": [],
+  "allergies_documented": [],
+  "medications_mentioned": [
+    {
+      "item_id": "SYN-DM-005-med-1",
+      "text": "Patient reports empagliflozin 10 mg once in the morning",
+      "source_quote": "The strip says empagliflozin 10 milligrams. You started it at my last visit, once in the morning.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-005-S004", "speaker": "patient" },
+      "medication_name": { "as_spoken": "empagliflozin" },
+      "regimen": {
+        "strengths": [{ "as_spoken": "10 milligrams", "value": 10, "unit": "mg" }],
+        "frequency": { "as_spoken": "once", "code": "once_daily" },
+        "timing": [{ "as_spoken": "in the morning", "code": "morning" }]
+      }
+    }
+  ],
+  "medication_changes": [
+    {
+      "item_id": "SYN-DM-005-med-change-1",
+      "text": "Patient reports empagliflozin 10 mg was started at the last visit",
+      "source_quote": "You started it at my last visit, once in the morning.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-005-S004", "speaker": "patient" },
+      "medication_name": { "as_spoken": "empagliflozin" },
+      "change_action": "started",
+      "change_context": "patient_reported_history",
+      "new_regimen": {
+        "strengths": [{ "as_spoken": "10 milligrams", "value": 10, "unit": "mg" }],
+        "frequency": { "as_spoken": "once", "code": "once_daily" },
+        "timing": [{ "as_spoken": "in the morning", "code": "morning" }]
+      },
+      "changed_fields": ["status"]
+    }
+  ],
+  "investigations_requested": [],
+  "investigations_reviewed": [],
+  "procedures_documented": [],
+  "lifestyle_advice": [],
+  "follow_up_plan": [
+    {
+      "item_id": "SYN-DM-005-follow-up-1",
+      "text": "Review in one week with glucose readings and medicine strips",
+      "source_quote": "Please bring your glucose readings and all medicine strips for review in one week.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-005-S008", "speaker": "doctor" }
+    }
+  ],
+  "patient_instructions": [
+    {
+      "item_id": "SYN-DM-005-instruction-1",
+      "text": "Bring glucose readings and all medicine strips for review",
+      "source_quote": "Please bring your glucose readings and all medicine strips for review in one week.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-005-S008", "speaker": "doctor" }
+    },
+    {
+      "item_id": "SYN-DM-005-instruction-2",
+      "text": "Seek direct clinical help sooner if symptoms worsen",
+      "source_quote": "Seek direct clinical help sooner if the symptoms worsen",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-005-S008", "speaker": "doctor" }
+    }
+  ],
+  "uncertain_items": [],
+  "safety_flags": []
+}
+

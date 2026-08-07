@@ -1,0 +1,14 @@
+TRANSCRIPT_ID: SYN-DM-010
+TRANSCRIPT_VERSION: 1.0
+DATA_CLASSIFICATION: SYNTHETIC_EVALUATION_ONLY
+SPECIALTY: diabetes_endocrinology
+LANGUAGES: English
+CASE: short_repeat_visit
+
+[SYN-DM-010-S001 | 00:00 | doctor] Doctor: This is the two-week repeat visit for the home glucose log. Did you bring it?
+[SYN-DM-010-S002 | 00:07 | patient] Patient: Yes. The fasting entries are between 118 and 132. I did not miss any tablets.
+[SYN-DM-010-S003 | 00:17 | doctor] Doctor: I have reviewed the seven-day log. You report no dizziness, sweating, or shaking.
+[SYN-DM-010-S004 | 00:26 | patient] Patient: Correct, none of those.
+[SYN-DM-010-S005 | 00:31 | doctor] Doctor: Continue the medicines exactly as documented at the last approved visit; no name or dose is restated or changed in this conversation.
+[SYN-DM-010-S006 | 00:43 | doctor] Doctor: Continue the log and return in four weeks.
+

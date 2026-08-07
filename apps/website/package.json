@@ -11,6 +11,7 @@
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "test:clinical-schema": "node scripts/test-clinical-note-schema.mjs",
+    "test:clinical-evaluation": "node scripts/test-clinical-evaluation.mjs",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

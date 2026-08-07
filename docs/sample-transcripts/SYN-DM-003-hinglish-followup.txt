@@ -1,0 +1,17 @@
+TRANSCRIPT_ID: SYN-DM-003
+TRANSCRIPT_VERSION: 1.0
+DATA_CLASSIFICATION: SYNTHETIC_EVALUATION_ONLY
+SPECIALTY: diabetes_endocrinology
+LANGUAGES: Hindi, English
+CASE: hinglish_followup
+
+[SYN-DM-003-S001 | 00:00 | doctor] Doctor: Namaste. Aaj follow-up mein sabse important concern kya hai?
+[SYN-DM-003-S002 | 00:07 | patient] Patient: Doctor, fasting sugar mostly 135 se 150 aa raha hai. Do din log likhna miss ho gaya.
+[SYN-DM-003-S003 | 00:19 | doctor] Doctor: Koi chakkar, sweating, ya low-sugar jaisa episode hua?
+[SYN-DM-003-S004 | 00:26 | patient] Patient: Nahi. Night cravings pehle se kam hain, aur main dinner ke baad twenty minutes walk kar raha hoon.
+[SYN-DM-003-S005 | 00:39 | doctor] Doctor: Aap abhi kaunsi medicines le rahe hain? Strip dekh kar naam aur dose batayein.
+[SYN-DM-003-S006 | 00:47 | patient] Patient: Metformin 500, subah aur raat khane ke saath. Dusri tablet ka naam strip par sitagliptin 100 likha hai, subah leta hoon.
+[SYN-DM-003-S007 | 01:03 | doctor] Doctor: Main document kar raha hoon: metformin 500 milligrams twice daily with meals and sitagliptin 100 milligrams in the morning. Aaj medicine change nahi kar raha hoon.
+[SYN-DM-003-S008 | 01:20 | doctor] Doctor: HbA1c report abhi available nahi hai. Report milne par review karenge. Agle visit par complete sugar log aur report lekar aaiye.
+[SYN-DM-003-S009 | 01:34 | patient] Patient: Theek hai, report aur complete log lekar aaunga.
+

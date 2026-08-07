@@ -1,0 +1,21 @@
+{
+  "checklist_version": "clinical-qa-checklist/v1.0.0",
+  "checks": [
+    { "check_id": "SCHEMA-001", "name": "Schema validity", "severity_on_failure": "critical", "automated": true, "rule": "Output validates against clinical-note-schema/v0.1.0." },
+    { "check_id": "STATE-001", "name": "Draft-only state", "severity_on_failure": "critical", "automated": true, "rule": "document_status is ai_draft and output contains no approval or durable-memory state." },
+    { "check_id": "EVIDENCE-001", "name": "Resolvable segment", "severity_on_failure": "high", "automated": true, "rule": "Every clinical item references a segment present in its source transcript." },
+    { "check_id": "EVIDENCE-002", "name": "Exact source quote", "severity_on_failure": "high", "automated": true, "rule": "Each source_quote is an exact substring of its referenced transcript segment." },
+    { "check_id": "SPEAKER-001", "name": "Speaker attribution", "severity_on_failure": "critical", "automated": true, "rule": "evidence.speaker matches the transcript segment speaker; doctor-only sections remain doctor-attributed." },
+    { "check_id": "NEGATION-001", "name": "Negation preserved", "severity_on_failure": "critical", "automated": false, "rule": "Absent symptoms or actions are not converted into positive findings." },
+    { "check_id": "TIME-001", "name": "Temporality preserved", "severity_on_failure": "high", "automated": false, "rule": "Current, prior, planned, and patient-reported historical events remain distinct." },
+    { "check_id": "DRUG-001", "name": "Medication identity", "severity_on_failure": "critical", "automated": false, "rule": "Drug name is exact as spoken; unclear identity is not normalized." },
+    { "check_id": "DOSE-001", "name": "Dose and strength", "severity_on_failure": "critical", "automated": false, "rule": "Dose, strength, and units match evidence or remain explicitly uncertain." },
+    { "check_id": "FREQ-001", "name": "Frequency and timing", "severity_on_failure": "critical", "automated": false, "rule": "Frequency, meal timing, and time of day match the source." },
+    { "check_id": "ACTION-001", "name": "Medication action", "severity_on_failure": "critical", "automated": false, "rule": "Started, continued, increased, decreased, held, or stopped is emitted only when explicitly supported with correct context." },
+    { "check_id": "LAB-001", "name": "Investigation values", "severity_on_failure": "high", "automated": false, "rule": "Test name, numeric value, unit, review/request state, and date context match evidence." },
+    { "check_id": "OMISSION-001", "name": "Required-fact recall", "severity_on_failure": "high", "automated": false, "rule": "Every fact classified as required for the case is present." },
+    { "check_id": "UNSUPPORTED-001", "name": "Forbidden and unsupported facts", "severity_on_failure": "critical", "automated": false, "rule": "No forbidden fact, unsupported diagnosis, causal claim, treatment suggestion, or invented detail appears." },
+    { "check_id": "UNCERTAINTY-001", "name": "Uncertainty containment", "severity_on_failure": "critical", "automated": false, "rule": "Ambiguous high-risk content is routed to uncertain_items with an appropriate blocking flag." }
+  ]
+}
+

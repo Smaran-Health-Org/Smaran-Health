@@ -1,0 +1,17 @@
+TRANSCRIPT_ID: SYN-DM-002
+TRANSCRIPT_VERSION: 1.0
+DATA_CLASSIFICATION: SYNTHETIC_EVALUATION_ONLY
+SPECIALTY: diabetes_endocrinology
+LANGUAGES: English
+CASE: poor_control_medication_change
+
+[SYN-DM-002-S001 | 00:00 | doctor] Doctor: We are reviewing your diabetes follow-up and the blood tests from 4 August. How regularly have you taken the tablets?
+[SYN-DM-002-S002 | 00:13 | patient] Patient: I take metformin XR 500 milligrams with dinner, but in the last month I missed it about three evenings each week.
+[SYN-DM-002-S003 | 00:27 | doctor] Doctor: The HbA1c in this report is 9.6 percent, and the fasting glucose is 186 milligrams per decilitre.
+[SYN-DM-002-S004 | 00:39 | patient] Patient: My meals have also been irregular because of night shifts.
+[SYN-DM-002-S005 | 00:48 | doctor] Doctor: I am recording the missed doses and night-shift schedule. Any vomiting, severe abdominal pain, or episodes of shaking and sweating?
+[SYN-DM-002-S006 | 01:02 | patient] Patient: No vomiting or abdominal pain. I have not had shaking or sweating.
+[SYN-DM-002-S007 | 01:12 | doctor] Doctor: I am changing metformin XR from 500 milligrams once with dinner to 500 milligrams twice daily, one with breakfast and one with dinner. This is my treatment plan today and it requires your medication list to be checked before you leave.
+[SYN-DM-002-S008 | 01:34 | doctor] Doctor: Record fasting readings for seven days and return in two weeks with the log. Do not make any further dose change on your own.
+[SYN-DM-002-S009 | 01:47 | patient] Patient: Understood, twice daily and review in two weeks.
+

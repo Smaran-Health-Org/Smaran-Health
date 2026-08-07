@@ -1,0 +1,124 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": { "transcript_id": "SYN-DM-002", "transcript_version": "1.0" },
+  "generation": { "model": "human-authored-reference", "prompt_version": "clinical-extraction/v0.1.0", "generated_at": "2026-08-06T00:00:00Z" },
+  "chief_complaint": [],
+  "history": [
+    {
+      "item_id": "SYN-DM-002-history-1",
+      "text": "Patient reports missing metformin XR about three evenings per week in the last month",
+      "source_quote": "in the last month I missed it about three evenings each week.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-002-S002", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-002-history-2",
+      "text": "Patient reports irregular meals due to night shifts",
+      "source_quote": "My meals have also been irregular because of night shifts.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-002-S004", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-002-history-3",
+      "text": "No vomiting, abdominal pain, shaking, or sweating reported",
+      "source_quote": "No vomiting or abdominal pain. I have not had shaking or sweating.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-002-S006", "speaker": "patient" }
+    }
+  ],
+  "examination_findings": [],
+  "diagnoses_documented_by_doctor": [],
+  "allergies_documented": [],
+  "medications_mentioned": [
+    {
+      "item_id": "SYN-DM-002-med-1",
+      "text": "Patient reports metformin XR 500 mg with dinner",
+      "source_quote": "I take metformin XR 500 milligrams with dinner",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-002-S002", "speaker": "patient" },
+      "medication_name": { "as_spoken": "metformin XR" },
+      "regimen": {
+        "strengths": [{ "as_spoken": "500 milligrams", "value": 500, "unit": "mg" }],
+        "frequency": { "as_spoken": "with dinner", "code": "once_daily" },
+        "timing": [{ "as_spoken": "with dinner", "code": "evening" }]
+      }
+    }
+  ],
+  "medication_changes": [
+    {
+      "item_id": "SYN-DM-002-med-change-1",
+      "text": "Increase metformin XR 500 mg from once with dinner to twice daily with breakfast and dinner",
+      "source_quote": "I am changing metformin XR from 500 milligrams once with dinner to 500 milligrams twice daily, one with breakfast and one with dinner.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-002-S007", "speaker": "doctor" },
+      "medication_name": { "as_spoken": "metformin XR" },
+      "change_action": "increased",
+      "change_context": "doctor_plan",
+      "previous_regimen": {
+        "strengths": [{ "as_spoken": "500 milligrams", "value": 500, "unit": "mg" }],
+        "frequency": { "as_spoken": "once with dinner", "code": "once_daily" },
+        "timing": [{ "as_spoken": "with dinner", "code": "evening" }]
+      },
+      "new_regimen": {
+        "strengths": [{ "as_spoken": "500 milligrams", "value": 500, "unit": "mg" }],
+        "dose": { "as_spoken": "one", "value": 1, "unit": "tablet" },
+        "frequency": { "as_spoken": "twice daily", "code": "twice_daily" },
+        "timing": [
+          { "as_spoken": "with breakfast", "code": "morning" },
+          { "as_spoken": "with dinner", "code": "evening" }
+        ]
+      },
+      "changed_fields": ["frequency", "timing"]
+    }
+  ],
+  "investigations_requested": [],
+  "investigations_reviewed": [
+    {
+      "item_id": "SYN-DM-002-investigation-reviewed-1",
+      "text": "HbA1c 9.6% and fasting glucose 186 mg/dL on the 4 August report",
+      "source_quote": "The HbA1c in this report is 9.6 percent, and the fasting glucose is 186 milligrams per decilitre.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-002-S003", "speaker": "doctor" }
+    }
+  ],
+  "procedures_documented": [],
+  "lifestyle_advice": [],
+  "follow_up_plan": [
+    {
+      "item_id": "SYN-DM-002-follow-up-1",
+      "text": "Return in two weeks with the fasting-reading log",
+      "source_quote": "Record fasting readings for seven days and return in two weeks with the log.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-002-S008", "speaker": "doctor" }
+    }
+  ],
+  "patient_instructions": [
+    {
+      "item_id": "SYN-DM-002-instruction-1",
+      "text": "Record fasting readings for seven days",
+      "source_quote": "Record fasting readings for seven days",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-002-S008", "speaker": "doctor" }
+    },
+    {
+      "item_id": "SYN-DM-002-instruction-2",
+      "text": "Do not make any further dose change independently",
+      "source_quote": "Do not make any further dose change on your own.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-002-S008", "speaker": "doctor" }
+    }
+  ],
+  "uncertain_items": [],
+  "safety_flags": []
+}
+

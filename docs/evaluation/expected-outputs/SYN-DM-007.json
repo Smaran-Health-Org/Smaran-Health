@@ -1,0 +1,103 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": { "transcript_id": "SYN-DM-007", "transcript_version": "1.0" },
+  "generation": { "model": "human-authored-reference", "prompt_version": "clinical-extraction/v0.1.0", "generated_at": "2026-08-06T00:00:00Z" },
+  "chief_complaint": [],
+  "history": [
+    {
+      "item_id": "SYN-DM-007-history-1",
+      "text": "Doctor documents that the planned six-week follow-up occurred after five months",
+      "source_quote": "Aapko six weeks mein follow-up karna tha. Aaj five months baad aaye hain.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-007-S001", "speaker": "doctor" }
+    },
+    {
+      "item_id": "SYN-DM-007-history-1b",
+      "text": "Patient attributes the delayed follow-up to work travel",
+      "source_quote": "Main kaam ke liye bahar tha.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-007-S002", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-007-history-2",
+      "text": "Requested tests were not completed",
+      "source_quote": "Tests nahi karwaye",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-007-S002", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-007-history-3",
+      "text": "Patient reports metformin ran out about two weeks ago",
+      "source_quote": "metformin around two weeks pehle khatam ho gaya.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-007-S002", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-007-history-4",
+      "text": "Patient reports sometimes missing the evening metformin dose",
+      "source_quote": "Kabhi-kabhi evening dose miss hota tha.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-007-S004", "speaker": "patient" }
+    }
+  ],
+  "examination_findings": [],
+  "diagnoses_documented_by_doctor": [],
+  "allergies_documented": [],
+  "medications_mentioned": [
+    {
+      "item_id": "SYN-DM-007-med-1",
+      "text": "Patient reports prior metformin 500 mg in the morning and at night",
+      "source_quote": "Metformin 500 milligrams, subah aur raat.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-007-S004", "speaker": "patient" },
+      "medication_name": { "as_spoken": "Metformin" },
+      "regimen": {
+        "strengths": [{ "as_spoken": "500 milligrams", "value": 500, "unit": "mg" }],
+        "frequency": { "as_spoken": "subah aur raat", "code": "twice_daily" }
+      }
+    }
+  ],
+  "medication_changes": [],
+  "investigations_requested": [
+    {
+      "item_id": "SYN-DM-007-investigation-request-1",
+      "text": "Complete fasting glucose, HbA1c, and serum creatinine",
+      "source_quote": "Please complete fasting glucose, HbA1c, and serum creatinine.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-007-S007", "speaker": "doctor" }
+    }
+  ],
+  "investigations_reviewed": [],
+  "procedures_documented": [],
+  "lifestyle_advice": [],
+  "follow_up_plan": [
+    {
+      "item_id": "SYN-DM-007-follow-up-1",
+      "text": "Return in one week with reports and medicine strips",
+      "source_quote": "Return in one week with the reports and your medicine strips.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-007-S007", "speaker": "doctor" }
+    }
+  ],
+  "patient_instructions": [
+    {
+      "item_id": "SYN-DM-007-instruction-1",
+      "text": "Bring the reports and medicine strips",
+      "source_quote": "with the reports and your medicine strips.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-007-S007", "speaker": "doctor" }
+    }
+  ],
+  "uncertain_items": [],
+  "safety_flags": []
+}

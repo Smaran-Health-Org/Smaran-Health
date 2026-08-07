@@ -1,0 +1,87 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": { "transcript_id": "SYN-DM-010", "transcript_version": "1.0" },
+  "generation": { "model": "human-authored-reference", "prompt_version": "clinical-extraction/v0.1.0", "generated_at": "2026-08-06T00:00:00Z" },
+  "chief_complaint": [],
+  "history": [
+    {
+      "item_id": "SYN-DM-010-history-1",
+      "text": "Patient reports fasting log entries between 118 and 132 and no missed tablets",
+      "source_quote": "The fasting entries are between 118 and 132. I did not miss any tablets.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-010-S002", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-010-history-2",
+      "text": "No dizziness, sweating, or shaking reported",
+      "source_quote": "Correct, none of those.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-010-S004", "speaker": "patient" }
+    }
+  ],
+  "examination_findings": [],
+  "diagnoses_documented_by_doctor": [],
+  "allergies_documented": [],
+  "medications_mentioned": [],
+  "medication_changes": [],
+  "investigations_requested": [],
+  "investigations_reviewed": [
+    {
+      "item_id": "SYN-DM-010-investigation-reviewed-1",
+      "text": "Seven-day home glucose log reviewed",
+      "source_quote": "I have reviewed the seven-day log.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-010-S003", "speaker": "doctor" }
+    }
+  ],
+  "procedures_documented": [],
+  "lifestyle_advice": [],
+  "follow_up_plan": [
+    {
+      "item_id": "SYN-DM-010-follow-up-1",
+      "text": "Return in four weeks",
+      "source_quote": "return in four weeks.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-010-S006", "speaker": "doctor" }
+    }
+  ],
+  "patient_instructions": [
+    {
+      "item_id": "SYN-DM-010-instruction-1",
+      "text": "Continue the home glucose log",
+      "source_quote": "Continue the log",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-010-S006", "speaker": "doctor" }
+    }
+  ],
+  "uncertain_items": [
+    {
+      "item_id": "SYN-DM-010-uncertain-1",
+      "text": "Medicine names and doses are not restated in this transcript",
+      "source_quote": "Continue the medicines exactly as documented at the last approved visit; no name or dose is restated or changed in this conversation.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-010-S005", "speaker": "doctor" },
+      "uncertainty_type": "incomplete_information",
+      "reason": "The transcript refers to a prior approved record but does not state medicine identities or regimens.",
+      "affected_paths": ["/medications_mentioned", "/medication_changes"]
+    }
+  ],
+  "safety_flags": [
+    {
+      "flag_id": "SYN-DM-010-flag-1",
+      "code": "missing_evidence",
+      "severity": "blocking",
+      "message": "Do not infer medicine identities or doses from a prior record that is absent from the extraction source.",
+      "affected_paths": ["/uncertain_items/0"],
+      "related_item_ids": ["SYN-DM-010-uncertain-1"]
+    }
+  ]
+}
+
