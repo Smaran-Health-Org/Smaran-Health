@@ -1,0 +1,120 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": { "transcript_id": "SYN-DM-008", "transcript_version": "1.0" },
+  "generation": { "model": "human-authored-reference", "prompt_version": "clinical-extraction/v0.1.0", "generated_at": "2026-08-06T00:00:00Z" },
+  "chief_complaint": [],
+  "history": [],
+  "examination_findings": [],
+  "diagnoses_documented_by_doctor": [],
+  "allergies_documented": [],
+  "medications_mentioned": [
+    {
+      "item_id": "SYN-DM-008-med-1",
+      "text": "Patient reports metformin 500 mg after breakfast and dinner",
+      "source_quote": "Metformin 500 milligrams, one after breakfast and one after dinner.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-008-S002", "speaker": "patient" },
+      "medication_name": { "as_spoken": "Metformin" },
+      "regimen": {
+        "strengths": [{ "as_spoken": "500 milligrams", "value": 500, "unit": "mg" }],
+        "dose": { "as_spoken": "one", "value": 1, "unit": "tablet" },
+        "frequency": { "as_spoken": "after breakfast and after dinner", "code": "twice_daily" },
+        "timing": [{ "as_spoken": "after breakfast and after dinner", "code": "after_food" }]
+      }
+    },
+    {
+      "item_id": "SYN-DM-008-med-2",
+      "text": "Patient reports glimepiride 1 mg before breakfast",
+      "source_quote": "Glimepiride 1 milligram, one before breakfast.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-008-S003", "speaker": "patient" },
+      "medication_name": { "as_spoken": "Glimepiride" },
+      "regimen": {
+        "strengths": [{ "as_spoken": "1 milligram", "value": 1, "unit": "mg" }],
+        "dose": { "as_spoken": "one", "value": 1, "unit": "tablet" },
+        "frequency": { "as_spoken": "before breakfast", "code": "once_daily" },
+        "timing": [{ "as_spoken": "before breakfast", "code": "before_food" }]
+      }
+    },
+    {
+      "item_id": "SYN-DM-008-med-3",
+      "text": "Patient reports telmisartan 40 mg in the morning",
+      "source_quote": "Telmisartan 40 milligrams in the morning.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-008-S003", "speaker": "patient" },
+      "medication_name": { "as_spoken": "Telmisartan" },
+      "regimen": {
+        "strengths": [{ "as_spoken": "40 milligrams", "value": 40, "unit": "mg" }],
+        "frequency": { "as_spoken": "in the morning", "code": "once_daily" },
+        "timing": [{ "as_spoken": "in the morning", "code": "morning" }]
+      }
+    },
+    {
+      "item_id": "SYN-DM-008-med-4",
+      "text": "Patient reports atorvastatin 10 mg at night",
+      "source_quote": "Atorvastatin 10 milligrams at night.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-008-S003", "speaker": "patient" },
+      "medication_name": { "as_spoken": "Atorvastatin" },
+      "regimen": {
+        "strengths": [{ "as_spoken": "10 milligrams", "value": 10, "unit": "mg" }],
+        "frequency": { "as_spoken": "at night", "code": "once_daily" },
+        "timing": [{ "as_spoken": "at night", "code": "bedtime" }]
+      }
+    }
+  ],
+  "medication_changes": [],
+  "investigations_requested": [],
+  "investigations_reviewed": [],
+  "procedures_documented": [],
+  "lifestyle_advice": [],
+  "follow_up_plan": [
+    {
+      "item_id": "SYN-DM-008-follow-up-1",
+      "text": "Follow up in four weeks with the home glucose log and complete medication set",
+      "source_quote": "Follow up in four weeks with the home glucose log and the complete medication set.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-008-S009", "speaker": "doctor" }
+    }
+  ],
+  "patient_instructions": [
+    {
+      "item_id": "SYN-DM-008-instruction-1",
+      "text": "Bring the unidentified medicine strip before the list is finalized",
+      "source_quote": "Bring the unidentified strip before the list is finalized.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-008-S008", "speaker": "doctor" }
+    }
+  ],
+  "uncertain_items": [
+    {
+      "item_id": "SYN-DM-008-uncertain-1",
+      "text": "Name and dose of an after-lunch tablet are unknown",
+      "source_quote": "There is one small white tablet after lunch, but I did not bring the strip and I do not remember its name.",
+      "confidence": "low",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-008-S005", "speaker": "patient" },
+      "uncertainty_type": "incomplete_information",
+      "reason": "The patient cannot identify the medicine and the strip is unavailable.",
+      "affected_paths": ["/medications_mentioned", "/medication_changes"]
+    }
+  ],
+  "safety_flags": [
+    {
+      "flag_id": "SYN-DM-008-flag-1",
+      "code": "unclear_medication_name",
+      "severity": "blocking",
+      "message": "The unidentified after-lunch tablet must not be named or assigned a dose without the strip.",
+      "affected_paths": ["/uncertain_items/0"],
+      "related_item_ids": ["SYN-DM-008-uncertain-1"]
+    }
+  ]
+}
+

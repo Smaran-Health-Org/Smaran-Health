@@ -1,0 +1,113 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": { "transcript_id": "SYN-DM-006", "transcript_version": "1.0" },
+  "generation": { "model": "human-authored-reference", "prompt_version": "clinical-extraction/v0.1.0", "generated_at": "2026-08-06T00:00:00Z" },
+  "chief_complaint": [],
+  "history": [],
+  "examination_findings": [],
+  "diagnoses_documented_by_doctor": [],
+  "allergies_documented": [],
+  "medications_mentioned": [
+    {
+      "item_id": "SYN-DM-006-med-1",
+      "text": "Patient reports metformin 500 mg twice daily",
+      "source_quote": "You report taking metformin 500 milligrams twice daily.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-006-S006", "speaker": "doctor" },
+      "medication_name": { "as_spoken": "metformin" },
+      "regimen": {
+        "strengths": [{ "as_spoken": "500 milligrams", "value": 500, "unit": "mg" }],
+        "frequency": { "as_spoken": "twice daily", "code": "twice_daily" }
+      }
+    }
+  ],
+  "medication_changes": [
+    {
+      "item_id": "SYN-DM-006-med-change-1",
+      "text": "Continue metformin 500 mg twice daily without a dose change",
+      "source_quote": "I am continuing that medicine without a dose change today.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-006-S006", "speaker": "doctor" },
+      "medication_name": { "as_spoken": "metformin" },
+      "change_action": "continued",
+      "change_context": "doctor_plan",
+      "new_regimen": {
+        "strengths": [{ "as_spoken": "500 milligrams", "value": 500, "unit": "mg" }],
+        "frequency": { "as_spoken": "twice daily", "code": "twice_daily" }
+      },
+      "changed_fields": ["status"]
+    }
+  ],
+  "investigations_requested": [
+    {
+      "item_id": "SYN-DM-006-investigation-request-1",
+      "text": "Repeat HbA1c and urine albumin-to-creatinine ratio before follow-up in three months",
+      "source_quote": "Repeat HbA1c and urine albumin-to-creatinine ratio before follow-up in three months",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-006-S008", "speaker": "doctor" }
+    }
+  ],
+  "investigations_reviewed": [
+    {
+      "item_id": "SYN-DM-006-investigation-reviewed-1",
+      "text": "HbA1c 7.8%",
+      "source_quote": "The HbA1c is 7.8 percent.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-006-S001", "speaker": "doctor" }
+    },
+    {
+      "item_id": "SYN-DM-006-investigation-reviewed-2",
+      "text": "Fasting glucose 146 mg/dL and post-meal glucose 198 mg/dL",
+      "source_quote": "Fasting glucose is 146 milligrams per decilitre and post-meal glucose is 198 milligrams per decilitre.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-006-S002", "speaker": "doctor" }
+    },
+    {
+      "item_id": "SYN-DM-006-investigation-reviewed-3",
+      "text": "Serum creatinine 0.9 mg/dL",
+      "source_quote": "Serum creatinine is 0.9 milligrams per decilitre.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-006-S003", "speaker": "doctor" }
+    },
+    {
+      "item_id": "SYN-DM-006-investigation-reviewed-4",
+      "text": "Urine albumin-to-creatinine ratio 32 mg/g",
+      "source_quote": "The urine albumin-to-creatinine ratio is 32 milligrams per gram.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-006-S003", "speaker": "doctor" }
+    }
+  ],
+  "procedures_documented": [],
+  "lifestyle_advice": [],
+  "follow_up_plan": [
+    {
+      "item_id": "SYN-DM-006-follow-up-1",
+      "text": "Follow up in three months",
+      "source_quote": "before follow-up in three months",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-006-S008", "speaker": "doctor" }
+    }
+  ],
+  "patient_instructions": [
+    {
+      "item_id": "SYN-DM-006-instruction-1",
+      "text": "Bring the original laboratory reports",
+      "source_quote": "bring the original reports.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-006-S008", "speaker": "doctor" }
+    }
+  ],
+  "uncertain_items": [],
+  "safety_flags": []
+}
+

@@ -1,0 +1,173 @@
+{
+  "dataset_id": "synthetic-diabetes-followups/v1.0.0",
+  "expectations_version": "clinical-qa-expectations/v1.0.0",
+  "classification_meaning": {
+    "required": "A candidate extraction must preserve this fact with correct speaker, negation, temporality, and clinical values.",
+    "optional": "A grounded representation is acceptable but omission is not penalized.",
+    "forbidden": "Any candidate output containing this claim or implication fails the case."
+  },
+  "cases": [
+    {
+      "transcript_id": "SYN-DM-001",
+      "required": [
+        { "fact_id": "001-R1", "description": "Current HbA1c is 7.1% and prior reviewed HbA1c was 8.4% three months earlier", "paths": ["/investigations_reviewed"], "checks": ["value", "temporality", "unit"] },
+        { "fact_id": "001-R2", "description": "Doctor continued metformin 500 mg twice daily without dose change", "paths": ["/medication_changes"], "checks": ["speaker", "drug", "dose", "frequency", "action"] },
+        { "fact_id": "001-R3", "description": "Doctor continued sitagliptin 100 mg each morning without dose change", "paths": ["/medication_changes"], "checks": ["speaker", "drug", "dose", "frequency", "action"] },
+        { "fact_id": "001-R4", "description": "No sweating, shaking, dizziness, or reading below 70 was reported", "paths": ["/history"], "checks": ["negation", "speaker"] },
+        { "fact_id": "001-R5", "description": "Repeat fasting glucose, post-meal glucose, and HbA1c before review in three months", "paths": ["/investigations_requested", "/follow_up_plan"], "checks": ["speaker", "temporality", "omission"] }
+      ],
+      "optional": [
+        { "fact_id": "001-O1", "description": "Reduced thirst and walking most evenings may be represented as one or two history items", "paths": ["/history"] }
+      ],
+      "forbidden": [
+        { "fact_id": "001-F1", "description": "Do not label HbA1c as controlled, at target, or clinically improved beyond the stated numeric change", "paths": ["/investigations_reviewed", "/diagnoses_documented_by_doctor"] },
+        { "fact_id": "001-F2", "description": "Do not invent a diagnosis or a medication increase", "paths": ["/diagnoses_documented_by_doctor", "/medication_changes"] }
+      ]
+    },
+    {
+      "transcript_id": "SYN-DM-002",
+      "required": [
+        { "fact_id": "002-R1", "description": "HbA1c 9.6% and fasting glucose 186 mg/dL were reviewed", "paths": ["/investigations_reviewed"], "checks": ["value", "unit"] },
+        { "fact_id": "002-R2", "description": "Patient reported missing metformin XR about three evenings weekly", "paths": ["/history"], "checks": ["speaker", "frequency", "temporality"] },
+        { "fact_id": "002-R3", "description": "Doctor increased metformin XR 500 mg from once with dinner to twice daily with breakfast and dinner", "paths": ["/medication_changes"], "checks": ["speaker", "drug", "dose", "frequency", "timing", "action"] },
+        { "fact_id": "002-R4", "description": "Return in two weeks with seven days of fasting readings", "paths": ["/follow_up_plan", "/patient_instructions"], "checks": ["temporality", "omission"] }
+      ],
+      "optional": [
+        { "fact_id": "002-O1", "description": "Night-shift-related irregular meals may be included in history", "paths": ["/history"] }
+      ],
+      "forbidden": [
+        { "fact_id": "002-F1", "description": "Do not attribute the dose change to the patient", "paths": ["/medication_changes"] },
+        { "fact_id": "002-F2", "description": "Do not change the strength to 1000 mg or infer a different formulation", "paths": ["/medication_changes", "/medications_mentioned"] }
+      ]
+    },
+    {
+      "transcript_id": "SYN-DM-003",
+      "required": [
+        { "fact_id": "003-R1", "description": "Patient reported fasting readings mostly 135–150 with two missing log days", "paths": ["/history"], "checks": ["speaker", "value", "temporality"] },
+        { "fact_id": "003-R2", "description": "No dizziness, sweating, or low-sugar-like episode was reported", "paths": ["/history"], "checks": ["negation", "speaker"] },
+        { "fact_id": "003-R3", "description": "Metformin 500 mg twice daily with meals and sitagliptin 100 mg in the morning were patient reported", "paths": ["/medications_mentioned"], "checks": ["speaker", "drug", "dose", "frequency", "timing"] },
+        { "fact_id": "003-R4", "description": "Bring complete sugar log and HbA1c report to the next visit", "paths": ["/patient_instructions"], "checks": ["speaker", "omission"] }
+      ],
+      "optional": [
+        { "fact_id": "003-O1", "description": "Reduced night cravings and post-dinner walking may be included in history", "paths": ["/history"] }
+      ],
+      "forbidden": [
+        { "fact_id": "003-F1", "description": "Do not invent an HbA1c value or claim the unavailable report was reviewed", "paths": ["/investigations_reviewed"] },
+        { "fact_id": "003-F2", "description": "Do not create a medication change when the doctor explicitly says there is no change", "paths": ["/medication_changes"] }
+      ]
+    },
+    {
+      "transcript_id": "SYN-DM-004",
+      "required": [
+        { "fact_id": "004-R1", "description": "Insulin name is incomplete and requires verification", "paths": ["/uncertain_items", "/safety_flags"], "checks": ["uncertainty", "drug", "speaker"] },
+        { "fact_id": "004-R2", "description": "Dose is unresolved between fifteen and fifty units", "paths": ["/uncertain_items", "/safety_flags"], "checks": ["uncertainty", "dose", "value"] },
+        { "fact_id": "004-R3", "description": "No medication change was decided", "paths": ["/medication_changes"], "checks": ["negation", "action"] },
+        { "fact_id": "004-R4", "description": "Pen label and previous prescription must be checked", "paths": ["/patient_instructions"], "checks": ["speaker", "omission"] }
+      ],
+      "optional": [
+        { "fact_id": "004-O1", "description": "Background fan noise and overlapping speech may be described in the uncertainty reason", "paths": ["/uncertain_items"] }
+      ],
+      "forbidden": [
+        { "fact_id": "004-F1", "description": "Do not normalize the insulin name to glargine or any brand", "paths": ["/medications_mentioned", "/medication_changes"] },
+        { "fact_id": "004-F2", "description": "Do not select either 15 or 50 units", "paths": ["/medications_mentioned", "/medication_changes"] }
+      ]
+    },
+    {
+      "transcript_id": "SYN-DM-005",
+      "required": [
+        { "fact_id": "005-R1", "description": "Patient reported nausea on three mornings beginning two days after a new tablet", "paths": ["/chief_complaint", "/history"], "checks": ["speaker", "temporality"] },
+        { "fact_id": "005-R2", "description": "Patient reported empagliflozin 10 mg once in the morning started at the last visit", "paths": ["/medications_mentioned", "/medication_changes"], "checks": ["speaker", "drug", "dose", "frequency", "temporality"] },
+        { "fact_id": "005-R3", "description": "No vomiting, fever, abdominal pain, burning urination, or reduced food intake was reported", "paths": ["/history"], "checks": ["negation", "speaker"] },
+        { "fact_id": "005-R4", "description": "Doctor made no medication change and requested one-week review", "paths": ["/medication_changes", "/follow_up_plan"], "checks": ["negation", "speaker", "temporality"] }
+      ],
+      "optional": [
+        { "fact_id": "005-O1", "description": "Worsening-symptom instruction may be included as a doctor-attributed patient instruction", "paths": ["/patient_instructions"] }
+      ],
+      "forbidden": [
+        { "fact_id": "005-F1", "description": "Do not assert empagliflozin caused the nausea", "paths": ["/history", "/diagnoses_documented_by_doctor", "/safety_flags"] },
+        { "fact_id": "005-F2", "description": "Do not infer that empagliflozin was stopped or held", "paths": ["/medication_changes"] }
+      ]
+    },
+    {
+      "transcript_id": "SYN-DM-006",
+      "required": [
+        { "fact_id": "006-R1", "description": "HbA1c 7.8%, fasting glucose 146 mg/dL, post-meal glucose 198 mg/dL, creatinine 0.9 mg/dL, and urine ACR 32 mg/g were reviewed", "paths": ["/investigations_reviewed"], "checks": ["value", "unit", "omission"] },
+        { "fact_id": "006-R2", "description": "Doctor continued metformin 500 mg twice daily without dose change", "paths": ["/medication_changes"], "checks": ["speaker", "drug", "dose", "frequency", "action"] },
+        { "fact_id": "006-R3", "description": "Repeat HbA1c and urine ACR before follow-up in three months", "paths": ["/investigations_requested", "/follow_up_plan"], "checks": ["speaker", "temporality"] }
+      ],
+      "optional": [
+        { "fact_id": "006-O1", "description": "The report date may be retained as contextual text", "paths": ["/investigations_reviewed"] }
+      ],
+      "forbidden": [
+        { "fact_id": "006-F1", "description": "Do not add interpretation such as normal, abnormal, nephropathy, or target achieved", "paths": ["/investigations_reviewed", "/diagnoses_documented_by_doctor"] },
+        { "fact_id": "006-F2", "description": "Do not alter any laboratory value or unit", "paths": ["/investigations_reviewed"] }
+      ]
+    },
+    {
+      "transcript_id": "SYN-DM-007",
+      "required": [
+        { "fact_id": "007-R1", "description": "Patient returned after five months rather than six weeks because of work travel", "paths": ["/history"], "checks": ["speaker", "temporality"] },
+        { "fact_id": "007-R2", "description": "Requested tests were not completed", "paths": ["/history"], "checks": ["negation", "speaker"] },
+        { "fact_id": "007-R3", "description": "Patient reported metformin 500 mg twice daily, missed evening doses, and a two-week supply gap", "paths": ["/history", "/medications_mentioned"], "checks": ["speaker", "drug", "dose", "frequency", "temporality"] },
+        { "fact_id": "007-R4", "description": "Doctor requested fasting glucose, HbA1c, and creatinine with review in one week", "paths": ["/investigations_requested", "/follow_up_plan"], "checks": ["speaker", "temporality", "omission"] }
+      ],
+      "optional": [
+        { "fact_id": "007-O1", "description": "The absent reports may be represented as one combined or separate history items", "paths": ["/history"] }
+      ],
+      "forbidden": [
+        { "fact_id": "007-F1", "description": "Do not create a new prescription or dose change", "paths": ["/medication_changes"] },
+        { "fact_id": "007-F2", "description": "Do not describe the medication gap as doctor-directed stopping", "paths": ["/medication_changes"] }
+      ]
+    },
+    {
+      "transcript_id": "SYN-DM-008",
+      "required": [
+        { "fact_id": "008-R1", "description": "Capture all four named medication regimens exactly", "paths": ["/medications_mentioned"], "checks": ["drug", "dose", "frequency", "timing", "omission"] },
+        { "fact_id": "008-R2", "description": "After-lunch white tablet has unknown name and dose", "paths": ["/uncertain_items", "/safety_flags"], "checks": ["uncertainty", "drug", "dose"] },
+        { "fact_id": "008-R3", "description": "Bring the unidentified strip before finalizing the list", "paths": ["/patient_instructions"], "checks": ["speaker", "omission"] },
+        { "fact_id": "008-R4", "description": "No medication change was made", "paths": ["/medication_changes"], "checks": ["negation", "action"] }
+      ],
+      "optional": [
+        { "fact_id": "008-O1", "description": "Verification of the four available strips may be preserved in medication text", "paths": ["/medications_mentioned"] }
+      ],
+      "forbidden": [
+        { "fact_id": "008-F1", "description": "Do not identify the white tablet from its colour or timing", "paths": ["/medications_mentioned", "/medication_changes"] },
+        { "fact_id": "008-F2", "description": "Do not infer diagnoses from telmisartan or atorvastatin", "paths": ["/diagnoses_documented_by_doctor"] }
+      ]
+    },
+    {
+      "transcript_id": "SYN-DM-009",
+      "required": [
+        { "fact_id": "009-R1", "description": "Separate patient-reported diet and walking history from doctor advice", "paths": ["/history", "/lifestyle_advice"], "checks": ["speaker", "temporality"] },
+        { "fact_id": "009-R2", "description": "Doctor advised removing added sugar from tea", "paths": ["/lifestyle_advice"], "checks": ["speaker", "omission"] },
+        { "fact_id": "009-R3", "description": "Doctor advised replacing breakfast biscuits and walking 20 minutes after dinner at least five days weekly", "paths": ["/lifestyle_advice"], "checks": ["speaker", "frequency", "timing"] },
+        { "fact_id": "009-R4", "description": "Doctor advised earlier dinner when feasible and review in four weeks with lifestyle log and fasting readings", "paths": ["/lifestyle_advice", "/follow_up_plan"], "checks": ["speaker", "temporality"] }
+      ],
+      "optional": [
+        { "fact_id": "009-O1", "description": "Diet history may be grouped or split without penalty if attribution is preserved", "paths": ["/history"] }
+      ],
+      "forbidden": [
+        { "fact_id": "009-F1", "description": "Do not record patient intentions as completed behavior", "paths": ["/history", "/lifestyle_advice"] },
+        { "fact_id": "009-F2", "description": "Do not invent a medication change", "paths": ["/medication_changes"] }
+      ]
+    },
+    {
+      "transcript_id": "SYN-DM-010",
+      "required": [
+        { "fact_id": "010-R1", "description": "Patient reported fasting readings 118–132 with no missed tablets", "paths": ["/history"], "checks": ["speaker", "value", "negation"] },
+        { "fact_id": "010-R2", "description": "No dizziness, sweating, or shaking was reported", "paths": ["/history"], "checks": ["speaker", "negation"] },
+        { "fact_id": "010-R3", "description": "Doctor reviewed the seven-day log", "paths": ["/investigations_reviewed"], "checks": ["speaker", "temporality"] },
+        { "fact_id": "010-R4", "description": "Continue the log and return in four weeks", "paths": ["/patient_instructions", "/follow_up_plan"], "checks": ["speaker", "temporality"] },
+        { "fact_id": "010-R5", "description": "Medicine identities and doses are missing from this source and require verification", "paths": ["/uncertain_items", "/safety_flags"], "checks": ["uncertainty", "drug", "dose"] }
+      ],
+      "optional": [
+        { "fact_id": "010-O1", "description": "The reference to a prior approved visit may be described only as missing source context", "paths": ["/uncertain_items"] }
+      ],
+      "forbidden": [
+        { "fact_id": "010-F1", "description": "Do not infer any medicine name, dose, or frequency from the absent prior record", "paths": ["/medications_mentioned", "/medication_changes"] },
+        { "fact_id": "010-F2", "description": "Do not add a new medication change based on the word continue alone", "paths": ["/medication_changes"] }
+      ]
+    }
+  ]
+}
+

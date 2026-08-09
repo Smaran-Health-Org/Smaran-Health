@@ -1,0 +1,16 @@
+TRANSCRIPT_ID: SYN-DM-006
+TRANSCRIPT_VERSION: 1.0
+DATA_CLASSIFICATION: SYNTHETIC_EVALUATION_ONLY
+SPECIALTY: diabetes_endocrinology
+LANGUAGES: English
+CASE: lab_review
+
+[SYN-DM-006-S001 | 00:00 | doctor] Doctor: I am reviewing the laboratory report dated 1 August. The HbA1c is 7.8 percent.
+[SYN-DM-006-S002 | 00:11 | doctor] Doctor: Fasting glucose is 146 milligrams per decilitre and post-meal glucose is 198 milligrams per decilitre.
+[SYN-DM-006-S003 | 00:24 | doctor] Doctor: Serum creatinine is 0.9 milligrams per decilitre. The urine albumin-to-creatinine ratio is 32 milligrams per gram.
+[SYN-DM-006-S004 | 00:40 | patient] Patient: Are these the same tests you asked for last time?
+[SYN-DM-006-S005 | 00:45 | doctor] Doctor: Yes, these are the reports requested at the previous visit. I am recording the values exactly as shown; we will not add an interpretation that is not stated here.
+[SYN-DM-006-S006 | 01:00 | doctor] Doctor: You report taking metformin 500 milligrams twice daily. I am continuing that medicine without a dose change today.
+[SYN-DM-006-S007 | 01:14 | patient] Patient: Yes, one after breakfast and one after dinner.
+[SYN-DM-006-S008 | 01:22 | doctor] Doctor: Repeat HbA1c and urine albumin-to-creatinine ratio before follow-up in three months, and bring the original reports.
+

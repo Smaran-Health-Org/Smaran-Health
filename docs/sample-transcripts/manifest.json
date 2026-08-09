@@ -1,0 +1,78 @@
+{
+  "dataset_id": "synthetic-diabetes-followups/v1.0.0",
+  "data_classification": "SYNTHETIC_EVALUATION_ONLY",
+  "schema_target": "clinical-note-schema/v0.1.0",
+  "transcripts": [
+    {
+      "transcript_id": "SYN-DM-001",
+      "file": "SYN-DM-001-improved-hba1c-followup.txt",
+      "case": "improved_hba1c_followup",
+      "languages": ["English"],
+      "risk_tags": ["result_comparison", "medication_continued", "doctor_attribution"]
+    },
+    {
+      "transcript_id": "SYN-DM-002",
+      "file": "SYN-DM-002-poor-control-medication-change.txt",
+      "case": "poor_control_medication_change",
+      "languages": ["English"],
+      "risk_tags": ["medication_increased", "adherence", "high_risk_verification"]
+    },
+    {
+      "transcript_id": "SYN-DM-003",
+      "file": "SYN-DM-003-hinglish-followup.txt",
+      "case": "hinglish_followup",
+      "languages": ["Hindi", "English"],
+      "risk_tags": ["code_switching", "patient_report", "doctor_plan"]
+    },
+    {
+      "transcript_id": "SYN-DM-004",
+      "file": "SYN-DM-004-noisy-unclear-dosage.txt",
+      "case": "noisy_unclear_dosage",
+      "languages": ["Hindi", "English"],
+      "risk_tags": ["unclear_dosage", "background_noise", "overlapping_speech"]
+    },
+    {
+      "transcript_id": "SYN-DM-005",
+      "file": "SYN-DM-005-side-effect-no-causality.txt",
+      "case": "side_effect_without_inferred_causality",
+      "languages": ["English"],
+      "risk_tags": ["adverse_symptom", "temporal_association", "no_causality_inference"]
+    },
+    {
+      "transcript_id": "SYN-DM-006",
+      "file": "SYN-DM-006-lab-review.txt",
+      "case": "lab_review",
+      "languages": ["English"],
+      "risk_tags": ["multiple_results", "units", "investigations_reviewed"]
+    },
+    {
+      "transcript_id": "SYN-DM-007",
+      "file": "SYN-DM-007-missed-followup.txt",
+      "case": "missed_followup",
+      "languages": ["Hindi", "English"],
+      "risk_tags": ["care_gap", "missing_investigations", "patient_reported_medication"]
+    },
+    {
+      "transcript_id": "SYN-DM-008",
+      "file": "SYN-DM-008-multiple-medications.txt",
+      "case": "multiple_medications",
+      "languages": ["English"],
+      "risk_tags": ["medication_reconciliation", "unidentified_medication", "no_silent_normalization"]
+    },
+    {
+      "transcript_id": "SYN-DM-009",
+      "file": "SYN-DM-009-lifestyle-heavy.txt",
+      "case": "lifestyle_heavy",
+      "languages": ["Hindi", "English"],
+      "risk_tags": ["lifestyle_history", "lifestyle_advice", "speaker_attribution"]
+    },
+    {
+      "transcript_id": "SYN-DM-010",
+      "file": "SYN-DM-010-short-repeat-visit.txt",
+      "case": "short_repeat_visit",
+      "languages": ["English"],
+      "risk_tags": ["sparse_source", "empty_sections", "medication_continued"]
+    }
+  ]
+}
+

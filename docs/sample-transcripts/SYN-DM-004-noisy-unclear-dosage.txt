@@ -1,0 +1,16 @@
+TRANSCRIPT_ID: SYN-DM-004
+TRANSCRIPT_VERSION: 1.0
+DATA_CLASSIFICATION: SYNTHETIC_EVALUATION_ONLY
+SPECIALTY: diabetes_endocrinology
+LANGUAGES: Hindi, English
+CASE: noisy_unclear_dosage
+
+[SYN-DM-004-S001 | 00:00 | doctor] Doctor: Please tell me the name and dose of the insulin you used last night.
+[SYN-DM-004-S002 | 00:08 | patient] Patient: Naam Glargi— [fan noise] —raat ko [unclear: sounds like "fifteen" or "fifty"] units.
+[SYN-DM-004-S003 | 00:17 | doctor] Doctor: I could not hear the dose. Was that one-five, fifteen units, or five-zero, fifty units?
+[SYN-DM-004-S004 | 00:27 | patient] Patient: [door closes; overlapping clinic staff speech] Ji, [unclear dosage]. Kal wali prescription par likha hai.
+[SYN-DM-004-S005 | 00:38 | clinic_staff] Clinic staff: The old prescription is not attached in this file.
+[SYN-DM-004-S006 | 00:45 | doctor] Doctor: The insulin name also sounded incomplete. I am not confirming a name or dose from this recording. We need to see the pen label and the previous prescription before documenting or changing it.
+[SYN-DM-004-S007 | 01:02 | patient] Patient: Main pen aur prescription car se lekar aata hoon.
+[SYN-DM-004-S008 | 01:10 | doctor] Doctor: Good. For now, mark the insulin name and last-night dose as unclear and requiring verification. No medication change has been decided in this conversation.
+

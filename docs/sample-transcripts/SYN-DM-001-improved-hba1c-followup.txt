@@ -1,0 +1,17 @@
+TRANSCRIPT_ID: SYN-DM-001
+TRANSCRIPT_VERSION: 1.0
+DATA_CLASSIFICATION: SYNTHETIC_EVALUATION_ONLY
+SPECIALTY: diabetes_endocrinology
+LANGUAGES: English
+CASE: improved_hba1c_followup
+
+[SYN-DM-001-S001 | 00:00 | doctor] Doctor: This is your diabetes follow-up. I have the laboratory report dated 2 August in front of me. How have you been since the last visit?
+[SYN-DM-001-S002 | 00:12 | patient] Patient: I feel better. The thirst has reduced and I am walking most evenings.
+[SYN-DM-001-S003 | 00:22 | doctor] Doctor: The HbA1c in today's report is 7.1 percent. The report we reviewed three months ago showed 8.4 percent.
+[SYN-DM-001-S004 | 00:35 | patient] Patient: I have been taking metformin 500 milligrams twice a day and sitagliptin 100 milligrams once in the morning. I missed the morning tablet once last week.
+[SYN-DM-001-S005 | 00:49 | doctor] Doctor: Any sweating, shaking, dizziness, or readings below 70?
+[SYN-DM-001-S006 | 00:56 | patient] Patient: No, none of those, and I have not seen a reading below 70.
+[SYN-DM-001-S007 | 01:06 | doctor] Doctor: I am documenting that the HbA1c has changed from 8.4 percent to 7.1 percent. Continue metformin 500 milligrams twice daily and sitagliptin 100 milligrams each morning without a dose change.
+[SYN-DM-001-S008 | 01:23 | doctor] Doctor: Please repeat fasting glucose, post-meal glucose, and HbA1c before review in three months. Bring the reports and your home glucose log.
+[SYN-DM-001-S009 | 01:38 | patient] Patient: Okay, I will bring them.
+

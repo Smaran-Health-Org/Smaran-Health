@@ -1,0 +1,17 @@
+TRANSCRIPT_ID: SYN-DM-007
+TRANSCRIPT_VERSION: 1.0
+DATA_CLASSIFICATION: SYNTHETIC_EVALUATION_ONLY
+SPECIALTY: diabetes_endocrinology
+LANGUAGES: Hindi, English
+CASE: missed_followup
+
+[SYN-DM-007-S001 | 00:00 | doctor] Doctor: Aapko six weeks mein follow-up karna tha. Aaj five months baad aaye hain. Kya hua tha?
+[SYN-DM-007-S002 | 00:11 | patient] Patient: Main kaam ke liye bahar tha. Tests nahi karwaye aur metformin around two weeks pehle khatam ho gaya.
+[SYN-DM-007-S003 | 00:24 | doctor] Doctor: Aap kaunsi dose le rahe the?
+[SYN-DM-007-S004 | 00:29 | patient] Patient: Metformin 500 milligrams, subah aur raat. Kabhi-kabhi evening dose miss hota tha.
+[SYN-DM-007-S005 | 00:41 | doctor] Doctor: Main patient-reported medication use, missed evening doses, aur two-week gap document kar raha hoon. Previous visit mein requested HbA1c aur kidney tests complete nahi hue.
+[SYN-DM-007-S006 | 00:59 | patient] Patient: Haan, koi report nahi hai.
+[SYN-DM-007-S007 | 01:05 | doctor] Doctor: Please complete fasting glucose, HbA1c, and serum creatinine. Return in one week with the reports and your medicine strips.
+[SYN-DM-007-S008 | 01:18 | doctor] Doctor: This recording does not contain a new medication prescription or dose change. The medication plan will be verified separately by me after reconciliation.
+[SYN-DM-007-S009 | 01:32 | patient] Patient: Theek hai, next week reports ke saath aaunga.
+

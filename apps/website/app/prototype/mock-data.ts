@@ -2,6 +2,7 @@ export type WorkflowState =
   | "patient"
   | "consent"
   | "consent_declined"
+  | "manual_review"
   | "recording"
   | "recording_interrupted"
   | "processing"

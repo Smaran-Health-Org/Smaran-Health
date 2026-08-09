@@ -1,0 +1,17 @@
+TRANSCRIPT_ID: SYN-DM-009
+TRANSCRIPT_VERSION: 1.0
+DATA_CLASSIFICATION: SYNTHETIC_EVALUATION_ONLY
+SPECIALTY: diabetes_endocrinology
+LANGUAGES: Hindi, English
+CASE: lifestyle_heavy
+
+[SYN-DM-009-S001 | 00:00 | doctor] Doctor: Aap apna usual day describe kijiye, waking se dinner tak.
+[SYN-DM-009-S002 | 00:08 | patient] Patient: Main seven baje uthta hoon. Breakfast mein chai with two teaspoons sugar aur two biscuits. Lunch office canteen mein rice aur dal hota hai.
+[SYN-DM-009-S003 | 00:23 | patient] Patient: Evening mein phir chai hoti hai. Dinner around ten-thirty, usually three rotis. Walking weekend par hoti hai, weekdays par nahi.
+[SYN-DM-009-S004 | 00:39 | doctor] Doctor: Aapne jo bataya main history mein document kar raha hoon: sweetened tea twice daily, biscuits at breakfast, canteen lunch, late dinner, and walking mainly on weekends.
+[SYN-DM-009-S005 | 00:54 | patient] Patient: Haan, workday mein time manage nahi hota.
+[SYN-DM-009-S006 | 01:01 | doctor] Doctor: My advice today is to remove the added sugar from both cups of tea, replace the breakfast biscuits with the meal option we discussed in clinic, and walk for twenty minutes after dinner on at least five days each week.
+[SYN-DM-009-S007 | 01:22 | doctor] Doctor: Please move dinner to before nine-thirty when your work schedule allows and record how many days you complete the walk. These are instructions documented by me for this synthetic visit.
+[SYN-DM-009-S008 | 01:40 | patient] Patient: Added sugar band karunga and walking days note karunga. Earlier dinner three days se start kar sakta hoon.
+[SYN-DM-009-S009 | 01:54 | doctor] Doctor: No medication change was discussed today. Review the lifestyle log and fasting readings in four weeks.
+

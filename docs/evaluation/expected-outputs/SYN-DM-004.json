@@ -1,0 +1,71 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": { "transcript_id": "SYN-DM-004", "transcript_version": "1.0" },
+  "generation": { "model": "human-authored-reference", "prompt_version": "clinical-extraction/v0.1.0", "generated_at": "2026-08-06T00:00:00Z" },
+  "chief_complaint": [],
+  "history": [],
+  "examination_findings": [],
+  "diagnoses_documented_by_doctor": [],
+  "allergies_documented": [],
+  "medications_mentioned": [],
+  "medication_changes": [],
+  "investigations_requested": [],
+  "investigations_reviewed": [],
+  "procedures_documented": [],
+  "lifestyle_advice": [],
+  "follow_up_plan": [],
+  "patient_instructions": [
+    {
+      "item_id": "SYN-DM-004-instruction-1",
+      "text": "Verify the pen label and previous prescription before documenting or changing insulin",
+      "source_quote": "We need to see the pen label and the previous prescription before documenting or changing it.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-004-S006", "speaker": "doctor" }
+    }
+  ],
+  "uncertain_items": [
+    {
+      "item_id": "SYN-DM-004-uncertain-1",
+      "text": "Insulin name is incomplete and unclear",
+      "source_quote": "Naam Glargi— [fan noise]",
+      "confidence": "low",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-004-S002", "speaker": "patient" },
+      "uncertainty_type": "unclear_audio",
+      "reason": "Background noise obscures the complete insulin name.",
+      "affected_paths": ["/medications_mentioned", "/medication_changes"]
+    },
+    {
+      "item_id": "SYN-DM-004-uncertain-2",
+      "text": "Last-night insulin dose could be fifteen or fifty units",
+      "source_quote": "raat ko [unclear: sounds like \"fifteen\" or \"fifty\"] units.",
+      "confidence": "low",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-004-S002", "speaker": "patient" },
+      "uncertainty_type": "unclear_audio",
+      "reason": "The spoken dose is ambiguous between fifteen and fifty units and is not resolved later.",
+      "affected_paths": ["/medications_mentioned", "/medication_changes"]
+    }
+  ],
+  "safety_flags": [
+    {
+      "flag_id": "SYN-DM-004-flag-1",
+      "code": "unclear_medication_name",
+      "severity": "blocking",
+      "message": "The insulin name must be verified from the pen label or prior prescription.",
+      "affected_paths": ["/uncertain_items/0"],
+      "related_item_ids": ["SYN-DM-004-uncertain-1"]
+    },
+    {
+      "flag_id": "SYN-DM-004-flag-2",
+      "code": "incomplete_medication_details",
+      "severity": "blocking",
+      "message": "The insulin dose is ambiguous and must not be normalized or used for a medication change.",
+      "affected_paths": ["/uncertain_items/1"],
+      "related_item_ids": ["SYN-DM-004-uncertain-2"]
+    }
+  ]
+}
+

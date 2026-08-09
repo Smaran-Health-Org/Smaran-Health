@@ -1,0 +1,84 @@
+{
+  "schema_version": "clinical-note-schema/v0.1.0",
+  "document_status": "ai_draft",
+  "source": { "transcript_id": "SYN-DM-003", "transcript_version": "1.0" },
+  "generation": { "model": "human-authored-reference", "prompt_version": "clinical-extraction/v0.1.0", "generated_at": "2026-08-06T00:00:00Z" },
+  "chief_complaint": [],
+  "history": [
+    {
+      "item_id": "SYN-DM-003-history-1",
+      "text": "Patient reports fasting glucose mostly 135 to 150 with two missed log days",
+      "source_quote": "fasting sugar mostly 135 se 150 aa raha hai. Do din log likhna miss ho gaya.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-003-S002", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-003-history-2",
+      "text": "No dizziness, sweating, or low-sugar-like episode reported",
+      "source_quote": "Nahi.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-003-S004", "speaker": "patient" }
+    },
+    {
+      "item_id": "SYN-DM-003-history-3",
+      "text": "Night cravings are reduced and patient reports walking twenty minutes after dinner",
+      "source_quote": "Night cravings pehle se kam hain, aur main dinner ke baad twenty minutes walk kar raha hoon.",
+      "confidence": "high",
+      "requires_verification": false,
+      "evidence": { "segment_id": "SYN-DM-003-S004", "speaker": "patient" }
+    }
+  ],
+  "examination_findings": [],
+  "diagnoses_documented_by_doctor": [],
+  "allergies_documented": [],
+  "medications_mentioned": [
+    {
+      "item_id": "SYN-DM-003-med-1",
+      "text": "Doctor documents metformin 500 mg twice daily with meals",
+      "source_quote": "metformin 500 milligrams twice daily with meals",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-003-S007", "speaker": "doctor" },
+      "medication_name": { "as_spoken": "metformin" },
+      "regimen": {
+        "strengths": [{ "as_spoken": "500 milligrams", "value": 500, "unit": "mg" }],
+        "frequency": { "as_spoken": "twice daily", "code": "twice_daily" },
+        "timing": [{ "as_spoken": "with meals", "code": "with_food" }]
+      }
+    },
+    {
+      "item_id": "SYN-DM-003-med-2",
+      "text": "Doctor documents sitagliptin 100 mg in the morning",
+      "source_quote": "sitagliptin 100 milligrams in the morning",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-003-S007", "speaker": "doctor" },
+      "medication_name": { "as_spoken": "sitagliptin" },
+      "regimen": {
+        "strengths": [{ "as_spoken": "100 milligrams", "value": 100, "unit": "mg" }],
+        "frequency": { "as_spoken": "in the morning", "code": "once_daily" },
+        "timing": [{ "as_spoken": "in the morning", "code": "morning" }]
+      }
+    }
+  ],
+  "medication_changes": [],
+  "investigations_requested": [],
+  "investigations_reviewed": [],
+  "procedures_documented": [],
+  "lifestyle_advice": [],
+  "follow_up_plan": [],
+  "patient_instructions": [
+    {
+      "item_id": "SYN-DM-003-instruction-1",
+      "text": "Bring the complete glucose log and HbA1c report to the next visit",
+      "source_quote": "Agle visit par complete sugar log aur report lekar aaiye.",
+      "confidence": "high",
+      "requires_verification": true,
+      "evidence": { "segment_id": "SYN-DM-003-S008", "speaker": "doctor" }
+    }
+  ],
+  "uncertain_items": [],
+  "safety_flags": []
+}
