@@ -1,6 +1,22 @@
 # Smaran Health Project Memory
 
-Last updated: 4 August 2026
+Last updated: 12 August 2026
+
+## Architecture Decision (Locked — 12 Aug 2026)
+
+**Production architecture: Next.js 16 App Router + Supabase (Auth, Postgres, Storage) + Drizzle ORM (schema only)**
+
+| Concern | Decision | Rationale |
+|---------|----------|-----------|
+| Framework | Next.js 16.3.0 App Router (src/ dir) | Server components, server actions, route handlers |
+| Database | Supabase Postgres (local Docker → cloud) | Managed Postgres with built-in Auth, RLS, Storage |
+| Auth | Supabase Auth (email/password, no signup UI) | Doctor accounts created by seed/admin only |
+| ORM | Drizzle ORM — schema + migrations + seed ONLY | Admin connection; not used for app queries |
+| App queries | supabase-js via @supabase/ssr | Goes through PostgREST with user JWT → RLS enforced |
+| Storage | Supabase Storage (private audio bucket, RLS) | Signed URLs for audio access |
+| Styling | Tailwind CSS 4 | Utility-first, fast prototyping |
+| Validation | Zod 4.4.3 | API input schemas |
+| Seed | tsx + dotenv + service_role key | Admin-created test data for pilot dev
 
 ## Authoritative project sources
 
