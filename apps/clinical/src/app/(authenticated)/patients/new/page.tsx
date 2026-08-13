@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button, Card, Input, Label, Select, Textarea } from "@/components/ui";
+import { ArrowLeftIcon, PlusIcon } from "@/components/icons";
 
 export default function NewPatientPage() {
   const router = useRouter();
@@ -17,9 +19,9 @@ export default function NewPatientPage() {
     const body = {
       fullName: form.get("fullName") as string,
       age: form.get("age") ? Number(form.get("age")) : null,
-      gender: form.get("gender") as string || null,
-      phone: form.get("phone") as string || null,
-      address: form.get("address") as string || null,
+      gender: (form.get("gender") as string) || null,
+      phone: (form.get("phone") as string) || null,
+      address: (form.get("address") as string) || null,
     };
 
     const res = await fetch("/api/patients", {
@@ -40,99 +42,97 @@ export default function NewPatientPage() {
   }
 
   return (
-    <div className="max-w-lg">
-      <h1 className="text-2xl font-semibold text-stone-900 mb-6">New Patient</h1>
+    <div className="mx-auto max-w-xl space-y-6 animate-fade-in-up">
+      <button
+        type="button"
+        onClick={() => router.back()}
+        className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 transition-colors hover:text-slate-700"
+      >
+        <ArrowLeftIcon className="h-4 w-4" />
+        Back
+      </button>
+
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          New Patient
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Add a patient to your clinic. Only the name is required.
+        </p>
+      </div>
 
       {error && (
-        <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-stone-700 mb-1">
-            Full Name *
-          </label>
-          <input
-            name="fullName"
-            required
-            className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            placeholder="Patient full name"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
+      <Card className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">
-              Age
-            </label>
-            <input
-              name="age"
-              type="number"
-              min="0"
-              max="150"
-              className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="e.g. 45"
+            <Label htmlFor="fullName">Full name *</Label>
+            <Input
+              id="fullName"
+              name="fullName"
+              required
+              placeholder="e.g. Ananya Sharma"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">
-              Gender
-            </label>
-            <select
-              name="gender"
-              className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-            >
-              <option value="">Select…</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </select>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="age">Age</Label>
+              <Input
+                id="age"
+                name="age"
+                type="number"
+                min="0"
+                max="150"
+                placeholder="e.g. 45"
+              />
+            </div>
+            <div>
+              <Label htmlFor="gender">Gender</Label>
+              <Select id="gender" name="gender" defaultValue="">
+                <option value="">Select…</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </Select>
+            </div>
           </div>
-        </div>
 
-        <div>
-          <label className="block text-sm font-medium text-stone-700 mb-1">
-            Phone
-          </label>
-          <input
-            name="phone"
-            type="tel"
-            className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            placeholder="+91 XXXXX XXXXX"
-          />
-        </div>
+          <div>
+            <Label htmlFor="phone">Phone</Label>
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              placeholder="+91 XXXXX XXXXX"
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-stone-700 mb-1">
-            Address
-          </label>
-          <textarea
-            name="address"
-            rows={2}
-            className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            placeholder="Clinic address or patient area"
-          />
-        </div>
+          <div>
+            <Label htmlFor="address">Address</Label>
+            <Textarea
+              id="address"
+              name="address"
+              rows={2}
+              placeholder="Area or clinic address"
+            />
+          </div>
 
-        <div className="flex gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? "Creating…" : "Create Patient"}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-md border border-stone-300 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" disabled={loading}>
+              <PlusIcon className="h-4 w-4" />
+              {loading ? "Creating…" : "Create Patient"}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => router.back()}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }

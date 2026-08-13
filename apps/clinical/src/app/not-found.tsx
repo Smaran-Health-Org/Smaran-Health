@@ -2,13 +2,16 @@ import Link from "next/link";
 
 export default function NotFoundPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-50">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-stone-300">404</h1>
-        <p className="mt-2 text-sm text-stone-500">Page not found</p>
+        <p className="text-6xl font-bold tracking-tight text-slate-200">404</p>
+        <h1 className="mt-2 text-lg font-semibold text-slate-900">Page not found</h1>
+        <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">
+          The page you&rsquo;re looking for doesn&rsquo;t exist or may have moved.
+        </p>
         <Link
           href="/dashboard"
-          className="mt-4 inline-block rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors"
+          className="mt-5 inline-flex items-center justify-center rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-teal-600/20 transition-colors hover:bg-teal-700"
         >
           Go to Dashboard
         </Link>

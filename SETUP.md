@@ -13,8 +13,18 @@ npm install -g supabase
 
 ## Quick Start
 
+> ⚠️ **Important:** All commands below run from the **`apps/clinical/`** folder,
+> NOT the repository root. This app lives in a monorepo under `apps/`, so
+> `cd` into it first.
+
 ```bash
-# 1. Start local Supabase
+# 0. Go to the clinical app folder (do this first!)
+cd apps/clinical
+```
+
+```bash
+# 1. Start local Supabase (must be run from apps/clinical — it reads
+#    supabase/config.toml and supabase/migrations/ here)
 supabase start
 
 # 2. Copy the output keys to .env.local
@@ -60,6 +70,8 @@ OPENAI_API_KEY=sk-placeholder
 > **Note:** `DATABASE_URL` uses port `54322` (Supabase's local postgres), not `54321` (API).
 
 ## Scripts
+
+> Run all of these from `apps/clinical/` (e.g. `cd apps/clinical` first).
 
 | Script | What it does |
 |--------|--------------|
