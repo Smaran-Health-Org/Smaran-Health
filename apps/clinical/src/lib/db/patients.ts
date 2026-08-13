@@ -1,6 +1,10 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import type { Patient } from "@/types";
 
+// PostgREST column aliases map snake_case DB columns → camelCase TS fields.
+const PATIENT_COLUMNS =
+  "id, clinicId:clinic_id, fullName:full_name, age, gender, phone, address, medicalRecordNumber:medical_record_number, createdAt:created_at, updatedAt:updated_at";
+
 export async function getPatients(
   clinicId: string,
   opts?: { search?: string; page?: number; pageSize?: number }
@@ -13,7 +17,7 @@ export async function getPatients(
 
   let query = supabase
     .from("patients")
-    .select("*", { count: "exact" })
+    .select(PATIENT_COLUMNS, { count: "exact" })
     .eq("clinic_id", clinicId)
     .order("created_at", { ascending: false })
     .range(from, to);
@@ -24,7 +28,7 @@ export async function getPatients(
 
   const { data, error, count } = await query;
   if (error) throw new Error(`Failed to fetch patients: ${error.message}`);
-  return { data: data as Patient[], total: count ?? 0 };
+  return { data: (data as Patient[]) ?? [], total: count ?? 0 };
 }
 
 export async function getPatient(
@@ -34,13 +38,13 @@ export async function getPatient(
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from("patients")
-    .select("*")
+    .select(PATIENT_COLUMNS)
     .eq("id", id)
     .eq("clinic_id", clinicId)
     .single();
 
   if (error && error.code !== "PGRST116") throw new Error(`Failed to fetch patient: ${error.message}`);
-  return data as Patient | null;
+  return (data as Patient) ?? null;
 }
 
 export async function createPatient(

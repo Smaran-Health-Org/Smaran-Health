@@ -1,6 +1,10 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import type { Consultation } from "@/types";
 
+// PostgREST column aliases map snake_case DB columns → camelCase TS fields.
+const CONSULTATION_COLUMNS =
+  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, status, consentAcquired:consent_acquired, consentVersion:consent_version, consentTimestamp:consent_timestamp, startedAt:started_at, endedAt:ended_at";
+
 export async function getConsultations(
   patientId: string,
   clinicId: string
@@ -8,13 +12,39 @@ export async function getConsultations(
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from("consultations")
-    .select("*")
+    .select(CONSULTATION_COLUMNS)
     .eq("patient_id", patientId)
     .eq("clinic_id", clinicId)
     .order("started_at", { ascending: false });
 
   if (error) throw new Error(`Failed to fetch consultations: ${error.message}`);
-  return data as Consultation[];
+  return (data as Consultation[]) ?? [];
+}
+
+export type ConsultationWithPatient = Consultation & {
+  patientFullName: string | null;
+};
+
+export async function getRecentConsultations(
+  clinicId: string,
+  limit = 5
+): Promise<ConsultationWithPatient[]> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("consultations")
+    .select(`${CONSULTATION_COLUMNS}, patient:patients(full_name)`)
+    .eq("clinic_id", clinicId)
+    .order("started_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`Failed to fetch recent consultations: ${error.message}`);
+
+  return ((data as Array<Consultation & { patient: { full_name: string } | null }>) ?? []).map(
+    (row) => ({
+      ...row,
+      patientFullName: row.patient?.full_name ?? null,
+    })
+  );
 }
 
 export async function getConsultation(
@@ -24,13 +54,13 @@ export async function getConsultation(
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from("consultations")
-    .select("*")
+    .select(CONSULTATION_COLUMNS)
     .eq("id", id)
     .eq("clinic_id", clinicId)
     .single();
 
   if (error && error.code !== "PGRST116") throw new Error(`Failed to fetch consultation: ${error.message}`);
-  return data as Consultation | null;
+  return (data as Consultation) ?? null;
 }
 
 export async function createConsultation(

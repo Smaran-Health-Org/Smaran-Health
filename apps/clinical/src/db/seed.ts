@@ -1,5 +1,8 @@
-import "dotenv/config";
-import { createAdminClient } from "../src/lib/supabase/admin";
+import { config } from "dotenv";
+import path from "path";
+config({ path: path.resolve(process.cwd(), ".env.local") });
+config({ path: path.resolve(process.cwd(), ".env") });
+import { createAdminClient } from "../lib/supabase/admin";
 
 // Seed script — uses service_role key, bypasses RLS intentionally.
 // Run: npx tsx src/db/seed.ts
@@ -71,11 +74,11 @@ async function seed() {
   // ── 3. Create patients ────────────────────────────────────────────────────
 
   const patientsData = [
-    { fullName: "Ananya Sharma", age: 43, gender: "Female", phone: "+91 98765 43210" },
-    { fullName: "Vikram Desai", age: 58, gender: "Male", phone: "+91 87654 32109" },
-    { fullName: "Priya Iyer", age: 35, gender: "Female", phone: "+91 76543 21098" },
-    { fullName: "Suresh Nair", age: 62, gender: "Male", phone: "+91 65432 10987" },
-    { fullName: "Fatima Sheikh", age: 29, gender: "Female", phone: "+91 54321 09876" },
+    { full_name: "Ananya Sharma", age: 43, gender: "Female", phone: "+91 98765 43210" },
+    { full_name: "Vikram Desai", age: 58, gender: "Male", phone: "+91 87654 32109" },
+    { full_name: "Priya Iyer", age: 35, gender: "Female", phone: "+91 76543 21098" },
+    { full_name: "Suresh Nair", age: 62, gender: "Male", phone: "+91 65432 10987" },
+    { full_name: "Fatima Sheikh", age: 29, gender: "Female", phone: "+91 54321 09876" },
   ];
 
   for (const p of patientsData) {
@@ -86,10 +89,10 @@ async function seed() {
       .single();
 
     if (patientErr) {
-      console.error(`Failed to create patient ${p.fullName}:`, patientErr.message);
+      console.error(`Failed to create patient ${p.full_name}:`, patientErr.message);
       continue;
     }
-    console.log(`✓ Patient: ${patient.fullName} (${patient.id})`);
+    console.log(`✓ Patient: ${patient.full_name} (${patient.id})`);
   }
 
   // ── 4. Create sample consultations ────────────────────────────────────────
