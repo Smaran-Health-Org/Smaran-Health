@@ -2,7 +2,7 @@
 // Bump PROMPT_VERSION whenever the instructions materially change, so audit
 // logs and stored drafts can be tied back to a known prompt (AGENTS.md §9.4).
 
-export const PROMPT_VERSION = "deepseek-extraction-v0.1.0";
+export const PROMPT_VERSION = "deepseek-extraction-v0.2.0";
 export const MODEL = "deepseek-chat";
 
 // Safety rules from AGENTS.md §9.3. These are non-negotiable and must be
@@ -28,12 +28,15 @@ export function buildExtractionSystemPrompt(): string {
     "SAFETY RULES (follow them always):",
     SAFETY_RULES,
     "",
-    "OUTPUT FORMAT — return exactly one json object with these four keys:",
+    "OUTPUT FORMAT — return exactly one json object with these seven keys:",
     "{",
     '  "summary": "Concise narrative summary of the visit: presenting concern, key history, examination findings, diagnoses the doctor documented, and the plan. Plain prose. Do not add interpretation or advice."',
+    `  "chiefComplaint": "The patient's stated reason for the visit, in one or two short lines. If not clearly stated, return exactly 'Not stated.'."`,
     `  "medicationChanges": "Bulleted list of medication changes the doctor stated (started, stopped, increased, decreased, substituted, held). One line per change, prefixed with '- '. If none stated, return exactly 'None stated.'."`,
     `  "investigations": "Bulleted list of investigations the doctor requested or reviewed. One line per item, prefixed with '- '. If none stated, return exactly 'None stated.'."`,
-    `  "uncertainItems": "Bulleted list of anything unclear or conflicting in the transcript. One line per item, prefixed with '- '. If nothing is uncertain, return exactly 'None.'."`,
+    `  "followUpPlan": "Bulleted list of the doctor's follow-up plan: next review, repeat tests, referrals, or monitoring. One line per item, prefixed with '- '. If none stated, return exactly 'None stated.'."`,
+    `  "patientInstructions": "Bulleted list of lifestyle or self-care advice the doctor gave the patient. One line per item, prefixed with '- '. If none stated, return exactly 'None stated.'."`,
+    `  "uncertainItems": "Bulleted list of anything unclear or conflicting in the transcript (unclear medication name, dose, result, or speaker). One line per item, prefixed with '- '. If nothing is uncertain, return exactly 'None.'."`,
     "}",
     "",
     "Return only the json object. Do not include markdown fences or commentary.",

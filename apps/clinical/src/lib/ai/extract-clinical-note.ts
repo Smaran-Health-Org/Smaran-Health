@@ -13,8 +13,11 @@ import {
 // docs/schemas/clinical-note-schema/v0.1.0 is the planned follow-up contract.
 export const aiDraftSchema = z.object({
   summary: z.string().min(1).max(5000),
+  chiefComplaint: z.string().max(5000),
   medicationChanges: z.string().max(5000),
   investigations: z.string().max(5000),
+  followUpPlan: z.string().max(5000),
+  patientInstructions: z.string().max(5000),
   uncertainItems: z.string().max(5000),
 });
 

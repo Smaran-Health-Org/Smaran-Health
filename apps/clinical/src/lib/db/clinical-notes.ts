@@ -7,8 +7,11 @@ const NOTE_COLUMNS =
 
 export type NoteContent = {
   summary: string;
+  chiefComplaint: string;
   medicationChanges: string;
   investigations: string;
+  followUpPlan: string;
+  patientInstructions: string;
   uncertainItems: string;
 };
 

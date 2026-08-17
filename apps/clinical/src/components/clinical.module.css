@@ -360,6 +360,7 @@
 .draftField textarea:focus, .uncertainField textarea:focus { border-color: #49a381; outline: 3px solid rgba(47, 134, 106, 0.12); }
 .confidence { border-radius: 999px; padding: 0.28rem 0.5rem; font-size: 0.55rem; font-weight: 900; text-transform: uppercase; }
 .manualBadge { border-radius: 999px; background: #eef2f0; padding: 0.28rem 0.5rem; color: #52645f; font-size: 0.55rem; font-weight: 900; text-transform: uppercase; }
+.uncertainBadge { border-radius: 999px; background: #fbf1d6; padding: 0.28rem 0.5rem; color: #8a6d1f; font-size: 0.55rem; font-weight: 900; text-transform: uppercase; }
 .high { background: #e3f4ec; color: #1d6d56; }
 .medium { background: #fff0cf; color: #80580a; }
 .low { background: #f8e7e4; color: #923e35; }
