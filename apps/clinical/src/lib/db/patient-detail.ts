@@ -1,12 +1,12 @@
 import { getPatient } from "./patients";
-import { getPatientTimeline } from "./timeline";
-import { getConsultations } from "./consultations";
-import type { Patient, PatientTimelineEvent, Consultation } from "@/types";
+import { getConsultationsWithNotes, type ConsultationWithNote } from "./consultations";
+import { getFollowUpMemory, type FollowUpMemory } from "./follow-up-memory";
+import type { Patient } from "@/types";
 
 export type PatientDetail = {
   patient: Patient;
-  timeline: PatientTimelineEvent[];
-  consultations: Consultation[];
+  consultations: ConsultationWithNote[];
+  memory: FollowUpMemory;
 };
 
 export async function getPatientDetail(
@@ -16,10 +16,10 @@ export async function getPatientDetail(
   const patient = await getPatient(id, clinicId);
   if (!patient) return null;
 
-  const [timeline, consultations] = await Promise.all([
-    getPatientTimeline(id, clinicId),
-    getConsultations(id, clinicId),
+  const [consultations, memory] = await Promise.all([
+    getConsultationsWithNotes(id, clinicId),
+    getFollowUpMemory(id, clinicId),
   ]);
 
-  return { patient, timeline, consultations };
+  return { patient, consultations, memory };
 }

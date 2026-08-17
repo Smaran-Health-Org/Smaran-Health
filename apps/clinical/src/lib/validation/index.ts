@@ -45,8 +45,11 @@ export const updateConsultationSchema = z.object({
 
 export const clinicalNoteContentSchema = z.object({
   summary: z.string().max(5000),
+  chiefComplaint: z.string().max(5000),
   medicationChanges: z.string().max(5000),
   investigations: z.string().max(5000),
+  followUpPlan: z.string().max(5000),
+  patientInstructions: z.string().max(5000),
   uncertainItems: z.string().max(5000),
 });
 

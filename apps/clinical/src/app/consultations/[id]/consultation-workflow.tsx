@@ -21,8 +21,11 @@ export type WorkflowState =
 
 export type NoteContent = {
   summary: string;
+  chiefComplaint: string;
   medicationChanges: string;
   investigations: string;
+  followUpPlan: string;
+  patientInstructions: string;
   uncertainItems: string;
 };
 
@@ -42,6 +45,16 @@ export type WorkflowTimelineEvent = {
   detail: string;
 };
 
+export type WorkflowMemory = {
+  lastVisitAt: string | null;
+  summary: string | null;
+  medicationChanges: string | null;
+  investigations: string | null;
+  followUpPlan: string | null;
+  patientInstructions: string | null;
+  approvedCount: number;
+};
+
 type ConsultationWorkflowProps = {
   consultationId: string;
   patient: WorkflowPatient;
@@ -52,6 +65,7 @@ type ConsultationWorkflowProps = {
   initialNote: NoteContent | null;
   initialStatus: string;
   initialTranscript: string | null;
+  memory?: WorkflowMemory | null;
 };
 
 const activeStep: Record<WorkflowState, number> = {
@@ -85,8 +99,11 @@ const workflowStates: Array<{ id: WorkflowState; label: string; safetyRule: stri
 
 const BLANK_NOTE: NoteContent = {
   summary: "",
+  chiefComplaint: "",
   medicationChanges: "",
   investigations: "",
+  followUpPlan: "",
+  patientInstructions: "",
   uncertainItems: "",
 };
 
@@ -230,12 +247,15 @@ export function ConsultationWorkflow({
   initialNote,
   initialStatus,
   initialTranscript,
+  memory,
 }: ConsultationWorkflowProps) {
   const router = useRouter();
   const [state, setState] = useState<WorkflowState>(() => initialStateFor(initialStatus));
-  const [draftFields, setDraftFields] = useState<NoteContent>(
-    () => initialNote ?? { ...BLANK_NOTE, summary: initialTranscript ?? "" }
-  );
+  const [draftFields, setDraftFields] = useState<NoteContent>(() => ({
+    ...BLANK_NOTE,
+    ...(initialNote ?? {}),
+    summary: initialNote?.summary ?? initialTranscript ?? "",
+  }));
   const [transcript, setTranscript] = useState<string>(initialTranscript ?? "");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
@@ -246,6 +266,7 @@ export function ConsultationWorkflow({
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
   const [saving, setSaving] = useState<"draft" | "approve" | "reject" | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -373,8 +394,8 @@ export function ConsultationWorkflow({
     }
   }
 
-  function updateSummary(value: string) {
-    setDraftFields((current) => ({ ...current, summary: value }));
+  function updateField(field: keyof NoteContent, value: string) {
+    setDraftFields((current) => ({ ...current, [field]: value }));
     setReviewConfirmed(false);
     setDraftSaved(false);
   }
@@ -589,15 +610,32 @@ export function ConsultationWorkflow({
 
   async function openPreparedDraft() {
     setError(null);
-    setDraftFields((current) =>
-      current.summary.trim() ? current : { ...current, summary: transcript.trim() }
-    );
+    setGenerating(true);
     try {
-      await patchConsultation({ status: "draft_ready" });
-    } catch {
-      // A failed status update should not block the doctor from reviewing.
+      const res = await fetch(`/api/consultations/${consultationId}/generate`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "AI draft generation failed.");
+      }
+      const data = await res.json();
+      if (data?.draft) {
+        setDraftFields((current) => ({ ...current, ...data.draft }));
+      }
+      setReviewConfirmed(false);
+      setDraftSaved(false);
+      setState("review");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `${err.message} You can write the note manually instead.`
+          : "AI draft generation failed. You can write the note manually instead."
+      );
+      setState("failed");
+    } finally {
+      setGenerating(false);
     }
-    setState("review");
   }
 
   async function cancelRecording() {
@@ -703,6 +741,40 @@ export function ConsultationWorkflow({
                 resulting draft note before it is added to clinical memory.
               </p>
             </div>
+
+            {memory?.summary && (
+              <div className={styles.memoryCard}>
+                <div className={styles.memoryHeader}>
+                  <span>Before this visit</span>
+                  {memory.lastVisitAt && <time>{formatDate(memory.lastVisitAt)}</time>}
+                </div>
+                <p className={styles.memorySummary}>{memory.summary}</p>
+                {memory.medicationChanges && (
+                  <div className={styles.memorySection}>
+                    <strong>Medication changes</strong>
+                    <p>{memory.medicationChanges}</p>
+                  </div>
+                )}
+                {memory.investigations && (
+                  <div className={styles.memorySection}>
+                    <strong>Investigations</strong>
+                    <p>{memory.investigations}</p>
+                  </div>
+                )}
+                {memory.followUpPlan && (
+                  <div className={styles.memorySection}>
+                    <strong>Follow-up plan</strong>
+                    <p>{memory.followUpPlan}</p>
+                  </div>
+                )}
+                {memory.patientInstructions && (
+                  <div className={styles.memorySection}>
+                    <strong>Patient instructions</strong>
+                    <p>{memory.patientInstructions}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className={styles.timeline}>
               <div className={styles.sectionTitle}>
@@ -934,14 +1006,19 @@ export function ConsultationWorkflow({
             <div className={styles.processingSteps}>
               <span>✓ Recording received</span>
               <span>✓ Transcript prepared</span>
-              <span>• Validating draft structure</span>
+              <span>• Generating draft with AI</span>
             </div>
             <div className={styles.actions}>
               <button type="button" className={styles.secondaryButton} onClick={simulateFailure}>
                 Simulate failure
               </button>
-              <button type="button" className={styles.primaryButton} onClick={openPreparedDraft}>
-                Open prepared draft
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={openPreparedDraft}
+                disabled={generating}
+              >
+                {generating ? "Generating draft…" : "Open prepared draft"}
               </button>
             </div>
           </div>
@@ -981,25 +1058,46 @@ export function ConsultationWorkflow({
             )}
 
             <div className={styles.fieldList}>
-              <section className={styles.draftField}>
+              {[
+                { key: "chiefComplaint", label: "Chief complaint", placeholder: "The patient's stated reason for the visit", rows: 3 },
+                { key: "summary", label: "Consultation summary", placeholder: "Narrative summary: history, examination, documented diagnoses, plan", rows: 8 },
+                { key: "medicationChanges", label: "Medication changes", placeholder: "Started / stopped / increased / decreased / substituted / held", rows: 4 },
+                { key: "investigations", label: "Investigations", placeholder: "Tests requested or reviewed", rows: 4 },
+                { key: "followUpPlan", label: "Follow-up plan", placeholder: "Next review, repeat tests, referrals, monitoring", rows: 4 },
+                { key: "patientInstructions", label: "Patient instructions", placeholder: "Lifestyle or self-care advice given to the patient", rows: 4 },
+              ].map((field) => (
+                <section className={styles.draftField} key={field.key}>
+                  <div className={styles.fieldHeading}>
+                    <label htmlFor={`draft-${field.key}`}>{field.label}</label>
+                    {isManualReview ? (
+                      <span className={styles.manualBadge}>Doctor entry</span>
+                    ) : (
+                      <span className={styles.confidence}>Draft field</span>
+                    )}
+                  </div>
+                  <textarea
+                    id={`draft-${field.key}`}
+                    value={draftFields[field.key as keyof NoteContent]}
+                    onChange={(event) =>
+                      updateField(field.key as keyof NoteContent, event.target.value)
+                    }
+                    placeholder={field.placeholder}
+                    rows={field.rows}
+                  />
+                </section>
+              ))}
+
+              <section className={styles.uncertainField}>
                 <div className={styles.fieldHeading}>
-                  <label htmlFor="draft-summary">Consultation summary</label>
-                  {isManualReview ? (
-                    <span className={styles.manualBadge}>Doctor entry</span>
-                  ) : (
-                    <span className={styles.confidence}>Draft field</span>
-                  )}
+                  <label htmlFor="draft-uncertainItems">Uncertain items</label>
+                  <span className={styles.uncertainBadge}>Requires verification</span>
                 </div>
                 <textarea
-                  id="draft-summary"
-                  value={draftFields.summary}
-                  onChange={(event) => updateSummary(event.target.value)}
-                  placeholder={
-                    isManualReview
-                      ? "Write only what the doctor wants added to the consultation record."
-                      : "The draft summary lives here. Edit it before approving."
-                  }
-                  rows={10}
+                  id="draft-uncertainItems"
+                  value={draftFields.uncertainItems}
+                  onChange={(event) => updateField("uncertainItems", event.target.value)}
+                  placeholder="Unclear medication names, doses, results, or speaker — surfaced here so the doctor can verify before approval."
+                  rows={3}
                 />
               </section>
             </div>
@@ -1050,24 +1148,50 @@ export function ConsultationWorkflow({
         {state === "approved" && (
           <div className={styles.outcomePanel}>
             <span className={styles.successIcon} aria-hidden="true">✓</span>
-            <p className={styles.eyebrow}>Doctor action recorded</p>
-            <h2>Note approved and added to memory</h2>
-            <p>
-              The patient timeline now includes this visit. Approval is the only path that creates
-              the new event.
-            </p>
-            <div className={styles.outcomeEvent}>
-              <strong>Today · Current consultation</strong>
-              <p>{draftFields.summary || "Consultation note"}</p>
-              <small>Approved · Doctor action</small>
+            <p className={styles.eyebrow}>Approved clinical note</p>
+            <h2>Added to patient memory</h2>
+
+            <div className={styles.memoryCard}>
+              <div className={styles.memoryHeader}>
+                <span>Approved note</span>
+              </div>
+              <p className={styles.memorySummary}>{draftFields.summary || "No summary recorded."}</p>
+
+              <details className={styles.noteDetails}>
+                <summary>View full note</summary>
+                <div className={styles.noteReadonly}>
+                  {[
+                    ["Chief complaint", draftFields.chiefComplaint],
+                    ["Medication changes", draftFields.medicationChanges],
+                    ["Investigations", draftFields.investigations],
+                    ["Follow-up plan", draftFields.followUpPlan],
+                    ["Patient instructions", draftFields.patientInstructions],
+                    ["Uncertain items", draftFields.uncertainItems],
+                  ]
+                    .filter(
+                      ([, value]) =>
+                        value &&
+                        value.trim() &&
+                        value.trim() !== "None." &&
+                        value.trim() !== "None stated."
+                    )
+                    .map(([label, value]) => (
+                      <div key={label as string}>
+                        <strong>{label}</strong>
+                        <p>{value}</p>
+                      </div>
+                    ))}
+                </div>
+              </details>
             </div>
+
             <div className={styles.actions}>
               <button
                 type="button"
                 className={styles.secondaryButton}
                 onClick={() => router.push(`/patients/${patient.id}`)}
               >
-                View updated patient profile
+                View patient profile
               </button>
               <button
                 type="button"
