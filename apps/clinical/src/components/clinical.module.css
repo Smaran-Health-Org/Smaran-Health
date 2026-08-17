@@ -642,6 +642,7 @@
 .activityMain { display: grid; gap: 2px; min-width: 0; }
 .activityMain strong { overflow: hidden; font-size: 0.8rem; text-overflow: ellipsis; white-space: nowrap; }
 .activityMain span { color: #84908b; font-size: 0.64rem; }
+.draftPreview { color: #5f6e69 !important; font-size: 0.66rem !important; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 
 .statusBadge {
   display: inline-flex;

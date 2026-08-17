@@ -23,7 +23,31 @@ export async function getConsultations(
 
 export type ConsultationWithPatient = Consultation & {
   patientFullName: string | null;
+  draftStatus: string | null;
+  draftPreview: string | null;
 };
+
+// PostgREST returns a to-one embed as a single object; supabase-js types it as
+// an array. Handle both shapes so real patient names always resolve.
+type ConsultationRow = Consultation & {
+  patient?: { full_name?: string } | { full_name?: string }[] | null;
+  note?: { status?: string; content?: { summary?: string } | null }[] | null;
+};
+
+function patientName(row: ConsultationRow): string | null {
+  const p = row.patient;
+  if (!p) return null;
+  return Array.isArray(p) ? (p[0]?.full_name ?? null) : (p.full_name ?? null);
+}
+
+function draftInfo(row: ConsultationRow): { status: string | null; preview: string | null } {
+  const note = row.note?.[0];
+  if (!note) return { status: null, preview: null };
+  const summary = note.content?.summary?.trim() ?? "";
+  return { status: note.status ?? null, preview: summary.slice(0, 90) || null };
+}
+
+const CONSULTATION_WITH_NOTE_SELECT = `${CONSULTATION_COLUMNS}, patient:patients(full_name), note:clinical_notes(id,status,content)`;
 
 export async function getRecentConsultations(
   clinicId: string,
@@ -32,20 +56,20 @@ export async function getRecentConsultations(
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from("consultations")
-    .select(`${CONSULTATION_COLUMNS}, patient:patients(full_name)`)
+    .select(CONSULTATION_WITH_NOTE_SELECT)
     .eq("clinic_id", clinicId)
     .order("started_at", { ascending: false })
     .limit(limit);
 
   if (error) throw new Error(`Failed to fetch recent consultations: ${error.message}`);
 
-  const rows = (data as unknown as Array<
-    Consultation & { patient: { full_name: string }[] | null }
-  >) ?? [];
+  const rows = (data as unknown as ConsultationRow[]) ?? [];
 
   return rows.map((row) => ({
     ...row,
-    patientFullName: row.patient?.[0]?.full_name ?? null,
+    patientFullName: patientName(row),
+    draftStatus: draftInfo(row).status,
+    draftPreview: draftInfo(row).preview,
   }));
 }
 
@@ -55,20 +79,20 @@ export async function getPendingConsultations(
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from("consultations")
-    .select(`${CONSULTATION_COLUMNS}, patient:patients(full_name)`)
+    .select(CONSULTATION_WITH_NOTE_SELECT)
     .eq("clinic_id", clinicId)
     .eq("status", "draft_ready")
     .order("started_at", { ascending: false });
 
   if (error) throw new Error(`Failed to fetch pending consultations: ${error.message}`);
 
-  const rows = (data as unknown as Array<
-    Consultation & { patient: { full_name: string }[] | null }
-  >) ?? [];
+  const rows = (data as unknown as ConsultationRow[]) ?? [];
 
   return rows.map((row) => ({
     ...row,
-    patientFullName: row.patient?.[0]?.full_name ?? null,
+    patientFullName: patientName(row),
+    draftStatus: draftInfo(row).status,
+    draftPreview: draftInfo(row).preview,
   }));
 }
 

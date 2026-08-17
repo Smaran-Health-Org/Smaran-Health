@@ -25,6 +25,19 @@ function greeting(): string {
   return "Good evening";
 }
 
+function draftLabel(status: string | null): string {
+  switch (status) {
+    case "approved":
+      return "Approved";
+    case "edited":
+      return "Edited";
+    case "rejected":
+      return "Rejected";
+    default:
+      return "Draft";
+  }
+}
+
 export default async function DashboardPage() {
   const session = await getSessionContext();
   if (!session) redirect("/login");
@@ -126,6 +139,11 @@ export default async function DashboardPage() {
                       <div className={styles.activityMain}>
                         <strong>{consultation.patientFullName ?? "Patient"}</strong>
                         <span>{formatRelativeDay(consultation.startedAt)}</span>
+                        {consultation.draftPreview && (
+                          <span className={styles.draftPreview}>
+                            {draftLabel(consultation.draftStatus)} · {consultation.draftPreview}
+                          </span>
+                        )}
                       </div>
                       <StatusBadge status={consultation.status} />
                       <Icon name="chevron" />
@@ -163,6 +181,11 @@ export default async function DashboardPage() {
                       <div className={styles.activityMain}>
                         <strong>{consultation.patientFullName ?? "Patient"}</strong>
                         <span>{formatRelativeDay(consultation.startedAt)}</span>
+                        {consultation.draftPreview && (
+                          <span className={styles.draftPreview}>
+                            {draftLabel(consultation.draftStatus)} · {consultation.draftPreview}
+                          </span>
+                        )}
                       </div>
                       <StatusBadge status={consultation.status} />
                       <Icon name="chevron" />
