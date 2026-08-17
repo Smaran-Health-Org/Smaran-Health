@@ -6,6 +6,7 @@ import { getClinicName } from "@/lib/db/clinics";
 import { getPatientTimeline } from "@/lib/db/timeline";
 import { getClinicalNoteByConsultation } from "@/lib/db/clinical-notes";
 import { getTranscriptByConsultation } from "@/lib/db/transcripts";
+import { getFollowUpMemory } from "@/lib/db/follow-up-memory";
 import {
   ConsultationWorkflow,
   type NoteContent,
@@ -28,12 +29,13 @@ export default async function ConsultationPage({
   const patient = await getPatient(consultation.patientId, session.clinicId);
   if (!patient) notFound();
 
-  const [clinicName, timeline, note, transcript, patientList] = await Promise.all([
+  const [clinicName, timeline, note, transcript, patientList, memory] = await Promise.all([
     getClinicName(session.clinicId),
     getPatientTimeline(patient.id, session.clinicId),
     getClinicalNoteByConsultation(id, session.clinicId),
     getTranscriptByConsultation(id, session.clinicId),
     getPatients(session.clinicId, { pageSize: 1 }),
+    getFollowUpMemory(patient.id, session.clinicId),
   ]);
 
   const workflowPatient: WorkflowPatient = {
@@ -67,6 +69,7 @@ export default async function ConsultationPage({
       initialNote={initialNote}
       initialStatus={consultation.status}
       initialTranscript={transcript?.rawText ?? null}
+      memory={memory}
     />
   );
 }

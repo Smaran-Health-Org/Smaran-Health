@@ -45,6 +45,16 @@ export type WorkflowTimelineEvent = {
   detail: string;
 };
 
+export type WorkflowMemory = {
+  lastVisitAt: string | null;
+  summary: string | null;
+  medicationChanges: string | null;
+  investigations: string | null;
+  followUpPlan: string | null;
+  patientInstructions: string | null;
+  approvedCount: number;
+};
+
 type ConsultationWorkflowProps = {
   consultationId: string;
   patient: WorkflowPatient;
@@ -55,6 +65,7 @@ type ConsultationWorkflowProps = {
   initialNote: NoteContent | null;
   initialStatus: string;
   initialTranscript: string | null;
+  memory?: WorkflowMemory | null;
 };
 
 const activeStep: Record<WorkflowState, number> = {
@@ -236,6 +247,7 @@ export function ConsultationWorkflow({
   initialNote,
   initialStatus,
   initialTranscript,
+  memory,
 }: ConsultationWorkflowProps) {
   const router = useRouter();
   const [state, setState] = useState<WorkflowState>(() => initialStateFor(initialStatus));
@@ -729,6 +741,40 @@ export function ConsultationWorkflow({
                 resulting draft note before it is added to clinical memory.
               </p>
             </div>
+
+            {memory?.summary && (
+              <div className={styles.memoryCard}>
+                <div className={styles.memoryHeader}>
+                  <span>Before this visit</span>
+                  {memory.lastVisitAt && <time>{formatDate(memory.lastVisitAt)}</time>}
+                </div>
+                <p className={styles.memorySummary}>{memory.summary}</p>
+                {memory.medicationChanges && (
+                  <div className={styles.memorySection}>
+                    <strong>Medication changes</strong>
+                    <p>{memory.medicationChanges}</p>
+                  </div>
+                )}
+                {memory.investigations && (
+                  <div className={styles.memorySection}>
+                    <strong>Investigations</strong>
+                    <p>{memory.investigations}</p>
+                  </div>
+                )}
+                {memory.followUpPlan && (
+                  <div className={styles.memorySection}>
+                    <strong>Follow-up plan</strong>
+                    <p>{memory.followUpPlan}</p>
+                  </div>
+                )}
+                {memory.patientInstructions && (
+                  <div className={styles.memorySection}>
+                    <strong>Patient instructions</strong>
+                    <p>{memory.patientInstructions}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className={styles.timeline}>
               <div className={styles.sectionTitle}>

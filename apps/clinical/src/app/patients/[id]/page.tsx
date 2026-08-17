@@ -36,7 +36,7 @@ export default async function PatientDetailPage({
   const detail = await getPatientDetail(id, session.clinicId);
   if (!detail) notFound();
 
-  const { patient, timeline, consultations } = detail;
+  const { patient, timeline, consultations, memory } = detail;
   const clinicName = await getClinicName(session.clinicId);
   const { total: patientCount } = await getPatients(session.clinicId, { pageSize: 1 });
 
@@ -110,6 +110,55 @@ export default async function PatientDetailPage({
                 <dd>{patient.address ?? "Not recorded"}</dd>
               </div>
             </dl>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.panelTitle}>
+              <div>
+                <p className={styles.eyebrow}>Follow-up memory</p>
+                <h2>Before the next visit</h2>
+              </div>
+              <span className={styles.panelHint}>Approved notes only</span>
+            </div>
+
+            {!memory.summary ? (
+              <div className={styles.emptyState}>
+                <strong>No approved visits yet</strong>
+                <p>Once a note is approved, its summary appears here for follow-ups.</p>
+              </div>
+            ) : (
+              <div className={styles.memoryCard}>
+                <div className={styles.memoryHeader}>
+                  <span>Last approved visit</span>
+                  {memory.lastVisitAt && <time>{formatDate(memory.lastVisitAt)}</time>}
+                </div>
+                <p className={styles.memorySummary}>{memory.summary}</p>
+                {memory.medicationChanges && (
+                  <div className={styles.memorySection}>
+                    <strong>Medication changes</strong>
+                    <p>{memory.medicationChanges}</p>
+                  </div>
+                )}
+                {memory.investigations && (
+                  <div className={styles.memorySection}>
+                    <strong>Investigations</strong>
+                    <p>{memory.investigations}</p>
+                  </div>
+                )}
+                {memory.followUpPlan && (
+                  <div className={styles.memorySection}>
+                    <strong>Follow-up plan</strong>
+                    <p>{memory.followUpPlan}</p>
+                  </div>
+                )}
+                {memory.patientInstructions && (
+                  <div className={styles.memorySection}>
+                    <strong>Patient instructions</strong>
+                    <p>{memory.patientInstructions}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
 
           <section className={styles.panel}>
