@@ -20,10 +20,6 @@ function initials(name: string): string {
     .join("");
 }
 
-function timelineTitle(eventType: string): string {
-  return eventType === "follow_up" ? "Follow-up note" : eventType.replace(/_/g, " ");
-}
-
 export default async function PatientDetailPage({
   params,
 }: {
@@ -36,7 +32,7 @@ export default async function PatientDetailPage({
   const detail = await getPatientDetail(id, session.clinicId);
   if (!detail) notFound();
 
-  const { patient, timeline, consultations, memory } = detail;
+  const { patient, consultations, memory } = detail;
   const clinicName = await getClinicName(session.clinicId);
   const { total: patientCount } = await getPatients(session.clinicId, { pageSize: 1 });
 
@@ -164,38 +160,10 @@ export default async function PatientDetailPage({
           <section className={styles.panel}>
             <div className={styles.panelTitle}>
               <div>
-                <p className={styles.eyebrow}>Clinical memory</p>
-                <h2>Approved history</h2>
-              </div>
-              <span className={styles.panelHint}>Draft and rejected notes excluded</span>
-            </div>
-
-            {timeline.length === 0 ? (
-              <div className={styles.emptyState}>
-                <strong>No approved notes yet</strong>
-                <p>Approved consultations will appear here.</p>
-              </div>
-            ) : (
-              <div className={styles.timeline}>
-                {timeline.map((event) => (
-                  <article key={event.id}>
-                    <time>{formatDate(event.createdAt)}</time>
-                    <div>
-                      <strong>{timelineTitle(event.eventType)}</strong>
-                      {event.summary ? <p>{event.summary}</p> : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className={styles.panel}>
-            <div className={styles.panelTitle}>
-              <div>
                 <p className={styles.eyebrow}>Activity</p>
-                <h2>Consultations</h2>
+                <h2>Consultation history</h2>
               </div>
+              <span className={styles.panelHint}>Newest first</span>
             </div>
 
             {consultations.length === 0 ? (
@@ -211,11 +179,15 @@ export default async function PatientDetailPage({
                       href={`/consultations/${consultation.id}`}
                       className={styles.consultationRow}
                     >
-                      <div>
-                        <strong>{formatRelativeDay(consultation.startedAt)}</strong>
-                        <span>{formatDate(consultation.startedAt)}</span>
+                      <div className={styles.consultationRowMain}>
+                        <div className={styles.consultationRowHead}>
+                          <strong>{formatRelativeDay(consultation.startedAt)}</strong>
+                          <StatusBadge status={consultation.status} />
+                        </div>
+                        <span className={styles.consultationRowPreview}>
+                          {consultation.noteSummary ?? "No note yet"}
+                        </span>
                       </div>
-                      <StatusBadge status={consultation.status} />
                       <Icon name="chevron" />
                     </Link>
                   </li>

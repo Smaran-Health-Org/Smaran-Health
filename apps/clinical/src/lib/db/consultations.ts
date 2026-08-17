@@ -21,6 +21,42 @@ export async function getConsultations(
   return (data as Consultation[]) ?? [];
 }
 
+export type ConsultationWithNote = Consultation & {
+  noteStatus: string | null;
+  noteSummary: string | null;
+};
+
+export async function getConsultationsWithNotes(
+  patientId: string,
+  clinicId: string
+): Promise<ConsultationWithNote[]> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("consultations")
+    .select(`${CONSULTATION_COLUMNS}, note:clinical_notes(content,status)`)
+    .eq("patient_id", patientId)
+    .eq("clinic_id", clinicId)
+    .order("started_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch consultation history: ${error.message}`);
+
+  const rows = (data as unknown as Array<
+    Consultation & {
+      note?: { content?: { summary?: string } | null; status?: string }[] | null;
+    }
+  >) ?? [];
+
+  return rows.map((row) => {
+    const note = row.note?.[0];
+    const summary = note?.content?.summary?.trim();
+    return {
+      ...row,
+      noteStatus: note?.status ?? null,
+      noteSummary: summary && summary !== "None." && summary !== "None stated." ? summary : null,
+    };
+  });
+}
+
 export type ConsultationWithPatient = Consultation & {
   patientFullName: string | null;
   draftStatus: string | null;

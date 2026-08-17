@@ -1148,24 +1148,50 @@ export function ConsultationWorkflow({
         {state === "approved" && (
           <div className={styles.outcomePanel}>
             <span className={styles.successIcon} aria-hidden="true">✓</span>
-            <p className={styles.eyebrow}>Doctor action recorded</p>
-            <h2>Note approved and added to memory</h2>
-            <p>
-              The patient timeline now includes this visit. Approval is the only path that creates
-              the new event.
-            </p>
-            <div className={styles.outcomeEvent}>
-              <strong>Today · Current consultation</strong>
-              <p>{draftFields.summary || "Consultation note"}</p>
-              <small>Approved · Doctor action</small>
+            <p className={styles.eyebrow}>Approved clinical note</p>
+            <h2>Added to patient memory</h2>
+
+            <div className={styles.memoryCard}>
+              <div className={styles.memoryHeader}>
+                <span>Approved note</span>
+              </div>
+              <p className={styles.memorySummary}>{draftFields.summary || "No summary recorded."}</p>
+
+              <details className={styles.noteDetails}>
+                <summary>View full note</summary>
+                <div className={styles.noteReadonly}>
+                  {[
+                    ["Chief complaint", draftFields.chiefComplaint],
+                    ["Medication changes", draftFields.medicationChanges],
+                    ["Investigations", draftFields.investigations],
+                    ["Follow-up plan", draftFields.followUpPlan],
+                    ["Patient instructions", draftFields.patientInstructions],
+                    ["Uncertain items", draftFields.uncertainItems],
+                  ]
+                    .filter(
+                      ([, value]) =>
+                        value &&
+                        value.trim() &&
+                        value.trim() !== "None." &&
+                        value.trim() !== "None stated."
+                    )
+                    .map(([label, value]) => (
+                      <div key={label as string}>
+                        <strong>{label}</strong>
+                        <p>{value}</p>
+                      </div>
+                    ))}
+                </div>
+              </details>
             </div>
+
             <div className={styles.actions}>
               <button
                 type="button"
                 className={styles.secondaryButton}
                 onClick={() => router.push(`/patients/${patient.id}`)}
               >
-                View updated patient profile
+                View patient profile
               </button>
               <button
                 type="button"
