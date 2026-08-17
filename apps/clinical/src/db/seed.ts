@@ -136,6 +136,48 @@ async function seed() {
       }
       console.log(`✓ Consultation: ${cons.id} (${cons.status})`);
     }
+
+    // ── 5. Sample draft note on the latest consultation (demo of review flow) ──
+
+    const { data: draftCons } = await supabase
+      .from("consultations")
+      .select("id")
+      .eq("patient_id", patient1.id)
+      .eq("status", "draft")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (draftCons) {
+      const { error: noteErr } = await supabase.from("clinical_notes").insert({
+        consultation_id: draftCons.id,
+        clinic_id: clinic.id,
+        doctor_id: profile1.id,
+        status: "ai_draft",
+        content: {
+          summary:
+            "Type 2 diabetes follow-up. HbA1c improved from 8.1% to 7.4% on metformin 500mg twice daily. Advised walking 30 min/day and reduced sugar intake. Next review in 3 months with repeat HbA1c.",
+          medicationChanges: "No change — metformin 500mg BD continued.",
+          investigations: "HbA1c reviewed (7.4%).",
+          uncertainItems: "",
+        },
+      });
+
+      if (noteErr) {
+        console.error(`Failed to create sample note:`, noteErr.message);
+      } else {
+        const { error: readyErr } = await supabase
+          .from("consultations")
+          .update({ status: "draft_ready" })
+          .eq("id", draftCons.id);
+
+        if (readyErr) {
+          console.error(`Failed to mark consultation ready for review:`, readyErr.message);
+        } else {
+          console.log(`✓ Sample draft note created (consultation ${draftCons.id}) — dashboard will show it under "Needs your review"`);
+        }
+      }
+    }
   }
 
   console.log("\n✅ Seed complete!");
