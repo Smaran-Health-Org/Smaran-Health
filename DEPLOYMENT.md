@@ -6,8 +6,8 @@
 
 | Item | Value |
 | --- | --- |
-| Clinical app (live) | **https://clinical-dusky-alpha.vercel.app** |
-| Vercel project | `kshav99s-projects/clinical` (deployed via CLI from `dev-keshav` branch) |
+| Clinical app (live) | **https://smaran-health.vercel.app** |
+| Vercel project | `kshav99s-projects/smaran-health` (deployed via CLI from `dev-keshav` branch) |
 | Supabase project | `fkdfhojrlbdckrodufkj` (region: user's choice, see Supabase dashboard) |
 | Supabase auth | signups disabled; seed accounts `doctor1@pilot.test` / `pilot123!`, `doctor2@pilot.test` / `pilot123!` |
 | Storage | private `audio` bucket (50 MB file cap — free tier) |
