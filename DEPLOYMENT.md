@@ -2,6 +2,17 @@
 
 **Status:** Draft guide (16 Aug 2026) · **Applies to:** the clinical app (`apps/clinical`) and the marketing site (`apps/website`)
 
+## Deployment record (17 Aug 2026)
+
+| Item | Value |
+| --- | --- |
+| Clinical app (live) | **https://clinical-dusky-alpha.vercel.app** |
+| Vercel project | `kshav99s-projects/clinical` (deployed via CLI from `dev-keshav` branch) |
+| Supabase project | `fkdfhojrlbdckrodufkj` (region: user's choice, see Supabase dashboard) |
+| Supabase auth | signups disabled; seed accounts `doctor1@pilot.test` / `pilot123!`, `doctor2@pilot.test` / `pilot123!` |
+| Storage | private `audio` bucket (50 MB file cap — free tier) |
+| Remaining config | set Supabase Auth → URL Configuration → Site URL + redirect URL to the live URL (optional for password login, required for email links) |
+
 This document explains how to host this project **entirely on free-tier cloud services**, and exactly how to do it step by step. It matches the architecture decision already locked in `PROJECT_MEMORY.md` (Next.js App Router + Supabase Postgres/Auth/Storage) and the stack recommended in `AGENTS.md` (Vercel deployment).
 
 > **Cost today: ₹0 / $0 per month.** The only future paid item is the OpenAI API key (pay-per-use) when server-side AI transcription/extraction is enabled — that is an AI cost, not a hosting cost.
