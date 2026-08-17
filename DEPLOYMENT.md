@@ -113,6 +113,28 @@ Dashboard → **Authentication → Policies**: default session settings are fine
 
 The repo already has a remote: `https://github.com/DrSmaranAI/Smaran-Health.git`.
 
+### B0. Deploy without GitHub (Vercel CLI) — chosen path for this deployment
+
+If the GitHub import is unavailable (e.g. a GitHub incident) or you prefer not to
+link the repo, the Vercel CLI deploys the local directory directly — no GitHub
+involvement, and nothing needs to be pushed:
+
+1. Create an access token at <https://vercel.com/account/tokens> (name it e.g. `cli-deploy`).
+2. From `apps/clinical` (project ref `fkdfhojrlbdckrodufkj`):
+
+   ```bash
+   npx vercel deploy --prod --yes --token <token> \
+     -b NEXT_PUBLIC_SUPABASE_URL=https://fkdfhojrlbdckrodufkj.supabase.co \
+     -b NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key> \
+     -e SUPABASE_SERVICE_ROLE_KEY=<service-role key>
+   ```
+
+   `-b` = build-time env (required for `NEXT_PUBLIC_*`), `-e` = runtime env.
+   The project is auto-created under your Vercel account and the command prints
+   the production URL (e.g. `https://clinical-<hash>.vercel.app`).
+
+3. Then set Supabase Auth → URL Configuration → Site URL + Redirect URL to that URL (see B5).
+
 ### B2. Import into Vercel
 
 1. Sign up at <https://vercel.com> with GitHub.
