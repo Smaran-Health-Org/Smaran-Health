@@ -875,6 +875,11 @@ export function ConsultationWorkflow({
                 Begin recording
               </button>
             </div>
+            {!consentConfirmed && (
+              <p className={styles.consentHint} role="note">
+                <Icon name="alert" /> Tick the consent checkbox above to enable recording.
+              </p>
+            )}
           </div>
         )}
 
