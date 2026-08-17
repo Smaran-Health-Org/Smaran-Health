@@ -61,7 +61,15 @@ export async function createPatient(
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from("patients")
-    .insert({ ...input, clinic_id: clinicId })
+    .insert({
+      full_name: input.fullName,
+      age: input.age ?? null,
+      gender: input.gender ?? null,
+      phone: input.phone ?? null,
+      address: input.address ?? null,
+      medical_record_number: input.medicalRecordNumber ?? null,
+      clinic_id: clinicId,
+    })
     .select("*")
     .single();
 
@@ -82,9 +90,18 @@ export async function updatePatient(
   clinicId: string
 ): Promise<Patient> {
   const supabase = await createServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: Record<string, any> = {};
+  if (input.fullName !== undefined) updateData.full_name = input.fullName;
+  if (input.age !== undefined) updateData.age = input.age;
+  if (input.gender !== undefined) updateData.gender = input.gender;
+  if (input.phone !== undefined) updateData.phone = input.phone;
+  if (input.address !== undefined) updateData.address = input.address;
+  if (input.medicalRecordNumber !== undefined) updateData.medical_record_number = input.medicalRecordNumber;
+
   const { data, error } = await supabase
     .from("patients")
-    .update(input)
+    .update(updateData)
     .eq("id", id)
     .eq("clinic_id", clinicId)
     .select("*")
