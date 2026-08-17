@@ -285,6 +285,8 @@
 .consentDetails dd { margin: 0.3rem 0 0; font-size: 0.75rem; font-weight: 700; line-height: 1.4; }
 .consentCheck, .reviewCheck { display: flex; gap: 0.75rem; align-items: start; border: 1px solid #bcdccb; border-radius: 13px; background: #eff8f4; padding: 0.9rem; font-size: 0.76rem; font-weight: 750; line-height: 1.45; }
 .consentCheck input, .reviewCheck input { width: 1.05rem; height: 1.05rem; margin-top: 0.1rem; accent-color: var(--green); }
+.consentHint { display: flex; align-items: center; gap: 0.4rem; margin: 0.7rem 0 0; padding: 0.6rem 0.75rem; border: 1px solid #eedfb8; border-radius: 10px; background: #fffaf0; color: #8a6d1f; font-size: 0.72rem; font-weight: 700; }
+.consentHint svg { width: 14px; height: 14px; flex: none; }
 .actions { justify-content: flex-end; margin-top: 1.3rem; }
 
 .recordingPanel { padding: clamp(1.25rem, 2.5vw, 1.8rem); }
