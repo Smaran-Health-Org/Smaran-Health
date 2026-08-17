@@ -283,6 +283,16 @@ Never commit `.env.local` or secrets to GitHub.
 
 ---
 
+## Deployment (Free Tier)
+
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for a complete, step-by-step guide to
+hosting this project on free-tier cloud services:
+
+- **Clinical app** (`apps/clinical`) → Vercel Hobby (free) + Supabase Free (Postgres, Auth, Storage)
+- **Marketing site** (`apps/website`) → Cloudflare free tier (Workers/Pages)
+
+---
+
 ## Getting Started
 
 ### 1. Clone the repository
