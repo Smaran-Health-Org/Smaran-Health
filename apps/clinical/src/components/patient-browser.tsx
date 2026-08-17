@@ -6,13 +6,23 @@ import { StartConsultationButton } from "@/components/start-consultation";
 import { StatusBadge } from "@/components/status-badge";
 import { Icon } from "@/components/icons";
 import { formatDate, formatRelativeDay } from "@/lib/status";
-import type { Patient, PatientTimelineEvent, Consultation } from "@/types";
+import type { Patient, Consultation } from "@/types";
 import styles from "@/components/clinical.module.css";
+
+type MemoryPreview = {
+  summary: string | null;
+  lastVisitAt: string | null;
+};
+
+type ConsultationPreview = Consultation & {
+  noteStatus?: string | null;
+  noteSummary?: string | null;
+};
 
 type PatientDetail = {
   patient: Patient;
-  timeline: PatientTimelineEvent[];
-  consultations: Consultation[];
+  consultations: ConsultationPreview[];
+  memory: MemoryPreview | null;
 };
 
 function initials(name: string): string {
@@ -22,10 +32,6 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
-}
-
-function timelineTitle(eventType: string): string {
-  return eventType === "follow_up" ? "Follow-up note" : eventType.replace(/_/g, " ");
 }
 
 function patientMeta(patient: Patient): string {
@@ -79,7 +85,7 @@ export function PatientBrowser({ patients }: { patients: Patient[] }) {
 
   const detailMatches = detail?.patient?.id === selectedId;
   const selectedPatient = detailMatches ? detail!.patient : undefined;
-  const timeline = detailMatches ? detail!.timeline : [];
+  const memory = detailMatches ? detail!.memory : null;
   const consultations = detailMatches ? detail!.consultations : [];
 
   return (
@@ -166,22 +172,19 @@ export function PatientBrowser({ patients }: { patients: Patient[] }) {
                 </div>
 
                 <div className={styles.detailSection}>
-                  <p className={styles.eyebrow}>Clinical memory</p>
-                  <h3>Approved history</h3>
-                  {timeline.length === 0 ? (
-                    <p className={styles.detailMuted}>No approved notes yet.</p>
+                  <p className={styles.eyebrow}>Follow-up memory</p>
+                  <h3>Before the next visit</h3>
+                  {!memory?.summary ? (
+                    <p className={styles.detailMuted}>No approved visits yet.</p>
                   ) : (
-                    <ul className={styles.detailTimeline}>
-                      {timeline.slice(0, 3).map((event) => (
-                        <li key={event.id}>
-                          <time>{formatDate(event.createdAt)}</time>
-                          <div>
-                            <strong>{timelineTitle(event.eventType)}</strong>
-                            {event.summary ? <p>{event.summary}</p> : null}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                    <>
+                      {memory.lastVisitAt && (
+                        <time className={styles.detailMuted}>
+                          Last visit · {formatDate(memory.lastVisitAt)}
+                        </time>
+                      )}
+                      <p className={styles.detailSummary}>{memory.summary}</p>
+                    </>
                   )}
                 </div>
 
