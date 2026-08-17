@@ -141,14 +141,15 @@ Do not use phrases such as "minimal hallucination," "near zero," "most visits," 
 
 Fifty consultations may validate workflow usability but must not be presented as broad clinical-safety validation. Character-level edit distance alone is not an adequate clinical quality measure; use field-level accuracy, severity-weighted errors, and doctor review time.
 
-### Current repository position on 4 August 2026
+### Current repository position on 18 August 2026
 
 - Founder documentation, `AGENTS.md`, and project memory exist.
 - A public-facing landing-page prototype exists under `apps/website`.
-- No completed clickable doctor workflow or doctor-discovery evidence is visible in the repository.
-- The current application database schema is empty.
-- Clinical authentication, recording, transcription, structured extraction, approval, and memory pipelines are not yet implemented.
-- The repository is therefore between founder setup and clickable-prototype validation, not at the technical MVP or clinic-pilot stage.
+- A **working end-to-end clinical app** exists under `apps/clinical` and is **deployed** at https://smaran-health.vercel.app (Vercel + Supabase cloud). See `DEPLOYMENT.md`.
+- Implemented: doctor auth (admin-provisioned, no signup), clinic-scoped patients/consultations, browser recording + live transcription, DeepSeek AI structured draft (7 fields incl. uncertain items), consent checkpoint, doctor review/approval (approval-only memory), follow-up memory card, unified consultation history, audit logging + RLS.
+- Branch strategy: `dev-local` (local iteration) and `dev-keshav` (deployable).
+- Not yet built: audio persistence, print/PDF export, patient-facing consent script, feedback form, pending-investigations tracker, data export/deletion (see `ROADMAP.md`).
+- The repository is therefore at the **technical MVP / working-prototype stage**, ahead of a controlled real-patient pilot (which still requires the safety gates below).
 
 ## Regulatory memory
 
