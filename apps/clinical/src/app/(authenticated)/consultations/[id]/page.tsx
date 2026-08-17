@@ -7,7 +7,7 @@ import { Avatar, Badge, consultationStatusBadge } from "@/components/ui";
 import { ConsultationWorkspace } from "@/components/consultation-workspace";
 import { ArrowLeftIcon, CalendarIcon, PhoneIcon } from "@/components/icons";
 
-function formatDate(iso: string) {
+function formatDate(iso: Date | string) {
   return new Date(iso).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
@@ -15,7 +15,7 @@ function formatDate(iso: string) {
   });
 }
 
-function formatTime(iso: string) {
+function formatTime(iso: Date | string) {
   return new Date(iso).toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",

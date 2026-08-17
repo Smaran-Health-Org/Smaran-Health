@@ -39,7 +39,7 @@ export async function getRecentConsultations(
 
   if (error) throw new Error(`Failed to fetch recent consultations: ${error.message}`);
 
-  return ((data as Array<Consultation & { patient: { full_name: string } | null }>) ?? []).map(
+  return ((data ?? []) as unknown as Array<Consultation & { patient: { full_name: string } | null }>).map(
     (row) => ({
       ...row,
       patientFullName: row.patient?.full_name ?? null,
