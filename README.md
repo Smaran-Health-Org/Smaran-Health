@@ -156,20 +156,28 @@ This repository is intended to use a solo-founder-friendly stack:
 ```text
 .
 ├── apps/
-│   └── website/          # Public landing-page prototype
+│   ├── clinical/          # Production clinical app (Next.js 16 + Supabase + DeepSeek)
+│   └── website/           # Public landing-page prototype (Vinext + Cloudflare)
 ├── docs/
 │   └── source/           # Authoritative founder source documents
 ├── AGENTS.md
 ├── PRODUCT.md
 ├── PROJECT_MEMORY.md
 ├── README.md
+├── DEPLOYMENT.md          # Free-tier cloud hosting guide
 └── ROADMAP.md
 ```
 
-The clinical application will be added under `apps/` only after the production
-architecture decision in `PROJECT_MEMORY.md` is resolved. The current website
-uses Vinext and Cloudflare tooling; it is a marketing prototype, not the
-production clinical data architecture.
+The clinical application lives in `apps/clinical`. It is deployed to Vercel and
+backed by Supabase (Postgres/Auth/Storage); see `DEPLOYMENT.md`. The website
+(`apps/website`) is a marketing prototype, not the production clinical data
+architecture.
+
+### Branches
+
+- `dev-local` — for local development & fast UI iteration (local Supabase via Docker)
+- `dev-keshav` — the deployable branch (deployed to Vercel)
+- `main` — legacy planning branch (not deployed)
 
 ---
 
@@ -480,12 +488,27 @@ Do not position the product as only a transcription app. The durable value is in
 ## Current Status
 
 ```text
-Status: MVP planning / early build
+Status: Working end-to-end prototype (deployed)
 Founder: Solo founder
-Target: First working prototype
-Initial users: Friendly specialist doctors
+Live: https://smaran-health.vercel.app  (Supabase cloud backend)
+Local: apps/clinical → npm run dev (local Supabase via Docker, see SETUP.md)
 Primary goal: Validate doctor trust and repeat usage
 ```
+
+Built so far:
+
+- Doctor auth (email/password, admin-provisioned accounts, no public signup)
+- Clinic-scoped patients, consultations, and patient profiles
+- Browser recording with live transcription (Web Speech API)
+- AI structured draft note — DeepSeek populates 7 fields (summary, chief complaint,
+  medication changes, investigations, follow-up plan, patient instructions, uncertain items)
+- Consent checkpoint before recording; doctor review + approval workflow (approval-only memory)
+- Follow-up memory card (approved notes only) on the patient profile and before a visit
+- Unified consultation history with note previews
+- Audit logging + row-level security (RLS) throughout
+
+Not yet built (see ROADMAP.md): audio persistence, print/PDF export, patient-facing
+consent script, feedback form, pending-investigations tracker.
 
 ---
 

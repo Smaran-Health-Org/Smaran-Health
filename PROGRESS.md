@@ -1,11 +1,23 @@
 # Phase 1 Implementation Tracker
 
 **Started**: 12 Aug 2026
-**Goal**: Clone-and-run clinical app skeleton (Next.js + Supabase)
+**Last updated**: 18 Aug 2026
+**Goal**: Clone-and-run clinical app → AI-structured notes → follow-up memory → deployed (cloud + local)
 
 ---
 
 ## Progress Log
+
+### 17–18 Aug 2026 — Deployment + AI Structured Notes + Follow-Up Memory ✅
+
+- [x] **Deployed to free-tier cloud:** Vercel (`https://smaran-health.vercel.app`) + Supabase cloud (`fkdfhojrlbdckrodufkj`). Migrations applied, private `audio` bucket, signups disabled, seeded. See `DEPLOYMENT.md`.
+- [x] **Branch strategy:** `dev-local` (local iteration) and `dev-keshav` (deployable). `main` left untouched.
+- [x] **Local dev stack:** Docker + local Supabase + seed + dev server, documented in `apps/clinical/SETUP.md`.
+- [x] **DeepSeek AI layer:** `src/lib/ai/` — text-only extraction client, zod-validated schema, versioned prompt (`v0.2.0`), generate route (`/api/consultations/[id]/generate`). Works locally and on cloud via `DEEPSEEK_API_KEY`.
+- [x] **AI-populated structured note (7 fields):** chief complaint, summary, medication changes, investigations, follow-up plan, patient instructions, uncertain items — surfaced for verification in the editor.
+- [x] **Follow-up memory card:** latest approved note (summary + key fields) on the patient profile and as a "Before this visit" card when starting a consultation. Built from approved notes only.
+- [x] **Unified consultation history:** one chronological list on the profile with note-summary previews; approved consultations open a read-only summary + expandable full note.
+- [x] **Fixes:** patient-name resolution (PostgREST object-vs-array), patient insert snake_case, login autofill (form DOM read), dashboard draft-preview column.
 
 ### 12 Aug 2026 — Full Skeleton Done ✅
 

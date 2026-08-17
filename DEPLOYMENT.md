@@ -13,6 +13,12 @@
 | Storage | private `audio` bucket (50 MB file cap — free tier) |
 | Remaining config | set Supabase Auth → URL Configuration → Site URL + redirect URL to the live URL (optional for password login, required for email links) |
 
+### Branch strategy
+
+- **`dev-local`** — local development & fast UI iteration (local Supabase via Docker, `SETUP.md`).
+- **`dev-keshav`** — the deployable branch; deploy it with the Vercel CLI command below.
+- Flow: iterate on `dev-local` → sync `apps/clinical` into `dev-keshav` → `vercel deploy --prod`.
+
 This document explains how to host this project **entirely on free-tier cloud services**, and exactly how to do it step by step. It matches the architecture decision already locked in `PROJECT_MEMORY.md` (Next.js App Router + Supabase Postgres/Auth/Storage) and the stack recommended in `AGENTS.md` (Vercel deployment).
 
 > **Cost today: ₹0 / $0 per month.** The only future paid item is the OpenAI API key (pay-per-use) when server-side AI transcription/extraction is enabled — that is an AI cost, not a hosting cost.
@@ -137,7 +143,8 @@ involvement, and nothing needs to be pushed:
    npx vercel deploy --prod --yes --token <token> \
      -b NEXT_PUBLIC_SUPABASE_URL=https://fkdfhojrlbdckrodufkj.supabase.co \
      -b NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key> \
-     -e SUPABASE_SERVICE_ROLE_KEY=<service-role key>
+     -e SUPABASE_SERVICE_ROLE_KEY=<service-role key> \
+     -e DEEPSEEK_API_KEY=<deepseek key>
    ```
 
    `-b` = build-time env (required for `NEXT_PUBLIC_*`), `-e` = runtime env.
@@ -166,9 +173,10 @@ Project Settings → **Environment Variables** (add for Production):
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://<ref>.supabase.co` (from A2) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon public key (from A2) |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role secret (from A2) — server-only, never `NEXT_PUBLIC_` |
-| `APP_URL` | `https://<your-app>.vercel.app` |
+| `DEEPSEEK_API_KEY` | DeepSeek key (server-side) — powers the AI draft extraction |
+| `APP_URL` | `https://<your-app>.vercel.app` (not referenced by the app currently) |
 
-Optional (leave empty until Phase 4): `OPENAI_API_KEY`.
+Optional (leave empty): `OPENAI_API_KEY` — only if you add server-side audio transcription (Whisper) later.
 
 > **Security:** Vercel only exposes `NEXT_PUBLIC_*` variables to the browser bundle; `SUPABASE_SERVICE_ROLE_KEY` stays server-side. Never rename it to `NEXT_PUBLIC_*`.
 
