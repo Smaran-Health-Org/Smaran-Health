@@ -1,0 +1,14 @@
+node_modules
+dist
+.next
+.wrangler
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+npm-debug.log*
+dev*.log
+dev*.err
+.DS_Store
+.tmp-video-frames
