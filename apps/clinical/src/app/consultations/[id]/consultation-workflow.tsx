@@ -246,6 +246,7 @@ export function ConsultationWorkflow({
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
   const [saving, setSaving] = useState<"draft" | "approve" | "reject" | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -589,15 +590,32 @@ export function ConsultationWorkflow({
 
   async function openPreparedDraft() {
     setError(null);
-    setDraftFields((current) =>
-      current.summary.trim() ? current : { ...current, summary: transcript.trim() }
-    );
+    setGenerating(true);
     try {
-      await patchConsultation({ status: "draft_ready" });
-    } catch {
-      // A failed status update should not block the doctor from reviewing.
+      const res = await fetch(`/api/consultations/${consultationId}/generate`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "AI draft generation failed.");
+      }
+      const data = await res.json();
+      if (data?.draft) {
+        setDraftFields((current) => ({ ...current, ...data.draft }));
+      }
+      setReviewConfirmed(false);
+      setDraftSaved(false);
+      setState("review");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `${err.message} You can write the note manually instead.`
+          : "AI draft generation failed. You can write the note manually instead."
+      );
+      setState("failed");
+    } finally {
+      setGenerating(false);
     }
-    setState("review");
   }
 
   async function cancelRecording() {
@@ -934,14 +952,19 @@ export function ConsultationWorkflow({
             <div className={styles.processingSteps}>
               <span>✓ Recording received</span>
               <span>✓ Transcript prepared</span>
-              <span>• Validating draft structure</span>
+              <span>• Generating draft with AI</span>
             </div>
             <div className={styles.actions}>
               <button type="button" className={styles.secondaryButton} onClick={simulateFailure}>
                 Simulate failure
               </button>
-              <button type="button" className={styles.primaryButton} onClick={openPreparedDraft}>
-                Open prepared draft
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={openPreparedDraft}
+                disabled={generating}
+              >
+                {generating ? "Generating draft…" : "Open prepared draft"}
               </button>
             </div>
           </div>
