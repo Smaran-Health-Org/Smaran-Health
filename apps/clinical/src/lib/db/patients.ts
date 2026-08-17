@@ -62,15 +62,15 @@ export async function createPatient(
   const { data, error } = await supabase
     .from("patients")
     .insert({
-      full_name: input.fullName,
-      age: input.age ?? null,
-      gender: input.gender ?? null,
-      phone: input.phone ?? null,
-      address: input.address ?? null,
-      medical_record_number: input.medicalRecordNumber ?? null,
       clinic_id: clinicId,
+      full_name: input.fullName,
+      age: input.age,
+      gender: input.gender,
+      phone: input.phone,
+      address: input.address,
+      medical_record_number: input.medicalRecordNumber,
     })
-    .select("*")
+    .select(PATIENT_COLUMNS)
     .single();
 
   if (error) throw new Error(`Failed to create patient: ${error.message}`);
@@ -90,21 +90,20 @@ export async function updatePatient(
   clinicId: string
 ): Promise<Patient> {
   const supabase = await createServerClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateData: Record<string, any> = {};
-  if (input.fullName !== undefined) updateData.full_name = input.fullName;
-  if (input.age !== undefined) updateData.age = input.age;
-  if (input.gender !== undefined) updateData.gender = input.gender;
-  if (input.phone !== undefined) updateData.phone = input.phone;
-  if (input.address !== undefined) updateData.address = input.address;
-  if (input.medicalRecordNumber !== undefined) updateData.medical_record_number = input.medicalRecordNumber;
+  const row: Record<string, unknown> = {};
+  if (input.fullName !== undefined) row.full_name = input.fullName;
+  if (input.age !== undefined) row.age = input.age;
+  if (input.gender !== undefined) row.gender = input.gender;
+  if (input.phone !== undefined) row.phone = input.phone;
+  if (input.address !== undefined) row.address = input.address;
+  if (input.medicalRecordNumber !== undefined) row.medical_record_number = input.medicalRecordNumber;
 
   const { data, error } = await supabase
     .from("patients")
-    .update(updateData)
+    .update(row)
     .eq("id", id)
     .eq("clinic_id", clinicId)
-    .select("*")
+    .select(PATIENT_COLUMNS)
     .single();
 
   if (error) throw new Error(`Failed to update patient: ${error.message}`);

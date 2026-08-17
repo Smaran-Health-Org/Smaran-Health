@@ -1,45 +1,47 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui";
-import { MicIcon } from "@/components/icons";
+import { useState } from "react";
+import styles from "@/components/clinical.module.css";
 
-export function StartConsultationButton({ patientId }: { patientId: string }) {
+export function StartConsultationButton({
+  patientId,
+  label = "Start consultation",
+}: {
+  patientId: string;
+  label?: string;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   async function handleStart() {
     setLoading(true);
-    setError("");
+    try {
+      const res = await fetch("/api/consultations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patientId }),
+      });
 
-    const res = await fetch("/api/consultations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patientId }),
-    });
+      if (!res.ok) {
+        throw new Error("Could not start consultation");
+      }
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Could not start consultation");
+      const consultation = await res.json();
+      router.push(`/consultations/${consultation.id}`);
+    } catch {
       setLoading(false);
-      return;
     }
-
-    const consultation = await res.json();
-    setLoading(false);
-    router.push(`/consultations/${consultation.id}`);
-    router.refresh();
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <Button onClick={handleStart} disabled={loading} className="w-full sm:w-auto">
-        <MicIcon className="h-4 w-4" />
-        {loading ? "Starting…" : "Start Consultation"}
-      </Button>
-      {error && <p className="text-xs font-medium text-red-600">{error}</p>}
-    </div>
+    <button
+      type="button"
+      className={styles.primaryButton}
+      onClick={handleStart}
+      disabled={loading}
+    >
+      {loading ? "Starting…" : label}
+    </button>
   );
 }

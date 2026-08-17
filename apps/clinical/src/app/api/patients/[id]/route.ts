@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import { getPatient, updatePatient } from "@/lib/db/patients";
+import { getPatientDetail } from "@/lib/db/patient-detail";
 import { createAuditLog } from "@/lib/db/audit";
 import { updatePatientSchema } from "@/lib/validation";
 import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
@@ -13,10 +14,10 @@ export async function GET(
   const session = await getSessionContext();
   if (!session) return unauthorized();
 
-  const patient = await getPatient(id, session.clinicId);
-  if (!patient) return notFound("Patient not found");
+  const detail = await getPatientDetail(id, session.clinicId);
+  if (!detail) return notFound("Patient not found");
 
-  return NextResponse.json(patient);
+  return NextResponse.json(detail);
 }
 
 export async function PATCH(

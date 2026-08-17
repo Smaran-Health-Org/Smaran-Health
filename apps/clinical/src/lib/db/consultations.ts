@@ -39,12 +39,37 @@ export async function getRecentConsultations(
 
   if (error) throw new Error(`Failed to fetch recent consultations: ${error.message}`);
 
-  return ((data ?? []) as unknown as Array<Consultation & { patient: { full_name: string } | null }>).map(
-    (row) => ({
-      ...row,
-      patientFullName: row.patient?.full_name ?? null,
-    })
-  );
+  const rows = (data as unknown as Array<
+    Consultation & { patient: { full_name: string }[] | null }
+  >) ?? [];
+
+  return rows.map((row) => ({
+    ...row,
+    patientFullName: row.patient?.[0]?.full_name ?? null,
+  }));
+}
+
+export async function getPendingConsultations(
+  clinicId: string
+): Promise<ConsultationWithPatient[]> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("consultations")
+    .select(`${CONSULTATION_COLUMNS}, patient:patients(full_name)`)
+    .eq("clinic_id", clinicId)
+    .eq("status", "draft_ready")
+    .order("started_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch pending consultations: ${error.message}`);
+
+  const rows = (data as unknown as Array<
+    Consultation & { patient: { full_name: string }[] | null }
+  >) ?? [];
+
+  return rows.map((row) => ({
+    ...row,
+    patientFullName: row.patient?.[0]?.full_name ?? null,
+  }));
 }
 
 export async function getConsultation(

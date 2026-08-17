@@ -41,6 +41,27 @@ export const updateConsultationSchema = z.object({
   endedAt: z.string().datetime().optional(),
 });
 
+// ── Clinical note ───────────────────────────────────────────────────────────
+
+export const clinicalNoteContentSchema = z.object({
+  summary: z.string().max(5000),
+  medicationChanges: z.string().max(5000),
+  investigations: z.string().max(5000),
+  uncertainItems: z.string().max(5000),
+});
+
+export const saveClinicalNoteSchema = z.object({
+  status: z.enum(["ai_draft", "edited", "approved", "rejected"]),
+  content: clinicalNoteContentSchema,
+  summary: z.string().max(5000),
+});
+
+// ── Transcript ──────────────────────────────────────────────────────────────
+
+export const saveTranscriptSchema = z.object({
+  rawText: z.string().max(20000),
+});
+
 // ── Auth (login only — no signup) ───────────────────────────────────────────
 
 export const loginSchema = z.object({
