@@ -14,10 +14,16 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setLoading(true);
+
+    // Read values from the form DOM (not only React state): this also captures
+    // browser-autofilled values, which don't always fire React onChange.
+    const formData = new FormData(e.currentTarget);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
 
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithPassword({
@@ -54,6 +60,7 @@ function LoginForm() {
             </label>
             <input
               id="email"
+              name="email"
               type="email"
               required
               value={email}
@@ -69,6 +76,7 @@ function LoginForm() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
               required
               value={password}
