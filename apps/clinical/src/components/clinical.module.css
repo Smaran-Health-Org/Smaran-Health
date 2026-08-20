@@ -304,7 +304,6 @@
 .pausedRail { border-color: #e3ddd2; background: #faf9f6; }
 .pausedRail .recordingRailStatus > span { background: #a78353; box-shadow: 0 0 0 4px rgba(167, 131, 83, 0.1); animation: none; }
 .pausedRail .recordingRailStatus strong { color: #775b35; }
-.pausedRail .waveBar { background: #9ba8a3; animation-play-state: paused; opacity: 0.52; transform: scaleY(0.72); }
 .pausedRail .recordingRailMeta strong { color: #6f685c; }
 .pausedRail .recordingRailMeta i { background: #a78353; }
 .recordingRailStatus {
@@ -325,15 +324,7 @@
 .recordingRailStatus div, .recordingRailMeta { display: grid; gap: 0.18rem; }
 .recordingRailStatus strong { color: #9b3b35; font-size: 0.7rem; }
 .recordingRailStatus small, .recordingRailMeta small { color: #7a8883; font-size: 0.58rem; font-weight: 700; }
-.miniWaveform { display: flex; height: 32px; flex: 1; align-items: center; justify-content: center; gap: 4px; border-inline: 1px solid #e1e7e4; padding-inline: 1rem; }
-.waveBar {
-  width: 3px;
-  min-height: 8px;
-  border-radius: 99px;
-  background: #4aa786;
-  transform-origin: center;
-  animation: waveformPulse 2s ease-in-out infinite;
-}
+.recordingLevel { display: flex; height: 48px; flex: 1; align-items: center; justify-content: center; border-inline: 1px solid #e1e7e4; padding-inline: 0.75rem; }
 .recordingRailMeta { min-width: 165px; text-align: right; }
 .recordingRailMeta strong { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.4rem; color: #315c50; font-size: 0.66rem; }
 .recordingRailMeta i { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: #39a77d; }
@@ -350,7 +341,7 @@
 .liveTranscriptHead span { display: inline-flex; align-items: center; gap: 0.45rem; color: #2c4a41; font-size: 0.7rem; font-weight: 900; }
 .liveTranscriptHead svg { width: 15px; height: 15px; color: var(--green); }
 .liveTranscriptHead small { color: #84908b; font-size: 0.58rem; font-weight: 750; }
-.liveTranscriptBody { min-height: 84px; max-height: 220px; overflow-y: auto; padding: 0.8rem 0.95rem; }
+.liveTranscriptBody { position: relative; min-height: 84px; max-height: 220px; overflow-y: auto; padding: 0.8rem 0.95rem; }
 .liveTranscriptBody p { margin: 0; color: #3a4d47; font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; }
 .liveTranscriptBody .interim { color: #9aa6a1; }
 .liveTranscriptEmpty { color: #98a29e; font-style: italic; }
@@ -360,9 +351,47 @@
 .draftSavedBanner button { flex: 0 0 auto; border: 0; border-radius: 8px; background: var(--green); padding: 0.5rem 0.75rem; color: #fff; font: inherit; font-size: 0.66rem; font-weight: 800; cursor: pointer; }
 .draftSavedBanner button:hover { background: var(--green-dark); }
 .recordingConsentNote { margin: 0.85rem 0 0; border-top: 1px solid #edf0ee; padding-top: 0.7rem; color: #89948f; font-size: 0.57rem; font-weight: 700; line-height: 1.45; text-align: right; }
+.recordingActions { justify-content: space-between; }
+.recordingActionsRight { display: inline-flex; align-items: center; gap: 0.5rem; }
+.discardLink { margin: 0.7rem 0 0; border: 0; background: none; padding: 0; color: #a05a50; font: inherit; font-size: 0.66rem; font-weight: 800; cursor: pointer; text-decoration: underline; }
+.discardLink:hover { color: #8a3d33; }
+.pausedOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: inherit;
+  background: rgba(250, 249, 246, 0.86);
+  color: #775b35;
+  font-size: 0.72rem;
+  font-weight: 800;
+  backdrop-filter: blur(2px);
+}
+.pausedOverlay svg { width: 16px; height: 16px; }
 .processingIcon { display: grid; width: 3.7rem; height: 3.7rem; place-items: center; border-radius: 16px; background: #e6f4ee; color: var(--green); font-weight: 900; letter-spacing: 0.2em; }
 .processingSteps { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.3rem 0; }
 .processingSteps span { border: 1px solid #e1e8e4; border-radius: 999px; background: #f8faf9; padding: 0.45rem 0.65rem; color: #4d625a; font-size: 0.66rem; font-weight: 750; }
+.processingSteps span.stepDone { border-color: #bcdccb; background: #eaf7f1; color: #1d6d56; }
+.processingSteps span.stepActive { border-color: #4aa786; background: #e6f4ee; color: #1d6d56; animation: stepPulse 1.4s ease-in-out infinite; }
+.progressRail { height: 8px; margin: 1.2rem 0 0.35rem; border-radius: 999px; background: #e7ece9; overflow: hidden; }
+.progressFill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #2f8f6e, #4aa786); transition: width 0.5s ease; }
+.progressActive {
+  background: linear-gradient(90deg, #2f8f6e, #4aa786, #7fd0b2, #4aa786, #2f8f6e);
+  background-size: 220% 100%;
+  animation: progressShimmer 1.3s linear infinite;
+}
+.progressDone { background: linear-gradient(90deg, #2f8f6e, #54c093); }
+.generatingHint { margin: 0.9rem 0 0; color: #5f736c; font-size: 0.68rem; font-weight: 700; }
+@keyframes progressShimmer {
+  0% { background-position: 0% 0; }
+  100% { background-position: 220% 0; }
+}
+@keyframes stepPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
 
 .safetyLabel { display: grid; gap: 0.22rem; margin-bottom: 1.25rem; border: 1px solid #eed6d2; border-radius: 13px; background: #fff8f6; padding: 0.85rem 1rem; color: #7e443d; }
 .safetyLabel strong { font-size: 0.76rem; }
@@ -411,22 +440,14 @@
   50% { box-shadow: 0 0 0 8px rgba(220, 73, 64, 0.06); transform: scale(0.92); }
 }
 
-@keyframes waveformPulse {
-  0%, 100% { opacity: 0.7; transform: scaleY(0.76); }
-  50% { opacity: 1; transform: scaleY(1); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .recordingRailStatus > span,
-  .waveBar {
+  .recordingRailStatus > span {
     animation: none;
   }
 
-  .waveBar {
-    opacity: 0.9;
-    transform: none;
+  .progressActive {
+    animation: none;
   }
-
 }
 
 @media (max-width: 1100px) {
@@ -471,9 +492,11 @@
   .focusPanel, .outcomePanel { margin: 1rem auto; }
   .focusPanel { padding: 1rem; }
   .recordingRail { align-items: stretch; flex-direction: column; gap: 0.65rem; }
-  .miniWaveform { flex: none; border-inline: 0; border-block: 1px solid #e1e7e4; padding-block: 0.45rem; }
+  .recordingLevel { flex: none; border-inline: 0; border-block: 1px solid #e1e7e4; padding-block: 0.45rem; }
   .recordingRailMeta { min-width: 0; text-align: left; }
   .recordingRailMeta strong { justify-content: flex-start; }
+  .recordingActionsRight { width: 100%; flex-direction: column; }
+  .recordingActionsRight button { width: 100%; }
   .footer { flex-direction: column; gap: 5px; text-align: center; }
 }
 
@@ -590,6 +613,116 @@
   font-weight: 750;
   cursor: pointer;
   text-decoration: underline;
+}
+
+.warningBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid #ecdcb8;
+  border-radius: 12px;
+  background: #fdf8ec;
+  padding: 0.7rem 0.85rem;
+  color: #7a5a1e;
+  font-size: 0.78rem;
+  margin-bottom: 1rem;
+}
+.warningBanner strong { flex: none; }
+.warningBanner span { flex: 1; }
+.warningBanner button {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: #7a5a1e;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 750;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ── Microphone pre-flight check ─────────────────────────────────────── */
+
+.micLevelCard {
+  margin: 1.4rem 0 0.7rem;
+  border: 1px solid #e3e8e5;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f7faf8, #f1f6f3);
+  padding: 0.8rem 0.9rem 0.9rem;
+}
+.micLevelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.55rem;
+}
+.micLevelHead span {
+  color: #6f7d78;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.micLevelHead strong {
+  color: #a3ada9;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+.micLevelHead strong.micLevelLive {
+  color: #1d6d56;
+}
+
+/* Symmetric voice equalizer shared by the mic check and the recording rail. */
+.levelBars {
+  display: flex;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+.levelBar {
+  width: 5px;
+  min-width: 3px;
+  border-radius: 999px;
+  background: #cfdbd6;
+  opacity: 0.45;
+  transition: background 80ms ease, opacity 80ms ease, box-shadow 80ms ease;
+}
+.levelBarActive {
+  background: linear-gradient(180deg, #54c093, #2f8f6e);
+  opacity: 1;
+}
+.levelBarPeak {
+  background: #7fd0b2;
+  box-shadow: 0 0 8px rgba(47, 143, 110, 0.55);
+}
+.levelBarsPaused .levelBar,
+.levelBarsPaused .levelBarActive,
+.levelBarsPaused .levelBarPeak {
+  opacity: 0.35;
+  box-shadow: none;
+}
+.micLevelState {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1.1rem;
+  color: #5f736c;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.micLevelDot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #c9d6d0;
+}
+.micLevelDotOn {
+  background: #2f8f6e;
+  box-shadow: 0 0 0 3px rgba(47, 143, 110, 0.16);
 }
 
 /* ── Dashboard / overview ─────────────────────────────────────────────── */

@@ -11,6 +11,11 @@ import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
 // Generates an AI draft clinical note from the stored transcript using the
 // DeepSeek extraction step. The result is saved as `ai_draft` — never
 // approved — and the consultation moves to `draft_ready` for doctor review.
+//
+// If the AI layer is unavailable (missing key, timeout, API error), the
+// consultation still gets a reviewable `ai_draft`: the full transcript is
+// placed in `summary` and the structured fields are marked as not extracted.
+// The doctor edits before approval — AI output is never auto-approved.
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -35,20 +40,65 @@ export async function POST(
   try {
     ({ draft } = await extractClinicalDraft(rawText));
   } catch (error) {
+    const reason = failMessage(error);
     await createAuditLog(
       session.clinicId,
       session.profileId,
       "clinical_note.ai_generation_failed",
       "clinical_note",
       id,
-      { error: failMessage(error) }
+      { error: reason, fallbackUsed: true }
     ).catch(() => {
       // Audit logging must never mask the primary failure.
     });
-    await updateConsultation(id, { status: "failed" }, session.clinicId).catch(
-      () => {}
+
+    // Fallback: put everything the doctor recorded into the summary so the
+    // visit is never lost, and let the doctor structure it during review.
+    const fallbackSummary = rawText.slice(0, 4500);
+    const notExtracted = "Not extracted — AI was unavailable.";
+    const fallbackDraft = {
+      summary: fallbackSummary,
+      chiefComplaint: notExtracted,
+      medicationChanges: notExtracted,
+      investigations: notExtracted,
+      followUpPlan: notExtracted,
+      patientInstructions: notExtracted,
+      uncertainItems: notExtracted,
+    };
+
+    const fallbackNote = await upsertClinicalNote(
+      {
+        consultationId: id,
+        doctorId: session.profileId,
+        content: fallbackDraft,
+        status: "ai_draft",
+      },
+      session.clinicId
     );
-    return NextResponse.json({ error: failMessage(error) }, { status: 502 });
+
+    await updateConsultation(id, { status: "draft_ready" }, session.clinicId);
+
+    await createAuditLog(
+      session.clinicId,
+      session.profileId,
+      "clinical_note.ai_fallback_created",
+      "clinical_note",
+      fallbackNote.id,
+      { reason }
+    ).catch(() => {
+      // Audit logging must never mask the primary failure.
+    });
+
+    return NextResponse.json(
+      {
+        note: fallbackNote,
+        draft: fallbackDraft,
+        fallback: true,
+        warning:
+          "AI draft generation was unavailable. The full transcript was placed in the summary for you to edit before approval.",
+      },
+      { status: 201 }
+    );
   }
 
   const note = await upsertClinicalNote(

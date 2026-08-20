@@ -4,12 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
+import { formatDate } from "@/lib/status";
 import styles from "@/components/clinical.module.css";
 
 export type WorkflowState =
   | "patient"
   | "consent"
   | "consent_declined"
+  | "mic_test"
   | "manual_review"
   | "recording"
   | "recording_interrupted"
@@ -72,6 +74,7 @@ const activeStep: Record<WorkflowState, number> = {
   patient: 0,
   consent: 1,
   consent_declined: 1,
+  mic_test: 2,
   manual_review: 4,
   recording: 2,
   recording_interrupted: 2,
@@ -107,19 +110,82 @@ const BLANK_NOTE: NoteContent = {
   uncertainItems: "",
 };
 
-const waveformBars = [10, 18, 26, 16, 22, 30, 20, 14, 24, 28, 18, 12];
+// Symmetric "voice" equalizer bar count for the mic check and live recording.
+const LEVEL_BAR_COUNT = 25;
+
+// Recording safeguards. The doctor gets a 15-minute heads-up and the
+// recording stops itself at 30 minutes so transcripts never grow unbounded.
+const LENGTH_WARN_SECONDS = 15 * 60;
+const LENGTH_HARD_STOP_SECONDS = 30 * 60;
+
+type MicErrorKind =
+  | "unsupported"
+  | "permission"
+  | "not-found"
+  | "busy"
+  | "insecure"
+  | "generic";
+
+// Maps getUserMedia DOMException names to calm, actionable messages. The
+// "busy" case is the demo scenario: GMeet/Zoom/Teams holding the mic.
+function describeMicError(error: unknown): {
+  kind: MicErrorKind;
+  message: string;
+} {
+  const name = error instanceof DOMException ? error.name : "";
+  switch (name) {
+    case "NotAllowedError":
+    case "PermissionDeniedError":
+      return {
+        kind: "permission",
+        message:
+          "Microphone permission is blocked. Allow mic access for this site in the browser settings (and check Windows privacy settings), then try again.",
+      };
+    case "NotFoundError":
+    case "DevicesNotFoundError":
+      return {
+        kind: "not-found",
+        message:
+          "No microphone was detected. Plug in or enable a mic, then try again.",
+      };
+    case "NotReadableError":
+    case "TrackStartError":
+      return {
+        kind: "busy",
+        message:
+          "The microphone is in use by another app (GMeet, Zoom, Teams, or a system setting). The browser can often still capture audio alongside them — try again, or close the other app.",
+      };
+    case "OverconstrainedError":
+      return {
+        kind: "generic",
+        message:
+          "No microphone matched the audio requirements. Check your audio devices, then try again.",
+      };
+    case "SecurityError":
+      return {
+        kind: "insecure",
+        message:
+          "Microphone access requires a secure (HTTPS) connection. Write the note manually instead.",
+      };
+    case "AbortError":
+      return {
+        kind: "generic",
+        message:
+          "Microphone access was interrupted. Try again, or write the note manually.",
+      };
+    default:
+      return {
+        kind: "generic",
+        message:
+          "Microphone access was not available. Check browser permissions, or write the note manually instead.",
+      };
+  }
+}
 
 function formatClock(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "Unknown date";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
 // ── Speech recognition (Web Speech API) ────────────────────────────────────
@@ -196,7 +262,55 @@ function SafetyLabel({ mode }: { mode: "draft" | "manual" }) {
   );
 }
 
-function RecordingWaveform({ paused, seconds }: { paused: boolean; seconds: number }) {
+// Symmetric "voice" equalizer. Bars light from the centre outward as the
+// level rises; the furthest lit bar reads as the peak. Used by both the
+// pre-flight mic check and the live recording rail.
+function LevelBars({
+  level,
+  paused = false,
+  label,
+}: {
+  level: number;
+  paused?: boolean;
+  label: string;
+}) {
+  const center = (LEVEL_BAR_COUNT - 1) / 2;
+  const litPerSide = Math.round((Math.min(100, level) / 100) * (LEVEL_BAR_COUNT / 2));
+  return (
+    <div
+      className={`${styles.levelBars} ${paused ? styles.levelBarsPaused : ""}`}
+      role="img"
+      aria-label={label}
+    >
+      {Array.from({ length: LEVEL_BAR_COUNT }).map((_, index) => {
+        const dist = Math.abs(index - center);
+        const profile = 1 - Math.pow(dist / center, 1.7);
+        const height = Math.round(8 + profile * 44);
+        const active = level > 2 && dist <= litPerSide;
+        const peak = level > 2 && dist === litPerSide;
+        return (
+          <span
+            key={`level-bar-${index}`}
+            className={`${styles.levelBar} ${active ? styles.levelBarActive : ""} ${
+              peak ? styles.levelBarPeak : ""
+            }`}
+            style={{ height: `${height}px` }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function RecordingRail({
+  paused,
+  seconds,
+  level,
+}: {
+  paused: boolean;
+  seconds: number;
+  level: number;
+}) {
   return (
     <div
       className={`${styles.recordingRail} ${paused ? styles.pausedRail : ""}`}
@@ -214,18 +328,12 @@ function RecordingWaveform({ paused, seconds }: { paused: boolean; seconds: numb
           <small>{paused ? "Audio capture is paused" : "Continue the consultation normally"}</small>
         </div>
       </div>
-      <div className={styles.miniWaveform} aria-hidden="true">
-        {waveformBars.map((height, index) => (
-          <span
-            className={styles.waveBar}
-            key={`wave-${index}`}
-            style={{
-              animationDelay: `${(index % 6) * -220}ms`,
-              animationDuration: `${1800 + (index % 4) * 220}ms`,
-              height: `${height}px`,
-            }}
-          />
-        ))}
+      <div className={styles.recordingLevel}>
+        <LevelBars
+          level={level}
+          paused={paused}
+          label={paused ? "Audio paused" : `Audio level ${level} percent`}
+        />
       </div>
       <div className={styles.recordingRailMeta}>
         <strong>
@@ -263,10 +371,24 @@ export function ConsultationWorkflow({
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [micError, setMicError] = useState<string | null>(null);
+  const [micErrorKind, setMicErrorKind] = useState<MicErrorKind | null>(null);
+  const [micLevel, setMicLevel] = useState(0);
+  const [micLowLevel, setMicLowLevel] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
   const [saving, setSaving] = useState<"draft" | "approve" | "reject" | null>(null);
   const [generating, setGenerating] = useState(false);
+  // Set when the AI layer was unavailable and the transcript was placed in
+  // the summary as a fallback draft.
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+  const [recordingWarningDismissed, setRecordingWarningDismissed] = useState(false);
+  // Progress shown while the AI layer prepares the draft:
+  // 0 = just entered, 1 = recording received, 2 = transcript prepared,
+  // 3 = AI generating, 4 = draft ready (review). A reloaded "processing"
+  // consultation has already saved its transcript, so start at stage 2.
+  const [processingStage, setProcessingStage] = useState(() =>
+    initialStatus === "processing" || initialStatus === "uploading" ? 2 : 0
+  );
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -276,6 +398,15 @@ export function ConsultationWorkflow({
   const finalTranscriptRef = useRef("");
   const recordingActiveRef = useRef(false);
   const pausedRef = useRef(false);
+  // Guards against double-submitting the AI generation step.
+  const generateBusyRef = useRef(false);
+  // Mic level meter plumbing (pre-flight check only — cosmetic).
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const meterRafRef = useRef<number | null>(null);
+  const micLowLevelRef = useRef(false);
+  // Auto-stop at 30 minutes fires exactly once per recording.
+  const autoStoppedRef = useRef(false);
 
   const step = activeStep[state];
   const isManualReview = state === "manual_review";
@@ -283,6 +414,18 @@ export function ConsultationWorkflow({
   // path, so resolve their header label directly instead of via the stepper index.
   const headerLabel =
     workflowStates.find((item) => item.id === state)?.label ?? workflowStates[step].label;
+  // Monotonic progress for the AI pipeline — always moves forward to 100%.
+  const progressPercent =
+    processingStage >= 4
+      ? 100
+      : processingStage >= 3
+        ? 76
+        : processingStage >= 2
+          ? 50
+          : processingStage >= 1
+            ? 25
+            : 8;
+  const draftReady = processingStage >= 4;
 
   useEffect(() => {
     if (state !== "recording" || isRecordingPaused) return;
@@ -290,10 +433,28 @@ export function ConsultationWorkflow({
     return () => clearInterval(timer);
   }, [state, isRecordingPaused]);
 
+  // Recording length safeguard: the 15-minute warning is derived from the
+  // timer; the 30-minute auto-stop fires exactly once via a deferred call so
+  // the effect body never calls setState synchronously.
+  const stopAndProcessRef = useRef<() => void>(() => {});
+  stopAndProcessRef.current = () => void stopAndProcess();
+  const showRecordingWarning =
+    elapsedSeconds >= LENGTH_WARN_SECONDS && elapsedSeconds < LENGTH_HARD_STOP_SECONDS;
+
+  useEffect(() => {
+    if (state !== "recording") return;
+    if (elapsedSeconds >= LENGTH_HARD_STOP_SECONDS && !autoStoppedRef.current) {
+      autoStoppedRef.current = true;
+      const timer = setTimeout(() => stopAndProcessRef.current(), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [elapsedSeconds, state]);
+
   // Release the microphone if the doctor navigates away mid-recording.
   useEffect(() => {
     return () => {
       recordingActiveRef.current = false;
+      stopLevelMeter();
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -413,21 +574,163 @@ export function ConsultationWorkflow({
     pausedRef.current = next;
   }
 
-  async function startMicCapture(): Promise<boolean> {
+  // Tries to open the microphone. Returns a mapped, actionable error instead
+  // of a swallowed generic one (permission / no device / busy in another app).
+  async function acquireMicStream(): Promise<
+    { ok: true; stream: MediaStream } | { ok: false; kind: MicErrorKind; message: string }
+  > {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        return {
+          ok: false,
+          kind: "unsupported",
+          message:
+            "Microphone access is not supported in this browser. Write the note manually instead.",
+        };
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      return { ok: true, stream };
+    } catch (error) {
+      return { ok: false, ...describeMicError(error) };
+    }
+  }
+
+  function stopLevelMeter() {
+    if (meterRafRef.current !== null) {
+      cancelAnimationFrame(meterRafRef.current);
+      meterRafRef.current = null;
+    }
+    analyserRef.current = null;
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {
+        // Ignore — the meter is cosmetic.
+      });
+      audioContextRef.current = null;
+    }
+    micLowLevelRef.current = false;
+    setMicLevel(0);
+    setMicLowLevel(false);
+  }
+
+  // Live level meter for the pre-flight mic check. Shows the doctor that the
+  // browser actually hears them before recording starts.
+  function startLevelMeter(stream: MediaStream) {
+    try {
+      const AudioCtx =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      const audioContext = new AudioCtx();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      const samples = new Uint8Array(analyser.fftSize);
+      let quietFrames = 0;
+      const tick = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(samples);
+        let sum = 0;
+        for (let i = 0; i < samples.length; i++) {
+          const value = (samples[i] - 128) / 128;
+          sum += value * value;
+        }
+        const rms = Math.sqrt(sum / samples.length);
+        const level = Math.min(100, Math.round(rms * 500));
+        // Freeze the readout while the recording is paused — the meter is live
+        // only when capture is actually happening.
+        if (!pausedRef.current) {
+          setMicLevel(level);
+          quietFrames = level < 3 ? quietFrames + 1 : 0;
+          // After ~4 seconds of silence, nudge the doctor to check the mic.
+          if (quietFrames > 120 && !micLowLevelRef.current) {
+            micLowLevelRef.current = true;
+            setMicLowLevel(true);
+          }
+        }
+        meterRafRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch {
+      // The meter is cosmetic; recording can still proceed.
+      setMicLevel(50);
+    }
+  }
+
+  function releaseStream() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  }
+
+  // Fired when the OS yanks the mic mid-recording (disconnect, another app
+  // grabbing exclusive access, permission revoked). Stop safely — nothing is
+  // lost from memory and the doctor can decide what to do next.
+  function handleUnexpectedTrackEnd() {
+    if (!recordingActiveRef.current) return; // Our own stop().
+    stopMicCapture();
+    setMicError(
+      "The microphone stopped unexpectedly — it may have been disconnected or taken by another app. The recording stopped safely."
+    );
+    setState("recording_interrupted");
+  }
+
+  // Pre-flight mic check: acquire the stream, show a live level meter, then
+  // let the doctor start recording (reusing this same stream).
+  async function beginMicTest() {
+    setError(null);
+    setMicError(null);
+    setMicErrorKind(null);
+    setTranscriptError(null);
+    stopLevelMeter();
+    const result = await acquireMicStream();
+    if (!result.ok) {
+      setMicError(result.message);
+      setMicErrorKind(result.kind);
+      return;
+    }
+    streamRef.current = result.stream;
+    startLevelMeter(result.stream);
+    setState("mic_test");
+  }
+
+  function cancelMicTest() {
+    stopLevelMeter();
+    releaseStream();
+    setState("consent");
+  }
+
+  async function startMicCapture(previewStream?: MediaStream): Promise<boolean> {
     finalTranscriptRef.current = "";
     setTranscript("");
     setInterimTranscript("");
     chunksRef.current = [];
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setMicError(
-          "Microphone access is not supported in this browser. Write the note manually instead."
-        );
-        return false;
+      // Reuse the stream acquired during the mic check when it is still live;
+      // otherwise acquire a fresh one.
+      let stream: MediaStream | null = null;
+      if (
+        previewStream &&
+        previewStream.getAudioTracks().some((track) => track.readyState === "live")
+      ) {
+        stream = previewStream;
+      } else {
+        const result = await acquireMicStream();
+        if (!result.ok) {
+          setMicError(result.message);
+          setMicErrorKind(result.kind);
+          return false;
+        }
+        stream = result.stream;
       }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+      stream.getAudioTracks().forEach((track) => {
+        track.onended = handleUnexpectedTrackEnd;
+      });
 
       const recorder = new MediaRecorder(stream);
       recorder.ondataavailable = (event) => {
@@ -506,6 +809,7 @@ export function ConsultationWorkflow({
 
   function stopMicCapture(): string {
     recordingActiveRef.current = false;
+    stopLevelMeter();
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -532,13 +836,14 @@ export function ConsultationWorkflow({
   async function beginRecording() {
     setError(null);
     setMicError(null);
+    setMicErrorKind(null);
     setTranscriptError(null);
-    const micOk = await startMicCapture();
+    // Reuse the stream from the mic check when possible (no double
+    // permission prompt, no re-acquisition race). The level meter keeps
+    // running so the recording rail shows a live audio level.
+    const micOk = await startMicCapture(streamRef.current ?? undefined);
     if (!micOk) {
-      setMicError(
-        "Microphone access was not available. Check browser permissions, or write the note manually instead."
-      );
-      return;
+      return; // startMicCapture already set a mapped mic error.
     }
     try {
       await patchConsultation({
@@ -553,6 +858,8 @@ export function ConsultationWorkflow({
     }
     setElapsedSeconds(0);
     setPaused(false);
+    setRecordingWarningDismissed(false);
+    autoStoppedRef.current = false;
     setState("recording");
   }
 
@@ -585,32 +892,72 @@ export function ConsultationWorkflow({
   }
 
   async function stopAndProcess() {
+    if (generateBusyRef.current) return;
     setError(null);
     const finalTranscript = stopMicCapture() || transcript.trim();
     setTranscript(finalTranscript);
     setInterimTranscript("");
+    // Show the progress screen immediately while the AI layer runs.
+    setProcessingStage(1);
+    setState("processing");
+
+    let transcriptSaved = false;
     try {
-      // Transcript persistence is best-effort; the doctor can still review the note.
-      await fetch(`/api/consultations/${consultationId}/transcript`, {
+      const res = await fetch(`/api/consultations/${consultationId}/transcript`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rawText: finalTranscript }),
       });
+      transcriptSaved = res.ok;
     } catch {
-      // Ignore — continue to processing.
+      transcriptSaved = false;
     }
+    setProcessingStage(2);
+
+    // No captured speech (silent recording, or a browser without the Web
+    // Speech API). There is nothing to extract — route to a manual note with
+    // a clear message instead of a confusing AI failure.
+    if (!finalTranscript.trim()) {
+      if (transcriptSaved) {
+        await patchConsultation({
+          status: "draft",
+          endedAt: new Date().toISOString(),
+        }).catch(() => {
+          // Non-fatal; the doctor still lands in the manual editor.
+        });
+      }
+      setError(
+        "No speech was captured during the recording, so a draft could not be prepared. Write the note manually instead."
+      );
+      setState("manual_review");
+      return;
+    }
+
     try {
       await patchConsultation({ status: "processing", endedAt: new Date().toISOString() });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start processing");
+      setProcessingStage(0);
       return;
     }
-    setState("processing");
+
+    if (transcriptSaved) {
+      // The AI layer starts right away; the doctor sees live progress below.
+      await generateDraft();
+    } else {
+      setError(
+        "The transcript could not be saved. Open the prepared draft to retry, or write the note manually."
+      );
+    }
   }
 
-  async function openPreparedDraft() {
+  async function generateDraft() {
+    if (generateBusyRef.current) return;
+    generateBusyRef.current = true;
     setError(null);
+    setFallbackNotice(null);
     setGenerating(true);
+    setProcessingStage(3);
     try {
       const res = await fetch(`/api/consultations/${consultationId}/generate`, {
         method: "POST",
@@ -623,8 +970,16 @@ export function ConsultationWorkflow({
       if (data?.draft) {
         setDraftFields((current) => ({ ...current, ...data.draft }));
       }
+      // The server fell back to a transcript-in-summary draft when the AI
+      // layer was unavailable — surface that clearly in the review screen.
+      if (data?.fallback && typeof data.warning === "string") {
+        setFallbackNotice(data.warning);
+      }
       setReviewConfirmed(false);
       setDraftSaved(false);
+      setGenerating(false);
+      setProcessingStage(4); // 100% — "Draft ready" moment before review.
+      await new Promise((resolve) => setTimeout(resolve, 550));
       setState("review");
     } catch (err) {
       setError(
@@ -635,7 +990,12 @@ export function ConsultationWorkflow({
       setState("failed");
     } finally {
       setGenerating(false);
+      generateBusyRef.current = false;
     }
+  }
+
+  async function openPreparedDraft() {
+    await generateDraft();
   }
 
   async function cancelRecording() {
@@ -648,6 +1008,24 @@ export function ConsultationWorkflow({
       // Non-fatal; the doctor is still leaving the recording state.
     }
     setState("recording_interrupted");
+  }
+
+  // "Back" during recording: discard the current capture and return to the
+  // pre-flight mic check so the doctor can re-verify input before re-recording.
+  async function backToMicTest() {
+    stopMicCapture();
+    setTranscript("");
+    setInterimTranscript("");
+    setElapsedSeconds(0);
+    setPaused(false);
+    setRecordingWarningDismissed(false);
+    autoStoppedRef.current = false;
+    try {
+      await patchConsultation({ status: "draft" });
+    } catch {
+      // Non-fatal; the mic check still proceeds.
+    }
+    await beginMicTest();
   }
 
   async function simulateFailure() {
@@ -853,6 +1231,13 @@ export function ConsultationWorkflow({
                 <button type="button" onClick={() => setMicError(null)}>
                   Dismiss
                 </button>
+                {micErrorKind !== null &&
+                  micErrorKind !== "unsupported" &&
+                  micErrorKind !== "insecure" && (
+                    <button type="button" onClick={beginMicTest}>
+                      Try again
+                    </button>
+                  )}
               </div>
             )}
             <div className={styles.actions}>
@@ -870,7 +1255,7 @@ export function ConsultationWorkflow({
                 type="button"
                 className={styles.primaryButton}
                 disabled={!consentConfirmed}
-                onClick={beginRecording}
+                onClick={beginMicTest}
               >
                 Begin recording
               </button>
@@ -880,6 +1265,88 @@ export function ConsultationWorkflow({
                 <Icon name="alert" /> Tick the consent checkbox above to enable recording.
               </p>
             )}
+            {consentConfirmed && (
+              <p className={styles.consentHint} role="note">
+                <Icon name="mic" /> You&apos;ll verify the microphone works before recording starts.
+              </p>
+            )}
+          </div>
+        )}
+
+        {state === "mic_test" && (
+          <div className={`${styles.focusPanel} ${styles.recordingPanel}`}>
+            <p className={styles.eyebrow}>Microphone check</p>
+            <h2>Verify the mic before recording</h2>
+            <p className={styles.lead}>
+              Speak for a moment — the level meter confirms the browser can hear you. If the mic
+              is in use by another app (GMeet, Zoom, Teams), the browser can often still capture
+              audio alongside them.
+            </p>
+
+            <div className={styles.micLevelCard}>
+              <div className={styles.micLevelHead}>
+                <span>Input level</span>
+                <strong className={micLevel > 5 ? styles.micLevelLive : undefined}>
+                  {micLevel > 5 ? `${micLevel}%` : "—"}
+                </strong>
+              </div>
+              <LevelBars
+                level={micLevel}
+                label={
+                  micLowLevel
+                    ? "No sound detected"
+                    : micLevel > 5
+                      ? "Microphone level active"
+                      : "Waiting for sound"
+                }
+              />
+            </div>
+
+            <p className={styles.micLevelState} role="status">
+              <span
+                className={`${styles.micLevelDot} ${
+                  micLevel > 5 ? styles.micLevelDotOn : ""
+                }`}
+                aria-hidden="true"
+              />
+              {micLowLevel
+                ? "No sound detected — check the mic isn&apos;t muted or in use by another app."
+                : micLevel > 5
+                  ? "Microphone is working"
+                  : "Listening — speak to verify…"}
+            </p>
+
+            {micError && (
+              <div className={styles.errorBanner} role="alert">
+                <strong>Microphone note</strong>
+                <span>{micError}</span>
+                <button type="button" onClick={() => setMicError(null)}>
+                  Dismiss
+                </button>
+                {micErrorKind !== null &&
+                  micErrorKind !== "unsupported" &&
+                  micErrorKind !== "insecure" && (
+                    <button type="button" onClick={beginMicTest}>
+                      Try again
+                    </button>
+                  )}
+              </div>
+            )}
+
+            <div className={styles.actions}>
+              <button type="button" className={styles.secondaryButton} onClick={cancelMicTest}>
+                Cancel
+              </button>
+              <button type="button" className={styles.secondaryButton} onClick={beginMicTest}>
+                Test again
+              </button>
+              <button type="button" className={styles.primaryButton} onClick={beginRecording}>
+                Start recording
+              </button>
+            </div>
+            <p className={styles.recordingConsentNote}>
+              Consent recorded for audio and clinical processing · Patient sharing not granted
+            </p>
           </div>
         )}
 
@@ -905,8 +1372,8 @@ export function ConsultationWorkflow({
 
         {state === "recording" && (
           <div className={`${styles.focusPanel} ${styles.recordingPanel}`}>
-            <h2>Consultation in progress</h2>
-            <RecordingWaveform paused={isRecordingPaused} seconds={elapsedSeconds} />
+            <h2>{isRecordingPaused ? "Recording paused" : "Consultation in progress"}</h2>
+            <RecordingRail paused={isRecordingPaused} seconds={elapsedSeconds} level={micLevel} />
 
             <div className={styles.liveTranscript} aria-live="polite">
               <div className={styles.liveTranscriptHead}>
@@ -916,6 +1383,12 @@ export function ConsultationWorkflow({
                 <small>{isRecordingPaused ? "Paused" : transcript ? "Listening" : "Listening for speech…"}</small>
               </div>
               <div className={styles.liveTranscriptBody}>
+                {isRecordingPaused && (
+                  <div className={styles.pausedOverlay}>
+                    <Icon name="micOff" />
+                    <span>Paused — audio is not being captured</span>
+                  </div>
+                )}
                 {transcript || interimTranscript ? (
                   <p>
                     {transcript}
@@ -949,22 +1422,41 @@ export function ConsultationWorkflow({
               </div>
             )}
 
-            <div className={styles.actions}>
-              <button type="button" className={styles.secondaryButton} onClick={cancelRecording}>
-                Cancel recording
+            {showRecordingWarning && !recordingWarningDismissed && (
+              <div className={styles.warningBanner} role="status">
+                <strong>Long recording</strong>
+                <span>
+                  This recording is over 15 minutes. It will stop automatically at 30 minutes —
+                  wrap up when you can.
+                </span>
+                <button type="button" onClick={() => setRecordingWarningDismissed(true)}>
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            <div className={`${styles.actions} ${styles.recordingActions}`}>
+              <button type="button" className={styles.secondaryButton} onClick={backToMicTest}>
+                <Icon name="arrowLeft" /> Back
               </button>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                aria-pressed={isRecordingPaused}
-                onClick={togglePause}
-              >
-                {isRecordingPaused ? "Resume recording" : "Pause recording"}
-              </button>
-              <button type="button" className={styles.stopButton} onClick={stopAndProcess}>
-                Stop and process
-              </button>
+              <span className={styles.recordingActionsRight}>
+                <button
+                  type="button"
+                  className={isRecordingPaused ? styles.primaryButton : styles.secondaryButton}
+                  aria-pressed={isRecordingPaused}
+                  onClick={togglePause}
+                >
+                  <Icon name={isRecordingPaused ? "mic" : "micOff"} />
+                  {isRecordingPaused ? "Resume recording" : "Pause recording"}
+                </button>
+                <button type="button" className={styles.stopButton} onClick={stopAndProcess}>
+                  <Icon name="stop" /> Stop and process
+                </button>
+              </span>
             </div>
+            <button type="button" className={styles.discardLink} onClick={cancelRecording}>
+              Discard recording
+            </button>
             <p className={styles.recordingConsentNote}>
               Consent recorded for audio and clinical processing · Patient sharing not granted
             </p>
@@ -1001,36 +1493,104 @@ export function ConsultationWorkflow({
 
         {state === "processing" && (
           <div className={styles.focusPanel}>
-            <div className={styles.processingIcon} aria-hidden="true">•••</div>
-            <p className={styles.eyebrow}>Preparing the draft</p>
-            <h2>Preparing a draft for review</h2>
+            <div className={styles.processingIcon} aria-hidden="true">
+              {draftReady ? "✓" : "•••"}
+            </div>
+            <p className={styles.eyebrow}>{draftReady ? "Complete" : "Preparing the draft"}</p>
+            <h2>
+              {draftReady
+                ? "Draft ready"
+                : generating
+                  ? "Generating the draft"
+                  : "Preparing a draft for review"}
+            </h2>
             <p className={styles.lead}>
               Transcript → structured extraction → draft note. Nothing is approved or added to
               memory yet.
             </p>
+
+            <div
+              className={styles.progressRail}
+              role="progressbar"
+              aria-label="AI draft generation progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progressPercent}
+            >
+              <span
+                className={`${styles.progressFill} ${
+                  draftReady ? styles.progressDone : generating ? styles.progressActive : ""
+                }`}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+
             <div className={styles.processingSteps}>
-              <span>✓ Recording received</span>
-              <span>✓ Transcript prepared</span>
-              <span>• Generating draft with AI</span>
-            </div>
-            <div className={styles.actions}>
-              <button type="button" className={styles.secondaryButton} onClick={simulateFailure}>
-                Simulate failure
-              </button>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={openPreparedDraft}
-                disabled={generating}
+              <span className={processingStage >= 1 ? styles.stepDone : undefined}>
+                {processingStage >= 1 ? "✓ Recording received" : "Recording received"}
+              </span>
+              <span className={processingStage >= 2 ? styles.stepDone : undefined}>
+                {processingStage >= 2 ? "✓ Transcript prepared" : "Transcript prepared"}
+              </span>
+              <span
+                className={
+                  generating
+                    ? styles.stepActive
+                    : processingStage >= 3
+                      ? styles.stepDone
+                      : undefined
+                }
               >
-                {generating ? "Generating draft…" : "Open prepared draft"}
-              </button>
+                {generating
+                  ? "• Generating draft with AI"
+                  : processingStage >= 3
+                    ? "✓ Generating draft with AI"
+                    : "Generating draft with AI"}
+              </span>
+              <span className={draftReady ? styles.stepDone : undefined}>
+                {draftReady ? "✓ Draft ready" : "Draft ready"}
+              </span>
             </div>
+
+            {generating && (
+              <p className={styles.generatingHint} role="status">
+                Drafting the clinical note — this usually takes a few seconds.
+              </p>
+            )}
+            {draftReady && (
+              <p className={styles.generatingHint} role="status">
+                Draft ready — opening it for review…
+              </p>
+            )}
+
+            {!generating && !draftReady && (
+              <div className={styles.actions}>
+                <button type="button" className={styles.secondaryButton} onClick={simulateFailure}>
+                  Simulate failure
+                </button>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={openPreparedDraft}
+                >
+                  Open prepared draft
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {(state === "review" || state === "manual_review") && (
           <>
+            {fallbackNotice && !isManualReview && (
+              <div className={styles.warningBanner} role="status">
+                <strong>AI was unavailable</strong>
+                <span>{fallbackNotice}</span>
+                <button type="button" onClick={() => setFallbackNotice(null)}>
+                  Dismiss
+                </button>
+              </div>
+            )}
             <SafetyLabel mode={isManualReview ? "manual" : "draft"} />
             <div className={styles.screenHeading}>
               <div>
@@ -1222,7 +1782,7 @@ export function ConsultationWorkflow({
               <button type="button" className={styles.secondaryButton} onClick={() => setState("patient")}>
                 Return to profile
               </button>
-              <button type="button" className={styles.primaryButton} onClick={() => setState("processing")}>
+              <button type="button" className={styles.primaryButton} onClick={() => { setProcessingStage(2); setState("processing"); }}>
                 Create a new draft
               </button>
             </div>
@@ -1245,7 +1805,7 @@ export function ConsultationWorkflow({
               <button type="button" className={styles.secondaryButton} onClick={startManualReview}>
                 Write manual note
               </button>
-              <button type="button" className={styles.primaryButton} onClick={() => setState("processing")}>
+              <button type="button" className={styles.primaryButton} onClick={() => { setProcessingStage(2); setState("processing"); }}>
                 Retry safely
               </button>
             </div>
