@@ -410,6 +410,9 @@ export function ConsultationWorkflow({
   const micLowLevelRef = useRef(false);
   // Auto-stop at 30 minutes fires exactly once per recording.
   const autoStoppedRef = useRef(false);
+  // Screen Wake Lock keeps the display on during a consultation so the phone
+  // doesn't auto-sleep (and kill live transcription) mid-recording. Best-effort.
+  const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   const step = activeStep[state];
   const isManualReview = state === "manual_review";
@@ -475,7 +478,29 @@ export function ConsultationWorkflow({
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
+      releaseWakeLock();
     };
+  }, []);
+
+  // Mobile browsers pause live transcription (Web Speech API) when the tab is
+  // backgrounded or the phone locks. When the doctor returns, re-acquire the
+  // wake lock and restart the recognizer so recording picks up where it left
+  // off instead of silently dying.
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState !== "visible") return;
+      if (!recordingActiveRef.current || pausedRef.current) return;
+      requestWakeLock();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch {
+          // Already running or not yet ended — the onend handler will restart.
+        }
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
   const displayName = patient.fullName || "Patient";
@@ -597,6 +622,31 @@ export function ConsultationWorkflow({
   function setPaused(next: boolean) {
     setIsRecordingPaused(next);
     pausedRef.current = next;
+  }
+
+  // Screen Wake Lock: keep the phone awake during recording so auto-sleep
+  // doesn't interrupt the mic/transcription. Not all browsers support it, and
+  // iOS ignores it — so it's strictly best-effort.
+  async function requestWakeLock() {
+    try {
+      const nav = navigator as Navigator & {
+        wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> };
+      };
+      if (nav.wakeLock) {
+        wakeLockRef.current = await nav.wakeLock.request("screen");
+      }
+    } catch {
+      // Ignore — recording continues without the wake lock.
+    }
+  }
+
+  function releaseWakeLock() {
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release().catch(() => {
+        // Ignore.
+      });
+      wakeLockRef.current = null;
+    }
   }
 
   // Tries to open the microphone. Returns a mapped, actionable error instead
@@ -839,6 +889,7 @@ export function ConsultationWorkflow({
 
   function stopMicCapture(): string {
     recordingActiveRef.current = false;
+    releaseWakeLock();
     stopLevelMeter();
     if (recognitionRef.current) {
       try {
@@ -896,6 +947,8 @@ export function ConsultationWorkflow({
     setRecordingWarningDismissed(false);
     autoStoppedRef.current = false;
     setState("recording");
+    // Keep the screen awake for the duration of the recording (best-effort).
+    requestWakeLock();
   }
 
   function togglePause() {
@@ -1507,7 +1560,8 @@ export function ConsultationWorkflow({
               Discard recording
             </button>
             <p className={styles.recordingConsentNote}>
-              Consent recorded for audio and clinical processing · Patient sharing not granted
+              Consent recorded for audio and clinical processing · Patient sharing not granted ·
+              Keep this tab open and the screen on for continuous capture.
             </p>
           </div>
         )}

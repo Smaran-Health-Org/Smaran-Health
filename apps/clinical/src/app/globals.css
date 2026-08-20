@@ -20,11 +20,22 @@ body {
   padding: 0;
 }
 
+html {
+  /* Prevent iOS font inflation / reflow on orientation change. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--ink);
   font-family: "Inter", "Segoe UI", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Keep the app edge-to-edge without any horizontal scroll on phones. */
+  overflow-x: hidden;
+  /* Dynamic viewport height: tracks the mobile URL bar correctly. */
+  min-height: 100dvh;
+  -webkit-tap-highlight-color: transparent;
 }
 
 a {
