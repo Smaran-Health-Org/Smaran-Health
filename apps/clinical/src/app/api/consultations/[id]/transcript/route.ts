@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/transcripts";
 import { createAuditLog } from "@/lib/db/audit";
 import { saveTranscriptSchema } from "@/lib/validation";
+import { logEvent, logError } from "@/lib/logger";
 import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
 
 export async function GET(
@@ -39,10 +40,30 @@ export async function POST(
   const parsed = saveTranscriptSchema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid transcript", parsed.error.flatten());
 
-  const transcript = await upsertTranscript(
-    { consultationId: id, rawText: parsed.data.rawText },
-    session.clinicId
-  );
+  const rawTextLength = parsed.data.rawText.trim().length;
+  logEvent("transcript.save.start", {
+    consultationId: id,
+    clinicId: session.clinicId,
+    rawTextLength,
+  });
+
+  let transcript;
+  try {
+    transcript = await upsertTranscript(
+      { consultationId: id, rawText: parsed.data.rawText },
+      session.clinicId
+    );
+  } catch (error) {
+    logError("transcript.save.failed", error, {
+      consultationId: id,
+      clinicId: session.clinicId,
+      rawTextLength,
+    });
+    return NextResponse.json(
+      { error: "The transcript could not be saved. Please retry." },
+      { status: 500 }
+    );
+  }
 
   await createAuditLog(
     session.clinicId,
@@ -51,6 +72,13 @@ export async function POST(
     "transcript",
     transcript.id
   );
+
+  logEvent("transcript.save.completed", {
+    consultationId: id,
+    clinicId: session.clinicId,
+    transcriptId: transcript.id,
+    rawTextLength,
+  });
 
   return NextResponse.json({ transcript }, { status: 201 });
 }

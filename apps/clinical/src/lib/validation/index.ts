@@ -62,7 +62,11 @@ export const saveClinicalNoteSchema = z.object({
 // ── Transcript ──────────────────────────────────────────────────────────────
 
 export const saveTranscriptSchema = z.object({
-  rawText: z.string().max(20000),
+  rawText: z
+    .string()
+    .trim()
+    .min(1, "Transcript cannot be empty")
+    .max(20000),
 });
 
 // ── Auth (login only — no signup) ───────────────────────────────────────────

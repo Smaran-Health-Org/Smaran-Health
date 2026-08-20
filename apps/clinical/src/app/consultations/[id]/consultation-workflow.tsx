@@ -396,10 +396,13 @@ export function ConsultationWorkflow({
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const finalTranscriptRef = useRef("");
+  const interimTranscriptRef = useRef("");
   const recordingActiveRef = useRef(false);
   const pausedRef = useRef(false);
   // Guards against double-submitting the AI generation step.
   const generateBusyRef = useRef(false);
+  // Guards against double-firing "Stop and process".
+  const stopBusyRef = useRef(false);
   // Mic level meter plumbing (pre-flight check only — cosmetic).
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -502,6 +505,28 @@ export function ConsultationWorkflow({
     });
     if (!res.ok) throw new Error("Could not update consultation");
     return res.json();
+  }
+
+  // POSTs the transcript and confirms the server actually persisted non-empty
+  // text. Returns false on any failure so the caller never shows a fake
+  // "Transcript prepared" step.
+  async function persistTranscript(text: string): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/consultations/${consultationId}/transcript`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawText: text }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json().catch(() => null);
+      const saved =
+        typeof data?.transcript?.rawText === "string"
+          ? data.transcript.rawText.trim()
+          : "";
+      return saved.length > 0;
+    } catch {
+      return false;
+    }
   }
 
   async function saveNote(status: "approved" | "rejected") {
@@ -706,6 +731,7 @@ export function ConsultationWorkflow({
 
   async function startMicCapture(previewStream?: MediaStream): Promise<boolean> {
     finalTranscriptRef.current = "";
+    interimTranscriptRef.current = "";
     setTranscript("");
     setInterimTranscript("");
     chunksRef.current = [];
@@ -755,10 +781,14 @@ export function ConsultationWorkflow({
             const result = event.results[i];
             if (result.isFinal) {
               finalTranscriptRef.current += `${result[0].transcript} `;
+              interim = "";
             } else {
               interim += result[0].transcript;
             }
           }
+          // Keep the latest interim phrase so it survives a stop before the
+          // recognizer flushes its final result.
+          interimTranscriptRef.current = interim;
           setTranscript(finalTranscriptRef.current);
           setInterimTranscript(interim);
         };
@@ -830,7 +860,12 @@ export function ConsultationWorkflow({
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
-    return finalTranscriptRef.current.trim();
+    const finalText = finalTranscriptRef.current.trim();
+    // The recognizer sometimes never flushed a final result before stop, or
+    // only finalized an earlier phrase — recover the pending interim text so
+    // a real draft can be generated instead of reporting "no transcript".
+    const interimText = interimTranscriptRef.current.trim();
+    return [finalText, interimText].filter(Boolean).join(" ");
   }
 
   async function beginRecording() {
@@ -892,62 +927,62 @@ export function ConsultationWorkflow({
   }
 
   async function stopAndProcess() {
-    if (generateBusyRef.current) return;
-    setError(null);
-    const finalTranscript = stopMicCapture() || transcript.trim();
-    setTranscript(finalTranscript);
-    setInterimTranscript("");
-    // Show the progress screen immediately while the AI layer runs.
-    setProcessingStage(1);
-    setState("processing");
-
-    let transcriptSaved = false;
+    if (stopBusyRef.current || generateBusyRef.current) return;
+    stopBusyRef.current = true;
     try {
-      const res = await fetch(`/api/consultations/${consultationId}/transcript`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawText: finalTranscript }),
-      });
-      transcriptSaved = res.ok;
-    } catch {
-      transcriptSaved = false;
-    }
-    setProcessingStage(2);
+      setError(null);
+      setTranscriptError(null);
 
-    // No captured speech (silent recording, or a browser without the Web
-    // Speech API). There is nothing to extract — route to a manual note with
-    // a clear message instead of a confusing AI failure.
-    if (!finalTranscript.trim()) {
-      if (transcriptSaved) {
+      const finalTranscript = stopMicCapture() || transcript.trim();
+      setTranscript(finalTranscript);
+      setInterimTranscript("");
+
+      // No speech was captured (silent recording, or a browser without the
+      // Web Speech API). Route straight to a manual note without ever showing
+      // the fake "recording received / transcript prepared" steps.
+      if (!finalTranscript.trim()) {
         await patchConsultation({
           status: "draft",
           endedAt: new Date().toISOString(),
         }).catch(() => {
           // Non-fatal; the doctor still lands in the manual editor.
         });
+        setError(
+          "No speech was captured during the recording, so a draft could not be prepared. Write the note manually instead."
+        );
+        setState("manual_review");
+        return;
       }
-      setError(
-        "No speech was captured during the recording, so a draft could not be prepared. Write the note manually instead."
-      );
-      setState("manual_review");
-      return;
-    }
 
-    try {
-      await patchConsultation({ status: "processing", endedAt: new Date().toISOString() });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start processing");
-      setProcessingStage(0);
-      return;
-    }
+      // We have real transcript text in hand — mark it received and persist it
+      // before advancing any further.
+      setProcessingStage(1);
+      setState("processing");
 
-    if (transcriptSaved) {
+      const saved = await persistTranscript(finalTranscript);
+      if (!saved) {
+        setProcessingStage(0);
+        setState("failed");
+        setError(
+          "The transcript could not be saved, so a draft could not be prepared. Retry safely, or write the note manually."
+        );
+        return;
+      }
+      setProcessingStage(2);
+
+      try {
+        await patchConsultation({ status: "processing", endedAt: new Date().toISOString() });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not start processing");
+        setProcessingStage(0);
+        setState("failed");
+        return;
+      }
+
       // The AI layer starts right away; the doctor sees live progress below.
       await generateDraft();
-    } else {
-      setError(
-        "The transcript could not be saved. Open the prepared draft to retry, or write the note manually."
-      );
+    } finally {
+      stopBusyRef.current = false;
     }
   }
 
@@ -995,6 +1030,20 @@ export function ConsultationWorkflow({
   }
 
   async function openPreparedDraft() {
+    // On retry (a failed save, or a reloaded "processing" consultation), make
+    // sure the transcript we still hold in state is persisted before we ask
+    // the server to generate from it.
+    if (transcript.trim()) {
+      const saved = await persistTranscript(transcript);
+      if (!saved) {
+        setError(
+          "The transcript could not be saved. Retry safely, or write the note manually."
+        );
+        setState("failed");
+        return;
+      }
+      setProcessingStage(2);
+    }
     await generateDraft();
   }
 

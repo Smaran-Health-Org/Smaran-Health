@@ -6,6 +6,7 @@ import { upsertClinicalNote } from "@/lib/db/clinical-notes";
 import { createAuditLog } from "@/lib/db/audit";
 import { extractClinicalDraft } from "@/lib/ai/extract-clinical-note";
 import { MODEL, PROMPT_VERSION } from "@/lib/ai/prompts";
+import { logEvent, logError, logWarn } from "@/lib/logger";
 import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
 
 // Generates an AI draft clinical note from the stored transcript using the
@@ -27,11 +28,37 @@ export async function POST(
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) return notFound("Consultation not found");
 
-  const transcript = await getTranscriptByConsultation(id, session.clinicId);
+  let transcript;
+  try {
+    transcript = await getTranscriptByConsultation(id, session.clinicId);
+  } catch (error) {
+    logError("generate.transcript.fetch_failed", error, {
+      consultationId: id,
+      clinicId: session.clinicId,
+    });
+    return NextResponse.json(
+      { error: "The transcript could not be read. Please retry." },
+      { status: 500 }
+    );
+  }
+
   const rawText = transcript?.rawText?.trim();
   if (!rawText) {
+    logWarn("generate.no_transcript", {
+      consultationId: id,
+      clinicId: session.clinicId,
+      hasTranscriptRow: Boolean(transcript),
+      rawTextLength: transcript?.rawText?.length ?? 0,
+    });
     return badRequest("No transcript is available for this consultation.");
   }
+
+  logEvent("generate.start", {
+    consultationId: id,
+    clinicId: session.clinicId,
+    transcriptId: transcript?.id,
+    rawTextLength: rawText.length,
+  });
 
   const failMessage = (error: unknown) =>
     error instanceof Error ? error.message : "AI draft generation failed.";
@@ -41,6 +68,11 @@ export async function POST(
     ({ draft } = await extractClinicalDraft(rawText));
   } catch (error) {
     const reason = failMessage(error);
+    logError("generate.ai_failed", error, {
+      consultationId: id,
+      clinicId: session.clinicId,
+      fallbackUsed: true,
+    });
     await createAuditLog(
       session.clinicId,
       session.profileId,
@@ -89,6 +121,13 @@ export async function POST(
       // Audit logging must never mask the primary failure.
     });
 
+    logWarn("generate.fallback_created", {
+      consultationId: id,
+      clinicId: session.clinicId,
+      noteId: fallbackNote.id,
+      reason,
+    });
+
     return NextResponse.json(
       {
         note: fallbackNote,
@@ -121,6 +160,14 @@ export async function POST(
     note.id,
     { model: MODEL, promptVersion: PROMPT_VERSION }
   );
+
+  logEvent("generate.completed", {
+    consultationId: id,
+    clinicId: session.clinicId,
+    noteId: note.id,
+    model: MODEL,
+    promptVersion: PROMPT_VERSION,
+  });
 
   return NextResponse.json({ note, draft }, { status: 201 });
 }
