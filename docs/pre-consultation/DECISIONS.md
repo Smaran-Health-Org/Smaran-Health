@@ -37,3 +37,8 @@ Do not silently reverse these decisions during implementation. If the existing c
 - **D-033** Pre-consult brief should regenerate as new information becomes available rather than waiting for a single manual finalization step.
 - **D-034** Preferred consultation integration keeps pre-consult context available in a persistent/collapsible panel after Start Consultation.
 - **D-035** AI extracts/proposes; doctors confirm. AI must not diagnose, prescribe, recommend treatment independently, or silently change confirmed state.
+- **D-036** Smaran uses one authentication system for clinic staff; do not build separate doctor and admin authentication stacks.
+- **D-037** Doctor and admin/receptionist use separate role-specific workspaces and navigation after authentication. Doctor lands in the clinical Doctor Workspace; admin/assistant lands in the Clinic Desk/Admin Workspace.
+- **D-038** Admin/receptionist must not be able to reach doctor-only clinical routes merely by entering the URL. Workspace separation must be enforced server-side through authorization, not only hidden navigation.
+- **D-039** A doctor may also perform permitted clinic-desk/admin operations so Smaran remains usable by a solo doctor without a receptionist.
+- **D-040** Patient intake is a third isolated experience accessed through secure OTP-scoped intake routes and is not a normal clinic-staff login or workspace.
