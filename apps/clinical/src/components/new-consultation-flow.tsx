@@ -54,11 +54,10 @@ export function NewConsultationFlow({
         <div>
           <p className={styles.eyebrow}>New consultation</p>
           <h1>Who are you seeing?</h1>
-          <p>Pick an existing patient, or add someone new in a few taps.</p>
         </div>
       </div>
 
-      <div className={styles.segmentedControl} role="tablist" aria-label="Patient type">
+      {initialMode !== "new" && <div className={styles.segmentedControl} role="tablist" aria-label="Patient type">
         <button
           type="button"
           role="tab"
@@ -77,7 +76,7 @@ export function NewConsultationFlow({
         >
           <Icon name="plus" /> New patient
         </button>
-      </div>
+      </div>}
 
       {mode === "existing" ? (
         <section aria-label="Existing patients">
@@ -129,6 +128,11 @@ function NewPatientForm() {
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
   const [phone, setPhone] = useState("");
+  const [weightKg, setWeightKg] = useState("");
+  const [heightCm, setHeightCm] = useState("");
+  const [bloodPressure, setBloodPressure] = useState("");
+  const [bloodGroup, setBloodGroup] = useState("");
+  const [diabetesHistory, setDiabetesHistory] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -157,6 +161,11 @@ function NewPatientForm() {
           age: age.trim() ? Number(age) : null,
           gender: gender || null,
           phone: phone.trim() || null,
+          weightKg: weightKg.trim() ? Number(weightKg) : null,
+          heightCm: heightCm.trim() ? Number(heightCm) : null,
+          bloodPressure: bloodPressure.trim() || null,
+          bloodGroup: bloodGroup || null,
+          hasDiabetes: diabetesHistory === "yes" ? true : diabetesHistory === "no" ? false : null,
         }),
       });
 
@@ -198,6 +207,38 @@ function NewPatientForm() {
               autoFocus
               required
             />
+          </label>
+
+          <label className={styles.formField}>
+            <span>Weight (kg)</span>
+            <input type="number" min="0.1" max="500" step="0.1" value={weightKg} onChange={(event) => setWeightKg(event.target.value)} placeholder="e.g. 72.5" />
+          </label>
+
+          <label className={styles.formField}>
+            <span>Height (cm)</span>
+            <input type="number" min="0.1" max="300" step="0.1" value={heightCm} onChange={(event) => setHeightCm(event.target.value)} placeholder="e.g. 168" />
+          </label>
+
+          <label className={styles.formField}>
+            <span>Blood pressure</span>
+            <input type="text" inputMode="numeric" value={bloodPressure} onChange={(event) => setBloodPressure(event.target.value)} placeholder="e.g. 120/80" pattern="[0-9]{2,3}/[0-9]{2,3}" />
+          </label>
+
+          <label className={styles.formField}>
+            <span>Blood group</span>
+            <select value={bloodGroup} onChange={(event) => setBloodGroup(event.target.value)}>
+              <option value="">Not recorded</option>
+              {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((group) => <option key={group} value={group}>{group}</option>)}
+            </select>
+          </label>
+
+          <label className={`${styles.formField} ${styles.fieldFull}`}>
+            <span>Documented diabetes history</span>
+            <select value={diabetesHistory} onChange={(event) => setDiabetesHistory(event.target.value)}>
+              <option value="">Not recorded</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
           </label>
 
           <label className={styles.formField}>

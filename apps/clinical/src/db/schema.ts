@@ -7,6 +7,7 @@ import {
   integer,
   jsonb,
   boolean,
+  real,
 } from "drizzle-orm/pg-core";
 
 // ── Enums ───────────────────────────────────────────────────────────────────
@@ -69,6 +70,11 @@ export const patients = pgTable("patients", {
   phone: text("phone"),
   address: text("address"),
   medicalRecordNumber: text("medical_record_number"),
+  weightKg: real("weight_kg"),
+  heightCm: real("height_cm"),
+  bloodPressure: text("blood_pressure"),
+  bloodGroup: text("blood_group"),
+  hasDiabetes: boolean("has_diabetes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

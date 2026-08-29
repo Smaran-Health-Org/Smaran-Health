@@ -55,6 +55,11 @@ export async function createPatient(
     phone?: string | null;
     address?: string | null;
     medicalRecordNumber?: string | null;
+    weightKg?: number | null;
+    heightCm?: number | null;
+    bloodPressure?: string | null;
+    bloodGroup?: string | null;
+    hasDiabetes?: boolean | null;
   },
   clinicId: string
 ): Promise<Patient> {
@@ -69,6 +74,11 @@ export async function createPatient(
       phone: input.phone,
       address: input.address,
       medical_record_number: input.medicalRecordNumber,
+      weight_kg: input.weightKg,
+      height_cm: input.heightCm,
+      blood_pressure: input.bloodPressure,
+      blood_group: input.bloodGroup,
+      has_diabetes: input.hasDiabetes,
     })
     .select(PATIENT_COLUMNS)
     .single();
@@ -86,6 +96,11 @@ export async function updatePatient(
     phone: string | null;
     address: string | null;
     medicalRecordNumber: string | null;
+    weightKg: number | null;
+    heightCm: number | null;
+    bloodPressure: string | null;
+    bloodGroup: string | null;
+    hasDiabetes: boolean | null;
   }>,
   clinicId: string
 ): Promise<Patient> {
@@ -97,6 +112,11 @@ export async function updatePatient(
   if (input.phone !== undefined) row.phone = input.phone;
   if (input.address !== undefined) row.address = input.address;
   if (input.medicalRecordNumber !== undefined) row.medical_record_number = input.medicalRecordNumber;
+  if (input.weightKg !== undefined) row.weight_kg = input.weightKg;
+  if (input.heightCm !== undefined) row.height_cm = input.heightCm;
+  if (input.bloodPressure !== undefined) row.blood_pressure = input.bloodPressure;
+  if (input.bloodGroup !== undefined) row.blood_group = input.bloodGroup;
+  if (input.hasDiabetes !== undefined) row.has_diabetes = input.hasDiabetes;
 
   const { data, error } = await supabase
     .from("patients")

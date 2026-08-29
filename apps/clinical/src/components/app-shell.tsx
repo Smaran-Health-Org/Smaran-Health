@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Icon } from "@/components/icons";
 import styles from "@/components/clinical.module.css";
@@ -31,6 +31,18 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const accountMenuRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    function closeAccountMenu(event: PointerEvent) {
+      const menu = accountMenuRef.current;
+      if (menu?.open && !menu.contains(event.target as Node)) {
+        menu.removeAttribute("open");
+      }
+    }
+    document.addEventListener("pointerdown", closeAccountMenu);
+    return () => document.removeEventListener("pointerdown", closeAccountMenu);
+  }, []);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -56,15 +68,6 @@ export function AppShell({
           </div>
         </Link>
 
-        <div className={styles.clinicSwitcher}>
-          <span>{initials(clinicName)}</span>
-          <div>
-            <small>Workspace</small>
-            <strong>{clinicName}</strong>
-          </div>
-          <Icon name="chevron" />
-        </div>
-
         <nav className={styles.sideNav} aria-label="Primary navigation">
           <p>Workspace</p>
           <Link
@@ -72,39 +75,55 @@ export function AppShell({
             className={isDashboard ? styles.activeNav : undefined}
           >
             <Icon name="home" />
-            <span>Overview</span>
+            <span>Today&apos;s overview</span>
           </Link>
           <Link
             href="/patients"
             className={isPatients ? styles.activeNav : undefined}
           >
             <Icon name="users" />
-            <span>Patients</span>
+            <span>All patients</span>
             <small>{patientCount}</small>
           </Link>
         </nav>
 
-        <div className={styles.doctorCard}>
-          <div className={styles.doctorAvatar}>{initials(doctorName)}</div>
-          <div>
-            <strong>{doctorName}</strong>
-            <small>Clinic account</small>
-          </div>
-          <button
-            type="button"
-            className={styles.signOutButton}
-            onClick={handleSignOut}
-            disabled={signingOut}
-            aria-label="Sign out"
-            style={{ gridColumn: "1 / -1" }}
-          >
-            <Icon name="logOut" />
-            <span>{signingOut ? "Signing out…" : "Sign out"}</span>
-          </button>
-        </div>
       </aside>
 
-      <div className={styles.appSurface}>{children}</div>
+      <div className={styles.appSurface}>
+        <div className={styles.accountBar}>
+          <details className={styles.accountMenu} ref={accountMenuRef}>
+            <summary aria-label="Open profile menu">
+              <span className={styles.doctorAvatar}>{initials(doctorName)}</span>
+            </summary>
+            <div className={styles.accountPopover}>
+              <div className={styles.accountIdentity}>
+                <span className={styles.doctorAvatar}>{initials(doctorName)}</span>
+                <div>
+                  <strong>{doctorName}</strong>
+                  <small>Clinic account</small>
+                </div>
+              </div>
+              <div className={styles.workspaceDetails}>
+                <span>{initials(clinicName)}</span>
+                <div>
+                  <small>Workspace</small>
+                  <strong>{clinicName}</strong>
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.accountSignOut}
+                onClick={handleSignOut}
+                disabled={signingOut}
+              >
+                <Icon name="logOut" />
+                {signingOut ? "Signing out…" : "Sign out"}
+              </button>
+            </div>
+          </details>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

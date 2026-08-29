@@ -80,7 +80,7 @@
 .clinicSwitcher strong { overflow: hidden; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
 .clinicSwitcher svg { width: 14px; color: #85908c; }
 
-.sideNav { margin-top: 30px; }
+.sideNav { margin-top: 42px; }
 .sideNav p { margin: 0 10px 9px; color: #9aa39f; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
 .sideNav button {
   display: grid;
@@ -133,6 +133,21 @@
 .doctorCard small, .doctorCard > span { color: #8b9591; font-size: 0.62rem; }
 
 .appSurface { min-width: 0; padding: 18px 24px 0; }
+.accountBar { display: flex; width: min(1260px, 100%); height: 42px; justify-content: flex-end; margin: 0 auto 4px; }
+.accountMenu { position: relative; z-index: 30; }
+.accountMenu summary { display: grid; border: 0; border-radius: 50%; cursor: pointer; list-style: none; box-shadow: 0 5px 16px rgba(29, 48, 41, 0.12); }
+.accountMenu summary::-webkit-details-marker { display: none; }
+.accountMenu summary .doctorAvatar { width: 40px; height: 40px; }
+.accountPopover { position: absolute; top: 48px; right: 0; display: grid; width: 260px; gap: 12px; border: 1px solid var(--line); border-radius: 15px; background: #fff; padding: 14px; box-shadow: 0 18px 48px rgba(28, 45, 39, 0.15); }
+.accountIdentity, .workspaceDetails { display: flex; align-items: center; gap: 10px; }
+.accountIdentity > div, .workspaceDetails > div { display: grid; min-width: 0; gap: 2px; }
+.accountIdentity strong, .workspaceDetails strong { overflow: hidden; font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
+.accountIdentity small, .workspaceDetails small { color: #89938f; font-size: 0.62rem; }
+.workspaceDetails { border-block: 1px solid #edf0ee; padding-block: 12px; }
+.workspaceDetails > span { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 10px; background: #e2f0ea; color: var(--green-dark); font-size: 0.7rem; font-weight: 850; }
+.accountSignOut { display: flex; width: 100%; align-items: center; gap: 8px; border: 0; border-radius: 9px; background: transparent; padding: 8px; color: #8b3f36; font: inherit; font-size: 0.73rem; font-weight: 750; cursor: pointer; }
+.accountSignOut:hover { background: #fff5f3; }
+.accountSignOut svg { width: 16px; height: 16px; }
 .floatingHeader {
   position: sticky;
   top: 14px;
@@ -737,7 +752,7 @@
 .overviewHeader h1 { margin: 0.2rem 0 0.1rem; font-size: clamp(1.7rem, 3vw, 2.4rem); letter-spacing: -0.04em; }
 .overviewHeader p { margin: 0; color: #66736f; font-size: 0.82rem; }
 
-.statGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.9rem; margin-bottom: 1.4rem; }
+.statGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; margin-bottom: 1.4rem; }
 .statCard {
   display: flex;
   align-items: center;
@@ -763,7 +778,7 @@
 .statCard strong { font-size: 1.45rem; letter-spacing: -0.03em; line-height: 1; }
 .statCard small { color: #7c8984; font-size: 0.66rem; font-weight: 650; }
 
-.overviewGrid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 1.1rem; align-items: start; }
+.overviewGrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.1rem; align-items: start; }
 .panel {
   border: 1px solid #e2e7e4;
   border-radius: 17px;
@@ -792,8 +807,17 @@
 .activityItem > svg { width: 14px; color: #aab4b0; }
 .activityMain { display: grid; gap: 2px; min-width: 0; }
 .activityMain strong { overflow: hidden; font-size: 0.8rem; text-overflow: ellipsis; white-space: nowrap; }
+.activityMain > a { overflow: hidden; color: inherit; font-size: 0.8rem; font-weight: 800; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
 .activityMain span { color: #84908b; font-size: 0.64rem; }
 .draftPreview { color: #5f6e69 !important; font-size: 0.66rem !important; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.todayPatientsHeader { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.8rem; }
+.todayPatientsHeader .eyebrow { margin: 0; }
+.patientSearch { display: flex; width: min(280px, 100%); align-items: center; gap: 8px; border: 1px solid #dfe5e2; border-radius: 10px; background: #f9fbfa; padding: 0 10px; color: #7d8a85; }
+.patientSearch:focus-within { border-color: #8bb8a8; box-shadow: 0 0 0 3px rgba(23, 116, 91, 0.08); }
+.patientSearch svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.patientSearch input { width: 100%; border: 0; outline: 0; background: transparent; padding: 0.65rem 0; color: var(--ink); font: inherit; font-size: 0.72rem; }
+.patientSearch input::placeholder { color: #96a09c; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .statusBadge {
   display: inline-flex;
@@ -811,6 +835,10 @@
 .statusBadge[data-tone="success"] { border-color: #cfe7dd; background: #e8f5ef; color: #176b52; }
 .statusBadge[data-tone="warning"] { border-color: #eadcc8; background: #fff8ee; color: #815b27; }
 .statusBadge[data-tone="danger"] { border-color: #eed6d2; background: #fdf1ef; color: #9e4139; }
+.activityItem > .statusBadge { text-decoration: none; }
+.activityItem > a:last-child { display: grid; color: #aab4b0; place-items: center; }
+.activityItem > a:last-child svg { width: 14px; }
+.todayProfileFooter { display: flex; justify-content: flex-end; margin-top: 1rem; padding-bottom: 2rem; }
 
 /* ── Patients master-detail ───────────────────────────────────────────── */
 
@@ -865,7 +893,9 @@
   font-size: 0.85rem;
   font-weight: 850;
 }
-.detailHeader > div { display: grid; gap: 3px; min-width: 0; }
+.detailHeaderMain { display: grid; gap: 3px; min-width: 0; }
+.detailHeaderAction { margin-left: auto; }
+.detailHeaderAction .primaryButton { width: auto; white-space: nowrap; }
 .detailHeader strong { font-size: 1rem; }
 .detailHeader span { color: #7c8984; font-size: 0.7rem; }
 

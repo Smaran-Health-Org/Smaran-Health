@@ -24,6 +24,15 @@ export async function getConsultations(
 export type ConsultationWithNote = Consultation & {
   noteStatus: string | null;
   noteSummary: string | null;
+  noteContent: {
+    summary?: string;
+    chiefComplaint?: string;
+    medicationChanges?: string;
+    investigations?: string;
+    followUpPlan?: string;
+    patientInstructions?: string;
+    uncertainItems?: string;
+  } | null;
 };
 
 export async function getConsultationsWithNotes(
@@ -42,7 +51,10 @@ export async function getConsultationsWithNotes(
 
   const rows = (data as unknown as Array<
     Consultation & {
-      note?: { content?: { summary?: string } | null; status?: string }[] | null;
+      note?: {
+        content?: ConsultationWithNote["noteContent"];
+        status?: string;
+      }[] | null;
     }
   >) ?? [];
 
@@ -53,6 +65,7 @@ export async function getConsultationsWithNotes(
       ...row,
       noteStatus: note?.status ?? null,
       noteSummary: summary && summary !== "None." && summary !== "None stated." ? summary : null,
+      noteContent: note?.content ?? null,
     };
   });
 }

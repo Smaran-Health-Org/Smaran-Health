@@ -9,6 +9,15 @@ export const createPatientSchema = z.object({
   phone: z.string().max(20).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   medicalRecordNumber: z.string().max(100).optional().nullable(),
+  weightKg: z.number().positive().max(500).optional().nullable(),
+  heightCm: z.number().positive().max(300).optional().nullable(),
+  bloodPressure: z
+    .string()
+    .regex(/^\d{2,3}\/\d{2,3}$/, "Use systolic/diastolic format, for example 120/80")
+    .optional()
+    .nullable(),
+  bloodGroup: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]).optional().nullable(),
+  hasDiabetes: z.boolean().optional().nullable(),
 });
 
 export const updatePatientSchema = createPatientSchema.partial();

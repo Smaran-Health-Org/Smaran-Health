@@ -5,7 +5,6 @@ import { getClinicName } from "@/lib/db/clinics";
 import { getPatientDetail } from "@/lib/db/patient-detail";
 import { getPatients } from "@/lib/db/patients";
 import { AppShell } from "@/components/app-shell";
-import { StartConsultationButton } from "@/components/start-consultation";
 import { StatusBadge } from "@/components/status-badge";
 import { Icon } from "@/components/icons";
 import { formatDate, formatRelativeDay } from "@/lib/status";
@@ -60,9 +59,6 @@ export default async function PatientDetailPage({
             <p className={styles.eyebrow}>Patient profile</p>
             <h1>{patient.fullName}</h1>
             <p>{meta || "Patient record"}</p>
-          </div>
-          <div className={styles.profileHeaderActions}>
-            <StartConsultationButton patientId={patient.id} />
           </div>
         </header>
 
