@@ -10,6 +10,23 @@ The project is an AI clinical documentation and memory assistant for Indian spec
 
 Before product or implementation work, read `PROJECT_MEMORY.md`. It records the accepted founder blueprint, durable product thesis, MVP priorities, safety invariants, regulatory context, and unresolved decisions. Treat the original founder blueprint as the strategic source and this file as its working repository memory; do not silently convert open recommendations into final decisions.
 
+## Pre-Consultation Work
+
+Before planning or implementing any pre-consultation, patient-intake, appointment, medical-document, pre-consult brief, delta-review, or clinic-queue work, read **all** files under `docs/pre-consultation/`, starting with `docs/pre-consultation/README.md` and `docs/pre-consultation/DECISIONS.md`.
+
+Rules for that work:
+
+1. `docs/pre-consultation/DECISIONS.md` contains approved product decisions. Do not silently change them.
+2. Product language uses **Encounter**, but for the MVP it maps to the existing `consultations` subsystem. Do not rename or recreate that subsystem as part of pre-consultation work.
+3. Extend the existing clinic-scoped patient, consultation, clinical-note, timeline, audit, and follow-up-memory architecture rather than creating parallel systems.
+4. External document extraction and patient self-report are unconfirmed until clinically meaningful changes are confirmed by an authorized doctor.
+5. Original source documents are immutable evidence; derived AI output must retain provenance where possible.
+6. Admin/receptionist users may manage operations and view originals but must not gain access to the doctor-facing AI pre-consult clinical summary or confirm clinical deltas.
+7. Intake, low-confidence parsing, and unresolved deltas must never block the consultation.
+8. Implement pre-consultation work phase-by-phase using `docs/pre-consultation/IMPLEMENTATION_PLAN.md` and update `IMPLEMENTATION_STATUS.md` after each phase.
+9. Map completed work to IDs in `docs/pre-consultation/ACCEPTANCE_CRITERIA.md`.
+10. If current code conflicts with an approved decision, surface the conflict instead of making a new product decision implicitly.
+
 ## 1. Product Boundary
 
 This product helps doctors document and remember patient consultations.
