@@ -1,8 +1,8 @@
 # Smaran Health — Pre-Consultation Planning Pack
 
-Status: **Approved product direction; implementation not started**
+Status: **Approved product direction; Phases 1–6 implemented; Phase 6.5 workspace refinement approved for next implementation before Phase 7**
 
-Branch baseline: `dev-neelesh` at `b782fde415073fe24eccd2207cd1a212a3e23ad5` (`Refine clinical dashboard and consultation workflows`).
+Branch baseline: `dev-neelesh`. The original planning baseline was `b782fde415073fe24eccd2207cd1a212a3e23ad5`; use `IMPLEMENTATION_STATUS.md` for current implementation progress.
 
 This folder is the source of truth for the pre-consultation workflow. It converts the founder/product discussion into implementation-ready constraints for Codex and human engineers.
 
@@ -12,6 +12,8 @@ This folder is the source of truth for the pre-consultation workflow. It convert
 
 > Every important clinical claim Smaran presents should be traceable to evidence whenever evidence exists.
 
+> Reception should manage people, not software states. Automate the normal path, surface the exception, and require human judgment only where human judgment adds value.
+
 ## Read order for implementation work
 
 1. `DECISIONS.md` — approved decisions that must not be silently changed.
@@ -20,10 +22,11 @@ This folder is the source of truth for the pre-consultation workflow. It convert
 4. `DATA_MODEL.md` — mapping to the existing `apps/clinical` schema.
 5. `PERMISSIONS.md` — doctor/admin/patient access rules.
 6. `AI_DOCUMENT_PIPELINE.md` — immutable evidence, extraction, confidence, provenance, delta detection.
-7. `UX_STATES.md` — queue, document, intake, and encounter states.
-8. `ACCEPTANCE_CRITERIA.md` — behavior Codex must satisfy.
-9. `IMPLEMENTATION_PLAN.md` — phased delivery plan against the current repository.
-10. `IMPLEMENTATION_STATUS.md` — living progress ledger; update after every phase.
+7. `UX_STATES.md` — workspace, dashboard, queue, document, intake, and encounter states.
+8. `PHASE_6_5_WORKSPACE_REFINEMENT.md` — approved Doctor Dashboard, Admin/Clinic Desk, Admin Patient View, Priority, queue, assisted onboarding, and automation refinement. **Read this before implementing Phase 6.5 or any Phase 7+ UI that depends on workspace boundaries.**
+9. `ACCEPTANCE_CRITERIA.md` — behavior Codex must satisfy.
+10. `IMPLEMENTATION_PLAN.md` — phased delivery plan against the current repository, including Phase 6.5 before Phase 7.
+11. `IMPLEMENTATION_STATUS.md` — living progress ledger; update after every implementation phase.
 
 ## Existing code that should be reused
 
@@ -37,8 +40,9 @@ The current clinical app already provides useful foundations:
 - Today's-patients dashboard direction.
 - Doctor consultation recording/transcription/note-review workflow.
 - Follow-up memory built only from approved clinical notes.
+- Implemented Phase 1–6 appointment/queue, OTP intake, document ingestion, and document-processing foundations on `dev-neelesh`.
 
-Do not create a parallel patient or consultation subsystem.
+Do not create a parallel patient, appointment, intake, document, or consultation subsystem during Phase 6.5. Reorganize/reuse existing functionality.
 
 ## Terminology mapping
 
@@ -48,9 +52,17 @@ For the MVP:
 
 - **Patient** -> existing `patients` table.
 - **Encounter** -> existing `consultations` table/domain object.
-- **Appointment** -> new scheduling entity linked to a consultation/Encounter.
+- **Appointment** -> scheduling entity linked to a consultation/Encounter.
+- **Clinical Workspace** -> doctor-focused workspace; current doctor route family remains rooted in the existing clinical app.
+- **Admin / Clinic Desk Workspace** -> role-specific operational workspace; Phase 6.5 recommended landing is `/desk`.
 
 Do **not** rename `consultations` to `encounters` as part of the pre-consultation MVP. A rename can be evaluated later as a dedicated migration/refactor.
+
+## Current sequencing rule
+
+Phases 1–6 are complete according to the current implementation ledger. Before Phase 7 normalized observations, implement **Phase 6.5 — Role workspaces, dashboards, and Clinic Desk automation** so doctor-only clinical intelligence is introduced into an already-secure Clinical Workspace instead of the current shared dashboard structure.
+
+Smaran Scheduler and Smaran Pay are intentionally deferred product surfaces. Scheduler may be reserved as a Coming Later navigation entry; neither scheduling-engine development nor billing/payment belongs in Phase 6.5.
 
 ## Codex operating rule
 
