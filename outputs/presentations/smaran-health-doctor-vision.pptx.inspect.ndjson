@@ -1,0 +1,448 @@
+{"kind":"deck","id":"pr/3j2pe8","name":"Deck"}
+{"kind":"layout","layoutId":"0d8472b1-6591-486e-9bf5-b0662231c6ab","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"3c99e8d6-7187-40e4-9cd7-2c8bb7092dfe","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/r6rm10","slide":1,"title":"DOCTOR WORKING SESSION · SYNTHETIC DATA","textShapes":5}
+{"kind":"shape","id":"sh/lcfi14ja","slide":1,"bbox":[50,46,54,54]}
+{"kind":"textbox","id":"sh/7ex03e1g","slide":1,"text":"DOCTOR WORKING SESSION · SYNTHETIC DATA","textPreview":"DOCTOR WORKING SESSION · SYNTHETIC DATA","textChars":39,"textLines":1,"bbox":[72,135,460,24]}
+{"kind":"textbox","id":"sh/6dozu90v","slide":1,"name":"cover-title","text":"Every follow-up\nbegins with the full\npatient story in\nview.","textPreview":"Every follow-up | begins with the full | patient story in | view.","textChars":59,"textLines":4,"bbox":[72,178,530,286]}
+{"kind":"textbox","id":"sh/t0fi54j6","slide":1,"text":"Smaran Health · a doctor-led clinical memory vision","textPreview":"Smaran Health · a doctor-led clinical memory vision","textChars":51,"textLines":1,"bbox":[74,478,500,60]}
+{"kind":"shape","id":"sh/8f6hwji1","slide":1,"bbox":[72,568,500,62]}
+{"kind":"textbox","id":"sh/nitgra1w","slide":1,"text":"AI organizes what was documented.\nThe doctor decides what becomes the record.","textPreview":"AI organizes what was documented. | The doctor decides what becomes the record.","textChars":77,"textLines":2,"bbox":[92,581,460,42]}
+{"kind":"textbox","id":"sh/mhkzi5kr","slide":1,"text":"SMARAN HEALTH · 2026","textPreview":"SMARAN HEALTH · 2026","textChars":20,"textLines":1,"bbox":[72,680,260,18]}
+{"kind":"image","id":"im/7m9gra90","slide":1,"name":"","geometry":"rect","alt":"Indian specialist consulting a patient beside a desktop computer, framed by a mint clinical-memory ribbon","bbox":[650,64,558,558]}
+{"kind":"image","id":"im/t8rytkr6","slide":1,"name":"","geometry":"rect","alt":"Smaran Health mark","bbox":[59,55,36,36]}
+{"kind":"notes","id":"nt/r6rm10","slide":1,"text":"Open with the desired follow-up experience, not with a feature list. Explain that the deck uses synthetic data and separates current prototype screens from future product directions.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — product thesis and doctor-control boundary\n- /Users/Neelesh/Documents/Smaran Health/tmp/presentations/smaran-doctor-vision-2026/assets/cover-doctor-patient-v4-no-portal.png — generated square editorial visual with the marked cream portal and coral node removed; desktop monitor, keyboard, mouse and mint memory ribbon retained; prompt recorded in source-notes.txt\n- /Users/Neelesh/Documents/Smaran Health/apps/website/public/favicon.svg — Smaran brand mark\n[/Sources]"}
+{"kind":"slide","id":"sl/ahpszn","slide":2,"title":"SMARAN HEALTH","textShapes":8}
+{"kind":"shape","id":"sh/5wzid8v2","slide":2,"bbox":[0,0,540,720]}
+{"kind":"textbox","id":"sh/kvqhk3uh","slide":2,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/7y10fids","slide":2,"bbox":[1002,28,206,30]}
+{"kind":"shape","id":"sh/6x8zmdc7","slide":2,"bbox":[1014,39,8,8]}
+{"kind":"textbox","id":"sh/tkjihsvy","slide":2,"text":"WORKFLOW HYPOTHESIS","textPreview":"WORKFLOW HYPOTHESIS","textChars":19,"textLines":1,"bbox":[1030,34,168,20]}
+{"kind":"textbox","id":"sh/sjahonud","slide":2,"text":"THE FOLLOW-UP PROBLEM","textPreview":"THE FOLLOW-UP PROBLEM","textChars":21,"textLines":1,"bbox":[72,92,360,24]}
+{"kind":"textbox","id":"sh/fm10j2d4","slide":2,"name":"slide-title","text":"The hardest part of follow-up is rebuilding context from fragments.","textPreview":"The hardest part of follow-up is rebuilding context from fragments.","textChars":67,"textLines":1,"bbox":[72,126,450,220]}
+{"kind":"textbox","id":"sh/ulszqxcj","slide":2,"text":"Previous notes, reports, patient recollection, messages, pending tests and medication changes can live in different places.","textPreview":"Previous notes, reports, patient recollection, messages, pending tests and medication changes can live in different places.","textChars":123,"textLines":1,"bbox":[72,372,430,122]}
+{"kind":"textbox","id":"sh/0vmd0jit","slide":2,"text":"The opportunity is not more data. It is one trustworthy thread.","textPreview":"The opportunity is not more data. It is one trustworthy thread.","textChars":63,"textLines":1,"bbox":[72,535,430,68]}
+{"kind":"shape","id":"sh/1wfetoje","slide":2,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/e94vy903","slide":2,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/fudwre18","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"image","id":"im/r6p4rqpk","slide":2,"name":"","geometry":"rect","alt":"Disconnected clinical reports, notes, messages and calendar linked by broken thread","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/ahpszn","slide":2,"text":"Treat these as workflow hypotheses to validate with doctors. The visual metaphor is one story dispersed across common clinic artifacts.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md — doctor jobs-to-be-done and patient-memory requirements\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — longitudinal patient-story thesis\n- /Users/Neelesh/Documents/Smaran Health/tmp/presentations/smaran-doctor-vision-2026/assets/fragmented-story.png — generated editorial visual; prompt recorded in source-notes.txt\n[/Sources]"}
+{"kind":"slide","id":"sl/qqxmma","slide":3,"title":"SMARAN HEALTH","textShapes":22}
+{"kind":"textbox","id":"sh/vq5sbi98","slide":3,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/wretknat","slide":3,"bbox":[1038,28,170,30]}
+{"kind":"shape","id":"sh/xsnadsry","slide":3,"bbox":[1050,39,8,8]}
+{"kind":"textbox","id":"sh/mlcbedsb","slide":3,"text":"PRODUCT THESIS","textPreview":"PRODUCT THESIS","textChars":14,"textLines":1,"bbox":[1066,34,132,20]}
+{"kind":"textbox","id":"sh/nmls7i9w","slide":3,"name":"slide-title","text":"Smaran turns approved encounters into memory","textPreview":"Smaran turns approved encounters into memory","textChars":44,"textLines":1,"bbox":[72,78,970,100]}
+{"kind":"textbox","id":"sh/8nutgnah","slide":3,"text":"A clinical-memory layer—not a diagnostic or prescribing system.","textPreview":"A clinical-memory layer—not a diagnostic or prescribing system.","textChars":63,"textLines":1,"bbox":[72,178,850,34]}
+{"kind":"shape","id":"sh/9o3a98r2","slide":3,"bbox":[246,322,56,0]}
+{"kind":"shape","id":"sh/6hgbqxsv","slide":3,"bbox":[462,322,56,0]}
+{"kind":"shape","id":"sh/7ipcj29g","slide":3,"bbox":[708,322,64,0]}
+{"kind":"shape","id":"sh/fel87qxc","slide":3,"bbox":[932,322,68,0]}
+{"kind":"shape","id":"sh/utc7ylwr","slide":3,"bbox":[86,235,160,184]}
+{"kind":"textbox","id":"sh/hg3q90f2","slide":3,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[102,252,40,24]}
+{"kind":"textbox","id":"sh/gfup0vex","slide":3,"text":"Consent &\nrecord","textPreview":"Consent & | record","textChars":16,"textLines":2,"bbox":[102,286,128,64]}
+{"kind":"textbox","id":"sh/3i58bqx8","slide":3,"text":"Visible recording or manual path","textPreview":"Visible recording or manual path","textChars":32,"textLines":1,"bbox":[102,362,128,44]}
+{"kind":"shape","id":"sh/2hc72lwn","slide":3,"bbox":[302,235,160,184]}
+{"kind":"textbox","id":"sh/pknqd0fe","slide":3,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[318,252,40,24]}
+{"kind":"textbox","id":"sh/4jep4vet","slide":3,"text":"Structured\ndraft","textPreview":"Structured | draft","textChars":16,"textLines":2,"bbox":[318,286,128,64]}
+{"kind":"textbox","id":"sh/rm58faxk","slide":3,"text":"Evidence, confidence, uncertainty","textPreview":"Evidence, confidence, uncertainty","textChars":33,"textLines":1,"bbox":[318,362,128,44]}
+{"kind":"shape","id":"sh/qlw765wz","slide":3,"bbox":[518,235,190,184]}
+{"kind":"textbox","id":"sh/mh0by9g7","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[534,252,40,24]}
+{"kind":"textbox","id":"sh/ni9s7ehs","slide":3,"text":"Doctor review\n& approval","textPreview":"Doctor review | & approval","textChars":24,"textLines":2,"bbox":[534,286,158,64]}
+{"kind":"textbox","id":"sh/ojit0jyx","slide":3,"text":"The only gate into clinical truth","textPreview":"The only gate into clinical truth","textChars":33,"textLines":1,"bbox":[534,362,158,44]}
+{"kind":"shape","id":"sh/94ra9ozi","slide":3,"bbox":[772,235,160,184]}
+{"kind":"textbox","id":"sh/edgrupgv","slide":3,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[788,252,40,24]}
+{"kind":"textbox","id":"sh/zeps3uhg","slide":3,"text":"Approved\ntimeline","textPreview":"Approved | timeline","textChars":17,"textLines":2,"bbox":[788,286,128,64]}
+{"kind":"textbox","id":"sh/0fy9wzy1","slide":3,"text":"Drafts and rejections stay out","textPreview":"Drafts and rejections stay out","textChars":30,"textLines":1,"bbox":[788,362,128,44]}
+{"kind":"shape","id":"sh/1g7a54zm","slide":3,"bbox":[1000,235,170,184]}
+{"kind":"textbox","id":"sh/i9kb6tgf","slide":3,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1016,252,40,24]}
+{"kind":"textbox","id":"sh/jatsfyh0","slide":3,"text":"Next-visit\nmemory","textPreview":"Next-visit | memory","textChars":17,"textLines":2,"bbox":[1016,286,138,64]}
+{"kind":"textbox","id":"sh/t4ve5sj2","slide":3,"text":"What changed and what remains open","textPreview":"What changed and what remains open","textChars":34,"textLines":1,"bbox":[1016,362,138,44]}
+{"kind":"shape","id":"sh/s3mdwnih","slide":3,"bbox":[190,488,900,84]}
+{"kind":"textbox","id":"sh/72dc3i1w","slide":3,"text":"AI can organize and retrieve. It cannot diagnose, prescribe, alter medication, or finalize a record.","textPreview":"AI can organize and retrieve. It cannot diagnose, prescribe, alter medication, or finalize a record.","textChars":100,"textLines":1,"bbox":[226,510,830,44]}
+{"kind":"shape","id":"sh/614vud0b","slide":3,"bbox":[72,650,1136,0]}
+{"kind":"shape","id":"sh/50vu18jq","slide":3,"bbox":[70,645,10,10]}
+{"kind":"shape","id":"sh/kz2dsnil","slide":3,"bbox":[1200,645,10,10]}
+{"kind":"shape","id":"sh/jytczi10","slide":3,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/idkvqd0f","slide":3,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/pwfedcja","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"notes","id":"nt/qqxmma","slide":3,"text":"Make the approval gate the center of the explanation. Every downstream memory object comes only from doctor-approved records.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — core workflow and safety invariants\n- /Users/Neelesh/Documents/Smaran Health/AGENTS.md — AI pipeline and clinical note state machine\n- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md — AI responsibilities and prohibited actions\n[/Sources]"}
+{"kind":"slide","id":"sl/ghm6h9","slide":4,"title":"SMARAN HEALTH","textShapes":10}
+{"kind":"shape","id":"sh/knip4fux","slide":4,"bbox":[0,0,1280,150]}
+{"kind":"textbox","id":"sh/5orqdkb2","slide":4,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/axg7y5cf","slide":4,"bbox":[1038,28,170,30]}
+{"kind":"shape","id":"sh/vip87at0","slide":4,"bbox":[1050,39,8,8]}
+{"kind":"textbox","id":"sh/wjyp0ful","slide":4,"text":"PRODUCT VISION","textPreview":"PRODUCT VISION","textChars":14,"textLines":1,"bbox":[1066,34,132,20]}
+{"kind":"textbox","id":"sh/xk7q90b6","slide":4,"name":"slide-title","text":"The clinic day stays familiar. The record becomes continuous.","textPreview":"The clinic day stays familiar. The record becomes continuous.","textChars":61,"textLines":1,"bbox":[72,73,1040,72]}
+{"kind":"textbox","id":"sh/mtg7ulcj","slide":4,"text":"Find / onboard","textPreview":"Find / onboard","textChars":14,"textLines":1,"bbox":[54,626,174,26]}
+{"kind":"textbox","id":"sh/nupo3qt4","slide":4,"text":"Consent","textPreview":"Consent","textChars":7,"textLines":1,"bbox":[264,626,174,26]}
+{"kind":"textbox","id":"sh/zaxcf29w","slide":4,"text":"Consult","textPreview":"Consult","textChars":7,"textLines":1,"bbox":[474,626,174,26]}
+{"kind":"textbox","id":"sh/epobmxsb","slide":4,"text":"Review & approve","textPreview":"Review & approve","textChars":16,"textLines":1,"bbox":[688,626,174,26]}
+{"kind":"textbox","id":"sh/1czuhcr2","slide":4,"text":"Share approved output","textPreview":"Share approved output","textChars":21,"textLines":1,"bbox":[902,626,174,26]}
+{"kind":"textbox","id":"sh/0b6to7ah","slide":4,"text":"Return with context","textPreview":"Return with context","textChars":19,"textLines":1,"bbox":[1094,626,160,26]}
+{"kind":"textbox","id":"sh/nehcj29s","slide":4,"text":"A single thread runs beyond the visit into the next visit.","textPreview":"A single thread runs beyond the visit into the next visit.","textChars":58,"textLines":1,"bbox":[370,675,540,20]}
+{"kind":"image","id":"im/qdcny50j","slide":4,"name":"","geometry":"rect","alt":"Six-stage patient journey linked by a continuous mint memory thread","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/ghm6h9","slide":4,"text":"Walk left to right. The patient journey includes patient onboarding, consent, recording, doctor approval, approved sharing, and a context-rich return visit.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md — core consultation workflow and future sharing direction\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — approved-memory workflow\n- /Users/Neelesh/Documents/Smaran Health/tmp/presentations/smaran-doctor-vision-2026/assets/patient-journey.png — generated journey visual; prompt recorded in source-notes.txt\n[/Sources]"}
+{"kind":"slide","id":"sl/f20fk4","slide":5,"title":"SMARAN HEALTH","textShapes":18}
+{"kind":"textbox","id":"sh/dk3ml4n2","slide":5,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/qhsnqpob","slide":5,"bbox":[1012,28,196,30]}
+{"kind":"shape","id":"sh/ri14ju5w","slide":5,"bbox":[1024,39,8,8]}
+{"kind":"textbox","id":"sh/07u5wz6d","slide":5,"text":"PRODUCT DIRECTION","textPreview":"PRODUCT DIRECTION","textChars":17,"textLines":1,"bbox":[1040,34,158,20]}
+{"kind":"textbox","id":"sh/1836p4ny","slide":5,"name":"slide-title","text":"Onboarding should feel like lookup—not paperwork","textPreview":"Onboarding should feel like lookup—not paperwork","textChars":48,"textLines":1,"bbox":[72,78,450,112]}
+{"kind":"textbox","id":"sh/elcnupo7","slide":5,"text":"Search first. Create only when needed. Keep identity clinic-scoped and consent scopes separate.","textPreview":"Search first. Create only when needed. Keep identity clinic-scoped and consent scopes separate.","textChars":95,"textLines":1,"bbox":[72,204,450,86]}
+{"kind":"shape","id":"sh/fmlonu5s","slide":5,"bbox":[72,312,8,8]}
+{"kind":"textbox","id":"sh/obe50j6p","slide":5,"text":"Minimal demographics and a clear clinic identity","textPreview":"Minimal demographics and a clear clinic identity","textChars":48,"textLines":1,"bbox":[92,304,400,54]}
+{"kind":"shape","id":"sh/9cn6tona","slide":5,"bbox":[72,383,8,8]}
+{"kind":"textbox","id":"sh/tsvyhs7y","slide":5,"text":"Language and contact preference visible at the start","textPreview":"Language and contact preference visible at the start","textChars":52,"textLines":1,"bbox":[92,375,400,54]}
+{"kind":"shape","id":"sh/srmhon6t","slide":5,"bbox":[72,454,8,8]}
+{"kind":"textbox","id":"sh/7qdgfip8","slide":5,"text":"Assistant actions stay permission-based","textPreview":"Assistant actions stay permission-based","textChars":39,"textLines":1,"bbox":[92,446,400,54]}
+{"kind":"shape","id":"sh/6p4zmdon","slide":5,"bbox":[552,160,656,440]}
+{"kind":"textbox","id":"sh/hgfyls7a","slide":5,"text":"PATIENT LOOKUP","textPreview":"PATIENT LOOKUP","textChars":14,"textLines":1,"bbox":[590,190,300,24]}
+{"kind":"textbox","id":"sh/gv6hsn6p","slide":5,"text":"Who is in front of you?","textPreview":"Who is in front of you?","textChars":23,"textLines":1,"bbox":[590,224,420,44]}
+{"kind":"shape","id":"sh/fudgjip4","slide":5,"bbox":[590,286,578,62]}
+{"kind":"shape","id":"sh/ut4zqxoj","slide":5,"bbox":[610,305,22,22]}
+{"kind":"shape","id":"sh/x0by987q","slide":5,"bbox":[626,321,12,12]}
+{"kind":"textbox","id":"sh/wz2xg3ql","slide":5,"text":"Search name · phone · clinic ID","textPreview":"Search name · phone · clinic ID","textChars":31,"textLines":1,"bbox":[650,306,440,28]}
+{"kind":"shape","id":"sh/8fqpcn2d","slide":5,"bbox":[590,372,578,102]}
+{"kind":"shape","id":"sh/9gzqlsjy","slide":5,"bbox":[610,394,52,52]}
+{"kind":"textbox","id":"sh/mdo7axkn","slide":5,"text":"AS","textPreview":"AS","textChars":2,"textLines":1,"bbox":[610,407,52,24]}
+{"kind":"textbox","id":"sh/nex8j21s","slide":5,"text":"Ananya S.\n43 years · Pune · DEMO-PN-1042","textPreview":"Ananya S. | 43 years · Pune · DEMO-PN-1042","textChars":40,"textLines":2,"bbox":[680,391,340,58]}
+{"kind":"shape","id":"sh/wjqpg72p","slide":5,"bbox":[1030,397,112,44]}
+{"kind":"textbox","id":"sh/xkzqpcja","slide":5,"text":"Open profile","textPreview":"Open profile","textChars":12,"textLines":1,"bbox":[1044,409,84,22]}
+{"kind":"shape","id":"sh/ah87exkj","slide":5,"bbox":[590,502,578,0]}
+{"kind":"textbox","id":"sh/vih8n214","slide":5,"text":"No match? Add a patient with only the fields needed for today’s workflow.","textPreview":"No match? Add a patient with only the fields needed for today’s workflow.","textChars":73,"textLines":1,"bbox":[590,526,400,48]}
+{"kind":"shape","id":"sh/k7a9kr2l","slide":5,"bbox":[1008,521,160,48]}
+{"kind":"textbox","id":"sh/58jqtcj6","slide":5,"text":"+ New patient","textPreview":"+ New patient","textChars":13,"textLines":1,"bbox":[1029,534,118,22]}
+{"kind":"textbox","id":"sh/f2lsjql8","slide":5,"text":"Illustrative future workflow · synthetic data","textPreview":"Illustrative future workflow · synthetic data","textChars":45,"textLines":1,"bbox":[552,612,656,20]}
+{"kind":"shape","id":"sh/u1cbal4n","slide":5,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/h43alg3e","slide":5,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/g3utcbmt","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"notes","id":"nt/f20fk4","slide":5,"text":"This is an illustrative future workflow, not a shipped onboarding screen. Emphasize minimal effort and clinic-scoped identity rather than a long registration form.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md — patient creation, roles, dashboard and consent requirements\n- /Users/Neelesh/Documents/Smaran Health/AGENTS.md — clinic-scoped access and assistant permissions\n- /Users/Neelesh/Documents/Smaran Health/apps/website/app/prototype/mock-data.ts — synthetic patient Ananya S.\n[/Sources]"}
+{"kind":"slide","id":"sl/97fy5w","slide":6,"title":"SMARAN HEALTH","textShapes":10}
+{"kind":"textbox","id":"sh/xgb2pc3q","slide":6,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/adkjex4z","slide":6,"bbox":[992,28,216,30]}
+{"kind":"shape","id":"sh/betkn25k","slide":6,"bbox":[1004,39,8,8]}
+{"kind":"textbox","id":"sh/k321krm1","slide":6,"text":"SYNTHETIC PROTOTYPE","textPreview":"SYNTHETIC PROTOTYPE","textChars":19,"textLines":1,"bbox":[1020,34,178,20]}
+{"kind":"textbox","id":"sh/l4v2tc3m","slide":6,"name":"slide-title","text":"Recording stays visible, consented, and optional","textPreview":"Recording stays visible, consented, and optional","textChars":48,"textLines":1,"bbox":[72,78,1050,58]}
+{"kind":"textbox","id":"sh/y1kjih4b","slide":6,"text":"Declining recording does not affect care; a manual note path remains available.","textPreview":"Declining recording does not affect care; a manual note path remains available.","textChars":79,"textLines":1,"bbox":[72,139,900,34]}
+{"kind":"shape","id":"sh/j2tkrmlg","slide":6,"bbox":[72,196,545,438]}
+{"kind":"textbox","id":"sh/18r2hsni","slide":6,"text":"SEPARATE SCOPES","textPreview":"SEPARATE SCOPES","textChars":15,"textLines":1,"bbox":[96,558,210,24]}
+{"kind":"textbox","id":"sh/1g7y1836","slide":6,"text":"Recording and clinical processing do not automatically include patient sharing or model improvement.","textPreview":"Recording and clinical processing do not automatically include patient sharing or model improvement.","textChars":100,"textLines":1,"bbox":[96,580,490,44]}
+{"kind":"shape","id":"sh/gfyhs3ml","slide":6,"bbox":[663,196,545,438]}
+{"kind":"textbox","id":"sh/edgzqt4f","slide":6,"text":"VISIBLE CONTROL","textPreview":"VISIBLE CONTROL","textChars":15,"textLines":1,"bbox":[687,558,210,24]}
+{"kind":"textbox","id":"sh/p4ri583i","slide":6,"text":"The doctor can pause, stop, cancel or continue without recording. Consent stays visible in the workflow.","textPreview":"The doctor can pause, stop, cancel or continue without recording. Consent stays visible in the workflow.","textChars":104,"textLines":1,"bbox":[687,580,490,44]}
+{"kind":"shape","id":"sh/o3ihw3mx","slide":6,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/32903ylc","slide":6,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/2hgzut4r","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"image","id":"im/lc3ipknm","slide":6,"name":"","geometry":"roundRect","alt":"Synthetic prototype consent checkpoint","bbox":[84,208,521,338]}
+{"kind":"image","id":"im/kral8nqh","slide":6,"name":"","geometry":"roundRect","alt":"Synthetic prototype live recording screen with pause and stop actions","bbox":[675,208,521,338]}
+{"kind":"notes","id":"nt/97fy5w","slide":6,"text":"These are current synthetic prototype screens. Point out the separate consent scopes and explicit recording controls. No real patient data is used.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/docs/prototype/task-10-workflow.md — consent and recording state contract\n- /Users/Neelesh/Documents/Smaran Health/docs/prototype/task-14-doctor-test.md — moderated workflow test\n- /Users/Neelesh/Documents/Smaran Health/apps/website/app/prototype/page.tsx — synthetic prototype implementation\n- /Users/Neelesh/Documents/Smaran Health/tmp/presentations/smaran-doctor-vision-2026/assets/prototype-consent.png and prototype-recording.png — local prototype screenshots\n[/Sources]"}
+{"kind":"slide","id":"sl/1r7x0w","slide":7,"title":"SMARAN HEALTH","textShapes":13}
+{"kind":"textbox","id":"sh/h4nilgna","slide":7,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/uhcja1oj","slide":7,"bbox":[992,28,216,30]}
+{"kind":"shape","id":"sh/vil0j6p4","slide":7,"bbox":[1004,39,8,8]}
+{"kind":"textbox","id":"sh/8fu18b6d","slide":7,"text":"SYNTHETIC PROTOTYPE","textPreview":"SYNTHETIC PROTOTYPE","textChars":19,"textLines":1,"bbox":[1020,34,178,20]}
+{"kind":"textbox","id":"sh/9g3ihw7y","slide":7,"name":"slide-title","text":"AI prepares the draft. The doctor makes the record.","textPreview":"AI prepares the draft. The doctor makes the record.","textChars":51,"textLines":1,"bbox":[72,78,1050,58]}
+{"kind":"textbox","id":"sh/mdcj61on","slide":7,"text":"Every high-risk field remains editable, evidence-linked and unapproved until the doctor acts.","textPreview":"Every high-risk field remains editable, evidence-linked and unapproved until the doctor acts.","textChars":93,"textLines":1,"bbox":[72,139,950,34]}
+{"kind":"shape","id":"sh/7el0f6ps","slide":7,"bbox":[72,196,300,390]}
+{"kind":"textbox","id":"sh/kbah4r6h","slide":7,"text":"REVIEW COCKPIT","textPreview":"REVIEW COCKPIT","textChars":14,"textLines":1,"bbox":[98,226,220,24]}
+{"kind":"textbox","id":"sh/lcjidw72","slide":7,"text":"Editable fields","textPreview":"Editable fields","textChars":15,"textLines":1,"bbox":[98,270,220,36]}
+{"kind":"textbox","id":"sh/hkb2xcju","slide":7,"text":"The note can be corrected before approval.","textPreview":"The note can be corrected before approval.","textChars":42,"textLines":1,"bbox":[98,310,226,58]}
+{"kind":"shape","id":"sh/wj2lo7i9","slide":7,"bbox":[98,390,220,0]}
+{"kind":"textbox","id":"sh/vi9kv21o","slide":7,"text":"Source evidence","textPreview":"Source evidence","textChars":15,"textLines":1,"bbox":[98,414,220,36]}
+{"kind":"textbox","id":"sh/uh03mx03","slide":7,"text":"The doctor can inspect the supporting transcript for each field.","textPreview":"The doctor can inspect the supporting transcript for each field.","textChars":64,"textLines":1,"bbox":[98,454,226,64]}
+{"kind":"shape","id":"sh/9gr2tsji","slide":7,"bbox":[98,536,196,34]}
+{"kind":"textbox","id":"sh/8filknix","slide":7,"text":"Uncertainty stays visible","textPreview":"Uncertainty stays visible","textChars":25,"textLines":1,"bbox":[111,544,170,20]}
+{"kind":"shape","id":"sh/7e9kri1c","slide":7,"bbox":[402,196,806,430]}
+{"kind":"textbox","id":"sh/lsr2psjm","slide":7,"text":"Only explicit approval can add the note to memory.","textPreview":"Only explicit approval can add the note to memory.","textChars":50,"textLines":1,"bbox":[402,635,806,24]}
+{"kind":"shape","id":"sh/krilgni1","slide":7,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/cv2lwnqx","slide":7,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/dwv25sri","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"image","id":"im/50jedkfq","slide":7,"name":"","geometry":"roundRect","alt":"Synthetic prototype draft-review screen with editable fields and confidence labels","bbox":[414,208,782,406]}
+{"kind":"notes","id":"nt/1r7x0w","slide":7,"text":"Use this slide to establish doctor control as a product feature. Rejected drafts never enter the patient timeline.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/docs/prototype/task-10-workflow.md — draft review, rejection and approval state contract\n- /Users/Neelesh/Documents/Smaran Health/AGENTS.md — clinical note state machine and AI output validation\n- /Users/Neelesh/Documents/Smaran Health/apps/website/app/prototype/page.tsx — synthetic draft-review implementation\n- /Users/Neelesh/Documents/Smaran Health/tmp/presentations/smaran-doctor-vision-2026/assets/prototype-draft-review.png — local prototype screenshot\n[/Sources]"}
+{"kind":"slide","id":"sl/2spr81","slide":8,"title":"SMARAN HEALTH","textShapes":14}
+{"kind":"textbox","id":"sh/gvi9w76d","slide":8,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/fu98nm58","slide":8,"bbox":[992,28,216,30]}
+{"kind":"shape","id":"sh/ut0ruhon","slide":8,"bbox":[1004,39,8,8]}
+{"kind":"textbox","id":"sh/tsrqlcn2","slide":8,"text":"SYNTHETIC PROTOTYPE","textPreview":"SYNTHETIC PROTOTYPE","textChars":19,"textLines":1,"bbox":[1020,34,178,20]}
+{"kind":"textbox","id":"sh/s7y9s76h","slide":8,"name":"slide-title","text":"One patient view holds the whole approved story","textPreview":"One patient view holds the whole approved story","textChars":47,"textLines":1,"bbox":[72,78,1050,58]}
+{"kind":"textbox","id":"sh/76p8j25w","slide":8,"text":"The next visit starts with approved context—not a reconstruction exercise.","textPreview":"The next visit starts with approved context—not a reconstruction exercise.","textChars":74,"textLines":1,"bbox":[72,139,850,34]}
+{"kind":"shape","id":"sh/65g7qxob","slide":8,"bbox":[72,196,760,430]}
+{"kind":"textbox","id":"sh/cn294rml","slide":8,"text":"APPROVED HISTORY ONLY","textPreview":"APPROVED HISTORY ONLY","textChars":21,"textLines":1,"bbox":[882,214,300,24]}
+{"kind":"textbox","id":"sh/ad4ni5g3","slide":8,"text":"Reason for today","textPreview":"Reason for today","textChars":16,"textLines":1,"bbox":[882,254,310,32]}
+{"kind":"textbox","id":"sh/vedobaxo","slide":8,"text":"Why the patient is returning, as documented in the record.","textPreview":"Why the patient is returning, as documented in the record.","textChars":58,"textLines":1,"bbox":[882,288,310,58]}
+{"kind":"textbox","id":"sh/wf6pkfy9","slide":8,"text":"What changed","textPreview":"What changed","textChars":12,"textLines":1,"bbox":[882,366,310,32]}
+{"kind":"textbox","id":"sh/xgf6dkfu","slide":8,"text":"Medication changes, investigations reviewed, symptoms and prior advice.","textPreview":"Medication changes, investigations reviewed, symptoms and prior advice.","textChars":71,"textLines":1,"bbox":[882,400,310,62]}
+{"kind":"textbox","id":"sh/m94ne5g7","slide":8,"text":"What remains open","textPreview":"What remains open","textChars":17,"textLines":1,"bbox":[882,482,310,32]}
+{"kind":"textbox","id":"sh/nado7axs","slide":8,"text":"Pending reports and unresolved items from approved records.","textPreview":"Pending reports and unresolved items from approved records.","textChars":59,"textLines":1,"bbox":[882,516,310,58]}
+{"kind":"shape","id":"sh/8bm5gvyd","slide":8,"bbox":[882,586,310,40]}
+{"kind":"textbox","id":"sh/9cv690fi","slide":8,"text":"Drafts and rejected notes stay out","textPreview":"Drafts and rejected notes stay out","textChars":34,"textLines":1,"bbox":[898,596,278,20]}
+{"kind":"shape","id":"sh/65o7qpgb","slide":8,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/76hojuxw","slide":8,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/3q94bmd8","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"image","id":"im/gjy5obmt","slide":8,"name":"","geometry":"roundRect","alt":"Synthetic patient profile showing approved medication history, pending investigations, advice and timeline","bbox":[84,208,736,406]}
+{"kind":"notes","id":"nt/2spr81","slide":8,"text":"Explain the memory view in three questions: why is the patient here, what changed, and what remains open? The visible patient is fully synthetic.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md — patient profile, timeline and follow-up-memory requirements\n- /Users/Neelesh/Documents/Smaran Health/apps/website/app/prototype/mock-data.ts — synthetic Ananya S. approved history\n- /Users/Neelesh/Documents/Smaran Health/docs/prototype/task-10-workflow.md — approved-history-only rule\n- /Users/Neelesh/Documents/Smaran Health/tmp/presentations/smaran-doctor-vision-2026/assets/prototype-patient-profile.png — local prototype screenshot\n[/Sources]"}
+{"kind":"slide","id":"sl/igkcfo","slide":9,"title":"SMARAN HEALTH","textShapes":23}
+{"kind":"textbox","id":"sh/hgb2pg7i","slide":9,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/utk3u1o7","slide":9,"bbox":[1012,28,196,30]}
+{"kind":"shape","id":"sh/vetkn6ps","slide":9,"bbox":[1024,39,8,8]}
+{"kind":"textbox","id":"sh/8r2lsr61","slide":9,"text":"PRODUCT DIRECTION","textPreview":"PRODUCT DIRECTION","textChars":17,"textLines":1,"bbox":[1040,34,158,20]}
+{"kind":"textbox","id":"sh/tsb2lw7m","slide":9,"name":"slide-title","text":"Blood reports can become trends—with source and verification attached","textPreview":"Blood reports can become trends—with source and verification attached","textChars":69,"textLines":1,"bbox":[72,78,1030,100]}
+{"kind":"textbox","id":"sh/6p0jq1ov","slide":9,"text":"Values become easier to review over time. Interpretation remains with the doctor.","textPreview":"Values become easier to review over time. Interpretation remains with the doctor.","textChars":81,"textLines":1,"bbox":[72,177,920,34]}
+{"kind":"shape","id":"sh/7qtkjmpg","slide":9,"bbox":[72,232,730,370]}
+{"kind":"textbox","id":"sh/kni1or65","slide":9,"text":"SYNTHETIC TREND EXAMPLE","textPreview":"SYNTHETIC TREND EXAMPLE","textChars":23,"textLines":1,"bbox":[102,258,280,24]}
+{"kind":"textbox","id":"sh/lor2hw7q","slide":9,"text":"HbA1c · last 5 follow-ups","textPreview":"HbA1c · last 5 follow-ups","textChars":25,"textLines":1,"bbox":[102,290,430,40]}
+{"kind":"textbox","id":"sh/kbedoja9","slide":9,"text":"Synthetic values · no autonomous interpretation","textPreview":"Synthetic values · no autonomous interpretation","textChars":47,"textLines":1,"bbox":[102,566,650,22]}
+{"kind":"shape","id":"sh/zqlcfy9o","slide":9,"bbox":[838,232,370,370]}
+{"kind":"textbox","id":"sh/ypcvmts3","slide":9,"text":"PROVENANCE LANE","textPreview":"PROVENANCE LANE","textChars":15,"textLines":1,"bbox":[868,258,250,24]}
+{"kind":"shape","id":"sh/xo3udory","slide":9,"bbox":[870,300,34,34]}
+{"kind":"textbox","id":"sh/cnudkjad","slide":9,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[870,308,34,18]}
+{"kind":"textbox","id":"sh/bmlcbe9s","slide":9,"text":"Report accepted","textPreview":"Report accepted","textChars":15,"textLines":1,"bbox":[920,298,250,24]}
+{"kind":"textbox","id":"sh/alcvi9s7","slide":9,"text":"Date, file and page retained","textPreview":"Date, file and page retained","textChars":28,"textLines":1,"bbox":[920,324,250,25]}
+{"kind":"shape","id":"sh/pk3u94rm","slide":9,"bbox":[887,334,0,34]}
+{"kind":"shape","id":"sh/ojutgza1","slide":9,"bbox":[870,368,34,34]}
+{"kind":"textbox","id":"sh/g3edwjix","slide":9,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[870,376,34,18]}
+{"kind":"textbox","id":"sh/147u54zi","slide":9,"text":"Value extracted","textPreview":"Value extracted","textChars":15,"textLines":1,"bbox":[920,366,250,24]}
+{"kind":"textbox","id":"sh/e1wvu90r","slide":9,"text":"Shown as unverified","textPreview":"Shown as unverified","textChars":19,"textLines":1,"bbox":[920,392,250,25]}
+{"kind":"shape","id":"sh/f25c3ehc","slide":9,"bbox":[887,402,0,34]}
+{"kind":"shape","id":"sh/szedszi1","slide":9,"bbox":[870,436,34,34]}
+{"kind":"textbox","id":"sh/t0nu14zm","slide":9,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[870,444,34,18]}
+{"kind":"textbox","id":"sh/6xwvqp0v","slide":9,"text":"Doctor checks","textPreview":"Doctor checks","textChars":13,"textLines":1,"bbox":[920,434,250,24]}
+{"kind":"textbox","id":"sh/ry5czuhg","slide":9,"text":"Units and source confirmed","textPreview":"Units and source confirmed","textChars":26,"textLines":1,"bbox":[920,460,250,25]}
+{"kind":"shape","id":"sh/cvyd43i5","slide":9,"bbox":[887,470,0,34]}
+{"kind":"shape","id":"sh/dwredozq","slide":9,"bbox":[870,504,34,34]}
+{"kind":"textbox","id":"sh/nqtg321s","slide":9,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[870,512,34,18]}
+{"kind":"textbox","id":"sh/mpkfuxk7","slide":9,"text":"Trend eligible","textPreview":"Trend eligible","textChars":14,"textLines":1,"bbox":[920,502,250,24]}
+{"kind":"textbox","id":"sh/9sby5sjy","slide":9,"text":"Verified value enters the view","textPreview":"Verified value enters the view","textChars":30,"textLines":1,"bbox":[920,528,250,25]}
+{"kind":"textbox","id":"sh/8r2xw72d","slide":9,"text":"Future concept · not a live lab integration","textPreview":"Future concept · not a live lab integration","textChars":43,"textLines":1,"bbox":[838,612,370,20]}
+{"kind":"shape","id":"sh/vutg7214","slide":9,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/atkfyxkj","slide":9,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/xgvy9cju","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"chart","id":"ch/54fyd07i","slide":9,"name":"","chartType":"line","bbox":[100,336,662,220]}
+{"kind":"notes","id":"nt/igkcfo","slide":9,"text":"This is a future concept, not a live lab integration. The five-point HbA1c series is illustrative: the sourced synthetic example provides the 8.4% and 7.1% endpoints, while the three intermediate values were added only to demonstrate how the last five follow-ups could be visualized. Dates, units, source and verification should remain attached to every value.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md — examination findings, investigation values and future dashboard direction\n- /Users/Neelesh/Documents/Smaran Health/docs/sample-transcripts/SYN-DM-001-improved-hba1c-followup.txt — synthetic 8.4% to 7.1% example\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — no inference, provenance and explicit verification requirements\n[/Sources]"}
+{"kind":"slide","id":"sl/ra9r2f","slide":10,"title":"SMARAN HEALTH","textShapes":21}
+{"kind":"textbox","id":"sh/872hg3mh","slide":10,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/76tgny5w","slide":10,"bbox":[992,28,216,30]}
+{"kind":"shape","id":"sh/65kzet4b","slide":10,"bbox":[1004,39,8,8]}
+{"kind":"textbox","id":"sh/l4byl8nq","slide":10,"text":"SYNTHETIC PROTOTYPE","textPreview":"SYNTHETIC PROTOTYPE","textChars":19,"textLines":1,"bbox":[1020,34,178,20]}
+{"kind":"textbox","id":"sh/k32hc3ml","slide":10,"name":"slide-title","text":"The next visit opens with what changed—and what remains open","textPreview":"The next visit opens with what changed—and what remains open","textChars":60,"textLines":1,"bbox":[72,78,1050,100]}
+{"kind":"textbox","id":"sh/z29gjy50","slide":10,"text":"A concise brief is derived only from approved records.","textPreview":"A concise brief is derived only from approved records.","textChars":54,"textLines":1,"bbox":[72,177,850,34]}
+{"kind":"shape","id":"sh/y10zat4f","slide":10,"bbox":[72,232,1136,382]}
+{"kind":"shape","id":"sh/50vixs3a","slide":10,"bbox":[72,232,250,382]}
+{"kind":"textbox","id":"sh/4zmhonmp","slide":10,"text":"PRE-VISIT MEMORY","textPreview":"PRE-VISIT MEMORY","textChars":16,"textLines":1,"bbox":[98,264,200,24]}
+{"kind":"textbox","id":"sh/mls3algz","slide":10,"text":"Ananya S.","textPreview":"Ananya S.","textChars":9,"textLines":1,"bbox":[98,304,200,44]}
+{"kind":"textbox","id":"sh/nm1k36xk","slide":10,"text":"43 years · Pune\nDiabetes / Endocrinology","textPreview":"43 years · Pune | Diabetes / Endocrinology","textChars":40,"textLines":2,"bbox":[98,355,200,58]}
+{"kind":"shape","id":"sh/8nalcby5","slide":10,"bbox":[98,444,196,0]}
+{"kind":"textbox","id":"sh/9ojm5gfq","slide":10,"text":"Reason for return","textPreview":"Reason for return","textChars":17,"textLines":1,"bbox":[98,468,196,24]}
+{"kind":"textbox","id":"sh/yh8361g3","slide":10,"text":"Four-week review of the home sugar log and adherence.","textPreview":"Four-week review of the home sugar log and adherence.","textChars":53,"textLines":1,"bbox":[98,500,196,72]}
+{"kind":"textbox","id":"sh/zi1kz6xo","slide":10,"text":"LAST APPROVED VISIT","textPreview":"LAST APPROVED VISIT","textChars":19,"textLines":1,"bbox":[360,264,220,24]}
+{"kind":"textbox","id":"sh/0jal8byt","slide":10,"text":"Home fasting readings were documented mostly between 128 and 142. No dizziness or low-sugar symptoms were reported.","textPreview":"Home fasting readings were documented mostly between 128 and 142. No dizziness or low-sugar symptoms were reported.","textChars":115,"textLines":1,"bbox":[360,302,354,110]}
+{"kind":"shape","id":"sh/lkj21gfe","slide":10,"bbox":[360,444,354,112]}
+{"kind":"textbox","id":"sh/idc3i5w7","slide":10,"text":"DOCUMENTED CHANGE","textPreview":"DOCUMENTED CHANGE","textChars":17,"textLines":1,"bbox":[382,462,230,20]}
+{"kind":"textbox","id":"sh/jel4bqxs","slide":10,"text":"No medication change was explicitly stated in the current consultation.","textPreview":"No medication change was explicitly stated in the current consultation.","textChars":71,"textLines":1,"bbox":[382,492,310,62]}
+{"kind":"textbox","id":"sh/fyx03id4","slide":10,"text":"OPEN LOOPS","textPreview":"OPEN LOOPS","textChars":10,"textLines":1,"bbox":[760,264,200,24]}
+{"kind":"shape","id":"sh/ex4zaxwj","slide":10,"bbox":[760,302,408,112]}
+{"kind":"textbox","id":"sh/10fi5sva","slide":10,"text":"Pending investigation","textPreview":"Pending investigation","textChars":21,"textLines":1,"bbox":[784,322,340,24]}
+{"kind":"textbox","id":"sh/gz6hcnep","slide":10,"text":"HbA1c report remains to be reviewed when available.","textPreview":"HbA1c report remains to be reviewed when available.","textChars":51,"textLines":1,"bbox":[784,354,340,50]}
+{"kind":"shape","id":"sh/3mx072dg","slide":10,"bbox":[760,444,408,112]}
+{"kind":"textbox","id":"sh/2lojexwv","slide":10,"text":"Unresolved item","textPreview":"Unresolved item","textChars":15,"textLines":1,"bbox":[784,462,340,24]}
+{"kind":"textbox","id":"sh/pofi9cv6","slide":10,"text":"The dates of the two missed log entries were not stated.","textPreview":"The dates of the two missed log entries were not stated.","textChars":56,"textLines":1,"bbox":[784,494,340,50]}
+{"kind":"textbox","id":"sh/on61g7el","slide":10,"text":"✓ Derived only from doctor-approved synthetic records","textPreview":"✓ Derived only from doctor-approved synthetic records","textChars":53,"textLines":1,"bbox":[360,578,808,22]}
+{"kind":"shape","id":"sh/bqh0b2dc","slide":10,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/qpojihwr","slide":10,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/8vqh8ra5","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"notes","id":"nt/ra9r2f","slide":10,"text":"This brief answers three questions before the next consultation: why the patient is returning, what changed, and what remains open. Avoid using AI-generated clinical suggestions.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/apps/website/app/prototype/mock-data.ts — synthetic follow-up memory and transcript\n- /Users/Neelesh/Documents/Smaran Health/docs/prototype/task-10-workflow.md — approved-memory contract\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — use unresolved items from approved records\n[/Sources]"}
+{"kind":"slide","id":"sl/1aciob","slide":11,"title":"SMARAN HEALTH","textShapes":21}
+{"kind":"textbox","id":"sh/j6psz218","slide":11,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/47yts72d","slide":11,"bbox":[1012,28,196,30]}
+{"kind":"shape","id":"sh/587a1cjy","slide":11,"bbox":[1024,39,8,8]}
+{"kind":"textbox","id":"sh/69gbuhkj","slide":11,"text":"PRODUCT DIRECTION","textPreview":"PRODUCT DIRECTION","textChars":17,"textLines":1,"bbox":[1040,34,158,20]}
+{"kind":"textbox","id":"sh/raps3214","slide":11,"name":"slide-title","text":"The approved plan should leave the clinic as clearly as it was explained","textPreview":"The approved plan should leave the clinic as clearly as it was explained","textChars":72,"textLines":1,"bbox":[72,78,1050,100]}
+{"kind":"textbox","id":"sh/sbitw72p","slide":11,"text":"Print and PDF first; secure WhatsApp handoff later—only after approval and separate sharing consent.","textPreview":"Print and PDF first; secure WhatsApp handoff later—only after approval and separate sharing consent.","textChars":100,"textLines":1,"bbox":[72,177,1050,34]}
+{"kind":"shape","id":"sh/tcra5cja","slide":11,"bbox":[150,296,540,0]}
+{"kind":"shape","id":"sh/mdwridkf","slide":11,"bbox":[110,264,64,64]}
+{"kind":"textbox","id":"sh/ne5sri10","slide":11,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[110,280,64,32]}
+{"kind":"textbox","id":"sh/ze94bmp8","slide":11,"text":"Review content","textPreview":"Review content","textChars":14,"textLines":1,"bbox":[70,346,144,58]}
+{"kind":"shape","id":"sh/ydgniho3","slide":11,"bbox":[330,264,64,64]}
+{"kind":"textbox","id":"sh/lgrmdw7e","slide":11,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[330,280,64,32]}
+{"kind":"textbox","id":"sh/kfi5kr6t","slide":11,"text":"Confirm recipient\n+ channel consent","textPreview":"Confirm recipient | + channel consent","textChars":35,"textLines":2,"bbox":[290,346,144,58]}
+{"kind":"shape","id":"sh/bqp472pc","slide":11,"bbox":[568,264,64,64]}
+{"kind":"textbox","id":"sh/apgnehor","slide":11,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[568,280,64,32]}
+{"kind":"textbox","id":"sh/xs7m9c7i","slide":11,"text":"Deliberate send","textPreview":"Deliberate send","textChars":15,"textLines":1,"bbox":[528,346,144,58]}
+{"kind":"shape","id":"sh/cry5g76x","slide":11,"bbox":[90,432,600,154]}
+{"kind":"textbox","id":"sh/nmp432pg","slide":11,"text":"Share only doctor-approved material","textPreview":"Share only doctor-approved material","textChars":35,"textLines":1,"bbox":[116,454,400,58]}
+{"kind":"textbox","id":"sh/2lwnaxov","slide":11,"text":"Patient summary + doctor-authored or explicitly approved prescription copy. Never raw audio or transcript.","textPreview":"Patient summary + doctor-authored or explicitly approved prescription copy. Never raw audio or transcript.","textChars":106,"textLines":1,"bbox":[116,520,540,52]}
+{"kind":"shape","id":"sh/qhwnmxsn","slide":11,"bbox":[790,226,310,402]}
+{"kind":"shape","id":"sh/ri5of298","slide":11,"bbox":[812,260,266,330]}
+{"kind":"textbox","id":"sh/sje5o7qt","slide":11,"text":"Doctor-approved documents","textPreview":"Doctor-approved documents","textChars":25,"textLines":1,"bbox":[832,284,226,26]}
+{"kind":"shape","id":"sh/dkn6hcre","slide":11,"bbox":[832,328,206,92]}
+{"kind":"textbox","id":"sh/elwnqx8j","slide":11,"text":"SUMMARY.PDF","textPreview":"SUMMARY.PDF","textChars":11,"textLines":1,"bbox":[850,346,170,18]}
+{"kind":"textbox","id":"sh/fm5oj294","slide":11,"text":"Visit summary\nPatient instructions","textPreview":"Visit summary | Patient instructions","textChars":34,"textLines":2,"bbox":[850,374,170,36]}
+{"kind":"shape","id":"sh/0ny5s7qp","slide":11,"bbox":[832,438,206,92]}
+{"kind":"textbox","id":"sh/1o76lcra","slide":11,"text":"PRESCRIPTION COPY","textPreview":"PRESCRIPTION COPY","textChars":17,"textLines":1,"bbox":[850,456,170,18]}
+{"kind":"textbox","id":"sh/2pg7uh8v","slide":11,"text":"Doctor-authored\nor explicitly approved","textPreview":"Doctor-authored | or explicitly approved","textChars":38,"textLines":2,"bbox":[850,484,170,36]}
+{"kind":"shape","id":"sh/nqponm9g","slide":11,"bbox":[832,548,206,42]}
+{"kind":"textbox","id":"sh/xkrqtgbi","slide":11,"text":"Ready to share","textPreview":"Ready to share","textChars":14,"textLines":1,"bbox":[850,559,170,20]}
+{"kind":"textbox","id":"sh/cji9kbax","slide":11,"text":"Illustrative concept · no automatic sending","textPreview":"Illustrative concept · no automatic sending","textChars":43,"textLines":1,"bbox":[758,636,374,20]}
+{"kind":"shape","id":"sh/bi98r6tc","slide":11,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/ah0ri1sr","slide":11,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/l8bqxgbe","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"notes","id":"nt/1aciob","slide":11,"text":"WhatsApp sharing is a future direction. The channel requires separate consent, a checked recipient and a deliberate send. Smaran must never independently generate or modify a prescription.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md — WhatsApp after the first pilot and no automated sharing before approval\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — patient-facing sharing requires doctor approval and scoped consent\n- /Users/Neelesh/Documents/Smaran Health/AGENTS.md — no prescribing, prescription modification or unapproved export\n[/Sources]"}
+{"kind":"slide","id":"sl/sc81t0","slide":12,"title":"SMARAN HEALTH","textShapes":36}
+{"kind":"textbox","id":"sh/9sneh4fy","slide":12,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/mpwfmpw7","slide":12,"bbox":[1012,28,196,30]}
+{"kind":"shape","id":"sh/nq5wfuxs","slide":12,"bbox":[1024,39,8,8]}
+{"kind":"textbox","id":"sh/wvexsje9","slide":12,"text":"PRODUCT DIRECTION","textPreview":"PRODUCT DIRECTION","textChars":17,"textLines":1,"bbox":[1040,34,158,20]}
+{"kind":"textbox","id":"sh/xwnelofu","slide":12,"name":"slide-title","text":"A calm dashboard can make follow-up work visible","textPreview":"A calm dashboard can make follow-up work visible","textChars":48,"textLines":1,"bbox":[72,78,1080,58]}
+{"kind":"textbox","id":"sh/atwfq9w3","slide":12,"text":"Administrative visibility—never clinical risk scoring or treatment recommendation.","textPreview":"Administrative visibility—never clinical risk scoring or treatment recommendation.","textChars":82,"textLines":1,"bbox":[72,139,1000,34]}
+{"kind":"shape","id":"sh/vu5wjexo","slide":12,"bbox":[72,196,1136,430]}
+{"kind":"shape","id":"sh/czudgfe5","slide":12,"bbox":[72,196,210,430]}
+{"kind":"textbox","id":"sh/d03e9kfq","slide":12,"text":"TODAY","textPreview":"TODAY","textChars":5,"textLines":1,"bbox":[98,226,150,24]}
+{"kind":"textbox","id":"sh/hs7idsne","slide":12,"text":"Meera’s Clinic","textPreview":"Meera’s Clinic","textChars":14,"textLines":1,"bbox":[98,264,150,60]}
+{"kind":"textbox","id":"sh/gryhkn6t","slide":12,"text":"Illustrative synthetic counts","textPreview":"Illustrative synthetic counts","textChars":29,"textLines":1,"bbox":[98,332,160,44]}
+{"kind":"textbox","id":"sh/vqp0bi58","slide":12,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[98,402,48,38]}
+{"kind":"textbox","id":"sh/upgzido3","slide":12,"text":"Drafts waiting","textPreview":"Drafts waiting","textChars":14,"textLines":1,"bbox":[152,409,106,26]}
+{"kind":"textbox","id":"sh/5grihsnq","slide":12,"text":"7","textPreview":"7","textChars":1,"textLines":1,"bbox":[98,466,48,38]}
+{"kind":"textbox","id":"sh/4fi1on65","slide":12,"text":"Follow-ups due","textPreview":"Follow-ups due","textChars":14,"textLines":1,"bbox":[152,473,106,26]}
+{"kind":"textbox","id":"sh/3u90fi5k","slide":12,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[98,530,48,38]}
+{"kind":"textbox","id":"sh/it0zmdoz","slide":12,"text":"Reports pending","textPreview":"Reports pending","textChars":15,"textLines":1,"bbox":[152,537,106,26]}
+{"kind":"textbox","id":"sh/dkrilcnm","slide":12,"text":"CLINIC FLOW","textPreview":"CLINIC FLOW","textChars":11,"textLines":1,"bbox":[320,226,180,24]}
+{"kind":"shape","id":"sh/sji1c7m1","slide":12,"bbox":[372,284,0,252]}
+{"kind":"shape","id":"sh/czat4fyp","slide":12,"bbox":[363,286,20,20]}
+{"kind":"textbox","id":"sh/x0jux0za","slide":12,"text":"09:00","textPreview":"09:00","textChars":5,"textLines":1,"bbox":[320,285,40,20]}
+{"kind":"textbox","id":"sh/axsb25gj","slide":12,"text":"A.S.","textPreview":"A.S.","textChars":4,"textLines":1,"bbox":[402,281,52,24]}
+{"kind":"textbox","id":"sh/by1cvah4","slide":12,"text":"Follow-up · memory ready","textPreview":"Follow-up · memory ready","textChars":24,"textLines":1,"bbox":[458,281,286,24]}
+{"kind":"shape","id":"sh/k3ut8fyl","slide":12,"bbox":[363,352,20,20]}
+{"kind":"textbox","id":"sh/l43u1kz6","slide":12,"text":"09:20","textPreview":"09:20","textChars":5,"textLines":1,"bbox":[320,351,40,20]}
+{"kind":"textbox","id":"sh/y1sb65gf","slide":12,"text":"R.K.","textPreview":"R.K.","textChars":4,"textLines":1,"bbox":[402,347,52,24]}
+{"kind":"textbox","id":"sh/z2lczah0","slide":12,"text":"New patient · onboarding","textPreview":"New patient · onboarding","textChars":24,"textLines":1,"bbox":[458,347,286,24]}
+{"kind":"shape","id":"sh/07qtwvyh","slide":12,"bbox":[363,418,20,20]}
+{"kind":"textbox","id":"sh/18zapgz2","slide":12,"text":"09:40","textPreview":"09:40","textChars":5,"textLines":1,"bbox":[320,417,40,20]}
+{"kind":"textbox","id":"sh/32pwby1k","slide":12,"text":"M.P.","textPreview":"M.P.","textChars":4,"textLines":1,"bbox":[402,413,52,24]}
+{"kind":"textbox","id":"sh/i1gf2t0z","slide":12,"text":"Follow-up · report pending","textPreview":"Follow-up · report pending","textChars":26,"textLines":1,"bbox":[458,413,286,24]}
+{"kind":"shape","id":"sh/5o7edoja","slide":12,"bbox":[363,484,20,20]}
+{"kind":"textbox","id":"sh/4nyx4ji5","slide":12,"text":"10:00","textPreview":"10:00","textChars":5,"textLines":1,"bbox":[320,483,40,20]}
+{"kind":"textbox","id":"sh/vy5w7e18","slide":12,"text":"S.N.","textPreview":"S.N.","textChars":4,"textLines":1,"bbox":[402,479,52,24]}
+{"kind":"textbox","id":"sh/uxwvy90n","slide":12,"text":"Draft awaits approval","textPreview":"Draft awaits approval","textChars":21,"textLines":1,"bbox":[458,479,286,24]}
+{"kind":"shape","id":"sh/h0ne9oje","slide":12,"bbox":[776,226,0,354]}
+{"kind":"textbox","id":"sh/gzed0jit","slide":12,"text":"FOLLOW-UP CONTINUITY","textPreview":"FOLLOW-UP CONTINUITY","textChars":20,"textLines":1,"bbox":[816,226,260,24]}
+{"kind":"shape","id":"sh/7u5w3e1c","slide":12,"bbox":[816,282,344,72]}
+{"kind":"textbox","id":"sh/6tcvu90r","slide":12,"text":"Due this week","textPreview":"Due this week","textChars":13,"textLines":1,"bbox":[838,296,180,22]}
+{"kind":"textbox","id":"sh/m1gzyxwb","slide":12,"text":"Doctor-defined return windows","textPreview":"Doctor-defined return windows","textChars":29,"textLines":1,"bbox":[838,322,296,18]}
+{"kind":"shape","id":"sh/n2p072xw","slide":12,"bbox":[816,374,344,72]}
+{"kind":"textbox","id":"sh/o3yh07eh","slide":12,"text":"Overdue","textPreview":"Overdue","textChars":7,"textLines":1,"bbox":[838,388,180,22]}
+{"kind":"textbox","id":"sh/947i9cf2","slide":12,"text":"Appropriate re-engagement queue","textPreview":"Appropriate re-engagement queue","textChars":31,"textLines":1,"bbox":[838,414,296,18]}
+{"kind":"shape","id":"sh/edwzuxwf","slide":12,"bbox":[816,466,344,72]}
+{"kind":"textbox","id":"sh/ze5032xk","slide":12,"text":"Pending report","textPreview":"Pending report","textChars":14,"textLines":1,"bbox":[838,480,180,22]}
+{"kind":"textbox","id":"sh/0fehw7e5","slide":12,"text":"Open loop before next review","textPreview":"Open loop before next review","textChars":28,"textLines":1,"bbox":[838,506,296,18]}
+{"kind":"textbox","id":"sh/107i5sfq","slide":12,"text":"No autonomous alerts · no clinical prioritisation","textPreview":"No autonomous alerts · no clinical prioritisation","textChars":49,"textLines":1,"bbox":[816,572,344,20]}
+{"kind":"shape","id":"sh/q9wzqdg3","slide":12,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/ra50zixo","slide":12,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/t4b25gz6","slide":12,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"notes","id":"nt/sc81t0","slide":12,"text":"This future dashboard makes administrative work visible: drafts awaiting approval, doctor-defined follow-ups and pending reports. Counts and initials are illustrative synthetic data.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md — Today dashboard, missed follow-ups, pending investigations and future clinic metrics\n- /Users/Neelesh/Documents/Smaran Health/AGENTS.md — role permissions, privacy and no autonomous clinical decisions\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — dashboard and follow-up effects remain unvalidated directions\n[/Sources]"}
+{"kind":"slide","id":"sl/kh0msx","slide":13,"title":"SMARAN HEALTH","textShapes":21}
+{"kind":"textbox","id":"sh/z690rqps","slide":13,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/07i10vqd","slide":13,"bbox":[1020,28,188,30]}
+{"kind":"shape","id":"sh/l8rit07y","slide":13,"bbox":[1032,39,8,8]}
+{"kind":"textbox","id":"sh/m90j258j","slide":13,"text":"PILOT HYPOTHESIS","textPreview":"PILOT HYPOTHESIS","textChars":16,"textLines":1,"bbox":[1048,34,150,20]}
+{"kind":"textbox","id":"sh/7a90vapo","slide":13,"name":"slide-title","text":"Continuity may strengthen follow-ups. Practice growth must be measured.","textPreview":"Continuity may strengthen follow-ups. Practice growth must be measured.","textChars":71,"textLines":1,"bbox":[72,78,1070,100]}
+{"kind":"textbox","id":"sh/8bi14fq9","slide":13,"text":"Footfall is not the mechanism. Better continuity is the hypothesis.","textPreview":"Footfall is not the mechanism. Better continuity is the hypothesis.","textChars":67,"textLines":1,"bbox":[72,177,900,34]}
+{"kind":"shape","id":"sh/9crix07u","slide":13,"bbox":[72,244,244,260]}
+{"kind":"textbox","id":"sh/udkj658f","slide":13,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[94,266,44,24]}
+{"kind":"textbox","id":"sh/vyt0zap0","slide":13,"text":"Less documentation\nand retrieval work","textPreview":"Less documentation | and retrieval work","textChars":37,"textLines":2,"bbox":[94,308,200,72]}
+{"kind":"shape","id":"sh/7e18zexw","slide":13,"bbox":[94,400,200,0]}
+{"kind":"textbox","id":"sh/6d8rq9gb","slide":13,"text":"may recover attention and appointment capacity","textPreview":"may recover attention and appointment capacity","textChars":46,"textLines":1,"bbox":[94,424,200,58]}
+{"kind":"shape","id":"sh/tgjq14f2","slide":13,"bbox":[348,244,244,260]}
+{"kind":"textbox","id":"sh/8fa9sjyh","slide":13,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[370,266,44,24]}
+{"kind":"textbox","id":"sh/jah8vux0","slide":13,"text":"Visible doctor-defined\nfollow-up loops","textPreview":"Visible doctor-defined | follow-up loops","textChars":38,"textLines":2,"bbox":[370,308,200,72]}
+{"kind":"shape","id":"sh/yp8rmpgf","slide":13,"bbox":[370,400,200,0]}
+{"kind":"textbox","id":"sh/lczqx4f6","slide":13,"text":"may improve completed return visits","textPreview":"may improve completed return visits","textChars":35,"textLines":1,"bbox":[370,424,200,58]}
+{"kind":"shape","id":"sh/kbq9ozyl","slide":13,"bbox":[624,244,244,260]}
+{"kind":"textbox","id":"sh/36ls7yx4","slide":13,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[646,266,44,24]}
+{"kind":"textbox","id":"sh/ilcrytgj","slide":13,"text":"Clear approved\ntake-home communication","textPreview":"Clear approved | take-home communication","textChars":38,"textLines":2,"bbox":[646,308,200,72]}
+{"kind":"shape","id":"sh/e1wbqx0r","slide":13,"bbox":[646,400,200,0]}
+{"kind":"textbox","id":"sh/f25cz2hc","slide":13,"text":"may strengthen continuity and trust","textPreview":"may strengthen continuity and trust","textChars":35,"textLines":1,"bbox":[646,424,200,58]}
+{"kind":"shape","id":"sh/03ets7ix","slide":13,"bbox":[884,372,66,0]}
+{"kind":"shape","id":"sh/14nu1szi","slide":13,"bbox":[950,244,258,260]}
+{"kind":"textbox","id":"sh/25gbux03","slide":13,"text":"MEASURE BASELINE → PILOT","textPreview":"MEASURE BASELINE → PILOT","textChars":24,"textLines":1,"bbox":[974,270,210,24]}
+{"kind":"shape","id":"sh/n6pc32ho","slide":13,"bbox":[974,320,8,8]}
+{"kind":"textbox","id":"sh/o7ytw7it","slide":13,"text":"After-hours documentation","textPreview":"After-hours documentation","textChars":25,"textLines":1,"bbox":[994,312,190,36]}
+{"kind":"shape","id":"sh/p87u5cze","slide":13,"bbox":[974,363,8,8]}
+{"kind":"textbox","id":"sh/i9cbid0j","slide":13,"text":"Consultations per session","textPreview":"Consultations per session","textChars":25,"textLines":1,"bbox":[994,355,190,36]}
+{"kind":"shape","id":"sh/3alcrih4","slide":13,"bbox":[974,406,8,8]}
+{"kind":"textbox","id":"sh/l4bexgjm","slide":13,"text":"Eligible follow-ups completed","textPreview":"Eligible follow-ups completed","textChars":29,"textLines":1,"bbox":[994,398,190,36]}
+{"kind":"shape","id":"sh/k3ixob2h","slide":13,"bbox":[974,449,8,8]}
+{"kind":"textbox","id":"sh/z29wv61w","slide":13,"text":"Appropriate overdue recovery","textPreview":"Appropriate overdue recovery","textChars":28,"textLines":1,"bbox":[994,441,190,36]}
+{"kind":"shape","id":"sh/y10fm1kb","slide":13,"bbox":[72,548,1136,68]}
+{"kind":"textbox","id":"sh/9sbe1gjy","slide":13,"text":"No promise of more footfall. No guaranteed follow-up lift. Compare explicit baselines, denominators and doctor-defined windows.","textPreview":"No promise of more footfall. No guaranteed follow-up lift. Compare explicit baselines, denominators and doctor-defined windows.","textChars":127,"textLines":1,"bbox":[98,568,1084,30]}
+{"kind":"shape","id":"sh/8r2xsb2d","slide":13,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/7qtwzq1s","slide":13,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/m5kfqlk7","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"notes","id":"nt/kh0msx","slide":13,"text":"Present each causal path as a hypothesis. Smaran is not a lead-generation engine, and the repository contains no evidence of increased footfall or follow-up counts yet.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — pilot measurement rules and current maturity\n- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md — doctor jobs, clinic jobs and pilot success metrics\n- /Users/Neelesh/Documents/Smaran Health/ROADMAP.md — controlled-pilot measurement expectations\n[/Sources]"}
+{"kind":"slide","id":"sl/sgnz53","slide":14,"title":"SMARAN HEALTH","textShapes":19}
+{"kind":"textbox","id":"sh/8rix8b6h","slide":14,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/nq9wf6pw","slide":14,"bbox":[1024,28,184,30]}
+{"kind":"shape","id":"sh/m50f61ob","slide":14,"bbox":[1036,39,8,8]}
+{"kind":"textbox","id":"sh/l47edw7q","slide":14,"text":"SAFETY INVARIANT","textPreview":"SAFETY INVARIANT","textChars":16,"textLines":1,"bbox":[1052,34,146,20]}
+{"kind":"textbox","id":"sh/03yx4r6l","slide":14,"name":"slide-title","text":"Trust is a workflow, not a disclaimer","textPreview":"Trust is a workflow, not a disclaimer","textChars":37,"textLines":1,"bbox":[72,78,930,64]}
+{"kind":"textbox","id":"sh/z2pwbmp0","slide":14,"text":"The patient-memory thread must pass through four non-negotiable gates.","textPreview":"The patient-memory thread must pass through four non-negotiable gates.","textChars":70,"textLines":1,"bbox":[72,139,940,34]}
+{"kind":"shape","id":"sh/y1gf2hof","slide":14,"bbox":[130,338,1020,0]}
+{"kind":"shape","id":"sh/50by907a","slide":14,"bbox":[116,296,84,84]}
+{"kind":"textbox","id":"sh/kz2xgv6p","slide":14,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[116,322,84,28]}
+{"kind":"textbox","id":"sh/mpgzu9o3","slide":14,"text":"Consent","textPreview":"Consent","textChars":7,"textLines":1,"bbox":[58,400,200,34]}
+{"kind":"textbox","id":"sh/nqp0nepo","slide":14,"text":"Version, language, method and scope","textPreview":"Version, language, method and scope","textChars":35,"textLines":1,"bbox":[52,444,212,66]}
+{"kind":"shape","id":"sh/oryhwj69","slide":14,"bbox":[394,296,84,84]}
+{"kind":"textbox","id":"sh/9s7iponu","slide":14,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[394,322,84,28]}
+{"kind":"textbox","id":"sh/elwzq9o7","slide":14,"text":"Clinic access","textPreview":"Clinic access","textChars":13,"textLines":1,"bbox":[336,400,200,34]}
+{"kind":"textbox","id":"sh/fm50jupc","slide":14,"text":"Every patient record scoped to the clinic","textPreview":"Every patient record scoped to the clinic","textChars":41,"textLines":1,"bbox":[330,444,212,66]}
+{"kind":"shape","id":"sh/0nehsz6x","slide":14,"bbox":[672,296,84,84]}
+{"kind":"textbox","id":"sh/1onil47i","slide":14,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[672,322,84,28]}
+{"kind":"textbox","id":"sh/yh0z2tob","slide":14,"text":"Provenance","textPreview":"Provenance","textChars":10,"textLines":1,"bbox":[614,400,200,34]}
+{"kind":"textbox","id":"sh/ji90vy5w","slide":14,"text":"Evidence and uncertainty stay visible","textPreview":"Evidence and uncertainty stay visible","textChars":37,"textLines":1,"bbox":[608,444,212,66]}
+{"kind":"shape","id":"sh/vqho761w","slide":14,"bbox":[950,296,84,84]}
+{"kind":"textbox","id":"sh/up8ny10b","slide":14,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[950,322,84,28]}
+{"kind":"textbox","id":"sh/hsj69wj2","slide":14,"text":"Doctor approval","textPreview":"Doctor approval","textChars":15,"textLines":1,"bbox":[892,400,200,34]}
+{"kind":"textbox","id":"sh/wrq50rih","slide":14,"text":"Only approved content enters memory or sharing","textPreview":"Only approved content enters memory or sharing","textChars":46,"textLines":1,"bbox":[886,444,212,66]}
+{"kind":"shape","id":"sh/ju1ob618","slide":14,"bbox":[112,548,1056,72]}
+{"kind":"textbox","id":"sh/itsn210n","slide":14,"text":"Private audio  ·  No clinical content in analytics logs  ·  Immutable approved records with attributable amendments","textPreview":"Private audio  ·  No clinical content in analytics logs  ·  Immutable approved records with attributable amendments","textChars":115,"textLines":1,"bbox":[138,571,1004,28]}
+{"kind":"shape","id":"sh/5gj6dgzy","slide":14,"bbox":[72,670,1136,0]}
+{"kind":"textbox","id":"sh/4fa54bit","slide":14,"text":"Clinical memory for specialist follow-ups","textPreview":"Clinical memory for specialist follow-ups","textChars":41,"textLines":1,"bbox":[72,683,420,18]}
+{"kind":"textbox","id":"sh/ri1ofqh4","slide":14,"text":"14","textPreview":"14","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"notes","id":"nt/sgnz53","slide":14,"text":"The safety model is operational: consent, access control, provenance, explicit approval, private storage, safe analytics and attributable amendments.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — safety and privacy invariants\n- /Users/Neelesh/Documents/Smaran Health/AGENTS.md — clinic_id scoping, private audio, no sensitive logs and approval rules\n- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md — doctor control, consent and auditability principles\n[/Sources]"}
+{"kind":"slide","id":"sl/9a12ei","slide":15,"title":"SMARAN HEALTH","textShapes":24}
+{"kind":"textbox","id":"sh/jah4nyd4","slide":15,"text":"SMARAN HEALTH","textPreview":"SMARAN HEALTH","textChars":13,"textLines":1,"bbox":[72,31,160,22]}
+{"kind":"shape","id":"sh/kbqlw3ep","slide":15,"bbox":[1040,28,168,30]}
+{"kind":"shape","id":"sh/5czmp8va","slide":15,"bbox":[1052,39,8,8]}
+{"kind":"textbox","id":"sh/a5o3qtwn","slide":15,"text":"PLANNED PILOT","textPreview":"PLANNED PILOT","textChars":13,"textLines":1,"bbox":[1068,34,130,20]}
+{"kind":"textbox","id":"sh/b6x4jyd8","slide":15,"name":"slide-title","text":"This future should be earned—doctor by doctor","textPreview":"This future should be earned—doctor by doctor","textChars":45,"textLines":1,"bbox":[72,78,950,100]}
+{"kind":"textbox","id":"sh/w7qls3ed","slide":15,"text":"Synthetic workflow → controlled evidence","textPreview":"Synthetic workflow → controlled evidence","textChars":40,"textLines":1,"bbox":[72,185,520,28]}
+{"kind":"shape","id":"sh/x8zmlovy","slide":15,"bbox":[118,248,0,284]}
+{"kind":"shape","id":"sh/u1s32dcr","slide":15,"bbox":[94,224,48,48]}
+{"kind":"textbox","id":"sh/f214vidc","slide":15,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[94,236,48,24]}
+{"kind":"textbox","id":"sh/re5gj2tw","slide":15,"text":"Synthetic walkthrough","textPreview":"Synthetic walkthrough","textChars":21,"textLines":1,"bbox":[166,222,390,28]}
+{"kind":"textbox","id":"sh/qtwzaxcr","slide":15,"text":"No real patient data","textPreview":"No real patient data","textChars":20,"textLines":1,"bbox":[166,256,420,38]}
+{"kind":"shape","id":"sh/dgnylcb2","slide":15,"bbox":[94,318,48,48]}
+{"kind":"textbox","id":"sh/cfehc7uh","slide":15,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[94,330,48,24]}
+{"kind":"textbox","id":"sh/zipgnmt8","slide":15,"text":"Specialist usability review","textPreview":"Specialist usability review","textChars":27,"textLines":1,"bbox":[166,316,390,28]}
+{"kind":"textbox","id":"sh/ehgzehcn","slide":15,"text":"Fix blocking safety and comprehension issues","textPreview":"Fix blocking safety and comprehension issues","textChars":44,"textLines":1,"bbox":[166,350,420,38]}
+{"kind":"shape","id":"sh/1k7ipcbe","slide":15,"bbox":[94,412,48,48]}
+{"kind":"textbox","id":"sh/0jyhgrut","slide":15,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[94,424,48,24]}
+{"kind":"textbox","id":"sh/nmp0rmt4","slide":15,"text":"Privacy, legal & security gates","textPreview":"Privacy, legal & security gates","textChars":31,"textLines":1,"bbox":[166,410,390,28]}
+{"kind":"textbox","id":"sh/mlgzihcj","slide":15,"text":"Approve consent, retention and incident gates","textPreview":"Approve consent, retention and incident gates","textChars":45,"textLines":1,"bbox":[166,444,420,38]}
+{"kind":"shape","id":"sh/it4b6p03","slide":15,"bbox":[94,506,48,48]}
+{"kind":"textbox","id":"sh/judszuho","slide":15,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[94,518,48,24]}
+{"kind":"textbox","id":"sh/4fmt8fi9","slide":15,"text":"Controlled consented pilot","textPreview":"Controlled consented pilot","textChars":26,"textLines":1,"bbox":[166,504,390,28]}
+{"kind":"textbox","id":"sh/5gva1kzu","slide":15,"text":"Workflow evidence with explicit measurements","textPreview":"Workflow evidence with explicit measurements","textChars":44,"textLines":1,"bbox":[166,538,420,38]}
+{"kind":"shape","id":"sh/apkb2507","slide":15,"bbox":[72,596,520,52]}
+{"kind":"textbox","id":"sh/vqtsvahs","slide":15,"text":"Planned scope: 2–5 doctors · 2–3 clinics · 50–150 consented consultations","textPreview":"Planned scope: 2–5 doctors · 2–3 clinics · 50–150 consented consultations","textChars":73,"textLines":1,"bbox":[90,611,484,24]}
+{"kind":"shape","id":"sh/wr2t4fix","slide":15,"bbox":[650,208,558,410]}
+{"kind":"textbox","id":"sh/hsbaxkzi","slide":15,"text":"THE PRODUCTIVE QUESTIONS","textPreview":"THE PRODUCTIVE QUESTIONS","textChars":24,"textLines":1,"bbox":[686,244,320,24]}
+{"kind":"textbox","id":"sh/elobe90b","slide":15,"text":"What do you need to see first before a follow-up?","textPreview":"What do you need to see first before a follow-up?","textChars":49,"textLines":1,"bbox":[686,294,470,62]}
+{"kind":"shape","id":"sh/fmxc7ehw","slide":15,"bbox":[686,378,470,0]}
+{"kind":"textbox","id":"sh/pgzed8jy","slide":15,"text":"What would make reviewing a draft faster and safer?","textPreview":"What would make reviewing a draft faster and safer?","textChars":51,"textLines":1,"bbox":[686,402,470,62]}
+{"kind":"shape","id":"sh/ofqd432d","slide":15,"bbox":[686,486,470,0]}
+{"kind":"textbox","id":"sh/3ehwby1s","slide":15,"text":"Which follow-up loop most often breaks today?","textPreview":"Which follow-up loop most often breaks today?","textChars":45,"textLines":1,"bbox":[686,510,470,58]}
+{"kind":"textbox","id":"sh/2d8v2tkn","slide":15,"text":"Workflow evidence—not broad clinical-safety validation.","textPreview":"Workflow evidence—not broad clinical-safety validation.","textChars":55,"textLines":1,"bbox":[686,580,470,22]}
+{"kind":"textbox","id":"sh/1cze9oj2","slide":15,"text":"The future is not an AI doctor. It is a doctor who never loses the patient story.","textPreview":"The future is not an AI doctor. It is a doctor who never loses the patient story.","textChars":81,"textLines":1,"bbox":[72,676,980,24]}
+{"kind":"textbox","id":"sh/gb6d0j2h","slide":15,"text":"15","textPreview":"15","textChars":2,"textLines":1,"bbox":[1158,682,50,18]}
+{"kind":"notes","id":"nt/9a12ei","slide":15,"text":"Close by asking for doctor input, not by asking for a purchase. The planned pilot scope is a roadmap target and is intended to produce workflow evidence, not broad clinical-safety validation.\n\n[Sources]\n- /Users/Neelesh/Documents/Smaran Health/ROADMAP.md — controlled-pilot sequence and proposed scope\n- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md — safety gates, current repository maturity and pilot measurement caution\n- /Users/Neelesh/Documents/Smaran Health/docs/prototype/task-14-doctor-test.md — specialist walkthrough questions\n[/Sources]"}
