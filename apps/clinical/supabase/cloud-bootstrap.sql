@@ -2,6 +2,10 @@
 -- ============================================================
 -- MIGRATION: 0000_gigantic_meteorite.sql
 -- ============================================================
+-- Baseline convenience bundle through migration 0003 only.
+-- Run numbered migrations 0004 and later separately; scripts/cloud-migrate.cjs
+-- discovers and applies every numbered migration automatically.
+
 CREATE TYPE "public"."clinical_note_status" AS ENUM('ai_draft', 'edited', 'approved', 'rejected');--> statement-breakpoint
 CREATE TYPE "public"."consultation_status" AS ENUM('draft', 'recording', 'uploading', 'processing', 'draft_ready', 'approved', 'rejected', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."profile_role" AS ENUM('doctor', 'assistant', 'admin');--> statement-breakpoint
@@ -407,4 +411,3 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, se
 
 CREATE POLICY "clinics_select" ON clinics
   FOR SELECT USING (id = public.get_clinic_id());
-

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StartConsultationButton } from "@/components/start-consultation";
 import { Icon } from "@/components/icons";
@@ -125,29 +126,81 @@ export function NewConsultationFlow({
 function NewPatientForm() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
   const [phone, setPhone] = useState("");
-  const [weightKg, setWeightKg] = useState("");
-  const [heightCm, setHeightCm] = useState("");
-  const [bloodPressure, setBloodPressure] = useState("");
-  const [bloodGroup, setBloodGroup] = useState("");
-  const [diabetesHistory, setDiabetesHistory] = useState("");
+  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [duplicateOverride, setDuplicateOverride] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function validateIdentity(): string | null {
+    const name = fullName.trim();
+    if (!name) return "Name is required.";
+    if (phone.trim() && phone.replace(/\D/g, "").length < 6) {
+      return "Enter a valid phone number, or leave it blank.";
+    }
+    return null;
+  }
+
+  function resetDuplicateReview() {
+    setDetailsVisible(false);
+    setDuplicateOverride(false);
+    setCandidates([]);
+    setError(null);
+  }
+
+  async function checkForExistingPatient() {
+    const identityError = validateIdentity();
+    if (identityError) {
+      setError(identityError);
+      return;
+    }
+
+    if (!phone.trim()) {
+      setCandidates([]);
+      setDetailsVisible(true);
+      setError(null);
+      return;
+    }
+
+    setChecking(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        matchName: fullName.trim(),
+        matchPhone: phone.trim(),
+      });
+      const response = await fetch(`/api/patients?${params.toString()}`);
+      if (!response.ok) throw new Error("Could not check existing patients. Please retry.");
+      const result = (await response.json()) as { data?: DuplicateCandidate[] };
+      const possibleMatches = result.data ?? [];
+      setCandidates(possibleMatches);
+      setDetailsVisible(possibleMatches.length === 0);
+      setDuplicateOverride(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not check existing patients.");
+    } finally {
+      setChecking(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const name = fullName.trim();
-    if (!name) {
-      setError("Name is required.");
+    const identityError = validateIdentity();
+    if (identityError) {
+      setError(identityError);
       return;
     }
     if (age.trim() && !Number.isInteger(Number(age))) {
       setError("Age must be a whole number.");
       return;
     }
+    const name = fullName.trim();
 
     setSubmitting(true);
     setError(null);
@@ -159,16 +212,27 @@ function NewPatientForm() {
         body: JSON.stringify({
           fullName: name,
           age: age.trim() ? Number(age) : null,
+          dateOfBirth: dateOfBirth || null,
           gender: gender || null,
           phone: phone.trim() || null,
-          weightKg: weightKg.trim() ? Number(weightKg) : null,
-          heightCm: heightCm.trim() ? Number(heightCm) : null,
-          bloodPressure: bloodPressure.trim() || null,
-          bloodGroup: bloodGroup || null,
-          hasDiabetes: diabetesHistory === "yes" ? true : diabetesHistory === "no" ? false : null,
+          duplicateOverride: duplicateOverride ? "confirmed_distinct_patient" : undefined,
         }),
       });
 
+      if (createRes.status === 409) {
+        const result = (await createRes.json()) as {
+          code?: string;
+          details?: { candidates?: DuplicateCandidate[] };
+        };
+        if (result.code === "possible_duplicate") {
+          setCandidates(result.details?.candidates ?? []);
+          setDetailsVisible(false);
+          setDuplicateOverride(false);
+          setError("A possible match appeared while saving. Review it before continuing.");
+          setSubmitting(false);
+          return;
+        }
+      }
       if (!createRes.ok) throw new Error("Could not create the patient record.");
 
       const patient: Patient = await createRes.json();
@@ -196,72 +260,24 @@ function NewPatientForm() {
   return (
     <section aria-label="New patient">
       <form className={styles.newPatientForm} onSubmit={handleSubmit}>
+        <div className={styles.formIntro}>
+          <strong>Check identity first</strong>
+          <span>We use name and phone as matching signals. A possible match never merges automatically.</span>
+        </div>
         <div className={styles.formGrid}>
           <label className={`${styles.formField} ${styles.fieldFull}`}>
             <span>Full name</span>
             <input
               type="text"
               value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
+              onChange={(event) => {
+                setFullName(event.target.value);
+                resetDuplicateReview();
+              }}
               placeholder="e.g. Aarav Mehta"
               autoFocus
               required
             />
-          </label>
-
-          <label className={styles.formField}>
-            <span>Weight (kg)</span>
-            <input type="number" min="0.1" max="500" step="0.1" value={weightKg} onChange={(event) => setWeightKg(event.target.value)} placeholder="e.g. 72.5" />
-          </label>
-
-          <label className={styles.formField}>
-            <span>Height (cm)</span>
-            <input type="number" min="0.1" max="300" step="0.1" value={heightCm} onChange={(event) => setHeightCm(event.target.value)} placeholder="e.g. 168" />
-          </label>
-
-          <label className={styles.formField}>
-            <span>Blood pressure</span>
-            <input type="text" inputMode="numeric" value={bloodPressure} onChange={(event) => setBloodPressure(event.target.value)} placeholder="e.g. 120/80" pattern="[0-9]{2,3}/[0-9]{2,3}" />
-          </label>
-
-          <label className={styles.formField}>
-            <span>Blood group</span>
-            <select value={bloodGroup} onChange={(event) => setBloodGroup(event.target.value)}>
-              <option value="">Not recorded</option>
-              {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((group) => <option key={group} value={group}>{group}</option>)}
-            </select>
-          </label>
-
-          <label className={`${styles.formField} ${styles.fieldFull}`}>
-            <span>Documented diabetes history</span>
-            <select value={diabetesHistory} onChange={(event) => setDiabetesHistory(event.target.value)}>
-              <option value="">Not recorded</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-
-          <label className={styles.formField}>
-            <span>Age</span>
-            <input
-              type="number"
-              min={0}
-              max={150}
-              inputMode="numeric"
-              value={age}
-              onChange={(event) => setAge(event.target.value)}
-              placeholder="e.g. 42"
-            />
-          </label>
-
-          <label className={styles.formField}>
-            <span>Gender</span>
-            <select value={gender} onChange={(event) => setGender(event.target.value)}>
-              <option value="">Prefer not to say</option>
-              <option value="Female">Female</option>
-              <option value="Male">Male</option>
-              <option value="Other">Other</option>
-            </select>
           </label>
 
           <label className={`${styles.formField} ${styles.fieldFull}`}>
@@ -269,19 +285,131 @@ function NewPatientForm() {
             <input
               type="tel"
               value={phone}
-              onChange={(event) => setPhone(event.target.value)}
+              onChange={(event) => {
+                setPhone(event.target.value);
+                resetDuplicateReview();
+              }}
               placeholder="e.g. +91 98765 43210"
             />
           </label>
         </div>
 
+        {!detailsVisible && candidates.length === 0 ? (
+          <button
+            type="button"
+            className={styles.primaryButton}
+            disabled={checking}
+            onClick={checkForExistingPatient}
+          >
+            <Icon name="search" />
+            {checking ? "Checking…" : "Check for existing patient"}
+          </button>
+        ) : null}
+
+        {candidates.length > 0 && !detailsVisible ? (
+          <div className={styles.duplicateReview} role="alert">
+            <strong>Possible existing patient</strong>
+            <p>Confirm whether one of these records is the same person before creating another.</p>
+            <ul>
+              {candidates.map((candidate) => (
+                <li key={candidate.id}>
+                  <div>
+                    <strong>{candidate.fullName}</strong>
+                    <span>{duplicateCandidateMeta(candidate)}</span>
+                  </div>
+                  <div className={styles.duplicateActions}>
+                    <Link href={`/patients/${candidate.id}`}>Review profile</Link>
+                    <StartConsultationButton patientId={candidate.id} label="Use this patient" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => {
+                setDuplicateOverride(true);
+                setDetailsVisible(true);
+                setError(null);
+              }}
+            >
+              Continue as a different patient
+            </button>
+          </div>
+        ) : null}
+
+        {detailsVisible ? (
+          <div className={`${styles.formGrid} ${styles.demographicFields}`}>
+            <label className={styles.formField}>
+              <span>Date of birth (preferred)</span>
+              <input
+                type="date"
+                max={new Date().toISOString().slice(0, 10)}
+                value={dateOfBirth}
+                onChange={(event) => {
+                  setDateOfBirth(event.target.value);
+                  if (event.target.value) setAge("");
+                }}
+              />
+            </label>
+
+            <label className={styles.formField}>
+              <span>Age (if DOB unknown)</span>
+              <input
+                type="number"
+                min={0}
+                max={150}
+                inputMode="numeric"
+                value={age}
+                disabled={Boolean(dateOfBirth)}
+                onChange={(event) => setAge(event.target.value)}
+                placeholder="e.g. 42"
+              />
+            </label>
+
+            <label className={`${styles.formField} ${styles.fieldFull}`}>
+              <span>Gender</span>
+              <select value={gender} onChange={(event) => setGender(event.target.value)}>
+                <option value="">Not recorded</option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
+
         {error ? <p className={styles.formError}>{error}</p> : null}
 
-        <button type="submit" className={styles.primaryButton} disabled={submitting}>
-          <Icon name="plus" />
-          {submitting ? "Starting…" : "Add patient & start consultation"}
-        </button>
+        {detailsVisible ? (
+          <button type="submit" className={styles.primaryButton} disabled={submitting}>
+            <Icon name="plus" />
+            {submitting ? "Starting…" : "Add patient & start consultation"}
+          </button>
+        ) : null}
       </form>
     </section>
   );
+}
+
+type DuplicateCandidate = {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  dateOfBirth: string | null;
+  age: number | null;
+  gender: string | null;
+  medicalRecordNumber: string | null;
+};
+
+function duplicateCandidateMeta(candidate: DuplicateCandidate): string {
+  return [
+    candidate.phone,
+    candidate.dateOfBirth ? `DOB ${candidate.dateOfBirth}` : null,
+    candidate.age != null ? `${candidate.age} years` : null,
+    candidate.gender,
+    candidate.medicalRecordNumber ? `MRN ${candidate.medicalRecordNumber}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }

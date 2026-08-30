@@ -19,6 +19,10 @@ export function forbidden(message = "Access denied") {
   return apiError(message, "forbidden", 403);
 }
 
+export function conflict(message: string, details?: unknown) {
+  return apiError(message, "conflict", 409, details);
+}
+
 export function notFound(message = "Resource not found") {
   return apiError(message, "not_found", 404);
 }

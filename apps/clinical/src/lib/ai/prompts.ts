@@ -1,9 +1,9 @@
-// Versioned prompt for the DeepSeek clinical-note extraction step.
+// Versioned prompt for the Gemini clinical-note extraction step.
 // Bump PROMPT_VERSION whenever the instructions materially change, so audit
 // logs and stored drafts can be tied back to a known prompt (AGENTS.md §9.4).
 
-export const PROMPT_VERSION = "deepseek-extraction-v0.2.0";
-export const MODEL = "deepseek-chat";
+export const PROMPT_VERSION = "gemini-extraction-v0.1.0";
+export const MODEL = "gemini-3.6-flash";
 
 // Safety rules from AGENTS.md §9.3. These are non-negotiable and must be
 // included in every extraction prompt.

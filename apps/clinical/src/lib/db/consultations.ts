@@ -3,7 +3,7 @@ import type { Consultation } from "@/types";
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
 const CONSULTATION_COLUMNS =
-  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, status, consentAcquired:consent_acquired, consentVersion:consent_version, consentTimestamp:consent_timestamp, startedAt:started_at, endedAt:ended_at";
+  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, status, operationalStatus:operational_status, consentAcquired:consent_acquired, consentVersion:consent_version, consentTimestamp:consent_timestamp, startedAt:started_at, endedAt:ended_at";
 
 export async function getConsultations(
   patientId: string,
@@ -174,6 +174,7 @@ export async function createConsultation(
       clinic_id: clinicId,
       doctor_id: doctorId,
       status: "draft",
+      operational_status: "in_consultation",
     })
     .select("*")
     .single();

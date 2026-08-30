@@ -30,7 +30,6 @@ export async function PATCH(
   const body = await request.json();
   const parsed = updateConsultationSchema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid consultation data", parsed.error.flatten());
-
   const existing = await getConsultation(id, session.clinicId);
   if (!existing) return notFound("Consultation not found");
 

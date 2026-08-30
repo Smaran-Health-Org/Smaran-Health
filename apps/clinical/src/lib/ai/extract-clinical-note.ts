@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { deepseekChatJson } from "./deepseek";
+import { geminiGenerateClinicalDraft } from "./gemini";
 import {
   buildExtractionSystemPrompt,
   buildExtractionUserPrompt,
@@ -7,7 +7,7 @@ import {
   PROMPT_VERSION,
 } from "./prompts";
 
-// The draft shape DeepSeek returns. It matches the flat `NoteContent` the
+// The draft shape Gemini returns. It matches the flat `NoteContent` the
 // pilot editor already uses (summary / medicationChanges / investigations /
 // uncertainItems). The full evidence-linked schema at
 // docs/schemas/clinical-note-schema/v0.1.0 is the planned follow-up contract.
@@ -32,7 +32,7 @@ export type ExtractionResult = {
 export async function extractClinicalDraft(
   transcript: string
 ): Promise<ExtractionResult> {
-  const raw = await deepseekChatJson({
+  const raw = await geminiGenerateClinicalDraft({
     system: buildExtractionSystemPrompt(),
     user: buildExtractionUserPrompt(transcript),
     model: MODEL,

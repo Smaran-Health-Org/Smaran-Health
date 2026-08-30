@@ -1,10 +1,23 @@
 import { z } from "zod";
 
+const isoDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format")
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  }, "Date is invalid")
+  .refine(
+    (value) => value <= new Date().toISOString().slice(0, 10),
+    "Date of birth cannot be in the future"
+  );
+
 // ── Patient ─────────────────────────────────────────────────────────────────
 
 export const createPatientSchema = z.object({
   fullName: z.string().min(1, "Name is required").max(200),
   age: z.number().int().min(0).max(150).optional().nullable(),
+  dateOfBirth: isoDateSchema.optional().nullable(),
   gender: z.string().max(50).optional().nullable(),
   phone: z.string().max(20).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
@@ -22,6 +35,20 @@ export const createPatientSchema = z.object({
 
 export const updatePatientSchema = createPatientSchema.partial();
 
+export const createPatientRequestSchema = createPatientSchema.extend({
+  duplicateOverride: z.literal("confirmed_distinct_patient").optional(),
+});
+
+export const duplicatePatientQuerySchema = z.object({
+  fullName: z.string().trim().min(1).max(200),
+  phone: z.string().trim().min(6).max(20),
+});
+
+export const mergePatientsSchema = z.object({
+  canonicalPatientId: z.string().uuid(),
+  reason: z.literal("confirmed_duplicate").default("confirmed_duplicate"),
+});
+
 export const patientQuerySchema = z.object({
   search: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -33,6 +60,16 @@ export const patientQuerySchema = z.object({
 export const createConsultationSchema = z.object({
   patientId: z.string().uuid(),
 });
+
+export const encounterOperationalStatusSchema = z.enum([
+  "scheduled",
+  "preparing",
+  "ready",
+  "arrived",
+  "waiting",
+  "in_consultation",
+  "completed",
+]);
 
 export const updateConsultationSchema = z.object({
   status: z.enum([
@@ -49,6 +86,93 @@ export const updateConsultationSchema = z.object({
   consentVersion: z.string().optional(),
   endedAt: z.string().datetime().optional(),
 });
+
+// ── Appointment ─────────────────────────────────────────────────────────────
+
+export const appointmentStatusSchema = z.enum([
+  "scheduled",
+  "cancelled",
+  "no_show",
+  "completed",
+]);
+
+export const createAppointmentSchema = z.object({
+  patientId: z.string().uuid(),
+  doctorId: z.string().uuid().optional(),
+  scheduledAt: z.string().datetime({ offset: true }),
+  idempotencyKey: z.string().trim().min(1).max(200).optional(),
+});
+
+export const updateAppointmentSchema = z.object({
+  status: appointmentStatusSchema,
+});
+
+export const appointmentQueueOperationSchema = z.object({
+  operation: z.enum(["mark_arrived", "mark_waiting", "start_consultation"]),
+});
+
+// ── Patient intake ─────────────────────────────────────────────────────────
+
+export const verifyPatientIntakeOtpSchema = z.object({
+  otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
+});
+
+const selfReportedItemSchema = z.string().trim().min(1).max(300);
+
+export const submitPatientIntakeSchema = z.object({
+  consentAccepted: z.literal(true),
+  consentVersion: z.literal("preconsult-intake-consent/v1.0"),
+  reasonForVisitRaw: z
+    .string()
+    .max(2000)
+    .refine((value) => value.trim().length > 0, "Reason for visit is required"),
+  conditions: z.array(selfReportedItemSchema).max(50).default([]),
+  medications: z.array(selfReportedItemSchema).max(50).default([]),
+  allergies: z.array(selfReportedItemSchema).max(50).default([]),
+  fullName: z.string().trim().min(1).max(200).optional(),
+  dateOfBirth: isoDateSchema.optional(),
+  gender: z.string().trim().min(1).max(50).optional(),
+});
+
+// ── Medical documents ──────────────────────────────────────────────────────
+
+export const medicalDocumentTypeSchema = z.enum([
+  "lab_report",
+  "prescription",
+  "discharge_summary",
+  "imaging_report",
+  "procedure_report",
+  "consultation_note",
+  "other",
+]);
+
+const documentDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format")
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  }, "Date is invalid")
+  .refine(
+    (value) => value <= new Date().toISOString().slice(0, 10),
+    "Document date cannot be in the future"
+  );
+
+export const documentUploadMetadataSchema = z.object({
+  documentType: medicalDocumentTypeSchema.default("other"),
+  documentDate: documentDateSchema.optional(),
+  documentDatePrecision: z.enum(["exact", "approximate"]).optional(),
+}).superRefine((value, context) => {
+  if (Boolean(value.documentDate) !== Boolean(value.documentDatePrecision)) {
+    context.addIssue({
+      code: "custom",
+      path: ["documentDate"],
+      message: "A document date and its precision must be provided together",
+    });
+  }
+});
+
+export const updateDocumentMetadataSchema = documentUploadMetadataSchema;
 
 // ── Clinical note ───────────────────────────────────────────────────────────
 

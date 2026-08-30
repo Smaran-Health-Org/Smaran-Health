@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /* Apply apps/clinical/supabase/migrations/*.sql to a remote Supabase project
    via the Management API (the same path the dashboard SQL editor uses).
    The Supabase CLI does not recognize the Drizzle-style numbered migration
@@ -17,12 +18,11 @@ if (!TOKEN) {
   process.exit(1);
 }
 
-const files = [
-  "0000_gigantic_meteorite.sql",
-  "0001_rls_and_triggers.sql",
-  "0002_grants.sql",
-  "0003_clinics_select.sql",
-];
+const migrationDir = path.join(__dirname, "..", "supabase", "migrations");
+const files = fs
+  .readdirSync(migrationDir)
+  .filter((file) => /^\d+_.+\.sql$/.test(file))
+  .sort();
 
 async function run(sql) {
   const res = await fetch(
@@ -43,10 +43,7 @@ async function run(sql) {
 
 (async () => {
   for (const f of files) {
-    const sql = fs.readFileSync(
-      path.join(__dirname, "..", "supabase", "migrations", f),
-      "utf8"
-    );
+    const sql = fs.readFileSync(path.join(migrationDir, f), "utf8");
     process.stdout.write(`Applying ${f} ... `);
     await run(sql);
     console.log("OK");

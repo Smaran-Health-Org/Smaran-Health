@@ -10,7 +10,7 @@ import { logEvent, logError, logWarn } from "@/lib/logger";
 import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
 
 // Generates an AI draft clinical note from the stored transcript using the
-// DeepSeek extraction step. The result is saved as `ai_draft` — never
+// Gemini extraction step. The result is saved as `ai_draft` — never
 // approved — and the consultation moves to `draft_ready` for doctor review.
 //
 // If the AI layer is unavailable (missing key, timeout, API error), the

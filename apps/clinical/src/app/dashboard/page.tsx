@@ -67,7 +67,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className={styles.overviewGrid}>
-          <TodayPatientsList patients={overview.todayPatients} />
+          <TodayPatientsList queue={overview.todayQueue} role={session.role} />
         </div>
       </div>
     </AppShell>

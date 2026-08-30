@@ -4,6 +4,10 @@ import {
   getPendingConsultations,
   type ConsultationWithPatient,
 } from "./consultations";
+import {
+  getAppointmentQueue,
+  type AppointmentQueue,
+} from "./appointment-queue";
 
 export type DashboardOverview = {
   totalPatients: number;
@@ -13,12 +17,7 @@ export type DashboardOverview = {
   consultationsThisWeek: number;
   patientsToday: number;
   completedPatientsToday: number;
-  todayPatients: Array<{
-    id: string;
-    fullName: string;
-    consultationStatus: string;
-    consultationId: string;
-  }>;
+  todayQueue: AppointmentQueue;
   recentConsultations: ConsultationWithPatient[];
   needsAttention: ConsultationWithPatient[];
 };
@@ -50,63 +49,10 @@ export async function getDashboardOverview(clinicId: string): Promise<DashboardO
   startOfWeek.setHours(0, 0, 0, 0);
   startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday start
   const weekIso = startOfWeek.toISOString();
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
 
-  const { data: todayConsultations, error: todayError } = await supabase
-    .from("consultations")
-    .select("id, patient_id, status, started_at")
-    .eq("clinic_id", clinicId)
-    .gte("started_at", startOfToday.toISOString())
-    .order("started_at", { ascending: false });
-
-  if (todayError) {
-    throw new Error(`Failed to load today's patients: ${todayError.message}`);
-  }
-
-  const todayPatientIds = Array.from(new Set(
-    (todayConsultations ?? []).map((consultation) => consultation.patient_id)
-  ));
-
-  const { data: todayPatientRows, error: patientsTodayError } = todayPatientIds.length
-    ? await supabase
-        .from("patients")
-        .select("id, fullName:full_name")
-        .eq("clinic_id", clinicId)
-        .in("id", todayPatientIds)
-        .order("full_name")
-    : { data: [], error: null };
-
-  if (patientsTodayError) {
-    throw new Error(`Failed to load today's patient details: ${patientsTodayError.message}`);
-  }
-
-  const patientConsultation = new Map<string, { id: string; status: string }>();
-  for (const consultation of todayConsultations ?? []) {
-    const current = patientConsultation.get(consultation.patient_id);
-    if (consultation.status === "approved" || !current) {
-      patientConsultation.set(consultation.patient_id, {
-        id: consultation.id,
-        status: consultation.status,
-      });
-    }
-  }
-
-  const todayPatients = ((todayPatientRows ?? []) as Array<{
-    id: string;
-    fullName: string;
-  }>).map((patient) => ({
-    ...patient,
-    consultationStatus: patientConsultation.get(patient.id)?.status ?? "draft",
-    consultationId: patientConsultation.get(patient.id)?.id ?? "",
-  }));
-
-  const completedPatientsToday = todayPatients.filter(
-    (patient) => patient.consultationStatus === "approved"
-  ).length;
-
-  const [totalPatients, totalConsultations, awaitingReview, approvedNotes, consultationsThisWeek] =
+  const [todayQueue, totalPatients, totalConsultations, awaitingReview, approvedNotes, consultationsThisWeek] =
     await Promise.all([
+      getAppointmentQueue(clinicId),
       countRows(supabase, "patients", clinicId),
       countRows(supabase, "consultations", clinicId),
       countRows(supabase, "consultations", clinicId, { status: "draft_ready" }),
@@ -125,9 +71,11 @@ export async function getDashboardOverview(clinicId: string): Promise<DashboardO
     awaitingReview,
     approvedNotes,
     consultationsThisWeek,
-    patientsToday: todayPatients.length,
-    completedPatientsToday,
-    todayPatients,
+    patientsToday: todayQueue.summary.total,
+    completedPatientsToday: todayQueue.items.filter(
+      (item) => item.appointmentStatus === "completed" || item.operationalStatus === "completed"
+    ).length,
+    todayQueue,
     recentConsultations,
     needsAttention,
   };

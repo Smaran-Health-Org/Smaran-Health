@@ -33,3 +33,8 @@ enabled = true
 public = false
 file_size_limit = "500MB"
 allowed_mime_types = ["audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "audio/ogg"]
+
+[storage.buckets.medical-documents]
+public = false
+file_size_limit = "4MB"
+allowed_mime_types = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]
