@@ -27,6 +27,8 @@ The current branch already has a working clinic-scoped clinical app and should b
 - No doctor pre-consult brief.
 - Existing new-patient form is richer than desired for receptionist registration; MVP intake should move optional clinical details away from mandatory admin work.
 
+> Note: Phases 1–6 are now implemented on `dev-neelesh`. The historical gap list above describes the baseline from which this plan was created. See `IMPLEMENTATION_STATUS.md` for current implementation truth.
+
 ## Phase 0 — Specification guardrails
 
 Goal: make this folder and decisions discoverable to Codex; no product code changes.
@@ -120,6 +122,50 @@ Work:
 
 Provider selection (OpenAI/Sarvam/other) should be adapter-based and separately configurable; do not couple product model to one provider.
 
+## Phase 6.5 — Role workspaces, dashboards, and Clinic Desk automation
+
+Goal: separate the Doctor Clinical Workspace from the Admin/Clinic Desk before adding doctor-only normalized clinical intelligence in Phase 7 onward.
+
+Read `PHASE_6_5_WORKSPACE_REFINEMENT.md` before implementation. It is the detailed product contract for this phase.
+
+Work:
+- preserve one clinic-staff authentication system while adding role-specific workspaces.
+- keep doctor clinical routes under the existing clinical workspace; introduce `/desk` as the Admin/Clinic Desk landing surface.
+- enforce workspace authorization server-side; hidden navigation alone is insufficient.
+- make post-login landing role-aware: doctor -> Clinical, admin/assistant -> Admin.
+- change the account menu into a clinic-aware workspace switcher. Clinic and Workspace are separate concepts. Doctors with both permissions can switch Clinical <-> Admin without re-authentication; admin/assistant cannot switch into Clinical.
+- refine Doctor Dashboard as an uncluttered day-management surface with MVP KPIs: Patients Today, Waiting Now, Priority, Completed.
+- do not render patient-specific clinical flags, discrepancies, abnormal trends, extraction details, or other clinical alerts on the Doctor Dashboard. Those belong in doctor Patient Review / later pre-consult UI.
+- implement human-only Encounter-scoped Priority. Doctor and authorized reception/admin may mark/clear Priority with actor/timestamp/reason provenance. Smaran must never infer Priority from AI/trends/discrepancies. Priority must not automatically reorder the queue.
+- refactor Admin Today into an exception-driven Clinic Desk optimized for `What do I need to do right now?`.
+- make receptionist-facing normal journey `Not Arrived Yet -> Waiting -> With Doctor -> Completed`.
+- change normal Check in semantics to one action: arrived + waiting + waiting timer + doctor-view update.
+- waiting queue defaults to FIFO by check-in time with explicit accessible manual override; do not rely only on drag-and-drop.
+- use factual `Not arrived yet` language rather than automatic `Late` classification. No-show/cancel/reschedule remain human decisions.
+- add `Needs Action` only for operational exceptions reception can resolve; no doctor-only clinical interpretation.
+- refine Admin Patient View around demographics, today's visit, intake assistance, document operations/original access, and simple visit actions. Do not expose doctor brief/delta/trend interpretation.
+- reuse the existing patient intake and document workflows so reception can assist the patient on their behalf with provenance.
+- do not silently rewrite an already-submitted patient statement; preserve original plus additive correction/clarification provenance.
+- for MVP, make `+ Add patient` the walk-in flow: search/match patient -> create if needed -> create/associate today's visit -> check in -> FIFO waiting queue.
+- reserve Smaran Scheduler as a future navigation/product surface only; do not implement the scheduling engine in this phase.
+- do not add Smaran Pay/billing/payment UI or KPIs.
+
+Implementation constraint:
+- reorganize and reuse Phase 1–6 foundations; do not rebuild appointments, intake, documents, consultation recording/transcription/note workflow, or follow-up memory.
+- narrow schema/API additions are allowed only where necessary for Priority, manual queue ordering, provenance, or audit.
+- do not begin Phase 7 normalized observations in the same task.
+
+Tests:
+- doctor can access Clinical and Admin workspaces as authorized.
+- admin/assistant cannot reach Clinical/doctor-only routes by typing URLs.
+- role-aware login landing works and safe redirects cannot bypass authorization.
+- workspace switch preserves clinic/auth context.
+- Check in atomically results in waiting and starts waiting-duration basis.
+- FIFO queue ordering is deterministic; manual override works and Priority does not auto-reorder.
+- Smaran never creates Priority from AI/document/clinical data.
+- admin views never load/render doctor-only brief, extraction interpretation, delta controls, or confirmed-state editing.
+- receptionist-assisted intake/document operations preserve provenance and do not silently overwrite patient-originated statements.
+
 ## Phase 7 — Normalized observations + provenance
 
 Goal: turn extraction into evidence-linked structured data.
@@ -196,6 +242,16 @@ Avoid major refactor of the existing 70k-line consultation workflow unless decom
 - retry/idempotency.
 - accessibility/loading/empty/error states.
 - synthetic document/delta evaluation fixtures.
+
+## Deferred product refinements after pre-consultation
+
+### Smaran Scheduler
+
+Scheduler is intentionally a separate future feature/product refinement after current pre-consultation delivery. It may later support patient self-booking, receptionist booking, doctor availability, rescheduling, cancellations, and appointment reminders. Phase 6.5 may reserve a disabled/Coming Later navigation entry but must not implement it.
+
+### Smaran Pay
+
+Billing and payment are outside the current MVP/pre-consultation scope. Do not add payment/revenue workflow into Phase 6.5.
 
 ## Codex task format
 
