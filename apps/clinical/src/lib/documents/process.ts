@@ -19,7 +19,6 @@ import {
   type DocumentProcessingAdapter,
   type DocumentProcessingFailureCode,
 } from "./processing-adapter";
-import { reconcilePatientClinicalEvidence } from "@/lib/db/clinical-state";
 
 export class DocumentProcessingError extends Error {
   constructor(public readonly code: DocumentProcessingFailureCode) {
@@ -110,13 +109,7 @@ export async function processMedicalDocument(
     latest_extraction_status: evaluated.status,
     latest_failure_reason_code: null,
   });
-  // Reconciliation is intentionally after the Phase 7 source transaction and
-  // best-effort: evidence persistence must never depend on Phase 8.
-  const { data: source } = await service
-    .from("documents")
-    .select("patient_id")
-    .eq("id", documentId)
-    .maybeSingle();
-  if (source?.patient_id) await reconcilePatientClinicalEvidence(source.patient_id).catch(() => undefined);
+  // The Phase 8 trigger persists one reconciliation-work row per source item
+  // inside complete_document_processing's committed source transaction.
   return result;
 }

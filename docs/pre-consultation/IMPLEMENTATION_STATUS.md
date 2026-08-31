@@ -646,18 +646,22 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Added non-blocking best-effort reconciliation after committed document processing and intake submission. Failures are swallowed at these source boundaries so evidence, intake, queue, and consultation workflows remain independent; the exported reconciliation service is safe to retry.
   - Extended the authorized patient-merge path through guarded ownership reassignment while retaining origin-patient provenance and without copying/recreating clinical history or deltas.
   - Preserved approved-note-only follow-up memory unchanged.
+  - Review fixes lock reconciliation RPC execution to the service role, derive all proposal scope from referenced evidence, and use keyed transaction locks so null-base proposals cannot create competing current state.
+  - Added a source-triggered, PHI-safe reconciliation work ledger. Source evidence commits independently; durable pending work is drained opportunistically after the response and retried by subsequent server invocations.
+  - Made the migration chain clean-bootstrap safe through `0038`, and made authorized merges move the full Phase 8 graph before verifying final internal references.
 - Acceptance criteria satisfied:
   - `AC-C01`–`AC-C07`: doctor-reviewable proposed deltas, Accept/Keep contracts, evidence/state provenance, stale protection, and non-blocking care.
   - `AC-A03`–`AC-A05`: unconfirmed evidence never mutates confirmed state; confirmed/unconfirmed layers are separate; no diagnosis, prescribing, or treatment recommendation behavior.
   - `AC-R02`–`AC-R03`: RLS, direct-table privilege restrictions, guarded RPCs, and API role checks exclude operational roles and require a doctor for confirmation/decisions.
   - Preserved `AC-E03`: Phase 8 reconciliation is outside source, queue, and Start Consultation transactions.
 - Files changed:
-  - Database: `apps/clinical/supabase/migrations/0033_preconsult_phase8_confirmed_state_delta_engine.sql` through `0037_preconsult_phase8_persist_stale_dispositions.sql`.
+  - Database: `apps/clinical/supabase/migrations/0033_preconsult_phase8_confirmed_state_delta_engine.sql` through `0038_preconsult_phase8_review_fixes.sql`.
   - Application: `apps/clinical/src/lib/clinical-state/comparator.ts`, `apps/clinical/src/lib/db/clinical-state.ts`, document/intake reconciliation hooks, doctor-only API routes, validation, schema, and types.
-  - Tests: `apps/clinical/src/tests/preconsult-phase8.test.ts`, `apps/clinical/supabase/tests/0033_preconsult_phase8_confirmed_state_delta_engine.test.sql`.
+  - Tests: `apps/clinical/src/tests/preconsult-phase8.test.ts`, `apps/clinical/supabase/tests/0033_preconsult_phase8_confirmed_state_delta_engine.test.sql`, and `apps/clinical/supabase/tests/0038_preconsult_phase8_review_fixes.test.sql`.
 - Tests run:
   - `npx supabase migration up --local` — pass.
   - Focused Phase 8 pgTAP test — pass, 33 assertions.
+  - `npm run test:db` — pass, 324 assertions across all pgTAP suites.
   - `npx tsx --test src/tests/preconsult-phase8.test.ts` — pass, 5 tests.
   - `npx tsc --noEmit` — pass.
   - `npx supabase db lint --local --level warning` — pass, no schema errors.
@@ -667,7 +671,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Merge can move canonical ownership only under the existing transaction-local authorization flag; origin provenance remains immutable.
 - Known limitations:
   - There is intentionally no Phase 9 brief or Phase 10 Review Changes UI. The engine exposes only minimal doctor APIs/data contracts.
-  - Reconciliation is retryable but does not yet have a durable background-job scheduler; failed best-effort calls do not affect source success and can be retried through the server-side reconciliation service.
+  - There is no generic background-job scheduler yet. Reconciliation-required source items are nevertheless durable, lease-reclaimable work records and are retried from subsequent authorized server invocations; source success remains independent.
   - Patient stopped-medication detection is deliberately English-only and limited to `stopped`, `not taking`, `not using`, and `discontinued` followed by exactly one current medication key. Other wording becomes `possible_change`.
 - Recommended next task:
   - Phase 9 — consume these explicit state/delta contracts in the doctor-only, derivative 30-second pre-consult brief without changing confirmed-state or approved-note-memory invariants.

@@ -1,11 +1,11 @@
 -- Phase 8 hardening: evidence can support a later re-evaluation after stale
 -- state, and approved-note provenance must belong to the same patient.
 
-DROP INDEX public.clinical_state_delta_evidence_observation_unique;
-DROP INDEX public.clinical_state_delta_evidence_statement_item_unique;
-CREATE UNIQUE INDEX clinical_state_delta_evidence_observation_delta_unique
+DROP INDEX IF EXISTS public.clinical_state_delta_evidence_observation_unique;
+DROP INDEX IF EXISTS public.clinical_state_delta_evidence_statement_item_unique;
+CREATE UNIQUE INDEX IF NOT EXISTS clinical_state_delta_evidence_observation_delta_unique
   ON public.clinical_state_delta_evidence (delta_id, source_observation_id) WHERE source_observation_id IS NOT NULL;
-CREATE UNIQUE INDEX clinical_state_delta_evidence_statement_item_delta_unique
+CREATE UNIQUE INDEX IF NOT EXISTS clinical_state_delta_evidence_statement_item_delta_unique
   ON public.clinical_state_delta_evidence (delta_id, source_intake_statement_id, source_item_index)
   WHERE source_intake_statement_id IS NOT NULL;
 

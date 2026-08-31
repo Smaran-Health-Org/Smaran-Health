@@ -688,6 +688,32 @@ export const clinicalStateDeltaDispositions = pgTable("clinical_state_delta_disp
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 
+export const clinicalStateReconciliationWork = pgTable(
+  "clinical_state_reconciliation_work",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    sourceObservationId: uuid("source_observation_id").references(() => clinicalObservations.id, { onDelete: "restrict" }),
+    sourceIntakeStatementId: uuid("source_intake_statement_id").references(() => patientIntakeStatements.id, { onDelete: "restrict" }),
+    sourceItemIndex: integer("source_item_index").notNull(),
+    domain: confirmedClinicalStateDomainEnum("domain").notNull(),
+    comparatorContractVersion: text("comparator_contract_version").notNull(),
+    status: text("status").$type<"pending" | "processing" | "completed" | "retryable_failed">().notNull(),
+    attemptCount: integer("attempt_count").notNull(),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull(),
+    processingStartedAt: timestamp("processing_started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    failureCode: text("failure_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("clinical_state_reconciliation_work_due_idx").on(table.status, table.nextAttemptAt, table.createdAt),
+  ]
+);
+
 export const audioFiles = pgTable("audio_files", {
   id: uuid("id").defaultRandom().primaryKey(),
   consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "cascade" }).notNull(),

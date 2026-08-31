@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import { DocumentAccessError } from "@/lib/db/documents";
 import { DocumentProcessingError, processMedicalDocument } from "@/lib/documents/process";
+import { drainClinicalStateReconciliation } from "@/lib/db/clinical-state";
 import { apiError, conflict, internalError, notFound, unauthorized } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
@@ -17,6 +18,9 @@ export async function POST(
 
   try {
     const document = await processMedicalDocument(id);
+    // Opportunistic only: the committed source already has durable work and a
+    // later server invocation can retry it if this process ends here.
+    after(() => drainClinicalStateReconciliation().catch(() => undefined));
     return NextResponse.json(
       { document },
       { headers: { "Cache-Control": "no-store" } }
