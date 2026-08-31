@@ -11,9 +11,17 @@ import {
 } from "../lib/documents/file";
 import {
   getPatientDocumentUploadContextWithClient,
+  recordPatientDocumentViewWithClient,
+  recordStaffDocumentViewWithClient,
   registerStaffDocumentWithClient,
 } from "../lib/db/documents";
 import { documentUploadMetadataSchema } from "../lib/validation";
+import { clinicDateKey, isOnOrBeforeClinicToday } from "../lib/clinic-date";
+import {
+  DocumentUploadBodyError,
+  MAX_DOCUMENT_UPLOAD_REQUEST_BYTES,
+  readBoundedDocumentBody,
+} from "../lib/documents/bounded-body";
 
 const consultationId = "45000000-0000-4000-8000-000000000001";
 const documentId = "85000000-0000-4000-8000-000000000001";
@@ -40,6 +48,42 @@ test("document bytes are bounded and unsupported content fails closed", () => {
     () => validateDocumentBytes(new TextEncoder().encode("plain text")),
     (error: unknown) => error instanceof DocumentFileError && error.kind === "type"
   );
+});
+
+test("multipart request bodies are bounded before form-data parsing", async () => {
+  assert.equal(MAX_DOCUMENT_UPLOAD_REQUEST_BYTES, MAX_DOCUMENT_BYTES + 128 * 1024);
+
+  const declaredOversize = new Request("http://localhost/upload", {
+    method: "POST",
+    headers: { "Content-Length": "9" },
+    body: new Uint8Array([1]),
+  });
+  await assert.rejects(
+    readBoundedDocumentBody(declaredOversize, 8),
+    (error: unknown) => error instanceof DocumentUploadBodyError
+  );
+
+  const chunkedOversize = new Request("http://localhost/upload", {
+    method: "POST",
+    body: new Uint8Array(9),
+  });
+  await assert.rejects(
+    readBoundedDocumentBody(chunkedOversize, 8),
+    (error: unknown) => error instanceof DocumentUploadBodyError
+  );
+
+  const accepted = await readBoundedDocumentBody(new Request("http://localhost/upload", {
+    method: "POST",
+    body: new Uint8Array([1, 2, 3]),
+  }), 8);
+  assert.deepEqual([...accepted], [1, 2, 3]);
+});
+
+test("clinic calendar dates do not fall back to the previous UTC day", () => {
+  const shortlyAfterMidnightInIndia = new Date("2026-08-29T18:45:00.000Z");
+  assert.equal(clinicDateKey(shortlyAfterMidnightInIndia), "2026-08-30");
+  assert.equal(isOnOrBeforeClinicToday("2026-08-30", shortlyAfterMidnightInIndia), true);
+  assert.equal(isOnOrBeforeClinicToday("2026-08-31", shortlyAfterMidnightInIndia), false);
 });
 
 test("hashing and storage paths are stable without patient filenames", () => {
@@ -150,4 +194,37 @@ test("staff registration delegates immutable evidence metadata to one guarded RP
   assert.equal(rpcArgs.p_consultation_id, consultationId);
   assert.equal(rpcArgs.p_content_hash, "c".repeat(64));
   assert.equal(result.status, "uploaded");
+});
+
+test("document view audit is a separate post-signing RPC for staff and patients", async () => {
+  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const client = {
+    async rpc(name: string, args: Record<string, unknown>) {
+      calls.push({ name, args });
+      return { data: null, error: null };
+    },
+  } as unknown as Parameters<typeof recordStaffDocumentViewWithClient>[0];
+
+  await recordStaffDocumentViewWithClient(client, documentId);
+  await recordPatientDocumentViewWithClient(
+    client,
+    "a".repeat(64),
+    "b".repeat(64),
+    documentId
+  );
+
+  assert.deepEqual(calls, [
+    {
+      name: "record_staff_document_view",
+      args: { p_document_id: documentId },
+    },
+    {
+      name: "record_patient_document_view",
+      args: {
+        p_token_hash: "a".repeat(64),
+        p_verified_session_hash: "b".repeat(64),
+        p_document_id: documentId,
+      },
+    },
+  ]);
 });

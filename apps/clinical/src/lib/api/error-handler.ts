@@ -23,6 +23,10 @@ export function conflict(message: string, details?: unknown) {
   return apiError(message, "conflict", 409, details);
 }
 
+export function payloadTooLarge(message: string) {
+  return apiError(message, "payload_too_large", 413);
+}
+
 export function notFound(message = "Resource not found") {
   return apiError(message, "not_found", 404);
 }

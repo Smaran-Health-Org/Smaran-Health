@@ -6,6 +6,7 @@ import type {
   DocumentListItem,
   MedicalDocumentType,
 } from "@/lib/db/documents";
+import { clinicDateKey } from "@/lib/clinic-date";
 import styles from "./clinical.module.css";
 
 const DOCUMENT_TYPES: Array<{ value: MedicalDocumentType; label: string }> = [
@@ -180,7 +181,7 @@ export function DocumentManager(props: {
     }
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = clinicDateKey();
 
   return (
     <section className={styles.documentManager} aria-label="Medical documents">
@@ -300,7 +301,7 @@ export function DocumentManager(props: {
                 </div>
               ) : null}
               {props.canReviewExtraction && extractionId === document.id && extraction ? (
-                <DocumentExtractionReview extraction={extraction} />
+                <DocumentExtractionReview extraction={extraction} documentId={document.id} />
               ) : null}
             </li>
           ))}
@@ -315,7 +316,25 @@ function confidenceLabel(value: number | null): string {
   return `${Math.round(value * 100)}%`;
 }
 
-function DocumentExtractionReview({ extraction }: { extraction: DoctorDocumentExtraction }) {
+function observationValue(observation: DoctorDocumentExtraction["observations"][number]): string {
+  const value = observation.normalizedValue;
+  return [value.valueText, value.unit, value.referenceRange ? `reference ${value.referenceRange}` : ""]
+    .filter(Boolean)
+    .join(" · ") || "Mentioned without a structured value";
+}
+
+function observationDate(observation: DoctorDocumentExtraction["observations"][number]): string {
+  if (!observation.effectiveDateText) return "Date not available";
+  return `${observation.effectiveDateText}${observation.effectiveDatePrecision === "approximate" ? " (approx.)" : ""}`;
+}
+
+function DocumentExtractionReview({
+  extraction,
+  documentId,
+}: {
+  extraction: DoctorDocumentExtraction;
+  documentId: string;
+}) {
   const payload = extraction.rawExtractionJson as {
     readabilityConfidence?: number;
     isHandwritten?: boolean;
@@ -349,6 +368,30 @@ function DocumentExtractionReview({ extraction }: { extraction: DoctorDocumentEx
       {payload?.isHandwritten || payload?.isPartiallyUnreadable ? (
         <div className={styles.documentReviewReasons}>Handwriting or partially unreadable content was detected. Do not rely on extracted text without checking the original.</div>
       ) : null}
+      <div className={styles.documentExtractionSection}>
+        <strong>Unconfirmed structured observations</strong>
+        {extraction.observations.length > 0 ? (
+          <ul>{extraction.observations.map((observation) => (
+            <li key={observation.id}>
+              <strong>{observation.displayName}</strong> — {observationValue(observation)}
+              <br />
+              <small>
+                {observation.observationType} · {observationDate(observation)} · page {observation.sourcePageNumber} · {confidenceLabel(observation.confidence)} confidence
+                {observation.trendEligible ? " · eligible for duplicate-safe trend input" : " · excluded from trend input"}
+              </small>
+              <blockquote>“{observation.sourceEvidenceText}”</blockquote>
+              <a
+                className={styles.textButton}
+                href={`/api/documents/${documentId}/view#page=${observation.sourcePageNumber}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                View original evidence · page {observation.sourcePageNumber}
+              </a>
+            </li>
+          ))}</ul>
+        ) : <p>No reliable labs, medicines, conditions, allergies, or vitals were normalized from this attempt.</p>}
+      </div>
       {uncertainItems.length > 0 ? (
         <div className={styles.documentExtractionSection}>
           <strong>Uncertain items</strong>

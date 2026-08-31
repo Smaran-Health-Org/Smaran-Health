@@ -133,6 +133,19 @@ export const documentExtractionStatusEnum = pgEnum("document_extraction_status",
   "technical_failure",
 ]);
 
+export const clinicalObservationTypeEnum = pgEnum("clinical_observation_type", [
+  "lab",
+  "medication",
+  "condition",
+  "allergy",
+  "vital",
+]);
+
+export const clinicalObservationDateSourceEnum = pgEnum(
+  "clinical_observation_date_source",
+  ["unknown", "observation_extracted", "document_extracted", "user_entered"]
+);
+
 // ── Tables ──────────────────────────────────────────────────────────────────
 
 export const clinics = pgTable("clinics", {
@@ -529,6 +542,52 @@ export const documentExtractions = pgTable(
     index("document_extractions_identity_idx")
       .on(table.clinicId, table.documentIdentityHash)
       .where(sql`${table.documentIdentityHash} is not null`),
+  ]
+);
+
+export const clinicalObservations = pgTable(
+  "clinical_observations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "restrict" }).notNull(),
+    observationType: clinicalObservationTypeEnum("observation_type").notNull(),
+    normalizedKey: text("normalized_key").notNull(),
+    displayName: text("display_name").notNull(),
+    normalizedValue: jsonb("normalized_value").$type<{
+      valueText: string;
+      numericValue: number | null;
+      unit: string | null;
+      referenceRange: string | null;
+      qualifier: string | null;
+    }>().notNull(),
+    sourceDocumentId: uuid("source_document_id").references(() => documents.id, { onDelete: "restrict" }).notNull(),
+    sourceExtractionId: uuid("source_extraction_id").references(() => documentExtractions.id, { onDelete: "restrict" }).notNull(),
+    sourceItemIndex: integer("source_item_index").notNull(),
+    sourcePageNumber: integer("source_page_number").notNull(),
+    sourceEvidenceText: text("source_evidence_text").notNull(),
+    confidence: doublePrecision("confidence").notNull(),
+    verificationState: text("verification_state").$type<"unconfirmed">().notNull().default("unconfirmed"),
+    effectiveDate: date("effective_date"),
+    effectiveDateText: text("effective_date_text"),
+    effectiveDatePrecision: documentDatePrecisionEnum("effective_date_precision").notNull().default("unknown"),
+    effectiveDateSource: clinicalObservationDateSourceEnum("effective_date_source").notNull().default("unknown"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("clinical_observations_extraction_item_uidx").on(
+      table.sourceExtractionId,
+      table.sourceItemIndex
+    ),
+    index("clinical_observations_patient_type_date_idx").on(
+      table.clinicId,
+      table.patientId,
+      table.observationType,
+      table.effectiveDate
+    ),
+    index("clinical_observations_document_idx").on(table.sourceDocumentId),
   ]
 );
 

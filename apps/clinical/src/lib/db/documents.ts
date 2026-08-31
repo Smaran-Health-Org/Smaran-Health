@@ -67,6 +67,30 @@ export type DoctorDocumentExtraction = {
   failureReasonCode: DocumentProcessingFailureCode | null;
   startedAt: string;
   completedAt: string | null;
+  observations: DoctorClinicalObservation[];
+};
+
+export type DoctorClinicalObservation = {
+  id: string;
+  observationType: "lab" | "medication" | "condition" | "allergy" | "vital";
+  normalizedKey: string;
+  displayName: string;
+  normalizedValue: {
+    valueText: string;
+    numericValue: number | null;
+    unit: string | null;
+    referenceRange: string | null;
+    qualifier: string | null;
+  };
+  sourcePageNumber: number;
+  sourceEvidenceText: string;
+  confidence: number;
+  verificationState: "unconfirmed";
+  effectiveDate: string | null;
+  effectiveDateText: string | null;
+  effectiveDatePrecision: DocumentDatePrecision;
+  effectiveDateSource: "unknown" | "observation_extracted" | "document_extracted" | "user_entered";
+  trendEligible: boolean;
 };
 
 export type RegisterDocumentInput = {
@@ -290,6 +314,22 @@ export async function getDoctorLatestDocumentExtraction(
     .maybeSingle();
   if (error) throw new DocumentAccessError("unavailable");
   if (!data) return null;
+  const { data: observationRows, error: observationError } = await supabase
+    .from("clinical_observations")
+    .select("id, observation_type, normalized_key, display_name, normalized_value, source_page_number, source_evidence_text, confidence, verification_state, effective_date, effective_date_text, effective_date_precision, effective_date_source")
+    .eq("source_extraction_id", data.id)
+    .order("source_item_index", { ascending: true });
+  if (observationError) throw new DocumentAccessError("unavailable");
+  const observationIds = (observationRows ?? []).map((row) => row.id);
+  const trendEligibleIds = new Set<string>();
+  if (observationIds.length > 0) {
+    const { data: trendRows, error: trendError } = await supabase
+      .from("clinical_observation_trend_inputs")
+      .select("id")
+      .in("id", observationIds);
+    if (trendError) throw new DocumentAccessError("unavailable");
+    for (const row of trendRows ?? []) trendEligibleIds.add(row.id);
+  }
   return {
     id: data.id,
     attemptNumber: data.attempt_number,
@@ -306,6 +346,22 @@ export async function getDoctorLatestDocumentExtraction(
     failureReasonCode: data.failure_reason_code as DocumentProcessingFailureCode | null,
     startedAt: data.started_at,
     completedAt: data.completed_at,
+    observations: (observationRows ?? []).map((row) => ({
+      id: row.id,
+      observationType: row.observation_type as DoctorClinicalObservation["observationType"],
+      normalizedKey: row.normalized_key,
+      displayName: row.display_name,
+      normalizedValue: row.normalized_value as DoctorClinicalObservation["normalizedValue"],
+      sourcePageNumber: row.source_page_number,
+      sourceEvidenceText: row.source_evidence_text,
+      confidence: row.confidence,
+      verificationState: row.verification_state as "unconfirmed",
+      effectiveDate: row.effective_date,
+      effectiveDateText: row.effective_date_text,
+      effectiveDatePrecision: row.effective_date_precision as DocumentDatePrecision,
+      effectiveDateSource: row.effective_date_source as DoctorClinicalObservation["effectiveDateSource"],
+      trendEligible: trendEligibleIds.has(row.id),
+    })),
   };
 }
 
@@ -358,6 +414,49 @@ export async function authorizePatientDocumentView(
   });
   if (error) mapRpcError(error);
   return authorizedView((data as Array<Record<string, unknown>> | null)?.[0]);
+}
+
+export async function recordStaffDocumentViewWithClient(
+  supabase: ServerClient,
+  documentId: string
+): Promise<void> {
+  const { error } = await supabase.rpc("record_staff_document_view", {
+    p_document_id: documentId,
+  });
+  if (error) mapRpcError(error);
+}
+
+export async function recordStaffDocumentView(documentId: string): Promise<void> {
+  const supabase = await createServerClient();
+  await recordStaffDocumentViewWithClient(supabase, documentId);
+}
+
+export async function recordPatientDocumentViewWithClient(
+  supabase: ServerClient,
+  tokenHash: string,
+  verifiedSessionHash: string,
+  documentId: string
+): Promise<void> {
+  const { error } = await supabase.rpc("record_patient_document_view", {
+    p_token_hash: tokenHash,
+    p_verified_session_hash: verifiedSessionHash,
+    p_document_id: documentId,
+  });
+  if (error) mapRpcError(error);
+}
+
+export async function recordPatientDocumentView(
+  tokenHash: string,
+  verifiedSessionHash: string,
+  documentId: string
+): Promise<void> {
+  const supabase = await createServerClient();
+  await recordPatientDocumentViewWithClient(
+    supabase,
+    tokenHash,
+    verifiedSessionHash,
+    documentId
+  );
 }
 
 export async function updateDocumentMetadataWithClient(

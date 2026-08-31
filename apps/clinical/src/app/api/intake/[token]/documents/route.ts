@@ -8,7 +8,7 @@ import {
 import { DocumentFileError } from "@/lib/documents/file";
 import { DocumentIngestionError, ingestDocument, parseDocumentUpload } from "@/lib/documents/ingest";
 import { verifiedIntakeCredentials } from "@/lib/intake/verified-session";
-import { badRequest, internalError, unauthorized } from "@/lib/api/error-handler";
+import { badRequest, internalError, payloadTooLarge, unauthorized } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -67,6 +67,10 @@ export async function POST(
     });
     return noStoreJson({ document }, { status: 201 });
   } catch (error) {
+    if ((error instanceof DocumentFileError && error.kind === "size")
+      || (error instanceof DocumentIngestionError && error.kind === "size")) {
+      return payloadTooLarge("Choose a medical document up to 4 MB");
+    }
     if (error instanceof DocumentFileError || (error instanceof DocumentIngestionError && error.kind === "request")) {
       return badRequest("Choose a PDF or supported photo up to 4 MB and check its details");
     }

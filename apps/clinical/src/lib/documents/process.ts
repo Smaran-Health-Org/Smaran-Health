@@ -83,6 +83,11 @@ export async function processMedicalDocument(
   }
 
   const service = createServiceRoleClient();
+  const databaseReviewReasons = Array.from(new Set(
+    evaluated.needsReviewReasons.map((reason) => reason === "evidence_mismatch"
+      ? "uncertain_content"
+      : reason)
+  ));
   const { data, error } = await service.rpc("complete_document_processing", {
     p_extraction_id: claim.extractionId,
     p_status: evaluated.status,
@@ -90,8 +95,9 @@ export async function processMedicalDocument(
     p_classification_type: evaluated.documentType,
     p_classification_confidence: evaluated.classificationConfidence,
     p_overall_confidence: evaluated.overallConfidence,
-    p_needs_review_reasons: evaluated.needsReviewReasons,
+    p_needs_review_reasons: databaseReviewReasons,
     p_document_identity_hash: evaluated.documentIdentityHash,
+    p_normalized_observations: evaluated.normalizedObservations,
   });
   if (error || !data) {
     await recordFailure(claim.extractionId, "processing_interrupted").catch(() => undefined);

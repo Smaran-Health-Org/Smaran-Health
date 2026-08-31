@@ -5,13 +5,18 @@ import { documentUploadMetadataSchema } from "@/lib/validation";
 import {
   documentContentHash,
   documentStoragePath,
+  MAX_DOCUMENT_BYTES,
   safeOriginalFilename,
   validateDocumentBytes,
 } from "./file";
+import {
+  DocumentUploadBodyError,
+  readBoundedDocumentBody,
+} from "./bounded-body";
 import { removeUnregisteredDocumentOriginal, storeDocumentOriginal } from "./storage";
 
 export class DocumentIngestionError extends Error {
-  constructor(public readonly kind: "request" | "storage" | "registration") {
+  constructor(public readonly kind: "request" | "size" | "storage" | "registration") {
     super("Medical document ingestion failed");
     this.name = "DocumentIngestionError";
   }
@@ -29,15 +34,32 @@ export async function parseDocumentUpload(request: Request): Promise<{
   documentDate?: string;
   documentDatePrecision: RegisterDocumentInput["documentDatePrecision"];
 }> {
+  let body: Uint8Array;
+  try {
+    body = await readBoundedDocumentBody(request);
+  } catch (error) {
+    if (error instanceof DocumentUploadBodyError) {
+      throw new DocumentIngestionError("size");
+    }
+    throw new DocumentIngestionError("request");
+  }
+
   let formData: FormData;
   try {
-    formData = await request.formData();
+    const contentType = request.headers.get("content-type");
+    if (!contentType) throw new Error("Missing multipart content type");
+    formData = await new Response(body.buffer as ArrayBuffer, {
+      headers: { "Content-Type": contentType },
+    }).formData();
   } catch {
     throw new DocumentIngestionError("request");
   }
   const entry = formData.get("file");
   if (!entry || typeof entry === "string" || typeof entry.arrayBuffer !== "function") {
     throw new DocumentIngestionError("request");
+  }
+  if (entry.size === 0 || entry.size > MAX_DOCUMENT_BYTES) {
+    throw new DocumentIngestionError("size");
   }
 
   const metadata = documentUploadMetadataSchema.safeParse({

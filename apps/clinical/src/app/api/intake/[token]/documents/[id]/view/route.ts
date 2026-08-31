@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authorizePatientDocumentView } from "@/lib/db/documents";
+import { authorizePatientDocumentView, recordPatientDocumentView } from "@/lib/db/documents";
 import { createDocumentViewUrl } from "@/lib/documents/storage";
 import { verifiedIntakeCredentials } from "@/lib/intake/verified-session";
 import { internalError, notFound, unauthorized } from "@/lib/api/error-handler";
@@ -21,6 +21,11 @@ export async function GET(
     );
     if (!document) return notFound("Document not found");
     const signedUrl = await createDocumentViewUrl(document.storagePath);
+    await recordPatientDocumentView(
+      credentials.tokenHash,
+      credentials.verifiedSessionHash,
+      id
+    );
     const response = NextResponse.redirect(signedUrl, { status: 302 });
     response.headers.set("Cache-Control", "no-store");
     response.headers.set("Referrer-Policy", "no-referrer");

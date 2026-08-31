@@ -46,12 +46,44 @@ const DOCUMENT_RESPONSE_SCHEMA = {
         required: ["text", "reason", "pageNumber", "confidence"],
       },
     },
+    normalizedObservations: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          observationType: {
+            type: "string",
+            enum: ["lab", "medication", "condition", "allergy", "vital"],
+          },
+          displayName: { type: "string" },
+          valueText: { type: "string" },
+          numericValue: { type: "number", nullable: true },
+          unit: { type: "string" },
+          referenceRange: { type: "string" },
+          qualifier: { type: "string" },
+          effectiveDate: { type: "string" },
+          effectiveDateText: { type: "string" },
+          effectiveDatePrecision: {
+            type: "string",
+            enum: ["unknown", "exact", "approximate"],
+          },
+          pageNumber: { type: "integer" },
+          evidenceText: { type: "string" },
+          confidence: { type: "number" },
+        },
+        required: [
+          "observationType", "displayName", "valueText", "numericValue", "unit",
+          "referenceRange", "qualifier", "effectiveDate", "effectiveDateText",
+          "effectiveDatePrecision", "pageNumber", "evidenceText", "confidence",
+        ],
+      },
+    },
   },
   required: [
     "documentType", "classificationConfidence", "readabilityConfidence",
     "isHandwritten", "isPartiallyUnreadable", "documentDate",
     "documentDateConfidence", "reportIdentifier", "reportIdentifierConfidence",
-    "pages", "uncertainItems",
+    "pages", "uncertainItems", "normalizedObservations",
   ],
 } as const;
 
@@ -65,6 +97,11 @@ const SYSTEM_PROMPT = [
   "Return page-level transcription with the original page number. Use pageNumber 0 only for uncertain items whose page is unknown.",
   "documentDate must be an exact visible date in YYYY-MM-DD or an empty string. Never infer a missing date.",
   "reportIdentifier must contain only an exact visible report/accession/prescription identifier suitable for duplicate matching, or an empty string. Never use patient name, phone, address, or a generic date as this identifier.",
+  "Extract normalizedObservations only for explicitly visible labs, medicines, conditions, allergies, or vitals. Do not infer a diagnosis, indication, medication change, dose, frequency, allergy, unit, or reference range.",
+  "For each observation, preserve the visible display name and value wording. numericValue is allowed only when the exact visible value is unambiguous; otherwise use null. Use empty strings for absent optional text.",
+  "Every normalized observation must include an exact evidenceText quote and the supporting pageNumber. Omit an observation entirely if there is no reliable supporting quote or page.",
+  "For an exact visible observation date, set effectiveDate to YYYY-MM-DD, retain the visible wording in effectiveDateText, and use exact precision. For a partial/approximate visible date, keep effectiveDate empty, preserve the wording in effectiveDateText, and use approximate. If absent, leave both date fields empty and use unknown. Never invent a day.",
+  "Keep uncertain or unreadable candidate facts in uncertainItems instead of normalizedObservations.",
   "Return valid JSON matching the supplied schema and no commentary.",
 ].join("\n");
 
@@ -94,7 +131,7 @@ export class GeminiDocumentAdapter implements DocumentProcessingAdapter {
         role: "user",
         parts: [
           { inlineData: { mimeType: input.mimeType, data: Buffer.from(input.bytes).toString("base64") } },
-          { text: "Classify and transcribe this document. Preserve uncertainty and page provenance." },
+          { text: "Classify, transcribe, and normalize only explicit observations. Preserve uncertainty and page-level evidence provenance." },
         ],
       }],
       generationConfig: {

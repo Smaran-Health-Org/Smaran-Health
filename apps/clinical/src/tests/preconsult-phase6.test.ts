@@ -18,6 +18,7 @@ const reliablePayload = {
   reportIdentifierConfidence: 0.99,
   pages: [{ pageNumber: 1, text: "Synthetic report text", confidence: 0.93 }],
   uncertainItems: [],
+  normalizedObservations: [],
 };
 
 test("document extraction schema rejects invented shapes and out-of-range confidence", () => {

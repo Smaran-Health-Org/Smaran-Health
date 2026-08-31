@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { clinicDateKey } from "@/lib/clinic-date";
 import { StartConsultationButton } from "@/components/start-consultation";
 import { Icon } from "@/components/icons";
 import type { Patient } from "@/types";
@@ -344,7 +345,7 @@ function NewPatientForm() {
               <span>Date of birth (preferred)</span>
               <input
                 type="date"
-                max={new Date().toISOString().slice(0, 10)}
+                max={clinicDateKey()}
                 value={dateOfBirth}
                 onChange={(event) => {
                   setDateOfBirth(event.target.value);

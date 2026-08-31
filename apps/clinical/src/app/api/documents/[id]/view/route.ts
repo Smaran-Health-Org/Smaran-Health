@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
-import { authorizeStaffDocumentView } from "@/lib/db/documents";
+import { authorizeStaffDocumentView, recordStaffDocumentView } from "@/lib/db/documents";
 import { createDocumentViewUrl } from "@/lib/documents/storage";
 import { internalError, notFound, unauthorized } from "@/lib/api/error-handler";
 
@@ -16,7 +16,11 @@ export async function GET(
     const document = await authorizeStaffDocumentView(id);
     if (!document) return notFound("Document not found");
     const signedUrl = await createDocumentViewUrl(document.storagePath);
-    return NextResponse.redirect(signedUrl, { status: 302 });
+    await recordStaffDocumentView(id);
+    const response = NextResponse.redirect(signedUrl, { status: 302 });
+    response.headers.set("Cache-Control", "no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
   } catch {
     return internalError("Could not open the original document");
   }

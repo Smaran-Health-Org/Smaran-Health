@@ -1,6 +1,20 @@
 BEGIN;
 
-SELECT plan(35);
+SELECT plan(43);
+
+SELECT is(
+  public.clinic_calendar_date('2026-08-29 18:45:00+00'::timestamptz),
+  '2026-08-30'::date,
+  'clinic calendar date uses Asia/Kolkata rather than the database UTC day'
+);
+SELECT ok(
+  (
+    SELECT 'TimeZone=Asia/Kolkata' = ANY(COALESCE(proconfig, ARRAY[]::text[]))
+    FROM pg_catalog.pg_proc
+    WHERE oid = 'public.update_document_metadata(uuid, public.medical_document_type, date, public.document_date_precision)'::regprocedure
+  ),
+  'document metadata validation runs with the clinic timezone'
+);
 
 INSERT INTO public.clinics (id, name) VALUES
   ('15000000-0000-4000-8000-000000000001', 'Phase 5 Clinic A'),
@@ -95,7 +109,8 @@ INSERT INTO storage.objects (bucket_id, name) VALUES
   ('medical-documents', '15000000-0000-4000-8000-000000000001/35000000-0000-4000-8000-000000000001/85000000-0000-4000-8000-000000000001/original.pdf'),
   ('medical-documents', '15000000-0000-4000-8000-000000000001/35000000-0000-4000-8000-000000000001/85000000-0000-4000-8000-000000000002/original.pdf'),
   ('medical-documents', '15000000-0000-4000-8000-000000000001/35000000-0000-4000-8000-000000000001/85000000-0000-4000-8000-000000000003/original.jpg'),
-  ('medical-documents', '15000000-0000-4000-8000-000000000001/35000000-0000-4000-8000-000000000002/85000000-0000-4000-8000-000000000004/original.pdf');
+  ('medical-documents', '15000000-0000-4000-8000-000000000001/35000000-0000-4000-8000-000000000002/85000000-0000-4000-8000-000000000004/original.pdf'),
+  ('medical-documents', '15000000-0000-4000-8000-000000000001/35000000-0000-4000-8000-000000000001/85000000-0000-4000-8000-000000000005/original.pdf');
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '25000000-0000-4000-8000-000000000002', true);
@@ -106,6 +121,17 @@ SELECT lives_ok(
     repeat('d', 64), 'application/pdf', 100, 'report.pdf', 'lab_report', '2026-08-01', 'exact'
   ) $$,
   'authorized clinic staff may register stored source evidence'
+);
+SELECT throws_ok(
+  $$ SELECT public.register_staff_document(
+    '45000000-0000-4000-8000-000000000001', '85000000-0000-4000-8000-000000000005',
+    '15000000-0000-4000-8000-000000000001/35000000-0000-4000-8000-000000000001/85000000-0000-4000-8000-000000000005/original.pdf',
+    repeat('e', 64), 'application/pdf', 100, 'future-report.pdf', 'lab_report',
+    CURRENT_DATE + 2, 'exact'
+  ) $$,
+  '22023',
+  'Invalid document date metadata',
+  'database rejects a document date beyond the clinic calendar day'
 );
 SELECT is(
   (SELECT uploaded_via::text FROM public.documents WHERE id = '85000000-0000-4000-8000-000000000001'),
@@ -155,8 +181,17 @@ SELECT is(
 );
 SELECT is(
   (SELECT count(*) FROM public.audit_logs WHERE action = 'document_viewed' AND resource_id = '85000000-0000-4000-8000-000000000001'),
+  0::bigint,
+  'authorization alone does not claim that an original was viewed'
+);
+SELECT lives_ok(
+  $$ SELECT public.record_staff_document_view('85000000-0000-4000-8000-000000000001') $$,
+  'staff view audit can be recorded after signed-link creation'
+);
+SELECT is(
+  (SELECT count(*) FROM public.audit_logs WHERE action = 'document_viewed' AND resource_id = '85000000-0000-4000-8000-000000000001'),
   1::bigint,
-  'original viewing is audited without document content'
+  'successful signed-link issuance is audited without document content'
 );
 SELECT lives_ok(
   $$ SELECT public.update_document_metadata(
@@ -237,6 +272,24 @@ SELECT is(
   1::bigint,
   'patient may reopen only their own intake document original'
 );
+SELECT is(
+  (SELECT count(*) FROM public.audit_logs WHERE action = 'document_viewed' AND resource_id = '85000000-0000-4000-8000-000000000003'),
+  0::bigint,
+  'patient authorization alone does not claim that an original was viewed'
+);
+SELECT lives_ok(
+  $$ SELECT public.record_patient_document_view(
+    repeat('a', 64), repeat('c', 64), '85000000-0000-4000-8000-000000000003'
+  ) $$,
+  'patient view audit can be recorded after signed-link creation'
+);
+SET LOCAL ROLE postgres;
+SELECT is(
+  (SELECT count(*) FROM public.audit_logs WHERE action = 'document_viewed' AND resource_id = '85000000-0000-4000-8000-000000000003'),
+  1::bigint,
+  'patient signed-link issuance is audited without document content'
+);
+SET LOCAL ROLE anon;
 SELECT is(
   (SELECT count(*) FROM public.authorize_patient_document_view(
     repeat('a', 64), repeat('c', 64), '85000000-0000-4000-8000-000000000001'

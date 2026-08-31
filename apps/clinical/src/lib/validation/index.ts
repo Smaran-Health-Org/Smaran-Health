@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isOnOrBeforeClinicToday } from "@/lib/clinic-date";
 
 const isoDateSchema = z
   .string()
@@ -8,7 +9,7 @@ const isoDateSchema = z
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
   }, "Date is invalid")
   .refine(
-    (value) => value <= new Date().toISOString().slice(0, 10),
+    (value) => isOnOrBeforeClinicToday(value),
     "Date of birth cannot be in the future"
   );
 
@@ -178,7 +179,7 @@ const documentDateSchema = z
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
   }, "Date is invalid")
   .refine(
-    (value) => value <= new Date().toISOString().slice(0, 10),
+    (value) => isOnOrBeforeClinicToday(value),
     "Document date cannot be in the future"
   );
 
