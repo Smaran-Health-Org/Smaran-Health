@@ -27,6 +27,7 @@ export default async function PatientDetailPage({
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  if (session.role !== "doctor") redirect("/desk");
 
   const detail = await getPatientDetail(id, session.clinicId);
   if (!detail) notFound();

@@ -1,0 +1,24 @@
+Communication job
+By the end, Indian specialist doctors should understand how Smaran Health could turn doctor-approved encounters into longitudinal patient memory, while recognizing what is prototyped, what remains product direction, and what must be proven in a controlled pilot.
+
+Narrative arc
+1. Begin with the follow-up experience doctors want.
+2. Show why context is fragmented today.
+3. Establish Smaran as a clinical-memory layer with doctor approval as the gate.
+4. Walk one synthetic patient through the familiar clinic workflow.
+5. Show existing prototype screens for consent, recording, review, approval, and memory.
+6. Extend the vision into verified report/vital trends, approved WhatsApp handoff, and clinic follow-up visibility.
+7. Frame continuity and practice impact as pilot hypotheses, not outcomes.
+8. Close on trust gates and a doctor-led evidence pathway.
+
+Visual system
+- Canvas: 16:9, 1280 x 720.
+- Palette: midnight ink #081A27, warm paper #F4F8F5, white #FFFFFF, mint #70D5AD, deep teal #155D66, electric blue #315FCD, coral #FF8A6B, muted slate #66736F.
+- Typography: Avenir Next for editorial headings; Arial for body and UI labels.
+- Motif: one continuous mint memory thread; coral marks uncertainty or an open loop.
+- Status labels: SYNTHETIC PROTOTYPE, PRODUCT DIRECTION, PILOT HYPOTHESIS.
+- Current prototype screens appear as screenshots; future screens are explicitly labelled concepts.
+- Avoid robots, diagnostic language, promises of footfall growth, unsupported performance statistics, and dense dashboard grids.
+
+Synthetic patient thread
+Ananya S., 43, Pune; diabetes/endocrinology follow-up. All visible patient and clinical information is synthetic and not medical advice.

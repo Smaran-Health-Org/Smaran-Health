@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Icon } from "@/components/icons";
 import styles from "@/components/clinical.module.css";
+import type { SessionContext } from "@/types";
 
 function initials(name: string): string {
   return name
@@ -21,11 +22,15 @@ export function AppShell({
   doctorName,
   clinicName,
   patientCount,
+  role = "doctor",
+  workspace = "clinical",
   children,
 }: {
   doctorName: string;
   clinicName: string;
   patientCount: number;
+  role?: SessionContext["role"];
+  workspace?: "clinical" | "desk";
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -54,37 +59,56 @@ export function AppShell({
 
   const isPatients = pathname.startsWith("/patients");
   const isDashboard = pathname === "/dashboard";
+  const isDesk = pathname === "/desk" || pathname.startsWith("/desk/");
+  const homeHref = workspace === "desk" ? "/desk" : "/dashboard";
+  const workspaceLabel = workspace === "desk" ? "Clinic Desk" : "Clinical";
 
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
-        <Link href="/dashboard" className={styles.brand}>
+        <Link href={homeHref} className={styles.brand}>
           <span aria-hidden="true">
             <Icon name="sparkle" />
           </span>
           <div>
             <strong>Smaran</strong>
-            <small>Clinical memory</small>
+            <small>{workspaceLabel} workspace</small>
           </div>
         </Link>
 
         <nav className={styles.sideNav} aria-label="Primary navigation">
           <p>Workspace</p>
-          <Link
-            href="/dashboard"
-            className={isDashboard ? styles.activeNav : undefined}
-          >
-            <Icon name="home" />
-            <span>Today&apos;s overview</span>
-          </Link>
-          <Link
-            href="/patients"
-            className={isPatients ? styles.activeNav : undefined}
-          >
-            <Icon name="users" />
-            <span>All patients</span>
-            <small>{patientCount}</small>
-          </Link>
+          {workspace === "clinical" ? (
+            <>
+              <Link
+                href="/dashboard"
+                className={isDashboard ? styles.activeNav : undefined}
+              >
+                <Icon name="home" />
+                <span>Today</span>
+              </Link>
+              <Link
+                href="/patients"
+                className={isPatients ? styles.activeNav : undefined}
+              >
+                <Icon name="users" />
+                <span>Patients</span>
+                <small>{patientCount}</small>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/desk" className={isDesk ? styles.activeNav : undefined}>
+                <Icon name="home" />
+                <span>Today</span>
+              </Link>
+              <span className={styles.disabledNav} aria-disabled="true">
+                <Icon name="calendar" />
+                <span>Scheduler</span>
+                <small>Later</small>
+              </span>
+            </>
+          )}
         </nav>
 
       </aside>
@@ -100,15 +124,26 @@ export function AppShell({
                 <span className={styles.doctorAvatar}>{initials(doctorName)}</span>
                 <div>
                   <strong>{doctorName}</strong>
-                  <small>Clinic account</small>
+                  <small>{role === "doctor" ? "Doctor" : role === "admin" ? "Admin" : "Clinic assistant"}</small>
                 </div>
               </div>
               <div className={styles.workspaceDetails}>
                 <span>{initials(clinicName)}</span>
                 <div>
-                  <small>Workspace</small>
+                  <small>Active clinic</small>
                   <strong>{clinicName}</strong>
                 </div>
+              </div>
+              <div className={styles.workspaceSwitch}>
+                <small>Workspace</small>
+                {role === "doctor" ? (
+                  <div>
+                    <Link data-active={workspace === "clinical"} href="/dashboard">Clinical</Link>
+                    <Link data-active={workspace === "desk"} href="/desk">Clinic Desk</Link>
+                  </div>
+                ) : (
+                  <strong>Clinic Desk</strong>
+                )}
               </div>
               <button
                 type="button"

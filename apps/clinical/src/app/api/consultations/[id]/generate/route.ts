@@ -7,7 +7,7 @@ import { createAuditLog } from "@/lib/db/audit";
 import { extractClinicalDraft } from "@/lib/ai/extract-clinical-note";
 import { MODEL, PROMPT_VERSION } from "@/lib/ai/prompts";
 import { logEvent, logError, logWarn } from "@/lib/logger";
-import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
+import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api/error-handler";
 
 // Generates an AI draft clinical note from the stored transcript using the
 // Gemini extraction step. The result is saved as `ai_draft` — never
@@ -24,6 +24,7 @@ export async function POST(
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) return unauthorized();
+  if (session.role !== "doctor") return forbidden("Only doctors can generate clinical drafts");
 
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) return notFound("Consultation not found");

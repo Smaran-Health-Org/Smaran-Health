@@ -9,7 +9,7 @@ import {
 import { createTimelineEvent } from "@/lib/db/timeline";
 import { createAuditLog } from "@/lib/db/audit";
 import { saveClinicalNoteSchema } from "@/lib/validation";
-import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
+import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api/error-handler";
 
 export async function GET(
   _request: NextRequest,
@@ -18,6 +18,7 @@ export async function GET(
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) return unauthorized();
+  if (session.role !== "doctor") return forbidden("Only doctors can access clinical notes");
 
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) return notFound("Consultation not found");
@@ -33,6 +34,7 @@ export async function POST(
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) return unauthorized();
+  if (session.role !== "doctor") return forbidden("Only doctors can review clinical notes");
 
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) return notFound("Consultation not found");

@@ -4,8 +4,7 @@ import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
 import { getDashboardOverview } from "@/lib/db/dashboard";
 import { AppShell } from "@/components/app-shell";
-import { Icon } from "@/components/icons";
-import { TodayPatientsList } from "@/components/today-patients-list";
+import { DoctorTodayList } from "@/components/doctor-today-list";
 import styles from "@/components/clinical.module.css";
 
 function greeting(): string {
@@ -18,6 +17,7 @@ function greeting(): string {
 export default async function DashboardPage() {
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  if (session.role !== "doctor") redirect("/desk");
 
   const [overview, clinicName] = await Promise.all([
     getDashboardOverview(session.clinicId),
@@ -31,6 +31,8 @@ export default async function DashboardPage() {
       doctorName={session.fullName}
       clinicName={clinicName}
       patientCount={overview.totalPatients}
+      role={session.role}
+      workspace="clinical"
     >
       <div className={styles.pageContent}>
         <div className={styles.overviewHeader}>
@@ -38,37 +40,39 @@ export default async function DashboardPage() {
             <h1>
               {greeting()}, {doctorFirstName}
             </h1>
-            <p>A calm snapshot of your clinic&apos;s clinical memory.</p>
+            <p>Your day at a glance.</p>
           </div>
-          <Link href="/new-consultation?new=1" className={styles.primaryButton}>
-            <Icon name="plus" /> Add new patient
-          </Link>
+          <Link href="/desk" className={styles.secondaryButton}>Open Clinic Desk</Link>
         </div>
 
-        <div className={styles.statGrid}>
+        <div className={styles.doctorKpiGrid} aria-label="Today summary">
           <div className={styles.statCard}>
-            <span className={styles.statIcon}>
-              <Icon name="users" />
-            </span>
             <div>
-              <strong>{overview.completedPatientsToday}/{overview.patientsToday}</strong>
-              <small>Consultations completed today</small>
+              <strong>{overview.patientsToday}</strong>
+              <small>Patients Today</small>
             </div>
           </div>
           <div className={styles.statCard}>
-            <span className={styles.statIcon}>
-              <Icon name="activity" />
-            </span>
             <div>
-              <strong>{overview.consultationsThisWeek}</strong>
-              <small>Consultations this week</small>
+              <strong>{overview.todayQueue.summary.waiting}</strong>
+              <small>Waiting Now</small>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div>
+              <strong>{overview.todayQueue.summary.priority}</strong>
+              <small>Priority</small>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div>
+              <strong>{overview.todayQueue.summary.completed}</strong>
+              <small>Completed</small>
             </div>
           </div>
         </div>
 
-        <div className={styles.overviewGrid}>
-          <TodayPatientsList queue={overview.todayQueue} role={session.role} />
-        </div>
+        <DoctorTodayList items={overview.todayQueue.items} />
       </div>
     </AppShell>
   );

@@ -10,3 +10,17 @@ export async function getClinicName(clinicId: string): Promise<string> {
 
   return data?.name ?? "Clinic";
 }
+
+export type ClinicDoctor = { id: string; fullName: string };
+
+export async function getClinicDoctors(clinicId: string): Promise<ClinicDoctor[]> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, fullName:full_name")
+    .eq("clinic_id", clinicId)
+    .eq("role", "doctor")
+    .order("full_name", { ascending: true });
+  if (error) throw new Error("Failed to load clinic doctors");
+  return (data ?? []) as ClinicDoctor[];
+}

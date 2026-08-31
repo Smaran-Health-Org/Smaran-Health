@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import {
   QueueTransitionError,
+  reorderWaitingQueue,
   transitionAppointmentQueue,
 } from "@/lib/db/appointment-queue";
-import { appointmentQueueOperationSchema } from "@/lib/validation";
+import { appointmentQueueOperationSchema, waitingQueueReorderSchema } from "@/lib/validation";
 import {
   badRequest,
   forbidden,
@@ -43,5 +44,30 @@ export async function PATCH(
       return badRequest("This queue action is not available for the current encounter state");
     }
     return internalError("Could not update the appointment queue");
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await getSessionContext();
+  if (!session) return unauthorized();
+
+  const body = await request.json().catch(() => null);
+  const parsed = waitingQueueReorderSchema.safeParse(body);
+  if (!parsed.success) return badRequest("Invalid queue reorder", parsed.error.flatten());
+
+  try {
+    await reorderWaitingQueue(id, parsed.data.direction);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (error instanceof QueueTransitionError) {
+      if (error.kind === "forbidden") return forbidden("This queue action is not allowed for your role");
+      if (error.kind === "not_found") return notFound("Waiting appointment not found");
+      return badRequest("The waiting queue could not be reordered");
+    }
+    return internalError("Could not reorder the waiting queue");
   }
 }

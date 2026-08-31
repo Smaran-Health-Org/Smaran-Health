@@ -1,6 +1,6 @@
 # Phase 6.5 — Role Workspaces, Dashboards, and Clinic Desk Automation
 
-Status: **Approved product refinement; implementation not started**
+Status: **Implemented — Phase 6.5 complete**
 
 This document records the product refinement for the workspace split introduced by D-036 through D-040. It defines the Doctor Dashboard, Admin/Clinic Desk, Admin Patient View, human priority handling, queue behavior, and the automation principles that should be implemented before Phase 7.
 

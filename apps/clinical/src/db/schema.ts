@@ -210,6 +210,13 @@ export const consultations = pgTable("consultations", {
   operationalStatus: encounterOperationalStatusEnum("operational_status")
     .notNull()
     .default("in_consultation"),
+  isPriority: boolean("is_priority").notNull().default(false),
+  priorityUpdatedBy: uuid("priority_updated_by").references(() => profiles.id, {
+    onDelete: "set null",
+  }),
+  priorityUpdatedByRole: profileRoleEnum("priority_updated_by_role"),
+  priorityUpdatedAt: timestamp("priority_updated_at", { withTimezone: true }),
+  priorityReason: text("priority_reason"),
   consentAcquired: boolean("consent_acquired").default(false),
   consentVersion: text("consent_version"),
   consentTimestamp: timestamp("consent_timestamp", { withTimezone: true }),
@@ -258,6 +265,8 @@ export const appointments = pgTable(
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
     status: appointmentStatusEnum("status").notNull().default("scheduled"),
     idempotencyKey: text("idempotency_key"),
+    checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
+    queueOrder: integer("queue_order"),
     createdBy: uuid("created_by").references(() => profiles.id, {
       onDelete: "set null",
     }),
@@ -275,6 +284,28 @@ export const appointments = pgTable(
     ),
     index("appointments_patient_id_idx").on(table.patientId),
     index("appointments_doctor_id_idx").on(table.doctorId),
+  ]
+);
+
+export const encounterPriorityEvents = pgTable(
+  "encounter_priority_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    consultationId: uuid("consultation_id")
+      .references(() => consultations.id, { onDelete: "restrict" })
+      .notNull(),
+    actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    actorRole: profileRoleEnum("actor_role").notNull(),
+    action: text("action").$type<"marked" | "cleared">().notNull(),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("encounter_priority_events_consultation_created_idx").on(
+      table.consultationId,
+      table.createdAt
+    ),
   ]
 );
 
@@ -302,6 +333,32 @@ export const patientIntakes = pgTable(
     index("patient_intakes_clinic_patient_idx").on(table.clinicId, table.patientId),
     index("patient_intakes_clinic_status_idx").on(table.clinicId, table.status),
   ]
+);
+
+export const intakeStatementKindEnum = pgEnum("intake_statement_kind", ["original", "correction"]);
+
+export const patientIntakeStatements = pgTable(
+  "patient_intake_statements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "cascade" }).notNull(),
+    patientIntakeId: uuid("patient_intake_id").references(() => patientIntakes.id, { onDelete: "cascade" }).notNull(),
+    kind: intakeStatementKindEnum("kind").notNull(),
+    informationSource: text("information_source").notNull().default("patient"),
+    enteredByProfileId: uuid("entered_by_profile_id").references(() => profiles.id, { onDelete: "restrict" }),
+    enteredByRole: profileRoleEnum("entered_by_role"),
+    enteredVia: text("entered_via").notNull(),
+    reasonForVisitRaw: text("reason_for_visit_raw").notNull(),
+    selfReportedConditions: jsonb("self_reported_conditions").$type<string[]>().notNull().default([]),
+    selfReportedMedications: jsonb("self_reported_medications").$type<string[]>().notNull().default([]),
+    selfReportedAllergies: jsonb("self_reported_allergies").$type<string[]>().notNull().default([]),
+    verificationState: text("verification_state").notNull().default("unconfirmed"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("patient_intake_statements_intake_created_idx").on(table.patientIntakeId, table.createdAt)]
 );
 
 export const consents = pgTable(

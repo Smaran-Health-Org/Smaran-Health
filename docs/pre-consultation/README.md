@@ -1,6 +1,6 @@
 # Smaran Health — Pre-Consultation Planning Pack
 
-Status: **Approved product direction; Phases 1–6 implemented; Phase 6.5 workspace refinement approved for next implementation before Phase 7**
+Status: **Approved product direction; Phases 1–6.5 implemented; Phase 7 is next**
 
 Branch baseline: `dev-neelesh`. The original planning baseline was `b782fde415073fe24eccd2207cd1a212a3e23ad5`; use `IMPLEMENTATION_STATUS.md` for current implementation progress.
 

@@ -12,6 +12,7 @@ export default async function NewConsultationPage({
 }) {
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  if (session.role !== "doctor") redirect("/desk");
 
   const { new: isNew } = await searchParams;
 

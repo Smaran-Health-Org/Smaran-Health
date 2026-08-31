@@ -22,6 +22,7 @@ export default async function ConsultationPage({
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  if (session.role !== "doctor") redirect("/desk");
 
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) notFound();

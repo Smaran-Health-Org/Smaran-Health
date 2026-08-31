@@ -108,7 +108,22 @@ export const updateAppointmentSchema = z.object({
 });
 
 export const appointmentQueueOperationSchema = z.object({
-  operation: z.enum(["mark_arrived", "mark_waiting", "start_consultation"]),
+  operation: z.enum(["check_in", "mark_arrived", "mark_waiting", "start_consultation"]),
+});
+
+export const encounterPrioritySchema = z.object({
+  isPriority: z.boolean(),
+  reason: z.string().trim().max(500).optional(),
+});
+
+export const waitingQueueReorderSchema = z.object({
+  direction: z.enum(["earlier", "later"]),
+});
+
+export const createWalkInSchema = z.object({
+  patientId: z.string().uuid(),
+  doctorId: z.string().uuid(),
+  idempotencyKey: z.string().trim().min(1).max(200),
 });
 
 // ── Patient intake ─────────────────────────────────────────────────────────
@@ -132,6 +147,15 @@ export const submitPatientIntakeSchema = z.object({
   fullName: z.string().trim().min(1).max(200).optional(),
   dateOfBirth: isoDateSchema.optional(),
   gender: z.string().trim().min(1).max(50).optional(),
+});
+
+export const submitAssistedPatientIntakeSchema = submitPatientIntakeSchema.pick({
+  consentAccepted: true,
+  consentVersion: true,
+  reasonForVisitRaw: true,
+  conditions: true,
+  medications: true,
+  allergies: true,
 });
 
 // ── Medical documents ──────────────────────────────────────────────────────

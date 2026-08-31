@@ -7,6 +7,7 @@ import type {
   patientMergeEvents,
   consultations,
   appointments,
+  encounterPriorityEvents,
   patientIntakes,
   consents,
   intakeAccessSessions,
@@ -31,6 +32,7 @@ export type Patient = InferSelectModel<typeof patients>;
 export type PatientMergeEvent = InferSelectModel<typeof patientMergeEvents>;
 export type Consultation = InferSelectModel<typeof consultations>;
 export type Appointment = InferSelectModel<typeof appointments>;
+export type EncounterPriorityEvent = InferSelectModel<typeof encounterPriorityEvents>;
 export type PatientIntake = InferSelectModel<typeof patientIntakes>;
 export type Consent = InferSelectModel<typeof consents>;
 export type IntakeAccessSession = InferSelectModel<typeof intakeAccessSessions>;

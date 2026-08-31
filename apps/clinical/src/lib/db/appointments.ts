@@ -12,13 +12,15 @@ type AppointmentRow = {
   scheduled_at: string;
   status: Appointment["status"];
   idempotency_key: string | null;
+  checked_in_at: string | null;
+  queue_order: number | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const APPOINTMENT_COLUMNS =
-  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, consultationId:consultation_id, scheduledAt:scheduled_at, status, idempotencyKey:idempotency_key, createdBy:created_by, createdAt:created_at, updatedAt:updated_at";
+  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, consultationId:consultation_id, scheduledAt:scheduled_at, status, idempotencyKey:idempotency_key, checkedInAt:checked_in_at, queueOrder:queue_order, createdBy:created_by, createdAt:created_at, updatedAt:updated_at";
 
 export class AppointmentConflictError extends Error {
   constructor() {
@@ -44,6 +46,8 @@ function mapAppointmentRow(row: AppointmentRow): Appointment {
     scheduledAt: row.scheduled_at as unknown as Date,
     status: row.status,
     idempotencyKey: row.idempotency_key,
+    checkedInAt: row.checked_in_at as unknown as Date | null,
+    queueOrder: row.queue_order,
     createdBy: row.created_by,
     createdAt: row.created_at as unknown as Date,
     updatedAt: row.updated_at as unknown as Date,

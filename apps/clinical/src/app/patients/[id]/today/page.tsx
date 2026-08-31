@@ -24,6 +24,7 @@ export default async function TodayPatientPage({
   const [{ id }, { consultation: consultationId }] = await Promise.all([params, searchParams]);
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  if (session.role !== "doctor") redirect("/desk");
 
   const detail = await getPatientDetail(id, session.clinicId);
   if (!detail) notFound();

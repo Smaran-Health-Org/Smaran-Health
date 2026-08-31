@@ -16,6 +16,8 @@ const scheduledItem: AppointmentQueueItem = {
   patientId: "30000000-0000-4000-8000-000000000001",
   patientName: "Aarav Mehta",
   scheduledAt: "2026-08-30T04:30:00.000Z",
+  checkedInAt: null,
+  queueOrder: null,
   appointmentStatus: "scheduled",
   operationalStatus: "scheduled",
   visitType: "new",
@@ -25,6 +27,11 @@ const scheduledItem: AppointmentQueueItem = {
   intakeAccessExpiresAt: null,
   documentStatus: "none",
   documentCount: 0,
+  isPriority: false,
+  priorityUpdatedByName: null,
+  priorityUpdatedByRole: null,
+  priorityUpdatedAt: null,
+  priorityReason: null,
 };
 
 test("today queue uses India Standard Time day boundaries", () => {
@@ -117,6 +124,9 @@ test("queue summaries exclude cancelled appointments from operational readiness 
     intakePending: 2,
     processing: 0,
     needsReview: 0,
+    priority: 0,
+    completed: 0,
+    needsAction: 2,
   });
 });
 

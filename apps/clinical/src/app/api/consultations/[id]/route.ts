@@ -3,7 +3,7 @@ import { getSessionContext } from "@/lib/db/session";
 import { getConsultation, updateConsultation } from "@/lib/db/consultations";
 import { createAuditLog } from "@/lib/db/audit";
 import { updateConsultationSchema } from "@/lib/validation";
-import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
+import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api/error-handler";
 
 export async function GET(
   _request: NextRequest,
@@ -12,6 +12,7 @@ export async function GET(
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) return unauthorized();
+  if (session.role !== "doctor") return forbidden("Only doctors can access the clinical consultation workflow");
 
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) return notFound("Consultation not found");
@@ -26,6 +27,7 @@ export async function PATCH(
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) return unauthorized();
+  if (session.role !== "doctor") return forbidden("Only doctors can update the clinical consultation workflow");
 
   const body = await request.json();
   const parsed = updateConsultationSchema.safeParse(body);

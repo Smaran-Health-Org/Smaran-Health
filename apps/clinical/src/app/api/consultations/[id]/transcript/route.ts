@@ -8,7 +8,7 @@ import {
 import { createAuditLog } from "@/lib/db/audit";
 import { saveTranscriptSchema } from "@/lib/validation";
 import { logEvent, logError } from "@/lib/logger";
-import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
+import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api/error-handler";
 
 export async function GET(
   _request: NextRequest,
@@ -17,6 +17,7 @@ export async function GET(
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) return unauthorized();
+  if (session.role !== "doctor") return forbidden("Only doctors can access consultation transcripts");
 
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) return notFound("Consultation not found");
@@ -32,6 +33,7 @@ export async function POST(
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) return unauthorized();
+  if (session.role !== "doctor") return forbidden("Only doctors can update consultation transcripts");
 
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) return notFound("Consultation not found");

@@ -5,7 +5,7 @@ Baseline commit reviewed: `bbf2a07`
 
 ## Overall status
 
-**PHASE 6 COMPLETE**
+**PHASE 6.5 COMPLETE — role workspaces, Clinic Desk automation, and assisted onboarding implemented**
 
 ## Phase tracker
 
@@ -18,6 +18,7 @@ Baseline commit reviewed: `bbf2a07`
 | 4 | OTP patient intake + consent | Complete | AC-I01–I05, AC-I07, AC-R01, AC-R04 | Reminder automation (AC-I06) remains Phase 12. |
 | 5 | Document ingestion foundation | Complete | AC-D01–D02, D07 | Exact-hash duplicate flag foundation included; extraction and Needs Review remain Phase 6. |
 | 6 | Document processing + Needs Review | Complete | AC-D04–D06, AC-A01; AC-D03 detection | Structured trend exclusion remains Phase 7. |
+| 6.5 | Role workspaces, dashboards, and Clinic Desk automation | Complete | AC-W01–W19; AC-I08–I09; AC-A06 | Workspace boundary, role landings, dashboards, Clinic Desk, Priority, queue/walk-ins, and assisted intake with immutable additive provenance implemented. |
 | 7 | Normalized observations + provenance | Not started | AC-A01–A04 | |
 | 8 | Confirmed state + delta engine | Not started | AC-C*, AC-A03–A05 | |
 | 9 | 30-second doctor brief | Not started | AC-B* | |
@@ -494,3 +495,81 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - The planning pack does not choose a document-AI provider or approved confidence thresholds. The adapter boundary keeps provider choice configurable; the initial conservative thresholds (`0.80` overall/readability, `0.75` classification, any handwriting/partial unreadability/uncertainty) are versioned implementation parameters that require pilot evaluation rather than product truth.
 - Recommended next task:
   - Phase 7 — normalize useful external observations as explicitly unconfirmed, attach document/page evidence and date precision, and ensure every exact/likely duplicate source family contributes at most one set of trend observations. Do not add delta acceptance or mutate confirmed clinical state until Phase 8.
+
+### Phase 6.5 — Role workspaces, dashboards, and Clinic Desk automation
+
+- Status: Complete
+- Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
+- Work completed:
+  - Added role-aware landing: doctor -> `/dashboard`; admin/assistant -> `/desk`. Safe redirect handling prevents manipulated or stale clinical deep links from carrying an operational role into the Clinical Workspace.
+  - Enforced doctor-only Clinical Workspace access on dashboard, patient chart, consultation, transcript, note, generation, and direct-consultation routes. Added RLS boundaries so operational roles cannot read clinical notes/transcripts/audio/timeline or update clinical consultation state through Supabase directly.
+  - Refined the account menu to show signed-in identity, active clinic, and active workspace separately. Doctors may switch Clinical <-> Clinic Desk without signing out; operational roles receive Clinic Desk only.
+  - Replaced the shared dashboard with the approved Doctor Dashboard KPIs: Patients Today, Waiting Now, human Priority, and Completed. Rows contain day-management information only.
+  - Added `/desk` with actionable Needs Attention, Waiting, Not arrived yet, With doctor, and Completed sections using operational language.
+  - Added one-click `Check in`: expected patient -> Waiting, immutable check-in timestamp, FIFO position, waiting duration basis, and immediate Doctor Dashboard visibility.
+  - Added deterministic FIFO waiting order plus accessible Move earlier / Move later controls. Manual changes are separate from Priority and audited.
+  - Added human-only Encounter Priority with a current snapshot and immutable event history preserving actor, role, timestamp, action, and optional reason. Priority never changes queue order.
+  - Added automatic Clinic Desk completion when a doctor approves or rejects the visit note outcome.
+  - Added an operational Admin Patient View with audited date-of-birth, age, and gender editing plus today's visit actions, intake send/resend, document/original access, Priority, wait state, and previous-visit count. It does not load doctor-only interpretation.
+  - Added an MVP walk-in surface with clinic-wide patient search. It reuses patient duplicate matching/creation and atomically creates today's appointment/consultation, checks in, enters FIFO Waiting, and starts the timer.
+  - Added Clinic Desk assisted intake on the operational patient view. Reception and a solo doctor can record reason for visit and optional patient-reported conditions, medicines, and allergies using the existing Encounter, patient-intake, consent, and document foundations.
+  - Added an immutable intake-statement ledger. It records the patient as information source, the authenticated staff member/role as data-entry actor, the assisted-entry channel, timestamp, and unconfirmed verification state.
+  - Added additive post-submission clarification. The original submitted statement remains unchanged and visible; every correction is a separate immutable/audited record.
+  - Hardened the Phase 6.5 review findings: queue sorting now uses a transitive section order before FIFO; authenticated clients cannot directly write check-in time or queue position; walk-in retries retain a target-bound key and return only the original walk-in; completed visits no longer expose dead Priority actions.
+  - Reserved Scheduler as a disabled `Later` item. No scheduler engine, billing, payment, revenue, or Smaran Pay work was added.
+- Acceptance criteria satisfied:
+  - `AC-W01`–`AC-W05`: one identity, role-aware landings, doctor workspace switch, server/data-layer authorization, and separate clinic/workspace identity.
+  - `AC-W06`–`AC-W07`: Doctor Dashboard is day-management only; Admin Today and default doctor rows receive no patient-specific clinical/extraction interpretation.
+  - `AC-W08`–`AC-W09`, `AC-A06`: Priority is an explicit human Encounter action with immutable provenance and no queue effect or AI inference path.
+  - `AC-W10`–`AC-W13`: one-click Check in -> Waiting, waiting-time basis, FIFO, accessible audited manual reorder, and factual `Not arrived yet` language.
+  - `AC-W14`–`AC-W16`: Clinic Desk exceptions are operational/actionable; normal successful work needs no acknowledgement; Admin Patient View stays operational.
+  - `AC-W18`: walk-in search/match/create -> Encounter -> Check in -> FIFO Waiting is one flow backed by an atomic database function.
+  - `AC-W19`: Scheduler remains a non-functional future label and no billing/payment surface was added.
+  - `AC-W17`: assisted onboarding reuses the existing patient, appointment/Encounter, intake, consent, and document foundations rather than creating a parallel clinical path.
+  - `AC-I08`: assisted entries preserve patient origin/source plus authenticated staff actor/role/channel/time and remain explicitly unconfirmed.
+  - `AC-I09`: submitted originals remain immutable; reception clarifications are additive, traceable, and audited.
+- Files changed:
+  - Role/landing/auth: `src/lib/auth/workspace.ts`, `src/app/page.tsx`, `src/app/login/page.tsx`, `src/app/auth/callback/route.ts`, and clinical page/API guards.
+  - Workspaces/UI: `src/app/dashboard/page.tsx`, `src/app/desk/**`, `src/components/app-shell.tsx`, `src/components/doctor-today-list.tsx`, `src/components/clinic-desk-today.tsx`, `src/components/walk-in-flow.tsx`, `src/components/operational-patient-details.tsx`, `src/components/clinical.module.css`.
+  - Domain/API: appointment queue/Priority/walk-in routes, `src/lib/db/appointment-queue.ts`, appointment/clinic/consultation services, validation, Drizzle schema, and types.
+  - Assisted intake: `src/components/assisted-intake.tsx`, `src/app/api/appointments/[id]/assisted-intake/route.ts`, `src/lib/db/patient-intake.ts`, and the Admin Patient View.
+  - Tests/docs: `src/tests/preconsult-phase3.test.ts`, `src/tests/preconsult-phase6-5.test.ts`, `supabase/tests/0020_preconsult_phase6_5_workspace_queue.test.sql`, `supabase/tests/0021_preconsult_phase6_5_assisted_intake.test.sql`, this ledger.
+- DB migrations:
+  - `0020_preconsult_phase6_5_workspace_queue.sql` — check-in/queue fields, Priority snapshot/events, guarded RPCs, automatic completion, atomic walk-in, RLS/grants/audit.
+  - `0021_preconsult_phase6_5_walk_in_permissions.sql` — narrow definer permission for guarded operational-state update inside atomic walk-in creation.
+  - `0022_preconsult_phase6_5_clinical_role_boundary.sql` — doctor-only policies for clinical-note/transcript/audio/timeline access and consultation-state updates.
+  - `0023_preconsult_phase6_5_assisted_intake.sql` — immutable statement ledger, original-submission capture, dual-provenance assisted submission/correction RPCs, RLS, grants, and PHI-safe audit events.
+  - `0024`–`0025` — narrow compatibility repairs for the assisted-intake function definition and explicit enum typing during local iterative migration application.
+  - `0026_preconsult_phase6_5_review_fixes.sql` — restricts direct queue-field writes, makes walk-in retries time-independent, and permits solo-doctor assisted intake with actor/consent provenance.
+  - `0027_preconsult_phase6_5_walk_in_provenance_guard.sql` — prevents an idempotency retry from claiming an unrelated checked-in appointment.
+  - All applied successfully to local Supabase without resetting existing data.
+- Tests run:
+  - `npm run lint` — pass.
+  - `npx tsc --noEmit` — pass after the production build regenerated Next.js route types; the parallel pre-build invocation raced with `.next` generation and was rerun successfully.
+  - `npm test` — pass, 42/42 unit tests.
+  - `npm run test:db` — pass, 222/222 pgTAP assertions across Phases 1–6.5.
+  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+  - `npx next build --webpack` — pass; all new workspace/API routes compiled.
+  - `npm run build` — Turbopack could not bind its helper-process port, including after an escalated retry; the webpack production build passed.
+  - In-app browser — authenticated doctor landed at Clinical Dashboard, switched to Clinic Desk without re-authentication, saw clinic/workspace identity separately, opened the walk-in surface, received a clinic-wide server search result, and opened the non-mutating demographic edit form; all checked routes returned `200`.
+- Security/privacy review:
+  - Added records and functions are clinic-scoped. Cross-clinic Priority is rejected; walk-in patient/doctor validation reuses the existing clinic-scoped appointment transaction.
+  - Operational roles are redirected away from clinical pages, receive `403` from clinical APIs, and are blocked by RLS from doctor-only artifacts and consultation-state writes.
+  - Priority can only be created by an authenticated human clinic profile. AI/extraction/clinical values are not inputs or triggers. Reason text stays in protected domain records and is excluded from general audit metadata.
+  - Queue order and check-in time are writable only through guarded functions. Check-in is idempotent, does not duplicate its semantic audit event, and a replay is accepted only for the original walk-in provenance.
+  - Clinic Desk receives operational document state/original access only. Doctor-only extraction payloads retain the existing doctor route/RLS boundary.
+  - No patient names, Priority reasons, report values, notes, transcripts, or other clinical content were added to application logs or general audit metadata.
+  - Intake statement content lives only in clinic-scoped protected domain records. General audit metadata contains identifiers and provenance state, not reason/medicine/condition/allergy text.
+  - Reception cannot make patient-reported content doctor-confirmed. The database constrains every statement to `information_source = patient` and `verification_state = unconfirmed`; update/delete is rejected.
+- Known limitations:
+  - Operational demographic editing intentionally covers date of birth, age, and gender. Name and phone changes remain outside this quick-edit surface so identity and duplicate handling are not bypassed.
+  - Needs Action currently derives from incomplete intake and Needs Review documents. Persisted possible-duplicate and missing-date-specific action cards remain a refinement.
+  - Phase 6 document processing remains request-driven rather than a durable background queue; patient uploads may remain Uploaded until authorized processing is initiated.
+  - Waiting duration updates on navigation/refresh rather than ticking every minute.
+  - The Next.js middleware deprecation warning predates this phase; migration to `proxy` remains separate cleanup.
+- Product decisions/questions surfaced:
+  - No approved Phase 6.5 decision conflict was found.
+  - Priority reason is optional in this slice, as the approved refinement leaves optional/required reason to final UX. Actor, role, time, action, and source-RPC provenance remain mandatory.
+  - Note approval/rejection is the current product's doctor completion signal, so it now drives operational Completed. A future explicit `Finish consultation` action can refine this mapping if product workflow separates completion from note disposition.
+- Recommended next task:
+  - Begin Phase 7 normalized observations and evidence provenance without weakening the unconfirmed/doctor-confirmation boundary completed here.

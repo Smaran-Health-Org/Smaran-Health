@@ -27,6 +27,28 @@ export type PatientIntakeContext = {
   consentVersion: string;
 };
 
+export type AssistedIntakeStatement = {
+  id: string;
+  kind: "original" | "correction";
+  informationSource: "patient";
+  enteredByProfileId: string | null;
+  enteredByRole: "doctor" | "admin" | "assistant" | null;
+  enteredByName: string | null;
+  enteredVia: "patient_web" | "clinic_staff_assisted";
+  reasonForVisitRaw: string;
+  conditions: string[];
+  medications: string[];
+  allergies: string[];
+  verificationState: "unconfirmed";
+  createdAt: string;
+};
+
+export type AssistedIntakeContext = {
+  patientIntakeId: string;
+  intakeStatus: PatientIntakeStatus;
+  statements: AssistedIntakeStatement[];
+};
+
 export class PatientIntakeError extends Error {
   constructor(public readonly kind: "forbidden" | "not_found" | "invalid" | "unavailable") {
     super("Patient intake operation failed");
@@ -198,4 +220,45 @@ export async function submitPatientIntake(
 ) {
   const supabase = await createServerClient();
   return submitPatientIntakeWithClient(supabase, input);
+}
+
+function mapStatement(value: Record<string, unknown>): AssistedIntakeStatement {
+  return {
+    id: String(value.id), kind: value.kind as "original" | "correction",
+    informationSource: "patient",
+    enteredByProfileId: typeof value.entered_by_profile_id === "string" ? value.entered_by_profile_id : null,
+    enteredByRole: value.entered_by_role === "doctor" || value.entered_by_role === "admin" || value.entered_by_role === "assistant" ? value.entered_by_role : null,
+    enteredByName: typeof value.entered_by_name === "string" ? value.entered_by_name : null,
+    enteredVia: value.entered_via as "patient_web" | "clinic_staff_assisted",
+    reasonForVisitRaw: String(value.reason_for_visit_raw), conditions: stringArray(value.conditions),
+    medications: stringArray(value.medications), allergies: stringArray(value.allergies),
+    verificationState: "unconfirmed", createdAt: String(value.created_at),
+  };
+}
+
+export async function getAssistedIntakeContext(appointmentId: string): Promise<AssistedIntakeContext | null> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase.rpc("get_assisted_intake_context", { p_appointment_id: appointmentId });
+  if (error) mapRpcError(error);
+  const row = (data as Array<Record<string, unknown>> | null)?.[0];
+  if (!row) return null;
+  const statements = Array.isArray(row.statements) ? row.statements : [];
+  return { patientIntakeId: String(row.patient_intake_id), intakeStatus: row.intake_status as PatientIntakeStatus,
+    statements: statements.map((statement) => mapStatement(statement as Record<string, unknown>)) };
+}
+
+export async function submitAssistedPatientIntake(appointmentId: string, input: {
+  consentVersion: string; reasonForVisitRaw: string; conditions: string[]; medications: string[]; allergies: string[];
+}): Promise<{ patientIntakeId: string; statementId: string; statementKind: "original" | "correction" }> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase.rpc("submit_assisted_patient_intake", {
+    p_appointment_id: appointmentId, p_consent_version: input.consentVersion,
+    p_reason_for_visit_raw: input.reasonForVisitRaw, p_conditions: input.conditions,
+    p_medications: input.medications, p_allergies: input.allergies,
+  });
+  if (error) mapRpcError(error);
+  const row = (data as Array<Record<string, unknown>> | null)?.[0];
+  if (!row) throw new PatientIntakeError("unavailable");
+  return { patientIntakeId: String(row.patient_intake_id), statementId: String(row.statement_id),
+    statementKind: row.statement_kind as "original" | "correction" };
 }
