@@ -16,6 +16,12 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
+export type ClinicalStateValue = {
+  displayName: string;
+  valueText: string;
+  regimenText?: string;
+};
+
 // ── Enums ───────────────────────────────────────────────────────────────────
 
 export const consultationStatusEnum = pgEnum("consultation_status", [
@@ -145,6 +151,31 @@ export const clinicalObservationDateSourceEnum = pgEnum(
   "clinical_observation_date_source",
   ["unknown", "observation_extracted", "document_extracted", "user_entered"]
 );
+
+export const confirmedClinicalStateDomainEnum = pgEnum("confirmed_clinical_state_domain", [
+  "medication",
+  "condition",
+  "allergy",
+]);
+export const confirmedClinicalStateStatusEnum = pgEnum("confirmed_clinical_state_status", ["active", "inactive"]);
+export const confirmedClinicalStateConfirmationKindEnum = pgEnum("confirmed_clinical_state_confirmation_kind", [
+  "initial_doctor_confirmation",
+  "doctor_correction",
+  "accepted_delta",
+]);
+export const clinicalStateDeltaClassificationEnum = pgEnum("clinical_state_delta_classification", [
+  "possible_addition",
+  "possible_discontinuation",
+  "possible_regimen_change",
+  "possible_status_change",
+  "possible_removal",
+  "possible_change",
+]);
+export const clinicalStateDeltaDispositionKindEnum = pgEnum("clinical_state_delta_disposition_kind", [
+  "accepted",
+  "kept_current",
+  "stale",
+]);
 
 // ── Tables ──────────────────────────────────────────────────────────────────
 
@@ -590,6 +621,72 @@ export const clinicalObservations = pgTable(
     index("clinical_observations_document_idx").on(table.sourceDocumentId),
   ]
 );
+
+export const confirmedClinicalStateVersions = pgTable(
+  "confirmed_clinical_state_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    domain: confirmedClinicalStateDomainEnum("domain").notNull(),
+    lineageId: uuid("lineage_id").notNull(),
+    stateKey: text("state_key").notNull(),
+    valueJson: jsonb("value_json").$type<ClinicalStateValue>().notNull(),
+    stateStatus: confirmedClinicalStateStatusEnum("state_status").notNull(),
+    confirmedBy: uuid("confirmed_by").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull(),
+    confirmationKind: confirmedClinicalStateConfirmationKindEnum("confirmation_kind").notNull(),
+    supersedesStateVersionId: uuid("supersedes_state_version_id"),
+    sourceDeltaId: uuid("source_delta_id"),
+    sourceClinicalNoteId: uuid("source_clinical_note_id").references(() => clinicalNotes.id, { onDelete: "restrict" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("confirmed_clinical_state_versions_current_lookup_idx").on(table.clinicId, table.patientId, table.domain, table.lineageId, table.confirmedAt),
+    index("confirmed_clinical_state_versions_patient_domain_key_idx").on(table.clinicId, table.patientId, table.domain, table.stateKey),
+  ]
+);
+
+export const clinicalStateDeltas = pgTable("clinical_state_deltas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+  originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+  domain: confirmedClinicalStateDomainEnum("domain").notNull(),
+  classification: clinicalStateDeltaClassificationEnum("classification").notNull(),
+  baseStateVersionId: uuid("base_state_version_id").references(() => confirmedClinicalStateVersions.id, { onDelete: "restrict" }),
+  targetLineageId: uuid("target_lineage_id"),
+  proposedStateKey: text("proposed_state_key").notNull(),
+  proposedValueJson: jsonb("proposed_value_json").$type<ClinicalStateValue>().notNull(),
+  proposedStateStatus: confirmedClinicalStateStatusEnum("proposed_state_status").notNull(),
+  comparatorContractVersion: text("comparator_contract_version").notNull(),
+  proposalFingerprint: text("proposal_fingerprint").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+export const clinicalStateDeltaEvidence = pgTable("clinical_state_delta_evidence", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  deltaId: uuid("delta_id").references(() => clinicalStateDeltas.id, { onDelete: "restrict" }).notNull(),
+  sourceObservationId: uuid("source_observation_id").references(() => clinicalObservations.id, { onDelete: "restrict" }),
+  sourceIntakeStatementId: uuid("source_intake_statement_id").references(() => patientIntakeStatements.id, { onDelete: "restrict" }),
+  sourceItemIndex: integer("source_item_index").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+export const clinicalStateDeltaDispositions = pgTable("clinical_state_delta_dispositions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  deltaId: uuid("delta_id").references(() => clinicalStateDeltas.id, { onDelete: "restrict" }).notNull(),
+  disposition: clinicalStateDeltaDispositionKindEnum("disposition").notNull(),
+  actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "restrict" }),
+  expectedBaseStateVersionId: uuid("expected_base_state_version_id").references(() => confirmedClinicalStateVersions.id, { onDelete: "restrict" }),
+  resultingStateVersionId: uuid("resulting_state_version_id").references(() => confirmedClinicalStateVersions.id, { onDelete: "restrict" }),
+  idempotencyKey: text("idempotency_key"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
 
 export const audioFiles = pgTable("audio_files", {
   id: uuid("id").defaultRandom().primaryKey(),

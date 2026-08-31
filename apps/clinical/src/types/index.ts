@@ -16,6 +16,10 @@ import type {
   documentMetadataChangeEvents,
   documentExtractions,
   clinicalObservations,
+  confirmedClinicalStateVersions,
+  clinicalStateDeltas,
+  clinicalStateDeltaEvidence,
+  clinicalStateDeltaDispositions,
   audioFiles,
   transcripts,
   clinicalNotes,
@@ -42,6 +46,10 @@ export type MedicalDocument = InferSelectModel<typeof documents>;
 export type DocumentMetadataChangeEvent = InferSelectModel<typeof documentMetadataChangeEvents>;
 export type DocumentExtraction = InferSelectModel<typeof documentExtractions>;
 export type ClinicalObservation = InferSelectModel<typeof clinicalObservations>;
+export type ConfirmedClinicalStateVersion = InferSelectModel<typeof confirmedClinicalStateVersions>;
+export type ClinicalStateDelta = InferSelectModel<typeof clinicalStateDeltas>;
+export type ClinicalStateDeltaEvidence = InferSelectModel<typeof clinicalStateDeltaEvidence>;
+export type ClinicalStateDeltaDisposition = InferSelectModel<typeof clinicalStateDeltaDispositions>;
 export type AudioFile = InferSelectModel<typeof audioFiles>;
 export type Transcript = InferSelectModel<typeof transcripts>;
 export type ClinicalNote = InferSelectModel<typeof clinicalNotes>;

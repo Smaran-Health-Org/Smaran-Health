@@ -36,6 +36,32 @@ export const createPatientSchema = z.object({
 
 export const updatePatientSchema = createPatientSchema.partial();
 
+const clinicalStateValueSchema = z.object({
+  displayName: z.string().trim().min(1).max(200),
+  valueText: z.string().trim().min(1).max(500),
+  regimenText: z.string().trim().min(1).max(500).optional(),
+});
+
+export const createConfirmedClinicalStateSchema = z.object({
+  domain: z.enum(["medication", "condition", "allergy"]),
+  stateKey: z.string().trim().min(1).max(200),
+  value: clinicalStateValueSchema,
+  stateStatus: z.enum(["active", "inactive"]).default("active"),
+  supersedesStateVersionId: z.string().uuid().nullable().optional(),
+  sourceClinicalNoteId: z.string().uuid().nullable().optional(),
+  idempotencyKey: z.string().trim().min(1).max(200),
+}).superRefine((value, context) => {
+  if (value.domain === "medication" && !value.value.regimenText) {
+    context.addIssue({ code: "custom", path: ["value", "regimenText"], message: "Medication regimen text is required" });
+  }
+});
+
+export const decideClinicalStateDeltaSchema = z.object({
+  action: z.enum(["accept", "keep_current"]),
+  expectedBaseStateVersionId: z.string().uuid().nullable(),
+  idempotencyKey: z.string().trim().min(1).max(200),
+});
+
 export const createPatientRequestSchema = createPatientSchema.extend({
   duplicateOverride: z.literal("confirmed_distinct_patient").optional(),
 });

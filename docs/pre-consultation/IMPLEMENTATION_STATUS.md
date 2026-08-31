@@ -635,6 +635,43 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 - Recommended next task:
   - Phase 8 — introduce a separate doctor-confirmed clinical state and conservative proposed-delta records over unconfirmed observations. Do not mutate observations or approved-note memory directly, and keep Accept/Keep existing as explicit doctor actions with audit and provenance.
 
+### Phase 8 — Confirmed clinical state + delta engine
+
+- Status: Complete
+- Work completed:
+  - Added a doctor-only, versioned confirmed-state engine for medications, conditions, and allergies. Historical state versions are immutable; current state is a derived view of versions with no successor.
+  - Added incremental explicit baseline/correction creation. No approved note, patient statement, document, timeline item, or Phase 7 observation is silently promoted; an approved note may be linked only when a doctor explicitly confirms the exact structured item.
+  - Added immutable proposed delta, evidence-link, and exactly-one-terminal-disposition records. Accept creates one successor version; Keep current creates none; stale proposals remain durable history.
+  - Added conservative deterministic comparator contracts for exact medication/regimen matches, exact stopped/not-taking phrases, additions, regimen changes, and ambiguous relationships. No ontology, synonym, unit-conversion, substitution, or therapeutic-equivalence inference was added.
+  - Added non-blocking best-effort reconciliation after committed document processing and intake submission. Failures are swallowed at these source boundaries so evidence, intake, queue, and consultation workflows remain independent; the exported reconciliation service is safe to retry.
+  - Extended the authorized patient-merge path through guarded ownership reassignment while retaining origin-patient provenance and without copying/recreating clinical history or deltas.
+  - Preserved approved-note-only follow-up memory unchanged.
+- Acceptance criteria satisfied:
+  - `AC-C01`–`AC-C07`: doctor-reviewable proposed deltas, Accept/Keep contracts, evidence/state provenance, stale protection, and non-blocking care.
+  - `AC-A03`–`AC-A05`: unconfirmed evidence never mutates confirmed state; confirmed/unconfirmed layers are separate; no diagnosis, prescribing, or treatment recommendation behavior.
+  - `AC-R02`–`AC-R03`: RLS, direct-table privilege restrictions, guarded RPCs, and API role checks exclude operational roles and require a doctor for confirmation/decisions.
+  - Preserved `AC-E03`: Phase 8 reconciliation is outside source, queue, and Start Consultation transactions.
+- Files changed:
+  - Database: `apps/clinical/supabase/migrations/0033_preconsult_phase8_confirmed_state_delta_engine.sql` through `0037_preconsult_phase8_persist_stale_dispositions.sql`.
+  - Application: `apps/clinical/src/lib/clinical-state/comparator.ts`, `apps/clinical/src/lib/db/clinical-state.ts`, document/intake reconciliation hooks, doctor-only API routes, validation, schema, and types.
+  - Tests: `apps/clinical/src/tests/preconsult-phase8.test.ts`, `apps/clinical/supabase/tests/0033_preconsult_phase8_confirmed_state_delta_engine.test.sql`.
+- Tests run:
+  - `npx supabase migration up --local` — pass.
+  - Focused Phase 8 pgTAP test — pass, 33 assertions.
+  - `npx tsx --test src/tests/preconsult-phase8.test.ts` — pass, 5 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+- Security/privacy review:
+  - Phase 8 values/evidence remain in doctor-protected domain tables. General audit metadata contains only identifiers, domain/action/disposition, and contract-version metadata.
+  - Admin/assistant and cross-clinic actors have no RLS read access and cannot call state mutation/decision RPCs successfully.
+  - Merge can move canonical ownership only under the existing transaction-local authorization flag; origin provenance remains immutable.
+- Known limitations:
+  - There is intentionally no Phase 9 brief or Phase 10 Review Changes UI. The engine exposes only minimal doctor APIs/data contracts.
+  - Reconciliation is retryable but does not yet have a durable background-job scheduler; failed best-effort calls do not affect source success and can be retried through the server-side reconciliation service.
+  - Patient stopped-medication detection is deliberately English-only and limited to `stopped`, `not taking`, `not using`, and `discontinued` followed by exactly one current medication key. Other wording becomes `possible_change`.
+- Recommended next task:
+  - Phase 9 — consume these explicit state/delta contracts in the doctor-only, derivative 30-second pre-consult brief without changing confirmed-state or approved-note-memory invariants.
+
 ### Phase 5 follow-up — senior review hardening
 
 - Status: Complete.

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPatientIntakeContext, PatientIntakeError, submitPatientIntake } from "@/lib/db/patient-intake";
 import { verifiedIntakeCredentials } from "@/lib/intake/verified-session";
 import { submitPatientIntakeSchema } from "@/lib/validation";
+import { reconcilePatientIntakeEvidence } from "@/lib/db/clinical-state";
 import { badRequest, conflict, internalError, unauthorized } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
@@ -47,6 +48,7 @@ export async function POST(
       ...credentials,
       ...parsed.data,
     });
+    void reconcilePatientIntakeEvidence(patientIntakeId).catch(() => undefined);
     return noStoreJson({ patientIntakeId, status: "submitted" });
   } catch (error) {
     if (error instanceof PatientIntakeError) {

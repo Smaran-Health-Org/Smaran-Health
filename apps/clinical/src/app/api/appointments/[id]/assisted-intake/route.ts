@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import { getAssistedIntakeContext, PatientIntakeError, submitAssistedPatientIntake } from "@/lib/db/patient-intake";
 import { submitAssistedPatientIntakeSchema } from "@/lib/validation";
+import { reconcilePatientIntakeEvidence } from "@/lib/db/clinical-state";
 import { badRequest, forbidden, internalError, notFound, unauthorized } from "@/lib/api/error-handler";
 
 function allowed(role: string): boolean { return role === "doctor" || role === "admin" || role === "assistant"; }
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!parsed.success) return badRequest("Please check the assisted intake form", parsed.error.flatten());
   try {
     const result = await submitAssistedPatientIntake((await params).id, parsed.data);
+    void reconcilePatientIntakeEvidence(result.patientIntakeId).catch(() => undefined);
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof PatientIntakeError) {
