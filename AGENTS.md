@@ -1,478 +1,162 @@
 # AGENTS.md
 
-# AI Clinical Memory Platform - Instructions for Codex and AI Coding Agents
+# Smaran Health — Instructions for Codex and AI Coding Agents
 
-This file defines how AI coding agents should work in this repository.
+Smaran Health is an AI clinical documentation and memory assistant for Indian specialist doctors. It handles sensitive health data. Changes must be safe, minimal, testable, privacy-aware, and preserve doctor control.
 
-The project is an AI clinical documentation and memory assistant for Indian specialist doctors. It handles sensitive health-related data. Code should be safe, minimal, well-tested, and privacy-aware.
+## 1. Context loading policy — mandatory
 
-## Project Memory
+Use the **smallest sufficient context** for the task. Do not read the entire repository or all planning documents by default.
 
-Before product or implementation work, read `PROJECT_MEMORY.md`. It records the accepted founder blueprint, durable product thesis, MVP priorities, safety invariants, regulatory context, and unresolved decisions. Treat the original founder blueprint as the strategic source and this file as its working repository memory; do not silently convert open recommendations into final decisions.
+### Always
 
-## Pre-Consultation Work
+1. Read this root `AGENTS.md`.
+2. Read the nearest nested `AGENTS.md` for any directory you modify.
+3. Inspect the current branch/diff and the code directly relevant to the requested change.
+4. Expand context only when a dependency, ambiguity, or safety question requires it.
 
-Before planning or implementing any pre-consultation, patient-intake, appointment, medical-document, pre-consult brief, delta-review, or clinic-queue work, read **all** files under `docs/pre-consultation/`, starting with `docs/pre-consultation/README.md` and `docs/pre-consultation/DECISIONS.md`.
+### Project memory
 
-Rules for that work:
+Read `PROJECT_MEMORY.md` when the task involves product strategy, MVP priorities, durable safety invariants, regulatory context, or an unresolved product decision. Do **not** load it automatically for a narrow implementation, test, lint, or bug-fix task whose requirements are already clear.
 
-1. `docs/pre-consultation/DECISIONS.md` contains approved product decisions. Do not silently change them.
-2. Product language uses **Encounter**, but for the MVP it maps to the existing `consultations` subsystem. Do not rename or recreate that subsystem as part of pre-consultation work.
-3. Extend the existing clinic-scoped patient, consultation, clinical-note, timeline, audit, and follow-up-memory architecture rather than creating parallel systems.
-4. External document extraction and patient self-report are unconfirmed until clinically meaningful changes are confirmed by an authorized doctor.
-5. Original source documents are immutable evidence; derived AI output must retain provenance where possible.
-6. Admin/receptionist users may manage operations and view originals but must not gain access to the doctor-facing AI pre-consult clinical summary or confirm clinical deltas.
-7. Intake, low-confidence parsing, and unresolved deltas must never block the consultation.
-8. Implement pre-consultation work phase-by-phase using `docs/pre-consultation/IMPLEMENTATION_PLAN.md` and update `IMPLEMENTATION_STATUS.md` after each phase.
-9. Map completed work to IDs in `docs/pre-consultation/ACCEPTANCE_CRITERIA.md`.
-10. If current code conflicts with an approved decision, surface the conflict instead of making a new product decision implicitly.
+### Pre-consultation work
 
-## 1. Product Boundary
+For patient intake, appointments, documents, pre-consultation, delta review, clinic queue, or related work:
 
-This product helps doctors document and remember patient consultations.
+1. Read `docs/pre-consultation/README.md`.
+2. Locate the requested phase/subphase in `docs/pre-consultation/IMPLEMENTATION_PLAN.md` and read that section, not the whole file unless needed.
+3. Read only the relevant acceptance-criteria IDs in `docs/pre-consultation/ACCEPTANCE_CRITERIA.md`.
+4. Inspect only the relevant current-phase section of `docs/pre-consultation/IMPLEMENTATION_STATUS.md`; do not load the full historical ledger by default.
+5. Load additional documents using this routing table:
 
-The product must not:
+| Task touches | Read when relevant |
+| --- | --- |
+| Product behavior, scope, unresolved decisions | `DECISIONS.md`, then `PRD.md` if needed |
+| Patient/appointment/intake workflow | `USER_FLOWS.md` |
+| Schema, migrations, patient merge, state model | `DATA_MODEL.md` |
+| Roles, authorization, RLS, doctor/admin boundaries | `PERMISSIONS.md` |
+| Document extraction, provenance, confidence, normalized observations, delta inputs | `AI_DOCUMENT_PIPELINE.md` |
+| UI states, dashboards, queues, review surfaces | `UX_STATES.md` |
+| Phase 6.5 workspace behavior or later UI depending on it | `PHASE_6_5_WORKSPACE_REFINEMENT.md` |
 
-- Diagnose patients
-- Recommend treatment independently
-- Prescribe medication
-- Modify prescriptions
-- Replace doctor judgment
-- Finalize medical records without doctor approval
-- Invent clinical facts that were not stated in the consultation or approved history
+Do not read every file in `docs/pre-consultation/` merely because the task is pre-consultation work.
 
-Every AI-generated clinical note is a draft until a doctor approves it.
+If documents conflict, `DECISIONS.md` contains approved product decisions and takes precedence over assumptions. Surface unresolved conflicts instead of silently making a new product decision.
 
-## 2. Preferred Tech Stack
+## 2. Pre-consultation invariants
 
-Unless the repository says otherwise, assume this stack:
+1. Product language uses **Encounter**, but MVP reuses the existing `consultations` subsystem. Do not rename or recreate it as part of pre-consultation work.
+2. Extend the existing clinic-scoped patient, consultation, clinical-note, timeline, audit, follow-up-memory, appointment, intake, and document architecture rather than creating parallel systems.
+3. External document extraction and patient self-report remain **unconfirmed** until an authorized doctor confirms a clinically meaningful change.
+4. Original source documents are immutable evidence; derived AI output must retain provenance where evidence exists.
+5. Admin/receptionist users may manage permitted operations and originals but must not gain access to doctor-only clinical interpretation or confirm clinical deltas.
+6. Intake failure, low-confidence parsing, document processing, and unresolved deltas must never block the consultation.
+7. Implement only the named phase/subphase. Do not begin future phases opportunistically.
+8. Map completed work to relevant acceptance-criteria IDs and update the current phase entry in `IMPLEMENTATION_STATUS.md`.
 
-- Next.js with App Router
-- TypeScript
-- Tailwind CSS
-- shadcn/ui or simple accessible components
-- Supabase Auth
-- Supabase Postgres
-- Supabase Storage
-- OpenAI API for transcription and structured note generation
-- Vercel deployment
+## 3. Product boundary
 
-## 3. Development Principles
+The product helps doctors document, prepare for, and remember consultations.
+
+The product must not independently:
+
+- diagnose patients;
+- recommend treatment;
+- prescribe or modify medication;
+- replace doctor judgment;
+- finalize clinical records without authorized doctor approval;
+- invent clinical facts;
+- infer Priority/Urgent/Critical/High-risk status from AI, trends, documents, medications, or patient history.
+
+AI-generated clinical content is draft/unconfirmed until the applicable doctor-review action approves it.
+
+## 4. Architecture and access control
+
+- Reuse the existing Next.js, TypeScript, Supabase Auth/Postgres/Storage architecture.
+- Follow the actual repository structure rather than generic scaffolding assumptions.
+- All patient-related data must remain clinic-scoped.
+- Enforce authorization server-side; hidden UI is not authorization.
+- Never expose service-role credentials to the browser.
+- Keep medical source files in private storage and use authorized signed access.
+- Preserve patient-merge provenance and original identities.
+- Keep doctor-only clinical interpretation inaccessible to admin/assistant roles.
+
+When touching `apps/clinical`, read its nested `AGENTS.md` and the relevant installed Next.js documentation it points to before relying on framework assumptions.
+
+## 5. Clinical data and AI rules
+
+- Extract only what the evidence explicitly supports.
+- Preserve uncertainty instead of guessing.
+- Validate structured AI output with schemas.
+- Store model/pipeline/schema versions where the existing architecture requires them.
+- Preserve source document/page/evidence provenance for derived clinical claims where available.
+- Never auto-promote external evidence into confirmed clinical state.
+- Follow-up memory must continue to respect its approved-note safety invariant unless a separately approved phase explicitly changes it.
+- Do not log patient names, phone numbers, full transcripts, clinical notes, diagnoses, medication details, or private media URLs in general logs/analytics.
+
+## 6. Engineering principles
 
 1. Make the smallest correct change.
-2. Do not overbuild.
-3. Preserve product safety rules.
-4. Keep patient data private by default.
-5. Use TypeScript types for all important data structures.
-6. Add validation at API boundaries.
-7. Handle loading, empty, and error states.
-8. Do not log sensitive patient information.
-9. Do not introduce dependencies without a strong reason.
-10. Do not change unrelated files.
-11. Do not generate fake medical advice in production code.
-12. Prefer clarity over cleverness.
+2. Do not refactor unrelated code.
+3. Do not add dependencies without a strong reason.
+4. Reuse existing services, APIs, tables, state machines, and conventions.
+5. Use TypeScript types for important structures and validation at trust boundaries.
+6. Handle relevant loading, empty, retry, and error states.
+7. Preserve idempotency for retries and externally triggered workflows where applicable.
+8. For database work, consider RLS, tenant isolation, migrations, concurrency, retries, and patient merges.
+9. If a requested change conflicts with an approved invariant, stop and surface the conflict.
 
-## 4. Repository Structure
+## 7. Testing and validation
 
-Suggested structure:
+Use scripts defined in the relevant `package.json`.
 
-```text
-.
-├── README.md
-├── PRODUCT.md
-├── ROADMAP.md
-├── AGENTS.md
-├── .env.example
-├── package.json
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── dashboard/
-│   │   ├── patients/
-│   │   └── consultations/
-│   ├── components/
-│   │   ├── ui/
-│   │   ├── patients/
-│   │   ├── consultations/
-│   │   └── notes/
-│   ├── lib/
-│   │   ├── supabase/
-│   │   ├── ai/
-│   │   ├── auth/
-│   │   ├── validation/
-│   │   └── utils/
-│   ├── types/
-│   └── tests/
-├── supabase/
-│   ├── migrations/
-│   └── seed.sql
-└── docs/
-    ├── prompts/
-    ├── sample-transcripts/
-    └── pilot/
-```
+During implementation, prefer **targeted validation** for the changed modules so iteration does not repeatedly run an unchanged full suite. Before declaring a substantial task complete, run the applicable final validation once (or rely on required green CI when the repository has equivalent coverage).
 
-If the actual repo structure differs, follow the existing structure.
-
-## 5. Environment Variables
-
-Use environment variables for all secrets. Never hardcode keys.
-
-Suggested variables:
-
-```text
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-OPENAI_API_KEY=
-APP_URL=
-```
-
-Optional later:
-
-```text
-SENTRY_DSN=
-POSTHOG_KEY=
-POSTHOG_HOST=
-STORAGE_BUCKET_AUDIO=
-STORAGE_BUCKET_EXPORTS=
-```
-
-Rules:
-
-- Never expose service role keys to the browser.
-- Use server-only code for privileged database operations.
-- Keep `.env.local` out of git.
-- Maintain `.env.example` without real secrets.
-
-## 6. Commands
-
-Use the commands defined in `package.json`. If these scripts exist, run them before completing work:
+For `apps/clinical`, relevant validation may include:
 
 ```bash
 npm run lint
 npm run test
+npm run test:db
 npm run build
 ```
 
-If tests do not exist yet, do not invent a fake pass. State that tests are not configured and add a clear recommendation.
+Also run narrower tests/type/schema checks when they are the most direct validation for the change. Never claim a test passed if it was not run. If an environment prevents a test/build, state the limitation precisely.
 
-## 7. Database and Access Control Rules
+Every bug fix should add or update a regression test when practical. Security, RLS, patient merge, clinical-state, provenance, retry/idempotency, and role-boundary changes require targeted tests.
 
-All patient-related records must be scoped by `clinic_id`.
+## 8. Security checklist before completion
 
-Tables that must include `clinic_id`:
+Check the items relevant to the diff:
 
-- users or profiles
-- patients
-- consultations
-- audio_files
-- transcripts
-- clinical_notes
-- patient_timeline_events
-- doctor_feedback
-- audit_logs
+- no secrets committed;
+- no sensitive patient data added to logs or general audit metadata;
+- clinic isolation/RLS preserved;
+- no unauthorized doctor-only access;
+- no AI auto-confirmation or auto-approval;
+- no public medical media/source URLs;
+- provenance and audit behavior preserved;
+- retries/duplicates do not create unsafe double effects;
+- no unrelated scope expansion.
 
-Rules:
+## 9. Review and scope discipline
 
-1. A user may only access rows belonging to their clinic.
-2. A doctor may approve notes only for their clinic.
-3. Assistants may create patients and start workflows only if allowed by role.
-4. Storage paths should include clinic_id and consultation_id.
-5. Audio files must live in private storage.
-6. Use signed URLs for temporary access.
-7. Do not expose raw storage paths to unauthorized users.
+For code-review tasks, review the requested diff/commit range first. Do not perform a repository-wide audit unless requested or necessary to establish a P0/P1 dependency.
 
-## 8. Clinical Note State Machine
+If review discovers an unrelated historical issue, report it separately. Do not silently expand the current implementation task to fix unrelated historical P2/P3 issues.
 
-Use explicit statuses.
+## 10. Completion response
 
-Consultation statuses:
+Summarize:
 
-```text
-draft
-recording
-uploading
-processing
-draft_ready
-approved
-rejected
-failed
-```
+1. what changed;
+2. files changed;
+3. relevant acceptance criteria;
+4. tests/validation actually run;
+5. known limitations;
+6. security/privacy/clinical-safety considerations;
+7. any intentional out-of-scope follow-up.
 
-Clinical note statuses:
+## Final rule
 
-```text
-ai_draft
-edited
-approved
-rejected
-```
-
-Rules:
-
-- AI-generated note begins as `ai_draft`.
-- If doctor edits it, status becomes `edited`.
-- Only the doctor approval action can set status to `approved`.
-- Timeline events should be generated from approved notes only.
-- Patient-facing exports should use approved notes only.
-
-## 9. AI Pipeline Rules
-
-The core AI pipeline is:
-
-```text
-audio -> transcript -> structured extraction JSON -> draft note -> doctor edit -> doctor approval -> timeline update -> follow-up memory
-```
-
-Do not combine all steps into one uncontrolled prompt unless explicitly asked.
-
-### 9.1 Transcription
-
-- Store raw transcript.
-- Optionally store cleaned transcript.
-- Preserve unclear phrases instead of guessing.
-- Do not silently correct medication names without marking uncertainty.
-
-### 9.2 Structured extraction
-
-AI output should be JSON first.
-
-Required top-level keys:
-
-```json
-{
-  "chief_complaint": [],
-  "history": [],
-  "examination_findings": [],
-  "diagnoses_documented_by_doctor": [],
-  "medications_mentioned": [],
-  "medication_changes": [],
-  "investigations_requested": [],
-  "investigations_reviewed": [],
-  "lifestyle_advice": [],
-  "follow_up_plan": [],
-  "patient_instructions": [],
-  "uncertain_items": [],
-  "safety_flags": []
-}
-```
-
-Each item should include:
-
-```json
-{
-  "text": "string",
-  "source_quote": "string",
-  "confidence": "high | medium | low"
-}
-```
-
-### 9.3 Prompt safety rules
-
-All prompts should include these instructions:
-
-- Extract only what is explicitly stated.
-- Do not diagnose.
-- Do not prescribe.
-- Do not recommend treatment.
-- Do not infer dosage unless clearly stated.
-- Put unclear items in uncertain_items.
-- Maintain doctor control.
-- Output valid JSON when JSON is requested.
-
-### 9.4 AI output validation
-
-When implementing AI calls:
-
-- Validate JSON with a schema.
-- Handle invalid JSON gracefully.
-- Show the doctor an error if note generation fails.
-- Never auto-approve AI output.
-- Consider storing model version and prompt version.
-
-## 10. UI Rules
-
-The UI is for busy doctors. It should be fast and calm.
-
-General UI requirements:
-
-- Large primary actions
-- Clear patient name and visit date
-- Minimal clutter
-- Visible recording state
-- Visible approval state
-- Clear error messages
-- No scary technical errors shown to doctors
-- No dark patterns around consent
-
-Every draft note screen should display:
-
-```text
-AI-generated draft. Doctor review and approval required before use.
-```
-
-## 11. Logging and Analytics Rules
-
-Do not log:
-
-- Patient names
-- Phone numbers
-- Full transcripts
-- Clinical notes
-- Medication details
-- Diagnoses
-- Audio URLs
-
-Allowed analytics examples:
-
-- consultation_started
-- audio_uploaded
-- transcript_completed
-- note_generated
-- note_approved
-- note_rejected
-- followup_memory_viewed
-
-Use anonymous IDs or internal IDs where possible.
-
-## 12. Error Handling Rules
-
-Handle these cases:
-
-- No microphone permission
-- Recording interrupted
-- Upload failed
-- Transcription failed
-- AI note generation failed
-- Invalid AI JSON
-- User unauthorized
-- Patient not found
-- Note already approved
-- Network error
-
-Provide retry actions when safe.
-
-## 13. Testing Expectations
-
-Add tests for:
-
-- API validation
-- Access control helpers
-- Note state transitions
-- AI JSON parsing
-- Timeline generation from approved note
-- Patient scoping by clinic_id
-
-For UI components, test critical flows when feasible:
-
-- Patient creation
-- Start consultation
-- Draft note editing
-- Approve note
-
-## 14. Security Checklist Before Pull Request
-
-Before completing any task, check:
-
-- No secrets committed
-- No patient data in logs
-- No public audio URLs
-- No bypass of clinic_id scoping
-- No AI auto-approval
-- No patient export before doctor approval
-- No new package with unclear purpose
-- No unrelated refactors
-
-## 15. Pull Request Response Format
-
-When finishing a coding task, summarize:
-
-1. What changed
-2. Files changed
-3. How it was tested
-4. Any known limitations
-5. Any security or privacy considerations
-
-Example:
-
-```text
-Summary:
-- Added patient profile page with consultation timeline.
-- Added loading and empty states.
-
-Tests:
-- npm run lint
-- npm run build
-
-Security:
-- Patient fetch is scoped by clinic_id.
-- No patient data is logged.
-
-Limitations:
-- Timeline filters are not implemented yet.
-```
-
-## 16. Tasks Agents Should Accept
-
-Good tasks:
-
-- Build a patient profile page.
-- Add audio recorder component.
-- Create Supabase migration for consultations.
-- Implement clinical note editor.
-- Add audit log helper.
-- Add JSON schema validation for AI extraction.
-- Add tests for note approval state machine.
-- Fix a specific runtime error.
-- Refactor one module with tests.
-
-## 17. Tasks Agents Should Push Back On
-
-Agents should avoid or question tasks like:
-
-- Build the whole product in one change.
-- Add AI diagnosis recommendation.
-- Auto-prescribe based on transcript.
-- Remove doctor approval.
-- Make all patient files public.
-- Log full transcripts for debugging.
-- Add many unrelated dependencies.
-- Refactor the entire app without a clear reason.
-
-## 18. Medical Safety Language
-
-Use this label in relevant UI and exports:
-
-```text
-AI-generated draft. Reviewed and approved by doctor before use. The AI does not diagnose, prescribe, or replace clinical judgment.
-```
-
-Do not use language that implies the AI is making clinical decisions.
-
-## 19. Initial Build Order
-
-When asked what to build first, prioritize:
-
-1. App shell and auth
-2. Clinic-scoped patient model
-3. Patient profile
-4. Consultation creation
-5. Audio recorder and upload
-6. Transcription endpoint
-7. AI structured note generation
-8. Note editor and approval
-9. Timeline generation
-10. Follow-up memory summary
-11. Print or PDF export
-12. Pilot feedback collection
-
-## 20. Final Rule
-
-This is healthcare-adjacent software. When uncertain, choose the safer design:
-
-- More doctor control
-- More explicit uncertainty
-- Less automation
-- Less data exposure
-- Clearer audit trail
+When uncertain, choose the safer design: more doctor control, more explicit uncertainty, less automation, less data exposure, and clearer provenance/auditability.

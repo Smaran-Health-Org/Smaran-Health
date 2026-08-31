@@ -12,22 +12,11 @@ The current branch already has a working clinic-scoped clinical app and should b
 - Existing patient and consultation APIs under `src/app/api`.
 - Supabase migrations/RLS baseline.
 
-### Key gaps
+### Historical baseline gaps
 
-- No appointments/scheduling model.
-- Existing consultation state machine models recording/note lifecycle, not pre-consult operational readiness.
-- No patient intake link/OTP workflow.
-- No dedicated intake/document consent records.
-- No medical document model/storage pipeline.
-- No duplicate patient merge system.
-- No duplicate document detection.
-- No extracted observation/provenance layer.
-- No confirmed-vs-unconfirmed clinical state model beyond approved-note memory.
-- No explicit delta review workflow.
-- No doctor pre-consult brief.
-- Existing new-patient form is richer than desired for receptionist registration; MVP intake should move optional clinical details away from mandatory admin work.
+The original plan was created before Phases 1–7 were implemented. The historical gap list included appointments/scheduling, patient intake/OTP, document consent/storage/processing, duplicate patient/document handling, normalized observations/provenance, confirmed-vs-unconfirmed state, delta review, and the doctor pre-consult brief.
 
-> Note: Phases 1–6 are now implemented on `dev-neelesh`. The historical gap list above describes the baseline from which this plan was created. See `IMPLEMENTATION_STATUS.md` for current implementation truth.
+> Phases 1–7 are now implemented on `dev-neelesh`. Use the relevant phase section of `IMPLEMENTATION_STATUS.md` for implementation truth; do not load the full historical ledger by default.
 
 ## Phase 0 — Specification guardrails
 
@@ -126,7 +115,7 @@ Provider selection (OpenAI/Sarvam/other) should be adapter-based and separately 
 
 Goal: separate the Doctor Clinical Workspace from the Admin/Clinic Desk before adding doctor-only normalized clinical intelligence in Phase 7 onward.
 
-Read `PHASE_6_5_WORKSPACE_REFINEMENT.md` before implementation. It is the detailed product contract for this phase.
+Read `PHASE_6_5_WORKSPACE_REFINEMENT.md` when implementing or changing behavior that depends on this phase. It is the detailed product contract for these workspace boundaries.
 
 Work:
 - preserve one clinic-staff authentication system while adding role-specific workspaces.
@@ -223,7 +212,7 @@ Goal: continuity between preparation and existing consultation workflow.
 - preserve current recording/transcription/manual fallback workflow.
 - optional pin-to-note context must retain verification state.
 
-Avoid major refactor of the existing 70k-line consultation workflow unless decomposed as a dedicated prerequisite with tests.
+Avoid major refactor of the existing consultation workflow unless decomposed as a dedicated prerequisite with tests.
 
 ## Phase 12 — Reminder and operational automation
 
@@ -255,12 +244,14 @@ Billing and payment are outside the current MVP/pre-consultation scope. Do not a
 
 ## Codex task format
 
-For each phase, ask Codex to:
+For each phase/subphase, Codex should follow the root `AGENTS.md` context-loading policy rather than loading the complete planning pack.
 
-1. Read all `docs/pre-consultation/*` files and root `AGENTS.md`.
-2. Inspect current branch implementation before coding.
-3. Implement only the named phase/subphase.
-4. Map changes to acceptance criteria IDs.
-5. Run lint/build/tests available in `apps/clinical`.
-6. Update `IMPLEMENTATION_STATUS.md` with files changed, tests, known limitations, and next phase.
-7. Surface product conflicts instead of silently making new product decisions.
+1. Read root `AGENTS.md` and the nearest nested `AGENTS.md` for code being changed.
+2. Read `docs/pre-consultation/README.md` plus the requested phase/subphase section of this plan.
+3. Read only the acceptance-criteria IDs relevant to that phase and only the additional planning docs routed by `AGENTS.md` for the surfaces being changed.
+4. Inspect the current implementation and the relevant phase section of `IMPLEMENTATION_STATUS.md`; do not read the full historical ledger by default.
+5. Implement only the named phase/subphase and surface product conflicts instead of inventing decisions.
+6. During iteration run targeted validation for changed modules; run applicable final validation once before declaring completion, or rely on equivalent required green CI.
+7. Update the relevant `IMPLEMENTATION_STATUS.md` phase entry with files changed, acceptance criteria, tests actually run, known limitations, safety/security notes, and the next phase.
+
+Do not perform broad repository exploration, historical-document loading, or unrelated refactoring unless it is necessary to resolve a concrete dependency or P0/P1 safety/security concern.
