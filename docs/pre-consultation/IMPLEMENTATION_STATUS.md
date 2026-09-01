@@ -5,7 +5,7 @@ Baseline commit reviewed: `bbf2a07`
 
 ## Overall status
 
-**PHASE 7 COMPLETE — normalized observations, evidence provenance, and duplicate-safe trend inputs implemented**
+**PHASE 8 COMPLETE — versioned doctor-confirmed clinical state and conservative delta reconciliation implemented**
 
 ## Phase tracker
 
@@ -20,7 +20,7 @@ Baseline commit reviewed: `bbf2a07`
 | 6 | Document processing + Needs Review | Complete | AC-D04–D06, AC-A01; AC-D03 detection | Structured trend exclusion remains Phase 7. |
 | 6.5 | Role workspaces, dashboards, and Clinic Desk automation | Complete | AC-W01–W19; AC-I08–I09; AC-A06 | Workspace boundary, role landings, dashboards, Clinic Desk, Priority, queue/walk-ins, and assisted intake with immutable additive provenance implemented. |
 | 7 | Normalized observations + provenance | Complete | AC-D03, AC-A01–A04 | Immutable doctor-only observations, page/evidence/date provenance, unconfirmed boundary, and duplicate/retry-safe trend inputs implemented. |
-| 8 | Confirmed state + delta engine | Not started | AC-C*, AC-A03–A05 | |
+| 8 | Confirmed state + delta engine | Complete | AC-C01–C05, AC-C07, AC-A03–A05, AC-R02–R03 | The engine/data contract supports later consolidated Review Changes (AC-C06); the actual consolidated UI remains Phase 10. |
 | 9 | 30-second doctor brief | Not started | AC-B* | |
 | 10 | Review Changes UI | Not started | AC-C02–C07 | |
 | 11 | Consultation integration | Not started | AC-B06, D-034 | |
@@ -638,6 +638,11 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 ### Phase 8 — Confirmed clinical state + delta engine
 
 - Status: Complete
+- Implementation history:
+  - Initial implementation: `8ab3aef2c234fc427316418c6becc68854b86bec` — `feat(preconsult): add confirmed clinical state and delta engine`
+  - Senior-review hardening: `5fe72fd4b31f26cd7120fbbabb2b62978f052334` — `fix(preconsult): harden phase 8 review findings`
+  - Final concurrency hardening: `2ff511363e498790283eb18ae7378ff780ec855a` — Phase 8 lock-order/deadlock closure fix.
+  - Complete Phase 8 implementation range: `3962881e2cd89fb30ddb9decee00285f3f583430..2ff511363e498790283eb18ae7378ff780ec855a`
 - Work completed:
   - Added a doctor-only, versioned confirmed-state engine for medications, conditions, and allergies. Historical state versions are immutable; current state is a derived view of versions with no successor.
   - Added incremental explicit baseline/correction creation. No approved note, patient statement, document, timeline item, or Phase 7 observation is silently promoted; an approved note may be linked only when a doctor explicitly confirms the exact structured item.
@@ -651,31 +656,45 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Made the migration chain clean-bootstrap safe through `0038`, and made authorized merges move the full Phase 8 graph before verifying final internal references.
   - Hardened same-key reconciliation lock ordering in `0039`: Accept and explicit baseline creation now acquire the shared keyed advisory lock before delta/state row locks, revalidate after locking, and stale siblings in stable UUID order. Keep remains a target-row-only decision and cannot invert that order.
 - Acceptance criteria satisfied:
-  - `AC-C01`–`AC-C07`: doctor-reviewable proposed deltas, Accept/Keep contracts, evidence/state provenance, stale protection, and non-blocking care.
+  - `AC-C01`–`AC-C05`, `AC-C07`: doctor-reviewable proposed deltas, Accept/Keep contracts, evidence/state provenance, stale protection, and non-blocking care.
   - `AC-A03`–`AC-A05`: unconfirmed evidence never mutates confirmed state; confirmed/unconfirmed layers are separate; no diagnosis, prescribing, or treatment recommendation behavior.
   - `AC-R02`–`AC-R03`: RLS, direct-table privilege restrictions, guarded RPCs, and API role checks exclude operational roles and require a doctor for confirmation/decisions.
   - Preserved `AC-E03`: Phase 8 reconciliation is outside source, queue, and Start Consultation transactions.
+- Acceptance-criteria boundary:
+  - `AC-C06` is supported by the engine/data contract for later consolidated Review Changes; the actual consolidated Review Changes UI remains Phase 10.
 - Files changed:
   - Database: `apps/clinical/supabase/migrations/0033_preconsult_phase8_confirmed_state_delta_engine.sql` through `0039_preconsult_phase8_lock_order_hardening.sql`.
   - Application: `apps/clinical/src/lib/clinical-state/comparator.ts`, `apps/clinical/src/lib/db/clinical-state.ts`, document/intake reconciliation hooks, doctor-only API routes, validation, schema, and types.
   - Tests: `apps/clinical/src/tests/preconsult-phase8.test.ts`, `apps/clinical/supabase/tests/0033_preconsult_phase8_confirmed_state_delta_engine.test.sql`, `apps/clinical/supabase/tests/0038_preconsult_phase8_review_fixes.test.sql`, and `apps/clinical/scripts/test-phase8-lock-order.ts`.
 - Tests run:
-  - `npx supabase migration up --local` — pass.
-  - Focused Phase 8 pgTAP test — pass, 33 assertions.
-  - `npm run test:db` — pass, 324 assertions across all pgTAP suites.
-  - `npx tsx --test src/tests/preconsult-phase8.test.ts` — pass, 5 tests.
+  - `npm run lint` — pass.
   - `npx tsc --noEmit` — pass.
-  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+  - `npm test` — pass, 57/57 tests.
+  - Complete DB suite — pass, 324 assertions across 11 files.
+  - Supabase schema lint — pass.
+  - Production webpack build — pass.
+  - Clean disposable database migration chain through `0039` — pass.
+  - Phase 8 `0033` pgTAP — pass on the clean disposable schema.
+  - Phase 8 `0038` pgTAP — pass.
+  - Same-key concurrency harness — pass for Accept/Accept, baseline/Accept, baseline/baseline, and Accept/Keep; no `40P01`.
+  - Broad deterministic verification was performed locally because no GitHub Actions workflow was configured or triggered for these commits; GitHub Actions CI is not claimed.
 - Security/privacy review:
   - Phase 8 values/evidence remain in doctor-protected domain tables. General audit metadata contains only identifiers, domain/action/disposition, and contract-version metadata.
   - Admin/assistant and cross-clinic actors have no RLS read access and cannot call state mutation/decision RPCs successfully.
   - Merge can move canonical ownership only under the existing transaction-local authorization flag; origin provenance remains immutable.
+  - Final closure review: doctor control — PASS; tenant isolation — PASS; append-only history — PASS; confirmed/unconfirmed separation — PASS; provenance — PASS; idempotency — PASS; stale/concurrency protection — PASS; patient merge — PASS; reconciliation durability — PASS; migration safety — PASS; non-blocking care — PASS; privacy/logging — PASS; approved-note follow-up-memory isolation — PASS.
+- Senior review closure:
+  - Initial Sol review: 0 P0, 5 P1, 2 P2; recommendation: fix P1 before closure.
+  - First closure review: all original five P1 findings closed; one new P1 lock-order deadlock found.
+  - Final closure review: `CLOSURE VERDICT: PASS`; remaining lock-order P1 CLOSED; previously closed P1 protections preserved; no new blocking regressions; `READY FOR PHASE 8 CLOSURE`.
 - Known limitations:
-  - There is intentionally no Phase 9 brief or Phase 10 Review Changes UI. The engine exposes only minimal doctor APIs/data contracts.
+  - Accepted Phase 8 P2 follow-up: confirmed-empty domain baseline cannot yet be represented separately from an unestablished structured baseline.
+  - Accepted Phase 8 P2 follow-up: confirmed-state `stateKey` is still caller-controlled and can theoretically disagree with its display value.
+  - There is intentionally no Phase 9 doctor brief or Phase 10 Review Changes UI. The engine exposes only minimal doctor APIs/data contracts.
   - There is no generic background-job scheduler yet. Reconciliation-required source items are nevertheless durable, lease-reclaimable work records and are retried from subsequent authorized server invocations; source success remains independent.
   - Patient stopped-medication detection is deliberately English-only and limited to `stopped`, `not taking`, `not using`, and `discontinued` followed by exactly one current medication key. Other wording becomes `possible_change`.
 - Recommended next task:
-  - Phase 9 — consume these explicit state/delta contracts in the doctor-only, derivative 30-second pre-consult brief without changing confirmed-state or approved-note-memory invariants.
+  - Phase 9 — 30-second doctor pre-consult brief. Consume the explicit Phase 8 confirmed-state/delta contracts without changing confirmed-state ownership, doctor-control rules, or the approved-note-only follow-up-memory invariant.
 
 ### Phase 5 follow-up — senior review hardening
 
