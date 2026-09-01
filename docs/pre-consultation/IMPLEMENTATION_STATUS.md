@@ -649,15 +649,16 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Review fixes lock reconciliation RPC execution to the service role, derive all proposal scope from referenced evidence, and use keyed transaction locks so null-base proposals cannot create competing current state.
   - Added a source-triggered, PHI-safe reconciliation work ledger. Source evidence commits independently; durable pending work is drained opportunistically after the response and retried by subsequent server invocations.
   - Made the migration chain clean-bootstrap safe through `0038`, and made authorized merges move the full Phase 8 graph before verifying final internal references.
+  - Hardened same-key reconciliation lock ordering in `0039`: Accept and explicit baseline creation now acquire the shared keyed advisory lock before delta/state row locks, revalidate after locking, and stale siblings in stable UUID order. Keep remains a target-row-only decision and cannot invert that order.
 - Acceptance criteria satisfied:
   - `AC-C01`–`AC-C07`: doctor-reviewable proposed deltas, Accept/Keep contracts, evidence/state provenance, stale protection, and non-blocking care.
   - `AC-A03`–`AC-A05`: unconfirmed evidence never mutates confirmed state; confirmed/unconfirmed layers are separate; no diagnosis, prescribing, or treatment recommendation behavior.
   - `AC-R02`–`AC-R03`: RLS, direct-table privilege restrictions, guarded RPCs, and API role checks exclude operational roles and require a doctor for confirmation/decisions.
   - Preserved `AC-E03`: Phase 8 reconciliation is outside source, queue, and Start Consultation transactions.
 - Files changed:
-  - Database: `apps/clinical/supabase/migrations/0033_preconsult_phase8_confirmed_state_delta_engine.sql` through `0038_preconsult_phase8_review_fixes.sql`.
+  - Database: `apps/clinical/supabase/migrations/0033_preconsult_phase8_confirmed_state_delta_engine.sql` through `0039_preconsult_phase8_lock_order_hardening.sql`.
   - Application: `apps/clinical/src/lib/clinical-state/comparator.ts`, `apps/clinical/src/lib/db/clinical-state.ts`, document/intake reconciliation hooks, doctor-only API routes, validation, schema, and types.
-  - Tests: `apps/clinical/src/tests/preconsult-phase8.test.ts`, `apps/clinical/supabase/tests/0033_preconsult_phase8_confirmed_state_delta_engine.test.sql`, and `apps/clinical/supabase/tests/0038_preconsult_phase8_review_fixes.test.sql`.
+  - Tests: `apps/clinical/src/tests/preconsult-phase8.test.ts`, `apps/clinical/supabase/tests/0033_preconsult_phase8_confirmed_state_delta_engine.test.sql`, `apps/clinical/supabase/tests/0038_preconsult_phase8_review_fixes.test.sql`, and `apps/clinical/scripts/test-phase8-lock-order.ts`.
 - Tests run:
   - `npx supabase migration up --local` — pass.
   - Focused Phase 8 pgTAP test — pass, 33 assertions.
