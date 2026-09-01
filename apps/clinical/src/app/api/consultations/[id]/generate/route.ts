@@ -5,13 +5,14 @@ import { getTranscriptByConsultation } from "@/lib/db/transcripts";
 import { upsertClinicalNote } from "@/lib/db/clinical-notes";
 import { createAuditLog } from "@/lib/db/audit";
 import { extractClinicalDraft } from "@/lib/ai/extract-clinical-note";
-import { MODEL, PROMPT_VERSION } from "@/lib/ai/prompts";
 import { logEvent, logError, logWarn } from "@/lib/logger";
 import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
 
 // Generates an AI draft clinical note from the stored transcript using the
-// DeepSeek extraction step. The result is saved as `ai_draft` — never
-// approved — and the consultation moves to `draft_ready` for doctor review.
+// AI extraction step (DeepSeek by default; Grok optional — the actual
+// provider/model is recorded in the audit log). The result is saved as
+// `ai_draft` — never approved — and the consultation moves to `draft_ready`
+// for doctor review.
 //
 // If the AI layer is unavailable (missing key, timeout, API error), the
 // consultation still gets a reviewable `ai_draft`: the full transcript is
@@ -64,8 +65,21 @@ export async function POST(
     error instanceof Error ? error.message : "AI draft generation failed.";
 
   let draft;
+  let aiMeta: {
+    provider: string;
+    model: string;
+    promptVersion: string;
+    fallbackUsed: boolean;
+  };
   try {
-    ({ draft } = await extractClinicalDraft(rawText));
+    const extraction = await extractClinicalDraft(rawText);
+    draft = extraction.draft;
+    aiMeta = {
+      provider: extraction.provider,
+      model: extraction.model,
+      promptVersion: extraction.promptVersion,
+      fallbackUsed: extraction.fallbackUsed,
+    };
   } catch (error) {
     const reason = failMessage(error);
     logError("generate.ai_failed", error, {
@@ -158,15 +172,22 @@ export async function POST(
     "clinical_note.ai_generated",
     "clinical_note",
     note.id,
-    { model: MODEL, promptVersion: PROMPT_VERSION }
+    {
+      provider: aiMeta.provider,
+      model: aiMeta.model,
+      promptVersion: aiMeta.promptVersion,
+      fallbackUsed: aiMeta.fallbackUsed,
+    }
   );
 
   logEvent("generate.completed", {
     consultationId: id,
     clinicId: session.clinicId,
     noteId: note.id,
-    model: MODEL,
-    promptVersion: PROMPT_VERSION,
+    provider: aiMeta.provider,
+    model: aiMeta.model,
+    promptVersion: aiMeta.promptVersion,
+    fallbackUsed: aiMeta.fallbackUsed,
   });
 
   return NextResponse.json({ note, draft }, { status: 201 });

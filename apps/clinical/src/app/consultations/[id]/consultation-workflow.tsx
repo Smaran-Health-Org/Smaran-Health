@@ -118,6 +118,11 @@ const LEVEL_BAR_COUNT = 25;
 const LENGTH_WARN_SECONDS = 15 * 60;
 const LENGTH_HARD_STOP_SECONDS = 30 * 60;
 
+// Audio is captured in ~2-minute MediaRecorder segments. Each segment is
+// uploaded + transcribed by Sarvam separately, keeping every request small
+// enough to fit the Vercel Hobby 60-second serverless function limit.
+const SEGMENT_MS = 2 * 60 * 1000;
+
 type MicErrorKind =
   | "unsupported"
   | "permission"
@@ -389,12 +394,21 @@ export function ConsultationWorkflow({
   const [processingStage, setProcessingStage] = useState(() =>
     initialStatus === "processing" || initialStatus === "uploading" ? 2 : 0
   );
+  // Shown while audio segments are being uploaded + transcribed by Sarvam.
+  const [transcribeProgress, setTranscribeProgress] = useState<{
+    uploaded: number;
+    total: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  // Completed ~2-minute audio segments, awaiting server-side transcription.
+  const segmentsRef = useRef<Blob[]>([]);
+  // Chunks being accumulated by the currently active MediaRecorder segment.
+  const activeSegmentChunksRef = useRef<Blob[]>([]);
+  const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finalTranscriptRef = useRef("");
   const interimTranscriptRef = useRef("");
   const recordingActiveRef = useRef(false);
@@ -421,6 +435,10 @@ export function ConsultationWorkflow({
   const headerLabel =
     workflowStates.find((item) => item.id === state)?.label ?? workflowStates[step].label;
   // Monotonic progress for the AI pipeline — always moves forward to 100%.
+  // Stage 1 (transcription) is the slowest phase, so the bar advances in
+  // real time as each audio segment is uploaded + transcribed: the first
+  // segment sits near 25%, the last finishes around 50%, then the remaining
+  // pipeline stages continue to 100%.
   const progressPercent =
     processingStage >= 4
       ? 100
@@ -429,9 +447,18 @@ export function ConsultationWorkflow({
         : processingStage >= 2
           ? 50
           : processingStage >= 1
-            ? 25
+            ? transcribeProgress && transcribeProgress.total > 0
+              ? Math.round(
+                  25 +
+                    ((transcribeProgress.uploaded + 0.5) /
+                      transcribeProgress.total) *
+                      25
+                )
+              : 25
             : 8;
   const draftReady = processingStage >= 4;
+  // True while recorded audio segments are being uploaded + transcribed.
+  const transcribing = transcribeProgress !== null;
 
   useEffect(() => {
     if (state !== "recording" || isRecordingPaused) return;
@@ -461,6 +488,10 @@ export function ConsultationWorkflow({
     return () => {
       recordingActiveRef.current = false;
       stopLevelMeter();
+      if (segmentTimerRef.current) {
+        clearTimeout(segmentTimerRef.current);
+        segmentTimerRef.current = null;
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -747,7 +778,7 @@ export function ConsultationWorkflow({
   // lost from memory and the doctor can decide what to do next.
   function handleUnexpectedTrackEnd() {
     if (!recordingActiveRef.current) return; // Our own stop().
-    stopMicCapture();
+    void stopMicCapture();
     setMicError(
       "The microphone stopped unexpectedly — it may have been disconnected or taken by another app. The recording stopped safely."
     );
@@ -779,12 +810,84 @@ export function ConsultationWorkflow({
     setState("consent");
   }
 
+  // Starts a fresh MediaRecorder segment on the given stream. Each segment is
+  // finalized by the segment timer (or by a stop/pause) and queued for
+  // server-side transcription. Capturing in ~2-minute chunks means a long
+  // consultation is never lost if the page closes mid-way, and each Sarvam
+  // request stays small enough for the 60-second serverless limit.
+  function startNewSegment(stream: MediaStream) {
+    const chunks: Blob[] = [];
+    activeSegmentChunksRef.current = chunks;
+    const recorder = new MediaRecorder(stream, { audioBitsPerSecond: 64_000 });
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) chunks.push(event.data);
+    };
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      chunks.length = 0;
+      if (blob.size > 0) segmentsRef.current.push(blob);
+      // Rotation: keep recording if this stop came from the segment timer
+      // (mediaRecorderRef still points at this recorder). A deliberate stop
+      // clears mediaRecorderRef first, so it never rotates here.
+      if (
+        recordingActiveRef.current &&
+        !pausedRef.current &&
+        mediaRecorderRef.current
+      ) {
+        startNewSegment(stream);
+        startSegmentTimer();
+      }
+    };
+    recorder.start();
+    mediaRecorderRef.current = recorder;
+    startSegmentTimer();
+  }
+
+  function startSegmentTimer() {
+    if (segmentTimerRef.current) clearTimeout(segmentTimerRef.current);
+    segmentTimerRef.current = setTimeout(() => {
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        try {
+          recorder.stop();
+        } catch {
+          // Ignore — the recorder may have just stopped on its own.
+        }
+      }
+    }, SEGMENT_MS);
+  }
+
+  // Finalizes the in-progress segment and resolves once it is queued.
+  function stopCurrentRecorder(): Promise<void> {
+    return new Promise((resolve) => {
+      const recorder = mediaRecorderRef.current;
+      mediaRecorderRef.current = null;
+      if (!recorder || recorder.state === "inactive") {
+        resolve();
+        return;
+      }
+      recorder.onstop = () => {
+        const chunks = activeSegmentChunksRef.current;
+        const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+        chunks.length = 0;
+        if (blob.size > 0) segmentsRef.current.push(blob);
+        resolve();
+      };
+      try {
+        recorder.stop();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
   async function startMicCapture(previewStream?: MediaStream): Promise<boolean> {
     finalTranscriptRef.current = "";
     interimTranscriptRef.current = "";
     setTranscript("");
     setInterimTranscript("");
-    chunksRef.current = [];
+    segmentsRef.current = [];
+    setTranscribeProgress(null);
     try {
       // Reuse the stream acquired during the mic check when it is still live;
       // otherwise acquire a fresh one.
@@ -808,12 +911,7 @@ export function ConsultationWorkflow({
         track.onended = handleUnexpectedTrackEnd;
       });
 
-      const recorder = new MediaRecorder(stream);
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) chunksRef.current.push(event.data);
-      };
-      recorder.start();
-      mediaRecorderRef.current = recorder;
+      startNewSegment(stream);
 
       // Mark recording active before starting recognition, so the onend
       // auto-restart below works even if recognition ends immediately.
@@ -887,10 +985,14 @@ export function ConsultationWorkflow({
     }
   }
 
-  function stopMicCapture(): string {
+  async function stopMicCapture(): Promise<string> {
     recordingActiveRef.current = false;
     releaseWakeLock();
     stopLevelMeter();
+    if (segmentTimerRef.current) {
+      clearTimeout(segmentTimerRef.current);
+      segmentTimerRef.current = null;
+    }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -899,14 +1001,7 @@ export function ConsultationWorkflow({
       }
       recognitionRef.current = null;
     }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {
-        // Ignore.
-      }
-    }
-    mediaRecorderRef.current = null;
+    await stopCurrentRecorder();
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -938,7 +1033,7 @@ export function ConsultationWorkflow({
         status: "recording",
       });
     } catch (err) {
-      stopMicCapture();
+      void stopMicCapture();
       setError(err instanceof Error ? err.message : "Could not start recording");
       return;
     }
@@ -955,6 +1050,11 @@ export function ConsultationWorkflow({
     const next = !isRecordingPaused;
     setPaused(next);
     if (next) {
+      // Suspend the segment timer so a rotation can't fire mid-pause.
+      if (segmentTimerRef.current) {
+        clearTimeout(segmentTimerRef.current);
+        segmentTimerRef.current = null;
+      }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         mediaRecorderRef.current.pause();
       }
@@ -968,6 +1068,7 @@ export function ConsultationWorkflow({
     } else {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
         mediaRecorderRef.current.resume();
+        startSegmentTimer();
       }
       if (recognitionRef.current) {
         try {
@@ -986,14 +1087,17 @@ export function ConsultationWorkflow({
       setError(null);
       setTranscriptError(null);
 
-      const finalTranscript = stopMicCapture() || transcript.trim();
+      const finalTranscript = (await stopMicCapture()) || transcript.trim();
       setTranscript(finalTranscript);
       setInterimTranscript("");
 
-      // No speech was captured (silent recording, or a browser without the
-      // Web Speech API). Route straight to a manual note without ever showing
-      // the fake "recording received / transcript prepared" steps.
-      if (!finalTranscript.trim()) {
+      const segments = segmentsRef.current.slice();
+      segmentsRef.current = [];
+
+      // Nothing was captured at all (silent recording, or a browser without
+      // the Web Speech API). Route straight to a manual note without ever
+      // showing the fake "recording received / transcript prepared" steps.
+      if (segments.length === 0 && !finalTranscript.trim()) {
         await patchConsultation({
           status: "draft",
           endedAt: new Date().toISOString(),
@@ -1007,24 +1111,75 @@ export function ConsultationWorkflow({
         return;
       }
 
-      // We have real transcript text in hand — mark it received and persist it
-      // before advancing any further.
+      // We have a capture in hand — mark it received and move to processing.
       setProcessingStage(1);
       setState("processing");
+      await patchConsultation({
+        status: "uploading",
+        endedAt: new Date().toISOString(),
+      }).catch(() => {
+        // Non-fatal; the transcript + status are patched again below.
+      });
 
-      const saved = await persistTranscript(finalTranscript);
-      if (!saved) {
+      let serverTranscript = "";
+      if (segments.length > 0) {
+        // Primary path: upload the audio and transcribe server-side (Sarvam).
+        const result = await uploadSegments(segments);
+        if (result.ok && result.transcript) {
+          serverTranscript = result.transcript;
+          setTranscript(serverTranscript);
+          // Batched with the stage bump so the bar never dips back to 25%.
+          setTranscribeProgress(null);
+          setProcessingStage(2);
+        } else if (finalTranscript.trim()) {
+          // Sarvam unavailable/failed → fall back to the live browser
+          // transcript captured during recording.
+          const saved = await persistTranscript(finalTranscript);
+          if (saved) {
+            serverTranscript = finalTranscript;
+            setTranscript(serverTranscript);
+            setProcessingStage(2);
+          } else {
+            setProcessingStage(0);
+            setState("failed");
+            setError(
+              "The transcript could not be saved, so a draft could not be prepared. Retry safely, or write the note manually."
+            );
+            return;
+          }
+        } else {
+          setProcessingStage(0);
+          setState("failed");
+          setError(
+            result.error ??
+              "Transcription failed. Retry safely, or write the note manually."
+          );
+          return;
+        }
+      } else if (finalTranscript.trim()) {
+        // No audio segments (unsupported recorder?) — live transcript only.
+        const saved = await persistTranscript(finalTranscript);
+        if (!saved) {
+          setProcessingStage(0);
+          setState("failed");
+          setError(
+            "The transcript could not be saved, so a draft could not be prepared. Retry safely, or write the note manually."
+          );
+          return;
+        }
+        serverTranscript = finalTranscript;
+        setProcessingStage(2);
+      } else {
         setProcessingStage(0);
         setState("failed");
         setError(
-          "The transcript could not be saved, so a draft could not be prepared. Retry safely, or write the note manually."
+          "Nothing was captured. Retry the recording, or write the note manually."
         );
         return;
       }
-      setProcessingStage(2);
 
       try {
-        await patchConsultation({ status: "processing", endedAt: new Date().toISOString() });
+        await patchConsultation({ status: "processing" });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not start processing");
         setProcessingStage(0);
@@ -1037,6 +1192,50 @@ export function ConsultationWorkflow({
     } finally {
       stopBusyRef.current = false;
     }
+  }
+
+  // Uploads each recorded segment to the server for Sarvam transcription.
+  // The server saves the transcript (segment 0 replaces, later segments
+  // append) and returns the accumulated text; the last response is used.
+  async function uploadSegments(
+    segments: Blob[]
+  ): Promise<{ ok: boolean; transcript?: string; error?: string }> {
+    let transcript = "";
+    for (let i = 0; i < segments.length; i++) {
+      setTranscribeProgress({ uploaded: i, total: segments.length });
+      const form = new FormData();
+      form.append("audio", segments[i], `segment-${i}.webm`);
+      form.append("mimeType", segments[i].type || "audio/webm");
+      form.append("segmentIndex", String(i));
+      form.append("segmentCount", String(segments.length));
+      try {
+        const res = await fetch(
+          `/api/consultations/${consultationId}/transcribe`,
+          { method: "POST", body: form }
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          setTranscribeProgress(null);
+          return {
+            ok: false,
+            error:
+              body?.error ??
+              "The recording could not be transcribed. Retry safely, or write the note manually.",
+          };
+        }
+        const data = await res.json();
+        const raw: unknown = data?.transcript?.rawText;
+        if (typeof raw === "string" && raw.trim()) transcript = raw;
+      } catch {
+        setTranscribeProgress(null);
+        return {
+          ok: false,
+          error:
+            "The recording could not be transcribed. Retry safely, or write the note manually.",
+        };
+      }
+    }
+    return { ok: true, transcript };
   }
 
   async function generateDraft() {
@@ -1101,7 +1300,9 @@ export function ConsultationWorkflow({
   }
 
   async function cancelRecording() {
-    stopMicCapture();
+    await stopMicCapture();
+    segmentsRef.current = [];
+    setTranscribeProgress(null);
     setTranscript("");
     setInterimTranscript("");
     try {
@@ -1115,7 +1316,9 @@ export function ConsultationWorkflow({
   // "Back" during recording: discard the current capture and return to the
   // pre-flight mic check so the doctor can re-verify input before re-recording.
   async function backToMicTest() {
-    stopMicCapture();
+    await stopMicCapture();
+    segmentsRef.current = [];
+    setTranscribeProgress(null);
     setTranscript("");
     setInterimTranscript("");
     setElapsedSeconds(0);
@@ -1599,38 +1802,69 @@ export function ConsultationWorkflow({
             <div className={styles.processingIcon} aria-hidden="true">
               {draftReady ? "✓" : "•••"}
             </div>
-            <p className={styles.eyebrow}>{draftReady ? "Complete" : "Preparing the draft"}</p>
+            <p className={styles.eyebrow}>
+              {draftReady
+                ? "Complete"
+                : transcribing
+                  ? "Transcribing the audio"
+                  : "Preparing the draft"}
+            </p>
             <h2>
               {draftReady
                 ? "Draft ready"
                 : generating
                   ? "Generating the draft"
-                  : "Preparing a draft for review"}
+                  : transcribing
+                    ? "Transcribing the recording"
+                    : "Preparing a draft for review"}
             </h2>
             <p className={styles.lead}>
-              Transcript → structured extraction → draft note. Nothing is approved or added to
-              memory yet.
+              {transcribing
+                ? "Recording → AI transcription → structured extraction. Nothing is approved or added to memory yet."
+                : "Transcript → structured extraction → draft note. Nothing is approved or added to memory yet."}
             </p>
 
             <div
               className={styles.progressRail}
               role="progressbar"
-              aria-label="AI draft generation progress"
+              aria-label="AI draft preparation progress"
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={progressPercent}
             >
               <span
                 className={`${styles.progressFill} ${
-                  draftReady ? styles.progressDone : generating ? styles.progressActive : ""
+                  draftReady
+                    ? styles.progressDone
+                    : generating || transcribing
+                      ? styles.progressActive
+                      : ""
                 }`}
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
+            <p className={styles.progressReadout} aria-hidden="true">
+              {progressPercent}%
+            </p>
 
             <div className={styles.processingSteps}>
               <span className={processingStage >= 1 ? styles.stepDone : undefined}>
                 {processingStage >= 1 ? "✓ Recording received" : "Recording received"}
+              </span>
+              <span
+                className={
+                  transcribing
+                    ? styles.stepActive
+                    : processingStage >= 2
+                      ? styles.stepDone
+                      : undefined
+                }
+              >
+                {transcribing
+                  ? "• Transcribing audio"
+                  : processingStage >= 2
+                    ? "✓ Transcribing audio"
+                    : "Transcribing audio"}
               </span>
               <span className={processingStage >= 2 ? styles.stepDone : undefined}>
                 {processingStage >= 2 ? "✓ Transcript prepared" : "Transcript prepared"}
@@ -1655,6 +1889,14 @@ export function ConsultationWorkflow({
               </span>
             </div>
 
+            {/* Live processing log — one line per pipeline stage. */}
+            {transcribing && transcribeProgress && (
+              <p className={styles.generatingHint} role="status">
+                Uploading &amp; transcribing audio with AI — segment{" "}
+                {transcribeProgress.uploaded + 1} of {transcribeProgress.total} (
+                {progressPercent}%)…
+              </p>
+            )}
             {generating && (
               <p className={styles.generatingHint} role="status">
                 Drafting the clinical note — this usually takes a few seconds.
@@ -1666,7 +1908,7 @@ export function ConsultationWorkflow({
               </p>
             )}
 
-            {!generating && !draftReady && (
+            {!generating && !draftReady && !transcribing && (
               <div className={styles.actions}>
                 <button type="button" className={styles.secondaryButton} onClick={simulateFailure}>
                   Simulate failure

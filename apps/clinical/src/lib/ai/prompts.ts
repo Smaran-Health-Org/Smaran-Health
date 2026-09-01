@@ -1,9 +1,11 @@
-// Versioned prompt for the DeepSeek clinical-note extraction step.
+// Versioned prompt for the AI clinical-note extraction step. The prompt is
+// provider-agnostic — it is sent to whichever provider the AI layer selects
+// (DeepSeek by default, Grok optional — see ./provider.ts). The model used
+// is provider-specific and lives in each provider's config, not here.
 // Bump PROMPT_VERSION whenever the instructions materially change, so audit
 // logs and stored drafts can be tied back to a known prompt (AGENTS.md §9.4).
 
-export const PROMPT_VERSION = "deepseek-extraction-v0.2.0";
-export const MODEL = "deepseek-chat";
+export const PROMPT_VERSION = "extraction-v0.2.0";
 
 // Safety rules from AGENTS.md §9.3. These are non-negotiable and must be
 // included in every extraction prompt.
