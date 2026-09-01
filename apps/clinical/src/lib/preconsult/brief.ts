@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { PRECONSULT_BRIEF_SCHEMA_VERSION, PRECONSULT_GENERATOR_VERSION, PRECONSULT_SELECTION_CONTRACT_VERSION, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, buildComparableTrendGroups, type PreconsultBrief, type PreconsultBriefLifecycle, type PreconsultTrendGroup, type PreconsultTrendPoint, briefClaim } from "@/lib/preconsult/contract";
-export { PRECONSULT_BRIEF_SCHEMA_VERSION, PRECONSULT_GENERATOR_VERSION, PRECONSULT_SELECTION_CONTRACT_VERSION, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, buildComparableTrendGroups, hasActivePreconsultGenerationWork, type PreconsultBrief, type PreconsultBriefLifecycle, type PreconsultTrendGroup, type PreconsultTrendPoint } from "@/lib/preconsult/contract";
+import { PRECONSULT_BRIEF_SCHEMA_VERSION, PRECONSULT_GENERATOR_VERSION, PRECONSULT_SELECTION_CONTRACT_VERSION, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, isReturningChange, buildComparableTrendGroups, type PreconsultBrief, type PreconsultBriefLifecycle, type PreconsultTrendGroup, type PreconsultTrendPoint, briefClaim } from "@/lib/preconsult/contract";
+export { PRECONSULT_BRIEF_SCHEMA_VERSION, PRECONSULT_GENERATOR_VERSION, PRECONSULT_SELECTION_CONTRACT_VERSION, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, isReturningChange, buildComparableTrendGroups, hasActivePreconsultGenerationWork, type PreconsultBrief, type PreconsultBriefLifecycle, type PreconsultTrendGroup, type PreconsultTrendPoint } from "@/lib/preconsult/contract";
 
 export type PreconsultArtifact = { id: string; resultState: "ready" | "partial"; sourceWatermark: string; generatedAt: string; payload: PreconsultBrief };
 type RecordRow = Record<string, unknown>;
@@ -33,18 +33,18 @@ async function sourcePacket(client: ReturnType<typeof createServiceRoleClient>, 
   const current = consultation as RecordRow;
   const clinicId = String(current.clinic_id); const patientId = String(current.patient_id); const visitAt = String(current.started_at);
   const [intakeRes, historyRes, stateRes, deltaRes, observationRes, documentRes, correctionRes] = await Promise.all([
-    client.from("patient_intake_statements").select("id,reason_for_visit_raw,information_source,entered_via,created_at").eq("consultation_id", consultationId).order("created_at", { ascending: false }).limit(1),
-    client.from("consultations").select("id,started_at").eq("clinic_id", clinicId).eq("patient_id", patientId).eq("status", "approved").neq("id", consultationId).lt("started_at", visitAt).order("started_at", { ascending: false }),
-    client.from("current_confirmed_clinical_state").select("id,value_json,confirmed_at").eq("clinic_id", clinicId).eq("patient_id", patientId),
-    client.from("clinical_state_delta_status").select("id,classification,proposed_value_json,created_at").eq("clinic_id", clinicId).eq("patient_id", patientId).eq("status", "pending"),
-    client.from("clinical_observation_trend_inputs").select("id,display_name,normalized_value,source_document_id,source_page_number,effective_date,effective_date_precision,created_at").eq("clinic_id", clinicId).eq("patient_id", patientId).order("effective_date", { ascending: false }).limit(24),
-    client.from("documents").select("id,status,document_type,document_date,updated_at").eq("clinic_id", clinicId).eq("patient_id", patientId).eq("status", "needs_review"),
-    client.from("current_clinical_observation_corrections").select("id,source_observation_id,corrected_display_name,corrected_normalized_value").eq("clinic_id", clinicId).eq("patient_id", patientId),
+    client.from("patient_intake_statements").select("id,reason_for_visit_raw,information_source,entered_via,self_reported_conditions,self_reported_medications,self_reported_allergies,created_at").eq("consultation_id", consultationId).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(1),
+    client.from("consultations").select("id,started_at").eq("clinic_id", clinicId).eq("patient_id", patientId).eq("status", "approved").neq("id", consultationId).lt("started_at", visitAt).order("started_at", { ascending: false }).order("id", { ascending: false }),
+    client.from("current_confirmed_clinical_state").select("id,value_json,confirmed_at").eq("clinic_id", clinicId).eq("patient_id", patientId).order("confirmed_at", { ascending: false }).order("id", { ascending: false }),
+    client.from("clinical_state_delta_status").select("id,classification,proposed_value_json,created_at").eq("clinic_id", clinicId).eq("patient_id", patientId).eq("status", "pending").order("created_at", { ascending: false }).order("id", { ascending: false }),
+    client.from("clinical_observation_trend_inputs").select("id,consultation_id,display_name,normalized_value,source_document_id,source_page_number,effective_date,effective_date_precision,created_at").eq("clinic_id", clinicId).eq("patient_id", patientId).order("effective_date", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(24),
+    client.from("documents").select("id,status,document_type,document_date,updated_at").eq("clinic_id", clinicId).eq("patient_id", patientId).eq("status", "needs_review").order("updated_at", { ascending: false }).order("id", { ascending: false }),
+    client.from("current_clinical_observation_corrections").select("id,source_observation_id,corrected_display_name,corrected_normalized_value,corrected_at").eq("clinic_id", clinicId).eq("patient_id", patientId).order("corrected_at", { ascending: false }).order("id", { ascending: false }),
   ]);
   if ([intakeRes, historyRes, stateRes, deltaRes, observationRes, documentRes, correctionRes].some((result) => result.error)) throw new Error("preconsult_source_unavailable");
   const history = (historyRes.data ?? []) as RecordRow[];
   const historicalIds = history.map((row) => String(row.id));
-  const notesRes = historicalIds.length ? await client.from("clinical_notes").select("id,consultation_id,content,status,approved_at").eq("clinic_id", clinicId).eq("status", "approved").in("consultation_id", historicalIds) : { data: [], error: null };
+  const notesRes = historicalIds.length ? await client.from("clinical_notes").select("id,consultation_id,content,status,approved_at").eq("clinic_id", clinicId).eq("status", "approved").in("consultation_id", historicalIds).order("approved_at", { ascending: false }).order("id", { ascending: false }) : { data: [], error: null };
   if (notesRes.error) throw new Error("preconsult_source_unavailable");
   const notes = (notesRes.data ?? []) as RecordRow[];
   const baseline = selectPriorApprovedBaseline(history as Array<RecordRow & { id: string; started_at: string }>, notes as Array<RecordRow & { consultation_id: string }>);
@@ -57,6 +57,8 @@ function buildBrief(packet: Awaited<ReturnType<typeof sourcePacket>>) {
   const sourceManifest = {
     consultationId: String(packet.current.id), intakeId: packet.intake?.id ?? null,
     baselineNoteId: packet.baseline?.note.id ?? null,
+    baselineNoteContentHash: packet.baseline ? preconsultSourceWatermark({ content: packet.baseline.note.content, approvedAt: packet.baseline.note.approved_at ?? null }) : null,
+    intake: packet.intake ? { id: packet.intake.id, createdAt: packet.intake.created_at, reason: packet.intake.reason_for_visit_raw, source: packet.intake.information_source, conditions: packet.intake.self_reported_conditions, medications: packet.intake.self_reported_medications, allergies: packet.intake.self_reported_allergies } : null,
     stateIds: packet.state.map((row) => row.id).sort(), deltaIds: packet.deltas.map((row) => row.id).sort(),
     observationIds: packet.observations.map((row) => `${String(row.id)}:${String((row.correction as RecordRow | undefined)?.id ?? "original")}`).sort(), needsReviewDocumentIds: packet.documents.map((row) => row.id).sort(),
   };
@@ -72,9 +74,11 @@ function buildBrief(packet: Awaited<ReturnType<typeof sourcePacket>>) {
       sources: [{ type: "intake_statement" as const, id: String(intake.id), itemIndex }],
     }));
   }) : [];
-  const changes = [
-    ...packet.deltas.map((row) => { const value = (row.proposed_value_json ?? {}) as RecordRow; const label = stringValue(value.displayName) ?? "Proposed clinical change"; return { id: `delta:${String(row.id)}`, text: `${label} requires doctor review`, verification: "proposed" as const, sources: [{ type: "delta" as const, id: String(row.id) }] }; }),
-    ...packet.observations.map(observationClaim),
+  const baselineStartedAt = packet.baseline?.visit.started_at;
+  const changes = !baselineStartedAt ? [] : [
+    ...packet.deltas.filter((row) => isReturningChange({ baselineStartedAt, currentConsultationId: String(packet.current.id), createdAt: stringValue(row.created_at) })).map((row) => { const value = (row.proposed_value_json ?? {}) as RecordRow; const label = stringValue(value.displayName) ?? "Proposed clinical change"; return { id: `delta:${String(row.id)}`, text: `${label} requires doctor review`, verification: "proposed" as const, sources: [{ type: "delta" as const, id: String(row.id) }] }; }),
+    ...packet.observations.filter((row) => isReturningChange({ baselineStartedAt, currentConsultationId: String(packet.current.id), observationConsultationId: stringValue(row.consultation_id), observationEffectiveDate: stringValue(row.effective_date) })).map(observationClaim),
+    ...packet.state.filter((row) => isReturningChange({ baselineStartedAt, currentConsultationId: String(packet.current.id), confirmedAt: stringValue(row.confirmed_at) })).map(stateClaim),
   ];
   const needsAttention = [
     ...packet.deltas.map((row) => ({ id: `review:delta:${String(row.id)}`, text: "A proposed clinical change needs a doctor decision", verification: "proposed" as const, sources: [{ type: "delta" as const, id: String(row.id) }] })),
@@ -99,8 +103,8 @@ function buildBrief(packet: Awaited<ReturnType<typeof sourcePacket>>) {
   return { brief: preconsultBriefSchema.parse(brief), sourceManifest, watermark };
 }
 
-function evidenceRows(briefVersionId: string, clinicId: string, brief: PreconsultBrief) {
-  return [...brief.changes, ...brief.patientOverview, ...brief.needsAttention, ...brief.alreadyKnown.approvedMemory].flatMap((claim) => claim.sources.map((source) => ({ clinic_id: clinicId, brief_version_id: briefVersionId, claim_id: claim.id,
+function evidenceRows(brief: PreconsultBrief) {
+  return [...brief.changes, ...brief.patientOverview, ...brief.needsAttention, ...brief.alreadyKnown.approvedMemory].flatMap((claim) => claim.sources.map((source) => ({ claim_id: claim.id,
     source_document_id: source.type === "document" ? source.id : null, source_observation_id: source.type === "observation" ? source.id : null, source_intake_statement_id: source.type === "intake_statement" ? source.id : null, source_delta_id: source.type === "delta" ? source.id : null, source_state_version_id: source.type === "state_version" ? source.id : null, source_clinical_note_id: source.type === "clinical_note" ? source.id : null, source_page_number: source.page ?? null, source_item_index: source.itemIndex ?? null,
   })));
 }
@@ -114,19 +118,11 @@ export async function drainPreconsultBriefGeneration(limit = 8): Promise<void> {
     try {
       const first = buildBrief(await sourcePacket(service, String(work.consultation_id)));
       const fingerprint = preconsultSourceWatermark({ watermark: first.watermark, selection: PRECONSULT_SELECTION_CONTRACT_VERSION, schema: PRECONSULT_BRIEF_SCHEMA_VERSION, generator: PRECONSULT_GENERATOR_VERSION });
-      await service.from("preconsult_brief_generation_work").update({ source_watermark: first.watermark, generation_fingerprint: fingerprint, updated_at: new Date().toISOString() }).eq("id", String(work.id));
-      const { data: existing } = await service.from("preconsult_brief_versions").select("id").eq("consultation_id", String(work.consultation_id)).eq("source_watermark", first.watermark).eq("generation_fingerprint", fingerprint).eq("result_state", "ready").limit(1);
-      if (!(existing?.length)) {
-        const second = buildBrief(await sourcePacket(service, String(work.consultation_id)));
-        if (second.watermark !== first.watermark) { await service.from("preconsult_brief_generation_work").update({ status: "superseded", updated_at: new Date().toISOString() }).eq("id", String(work.id)); continue; }
-        const resultState = second.brief.whyToday.verbatim || second.brief.changes.length || second.brief.patientOverview.length || second.brief.needsAttention.length || second.brief.alreadyKnown.lastVisit ? "ready" : "partial";
-        const { data: version, error: persistError } = await service.rpc("persist_preconsult_brief_version", { p_clinic_id: String(work.clinic_id), p_patient_id: String(work.patient_id), p_origin_patient_id: String(work.origin_patient_id), p_consultation_id: String(work.consultation_id), p_source_watermark: second.watermark, p_source_manifest: second.sourceManifest, p_selection_contract_version: PRECONSULT_SELECTION_CONTRACT_VERSION, p_brief_schema_version: PRECONSULT_BRIEF_SCHEMA_VERSION, p_generator_version: PRECONSULT_GENERATOR_VERSION, p_model_version: null, p_generation_fingerprint: fingerprint, p_result_state: resultState, p_payload: second.brief });
-        const row = (Array.isArray(version) ? version[0] : version) as RecordRow | null;
-        if (persistError || !row) throw new Error("preconsult_persist_failed");
-        const links = evidenceRows(String(row.id), String(work.clinic_id), second.brief);
-        if (links.length) { const { error: linkError } = await service.from("preconsult_brief_evidence_links").insert(links); if (linkError) throw new Error("preconsult_evidence_persist_failed"); }
-      }
-      await service.rpc("complete_preconsult_brief_generation_work", { p_work_id: String(work.id) });
+      const second = buildBrief(await sourcePacket(service, String(work.consultation_id)));
+      if (second.watermark !== first.watermark) { await service.rpc("fail_preconsult_brief_generation_work", { p_work_id: String(work.id), p_failure_code: "brief_source_changed" }); continue; }
+      const resultState = second.brief.whyToday.verbatim || second.brief.changes.length || second.brief.patientOverview.length || second.brief.needsAttention.length || second.brief.alreadyKnown.lastVisit ? "ready" : "partial";
+      const { error: finalizeError } = await service.rpc("finalize_preconsult_brief_generation", { p_work_id: String(work.id), p_source_watermark: second.watermark, p_source_manifest: second.sourceManifest, p_selection_contract_version: PRECONSULT_SELECTION_CONTRACT_VERSION, p_brief_schema_version: PRECONSULT_BRIEF_SCHEMA_VERSION, p_generator_version: PRECONSULT_GENERATOR_VERSION, p_model_version: null, p_generation_fingerprint: fingerprint, p_result_state: resultState, p_payload: second.brief, p_evidence_links: evidenceRows(second.brief) });
+      if (finalizeError) throw new Error("preconsult_finalize_failed");
     } catch {
       await service.rpc("fail_preconsult_brief_generation_work", { p_work_id: String(work.id), p_failure_code: "brief_generation_failed" });
     }
@@ -140,6 +136,17 @@ export async function getCurrentPreconsultBrief(consultationId: string): Promise
   const row = (data as RecordRow[] | null)?.[0];
   if (!row) return null;
   return { id: String(row.id), resultState: row.result_state as "ready" | "partial", sourceWatermark: String(row.source_watermark), generatedAt: String(row.generated_at), payload: preconsultBriefSchema.parse(row.payload) };
+}
+
+export async function getPreconsultBriefSnapshot(consultationId: string): Promise<{ artifact: PreconsultArtifact | null; lifecycle: PreconsultBriefLifecycle }> {
+  const client = await createServerClient();
+  const { data, error } = await client.rpc("get_preconsult_brief_snapshot", { p_consultation_id: consultationId });
+  if (error) throw new Error("preconsult_snapshot_unavailable");
+  const row = (Array.isArray(data) ? data[0] : data) as RecordRow | null;
+  const lifecycle = row?.lifecycle;
+  if (lifecycle !== "ready" && lifecycle !== "partial" && lifecycle !== "updating" && lifecycle !== "unavailable") throw new Error("preconsult_snapshot_unavailable");
+  if (!row?.id) return { artifact: null, lifecycle };
+  return { artifact: { id: String(row.id), resultState: row.result_state as "ready" | "partial", sourceWatermark: String(row.source_watermark), generatedAt: String(row.generated_at), payload: preconsultBriefSchema.parse(row.payload) }, lifecycle };
 }
 
 export async function getPreconsultBriefLifecycle(consultationId: string): Promise<PreconsultBriefLifecycle> {

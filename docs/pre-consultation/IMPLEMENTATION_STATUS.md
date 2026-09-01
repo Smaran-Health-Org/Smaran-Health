@@ -698,7 +698,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 
 ### Phase 9 — Doctor 30-second pre-consult brief
 
-- Status: Implementation ready for senior review and full CI; not marked production-complete.
+- Status: Senior-review fixes implemented locally; ready for targeted validation and full CI, not marked production-complete.
 - Implemented:
   - Added immutable, Encounter-scoped `preconsult_brief_versions`, explicit evidence links, durable generation work, current correction overlay, doctor-view provenance, and immutable consultation-start snapshots in migration `0040`.
   - Added doctor-only RLS and guarded RPCs. Generation claim/persist functions are service-only; direct authenticated writes to brief/work tables remain unavailable.
@@ -718,6 +718,23 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 - Safety and scope:
   - The brief is derivative only; it cannot confirm state, generate Priority, diagnose, recommend treatment, prescribe, or replace authorized evidence. Original document access remains via existing private authorized routes; no brief content is written to generic logs.
   - Phase 10 Review Changes UI and Phase 11 in-consultation persistence are intentionally not started. Trends use only the existing eligible observation inputs; no unit conversion or clinical-significance labels were added.
+- Senior-review fixes (migration `0041`):
+  - Replaced worker authorization checks with actual `auth.role() = service_role` enforcement, retained narrowly scoped grants, and made source-trigger enqueue security-definer/non-blocking so protected work-table access cannot roll back authoritative source writes.
+  - Added serialized Encounter generation revisions and a current-artifact pointer. The new atomic finalizer writes artifact, evidence links, work transition, and currentness together; a later target prevents an older worker from becoming current.
+  - Added deterministic source ordering and canonical source hashing, including approved-note content/approval signal. Consultation approval now invalidates dependent eligible briefs, covering note-before-consultation approval ordering.
+  - Added correction provenance to Phase 8 work/delta evidence, retired unresolved source-derived deltas as stale before corrected reconciliation, and retained already accepted historical state.
+  - Returning changes now use the last approved visit temporal baseline; current Encounter evidence and post-baseline confirmed state remain eligible, while older observations/current state do not appear as new changes. No-baseline intake arrays are selected and stay explicitly patient-reported/unconfirmed.
+  - Added one doctor-authorized artifact+lifecycle snapshot RPC; the pre-consult page consumes it atomically and safely falls back to explicit brief-unavailable UI while always keeping Start Consultation available after successful authorization/context loading.
+  - Added immutable Encounter-origin provenance with deterministic backfill from prior Phase 9 artifact metadata (or current Encounter patient when no artifact exists). Canonical patient ownership can re-root on merge without changing this origin or historical payloads.
+- Senior-fix validation run:
+  - `npx supabase db reset --local` — pass; clean replay through `0041`.
+  - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
+  - `npx supabase test db --local supabase/tests/0041_preconsult_phase9_senior_review_fixes.test.sql` — pass, 37 assertions, including actual service-role worker invocation, ordinary-caller denial, and authenticated doctor source writes through the permitted consultation, approved-note, intake, document, and confirmed-state paths.
+  - `npm test -- --test-name-pattern='Phase 9|returning changes|source watermark'` — pass, 64 tests.
+  - `npx tsc --noEmit` — pass.
+- Remaining known limitations:
+  - Source-trigger enqueue intentionally swallows unexpected enqueue infrastructure errors to preserve the non-blocking-care invariant; durable work is retried by subsequent successful source events/authorized generation invocation. There is still no independent scheduler (Phase 13 hardening).
+  - Pre-0041 Encounter origin backfill is deterministic but cannot reconstruct an original merged identity where no prior Phase 9 artifact recorded it; the migration documents and preserves that conservative fallback rather than guessing.
 
 ### Phase 5 follow-up — senior review hardening
 

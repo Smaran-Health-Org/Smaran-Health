@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PRECONSULT_BRIEF_SCHEMA_VERSION, buildComparableTrendGroups, derivePreconsultBriefLifecycle, hasActivePreconsultGenerationWork, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, type PreconsultTrendPoint } from "../lib/preconsult/contract";
+import { PRECONSULT_BRIEF_SCHEMA_VERSION, buildComparableTrendGroups, derivePreconsultBriefLifecycle, hasActivePreconsultGenerationWork, isReturningChange, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, type PreconsultTrendPoint } from "../lib/preconsult/contract";
 
 test("Phase 9 baseline uses visit chronology and only approved-note candidates", () => {
   const baseline = selectPriorApprovedBaseline([
@@ -15,6 +15,16 @@ test("source watermark is deterministic and excludes operational priority contex
   const eligible = { consultationId: "00000000-0000-4000-8000-000000000001", intakeId: null, stateIds: ["state-1"], deltaIds: [], observationIds: [], needsReviewDocumentIds: [] };
   assert.equal(preconsultSourceWatermark(eligible), preconsultSourceWatermark({ ...eligible }));
   assert.equal(preconsultSourceWatermark(eligible), preconsultSourceWatermark({ ...eligible, priority: undefined }));
+  assert.equal(preconsultSourceWatermark({ b: ["z", "a"], a: { second: 2, first: 1 } }), preconsultSourceWatermark({ a: { first: 1, second: 2 }, b: ["z", "a"] }));
+});
+
+test("returning changes use the last approved visit as a temporal baseline", () => {
+  const baselineStartedAt = "2026-03-10T09:00:00.000Z";
+  assert.equal(isReturningChange({ baselineStartedAt, currentConsultationId: "current", observationConsultationId: "older", observationEffectiveDate: "2026-03-09" }), false, "pre-baseline external observation is excluded");
+  assert.equal(isReturningChange({ baselineStartedAt, currentConsultationId: "current", observationConsultationId: "older", observationEffectiveDate: "2026-03-11" }), true, "post-baseline external observation is included");
+  assert.equal(isReturningChange({ baselineStartedAt, currentConsultationId: "current", observationConsultationId: "current", observationEffectiveDate: "2020-01-01" }), true, "current Encounter evidence remains new evidence");
+  assert.equal(isReturningChange({ baselineStartedAt, currentConsultationId: "current", confirmedAt: "2026-03-10T10:00:00.000Z" }), true, "today-confirmed state remains a change");
+  assert.equal(isReturningChange({ baselineStartedAt, currentConsultationId: "current", confirmedAt: "2026-03-01T10:00:00.000Z" }), false, "historic current state is not rendered as a new change");
 });
 
 test("brief contract requires bounded verification states and evidence", () => {

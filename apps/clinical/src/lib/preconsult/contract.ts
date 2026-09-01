@@ -28,5 +28,19 @@ export function buildComparableTrendGroups(points: PreconsultTrendPoint[], relev
     return [{ id: `trend:${key}`, displayName: ordered[0].displayName, normalizedKey: ordered[0].normalizedKey, unit: ordered[0].unit, recentPoints: ordered.slice(-6), allPoints: ordered }];
   });
 }
-export function preconsultSourceWatermark(sourceManifest: Record<string, unknown>): string { return createHash("sha256").update(JSON.stringify(sourceManifest)).digest("hex"); }
+function stableJson(value: unknown): string {
+  if (value === undefined) return "null";
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).filter((key) => record[key] !== undefined).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+export function preconsultSourceWatermark(sourceManifest: Record<string, unknown>): string { return createHash("sha256").update(stableJson(sourceManifest)).digest("hex"); }
 export function selectPriorApprovedBaseline<T extends { id: string; started_at: string }, N extends { consultation_id: string }>(visits: T[], notes: N[]): { visit: T; note: N } | null { const notesByConsultation = new Map(notes.map((note) => [note.consultation_id, note])); for (const visit of [...visits].sort((a, b) => b.started_at.localeCompare(a.started_at))) { const note = notesByConsultation.get(visit.id); if (note) return { visit, note }; } return null; }
+export function isReturningChange(input: { baselineStartedAt: string; currentConsultationId: string; observationConsultationId?: string | null; observationEffectiveDate?: string | null; confirmedAt?: string | null; createdAt?: string | null }): boolean {
+  if (input.observationConsultationId === input.currentConsultationId) return true;
+  if (input.observationEffectiveDate) return input.observationEffectiveDate >= input.baselineStartedAt.slice(0, 10);
+  return Boolean(input.confirmedAt && input.confirmedAt > input.baselineStartedAt) || Boolean(input.createdAt && input.createdAt > input.baselineStartedAt);
+}

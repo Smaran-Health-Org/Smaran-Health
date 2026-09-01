@@ -9,7 +9,7 @@ import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatients } from "@/lib/db/patients";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { drainPreconsultBriefGeneration, getCurrentPreconsultBrief, getPreconsultBriefLifecycle, getPreconsultTrendGroups, recordPreconsultBriefView, type PreconsultBrief } from "@/lib/preconsult/brief";
+import { drainPreconsultBriefGeneration, getPreconsultBriefSnapshot, getPreconsultTrendGroups, recordPreconsultBriefView, type PreconsultBrief } from "@/lib/preconsult/brief";
 
 function verificationLabel(value: string) {
   return value === "confirmed" ? "Doctor-confirmed" : value === "proposed" ? "Proposed — review required" : value === "patient_reported_unconfirmed" ? "Patient-reported — unconfirmed" : value === "external_unconfirmed" ? "External evidence — unconfirmed" : "Needs Review";
@@ -36,14 +36,14 @@ export default async function PreconsultPage({ params, searchParams }: { params:
   if (!consultation || !appointment) notFound();
   const { data: patient } = await client.from("patients").select("full_name,age,gender").eq("id", patientId).eq("clinic_id", session.clinicId).maybeSingle();
   if (!patient) notFound();
-  const [brief, lifecycle, fallbackSources] = await Promise.all([
-    getCurrentPreconsultBrief(consultationId),
-    getPreconsultBriefLifecycle(consultationId),
+  const [snapshotResult, fallbackSources] = await Promise.all([
+    getPreconsultBriefSnapshot(consultationId).catch(() => ({ artifact: null, lifecycle: "unavailable" as const })),
     Promise.all([
       client.from("patient_intake_statements").select("reason_for_visit_raw,information_source").eq("consultation_id", consultationId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       client.from("documents").select("id,original_filename,document_type").eq("patient_id", patientId).eq("clinic_id", session.clinicId).order("created_at", { ascending: false }).limit(6),
     ]),
   ]);
+  const { artifact: brief, lifecycle } = snapshotResult;
   if (brief) await recordPreconsultBriefView(consultationId, brief.id).catch(() => undefined);
   after(() => drainPreconsultBriefGeneration().catch(() => undefined));
   const payload = brief?.payload;

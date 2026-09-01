@@ -126,6 +126,7 @@ type ReconciliationWork = {
   source_observation_id: string | null;
   source_intake_statement_id: string | null;
   source_item_index: number;
+  source_observation_correction_id: string | null;
   domain: ClinicalStateDomain;
 };
 
@@ -162,8 +163,8 @@ async function reconcileWorkItem(work: ReconciliationWork): Promise<void> {
     // immutable extraction row and its evidence remain untouched.
     const { data: correction, error: correctionError } = await service
       .from("current_clinical_observation_corrections")
-      .select("corrected_display_name, corrected_normalized_value")
-      .eq("source_observation_id", work.source_observation_id)
+      .select("id, corrected_display_name, corrected_normalized_value")
+      .eq("id", work.source_observation_correction_id ?? "00000000-0000-0000-0000-000000000000")
       .maybeSingle();
     if (correctionError) throw new ClinicalStateError("unavailable");
     const corrected = correction as Record<string, unknown> | null;
@@ -206,6 +207,7 @@ async function reconcileWorkItem(work: ReconciliationWork): Promise<void> {
     p_proposed_state_status: outcome.proposedStateStatus,
     p_comparator_contract_version: CLINICAL_STATE_COMPARATOR_VERSION,
     p_proposal_fingerprint: outcome.fingerprint,
+    p_source_observation_correction_id: work.source_observation_correction_id,
   });
   if (error) throw new ClinicalStateError("unavailable");
 }
