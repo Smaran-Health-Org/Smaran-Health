@@ -732,6 +732,22 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - `npx supabase test db --local supabase/tests/0041_preconsult_phase9_senior_review_fixes.test.sql` — pass, 37 assertions, including actual service-role worker invocation, ordinary-caller denial, and authenticated doctor source writes through the permitted consultation, approved-note, intake, document, and confirmed-state paths.
   - `npm test -- --test-name-pattern='Phase 9|returning changes|source watermark'` — pass, 64 tests.
   - `npx tsc --noEmit` — pass.
+- Final targeted senior-review fixes (migration `0042`, uncommitted):
+  - Added a claimed reconciliation revision and an atomic, locked final-create check. A worker that was claimed for correction C1 exits without a delta/evidence when C2 advances the shared work; it cannot reinterpret C1 as the original observation.
+  - Added effective-source-revision delta idempotency. An equivalent proposal from a later correction creates a distinct current delta with correction provenance while the prior stale delta stays immutable history.
+  - Corrected the correction enqueue enum conversion and narrowed merge-time provenance validation to the authorized source-to-canonical reassignment transaction, preserving correction/origin identities through the real merge path.
+  - Made the snapshot RPC qualify its actor lookup, calculate Updating only for active work newer than the current-pointer revision, and made the consultation API consume the same snapshot/artifact/lifecycle contract as the page.
+  - Added database immutability for consultation-start snapshots (with only canonical patient reassignment during an authorized merge), strict structural correction calendar-date validation, patient-record navigation for non-document evidence, and explicit service-role-only execute grants for correction-aware reconciliation RPCs.
+- Final targeted validation run:
+  - `npx supabase db reset --local` — pass; clean replay through `0042`.
+  - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
+  - `npx supabase test db --local supabase/tests/0041_preconsult_phase9_senior_review_fixes.test.sql` — pass, 37 assertions.
+  - `npx supabase test db --local supabase/tests/0042_preconsult_phase9_final_review_fixes.test.sql` — pass, 35 assertions, including the C1→C2 stale-worker sequence, stale-equivalent D1/D2, correction-aware merge, snapshot immutability, privileges, and revision lifecycle cases.
+  - `npx supabase test db --local supabase/tests/0038_preconsult_phase8_review_fixes.test.sql` — pass, 14 assertions; preserved the established legacy reconciliation RPC contract while the correction worker uses the dedicated CAS finalizer.
+  - `npm test` — pass, 65 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `npx next build --webpack` — pass.
 - Remaining known limitations:
   - Source-trigger enqueue intentionally swallows unexpected enqueue infrastructure errors to preserve the non-blocking-care invariant; durable work is retried by subsequent successful source events/authorized generation invocation. There is still no independent scheduler (Phase 13 hardening).
   - Pre-0041 Encounter origin backfill is deterministic but cannot reconstruct an original merged identity where no prior Phase 9 artifact recorded it; the migration documents and preserves that conservative fallback rather than guessing.

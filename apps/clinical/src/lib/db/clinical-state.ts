@@ -127,6 +127,7 @@ type ReconciliationWork = {
   source_intake_statement_id: string | null;
   source_item_index: number;
   source_observation_correction_id: string | null;
+  reconciliation_revision: number;
   domain: ClinicalStateDomain;
 };
 
@@ -144,7 +145,8 @@ async function currentStateForWork(patientId: string) {
   }));
 }
 
-async function reconcileWorkItem(work: ReconciliationWork): Promise<void> {
+/** Returns false only when a newer source revision has superseded this claim. */
+async function reconcileWorkItem(work: ReconciliationWork): Promise<boolean> {
   const service = createServiceRoleClient();
   const current = await currentStateForWork(work.patient_id);
   let outcome: ReturnType<typeof compareExternalObservation>;
@@ -168,6 +170,10 @@ async function reconcileWorkItem(work: ReconciliationWork): Promise<void> {
       .maybeSingle();
     if (correctionError) throw new ClinicalStateError("unavailable");
     const corrected = correction as Record<string, unknown> | null;
+    // A correction-specific claim must never reinterpret a superseded
+    // correction as the original extraction. The database repeats this CAS
+    // check while it holds the work-row lock before creating evidence/deltas.
+    if (work.source_observation_correction_id && !corrected) return false;
     const normalized = (corrected?.corrected_normalized_value ?? row.normalized_value) as { valueText?: string };
     const value: ClinicalStateValue = {
       displayName: String(corrected?.corrected_display_name ?? row.display_name), valueText: String(normalized.valueText ?? ""),
@@ -193,8 +199,8 @@ async function reconcileWorkItem(work: ReconciliationWork): Promise<void> {
     throw new ClinicalStateError("invalid");
   }
 
-  if (outcome.kind === "no_material_change") return;
-  const { error } = await service.rpc("create_clinical_state_delta", {
+  if (outcome.kind === "no_material_change") return true;
+  const { data, error } = await service.rpc("create_clinical_state_delta_for_claim", {
     p_source_observation_id: work.source_observation_id,
     p_source_intake_statement_id: work.source_intake_statement_id,
     p_source_item_index: work.source_item_index,
@@ -208,8 +214,13 @@ async function reconcileWorkItem(work: ReconciliationWork): Promise<void> {
     p_comparator_contract_version: CLINICAL_STATE_COMPARATOR_VERSION,
     p_proposal_fingerprint: outcome.fingerprint,
     p_source_observation_correction_id: work.source_observation_correction_id,
+    p_work_id: work.id,
+    p_expected_reconciliation_revision: work.reconciliation_revision,
   });
   if (error) throw new ClinicalStateError("unavailable");
+  // NULL is the intentional stale-claim result, not a failed retry. A newer
+  // correction has already requeued the shared work row.
+  return Boolean(data);
 }
 
 /**
@@ -225,9 +236,11 @@ export async function drainClinicalStateReconciliation(limit = 16): Promise<void
     const work = (Array.isArray(data) ? data[0] : data) as ReconciliationWork | null;
     if (!work) return;
     try {
-      await reconcileWorkItem(work);
-      const { error: completeError } = await service.rpc("complete_clinical_state_reconciliation_work", { p_work_id: work.id });
-      if (completeError) throw new ClinicalStateError("unavailable");
+      const current = await reconcileWorkItem(work);
+      if (current) {
+        const { error: completeError } = await service.rpc("complete_clinical_state_reconciliation_work", { p_work_id: work.id });
+        if (completeError) throw new ClinicalStateError("unavailable");
+      }
     } catch {
       await service.rpc("fail_clinical_state_reconciliation_work", {
         p_work_id: work.id,

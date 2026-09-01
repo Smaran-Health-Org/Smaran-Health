@@ -13,6 +13,17 @@ const isoDateSchema = z
     "Date of birth cannot be in the future"
   );
 
+// Evidence dates must be real calendar dates, but unlike date of birth they
+// intentionally carry no future-date policy. Extraction/correction contracts
+// preserve the source's stated precision rather than guessing clinical intent.
+const calendarDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format")
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  }, "Date is invalid");
+
 // ── Patient ─────────────────────────────────────────────────────────────────
 
 export const createPatientSchema = z.object({
@@ -71,7 +82,7 @@ export const createClinicalObservationCorrectionSchema = z.object({
     referenceRange: z.string().trim().max(300).nullable().optional(),
     qualifier: z.string().trim().max(100).nullable().optional(),
   }),
-  effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  effectiveDate: calendarDateSchema.nullable().optional(),
   effectiveDateText: z.string().trim().max(200).nullable().optional(),
   effectiveDatePrecision: z.enum(["unknown", "exact", "approximate"]).default("unknown"),
   reason: z.string().trim().max(500).nullable().optional(),

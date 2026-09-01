@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PRECONSULT_BRIEF_SCHEMA_VERSION, buildComparableTrendGroups, derivePreconsultBriefLifecycle, hasActivePreconsultGenerationWork, isReturningChange, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, type PreconsultTrendPoint } from "../lib/preconsult/contract";
+import { createClinicalObservationCorrectionSchema } from "../lib/validation";
 
 test("Phase 9 baseline uses visit chronology and only approved-note candidates", () => {
   const baseline = selectPriorApprovedBaseline([
@@ -49,6 +50,14 @@ test("brief lifecycle never presents retained work as current while regeneration
   assert.equal(hasActivePreconsultGenerationWork("processing"), true);
   assert.equal(hasActivePreconsultGenerationWork("retryable_failed"), true);
   assert.equal(hasActivePreconsultGenerationWork("completed"), false);
+});
+
+test("correction evidence dates require a real calendar date without adding a future-date policy", () => {
+  const base = { displayName: "HbA1c", normalizedValue: { valueText: "7.1" }, effectiveDateText: "reported", effectiveDatePrecision: "exact", idempotencyKey: "correction-date" };
+  assert.equal(createClinicalObservationCorrectionSchema.safeParse({ ...base, effectiveDate: "2024-02-29" }).success, true);
+  assert.equal(createClinicalObservationCorrectionSchema.safeParse({ ...base, effectiveDate: "2026-02-31" }).success, false);
+  assert.equal(createClinicalObservationCorrectionSchema.safeParse({ ...base, effectiveDate: "2026-13-01" }).success, false);
+  assert.equal(createClinicalObservationCorrectionSchema.safeParse({ ...base, effectiveDate: "2099-01-01" }).success, true);
 });
 
 function point(overrides: Partial<PreconsultTrendPoint> = {}): PreconsultTrendPoint {

@@ -130,12 +130,9 @@ export async function drainPreconsultBriefGeneration(limit = 8): Promise<void> {
 }
 
 export async function getCurrentPreconsultBrief(consultationId: string): Promise<PreconsultArtifact | null> {
-  const client = await createServerClient();
-  const { data, error } = await client.from("preconsult_brief_versions").select("id,result_state,source_watermark,generated_at,payload").eq("consultation_id", consultationId).order("generated_at", { ascending: false }).order("version_number", { ascending: false }).limit(1);
-  if (error) throw new Error("preconsult_unavailable");
-  const row = (data as RecordRow[] | null)?.[0];
-  if (!row) return null;
-  return { id: String(row.id), resultState: row.result_state as "ready" | "partial", sourceWatermark: String(row.source_watermark), generatedAt: String(row.generated_at), payload: preconsultBriefSchema.parse(row.payload) };
+  // Retained for callers that only need the artifact; currentness is always
+  // the server-owned pointer/snapshot contract, never generated_at ordering.
+  return (await getPreconsultBriefSnapshot(consultationId)).artifact;
 }
 
 export async function getPreconsultBriefSnapshot(consultationId: string): Promise<{ artifact: PreconsultArtifact | null; lifecycle: PreconsultBriefLifecycle }> {
