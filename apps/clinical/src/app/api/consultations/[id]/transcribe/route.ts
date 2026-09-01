@@ -77,6 +77,11 @@ export async function POST(
   const segmentCount = Number(form.get("segmentCount") ?? "1");
   const mimeType =
     typeof form.get("mimeType") === "string" ? String(form.get("mimeType")) : audio.type;
+  // Browsers report MediaRecorder types with parameters (e.g.
+  // "audio/webm;codecs=opus"). Supabase Storage validates the content-type
+  // against its allowlist as an exact string and rejects the parameterized
+  // form, so normalize to the bare media type before uploading.
+  const baseMimeType = mimeType.split(";")[0].trim().toLowerCase();
   if (
     !Number.isInteger(segmentIndex) ||
     segmentIndex < 0 ||
@@ -91,11 +96,11 @@ export async function POST(
   // 1. Persist the raw audio in the private bucket. The route already enforced
   //    auth + clinic scope; storage is only reachable via the service-role
   //    client here (server-only), and the path itself is clinic-scoped.
-  const storagePath = `${session.clinicId}/${id}/${randomUUID()}.${mimeTypeToExtension(mimeType)}`;
+  const storagePath = `${session.clinicId}/${id}/${randomUUID()}.${mimeTypeToExtension(baseMimeType)}`;
   const admin = createAdminClient();
   const { error: uploadError } = await admin.storage
     .from(AUDIO_BUCKET)
-    .upload(storagePath, audioBuffer, { contentType: mimeType, upsert: false });
+    .upload(storagePath, audioBuffer, { contentType: baseMimeType, upsert: false });
 
   if (uploadError) {
     logError("transcribe.storage_upload_failed", uploadError, {
@@ -113,7 +118,7 @@ export async function POST(
       consultationId: id,
       clinicId: session.clinicId,
       storagePath,
-      format: mimeType,
+      format: baseMimeType,
     });
   } catch (error) {
     logWarn("transcribe.audio_file_row_failed", {
@@ -129,7 +134,7 @@ export async function POST(
   try {
     stt = await transcribeSegment({
       audioBuffer,
-      mimeType,
+      mimeType: baseMimeType,
       mode: "codemix",
       languageCode: "unknown",
     });
