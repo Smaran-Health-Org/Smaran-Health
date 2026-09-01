@@ -62,6 +62,22 @@ export const decideClinicalStateDeltaSchema = z.object({
   idempotencyKey: z.string().trim().min(1).max(200),
 });
 
+export const createClinicalObservationCorrectionSchema = z.object({
+  displayName: z.string().trim().min(1).max(200),
+  normalizedValue: z.object({
+    valueText: z.string().trim().min(1).max(500),
+    numericValue: z.number().finite().nullable().optional(),
+    unit: z.string().trim().max(100).nullable().optional(),
+    referenceRange: z.string().trim().max(300).nullable().optional(),
+    qualifier: z.string().trim().max(100).nullable().optional(),
+  }),
+  effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  effectiveDateText: z.string().trim().max(200).nullable().optional(),
+  effectiveDatePrecision: z.enum(["unknown", "exact", "approximate"]).default("unknown"),
+  reason: z.string().trim().max(500).nullable().optional(),
+  idempotencyKey: z.string().trim().min(1).max(200),
+});
+
 export const createPatientRequestSchema = createPatientSchema.extend({
   duplicateOverride: z.literal("confirmed_distinct_patient").optional(),
 });

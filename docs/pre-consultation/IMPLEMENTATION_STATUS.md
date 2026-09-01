@@ -5,7 +5,7 @@ Baseline commit reviewed: `bbf2a07`
 
 ## Overall status
 
-**PHASE 8 COMPLETE — versioned doctor-confirmed clinical state and conservative delta reconciliation implemented**
+**PHASE 9 IMPLEMENTATION READY FOR REVIEW — doctor-only, derivative pre-consult briefs implemented; senior review and full CI remain pending**
 
 ## Phase tracker
 
@@ -21,7 +21,7 @@ Baseline commit reviewed: `bbf2a07`
 | 6.5 | Role workspaces, dashboards, and Clinic Desk automation | Complete | AC-W01–W19; AC-I08–I09; AC-A06 | Workspace boundary, role landings, dashboards, Clinic Desk, Priority, queue/walk-ins, and assisted intake with immutable additive provenance implemented. |
 | 7 | Normalized observations + provenance | Complete | AC-D03, AC-A01–A04 | Immutable doctor-only observations, page/evidence/date provenance, unconfirmed boundary, and duplicate/retry-safe trend inputs implemented. |
 | 8 | Confirmed state + delta engine | Complete | AC-C01–C05, AC-C07, AC-A03–A05, AC-R02–R03 | The engine/data contract supports later consolidated Review Changes (AC-C06); the actual consolidated UI remains Phase 10. |
-| 9 | 30-second doctor brief | Not started | AC-B* | |
+| 9 | 30-second doctor brief | Implementation ready for review | AC-B01–B06, AC-A02–A06, AC-C01–C07 (integration), AC-R02–R03, AC-E03 | Immutable doctor-only brief artifacts, durable regeneration, correction overlay, evidence links, Start Consultation snapshot, and dedicated pre-consult UI are implemented. Senior review/full CI remain pending. |
 | 10 | Review Changes UI | Not started | AC-C02–C07 | |
 | 11 | Consultation integration | Not started | AC-B06, D-034 | |
 | 12 | 30-minute reminder automation | Not started | AC-I06 | |
@@ -695,6 +695,29 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Patient stopped-medication detection is deliberately English-only and limited to `stopped`, `not taking`, `not using`, and `discontinued` followed by exactly one current medication key. Other wording becomes `possible_change`.
 - Recommended next task:
   - Phase 9 — 30-second doctor pre-consult brief. Consume the explicit Phase 8 confirmed-state/delta contracts without changing confirmed-state ownership, doctor-control rules, or the approved-note-only follow-up-memory invariant.
+
+### Phase 9 — Doctor 30-second pre-consult brief
+
+- Status: Implementation ready for senior review and full CI; not marked production-complete.
+- Implemented:
+  - Added immutable, Encounter-scoped `preconsult_brief_versions`, explicit evidence links, durable generation work, current correction overlay, doctor-view provenance, and immutable consultation-start snapshots in migration `0040`.
+  - Added doctor-only RLS and guarded RPCs. Generation claim/persist functions are service-only; direct authenticated writes to brief/work tables remain unavailable.
+  - Deterministically selects the most recent prior consultation with an approved note by visit chronology, keeps current confirmed state distinct from the last-visit baseline, and validates a bounded structured brief contract with explicit verification states.
+  - Added source-event invalidation for eligible still-pre-consult Encounters, safe retryable work, stale-result recheck, version serialization, merge ownership re-rooting with immutable origin provenance, and Phase 8 re-evaluation after doctor observation correction.
+  - Added `/patients/[id]/preconsult?consultation=<consultationId>` and changed Doctor Today `Open` to reach it without starting the consultation. The explicit Start Consultation action continues through the authoritative queue transition and records the at-start artifact/none-available snapshot. A protected lifecycle signal visibly labels retained briefs as Updating while relevant durable work is pending, processing, or retryable.
+  - Added factual, comparable numeric trend drill-downs with a recent default window, full eligible history, date precision, original evidence access, correction provenance, and a contextual doctor-confirmed correction form.
+- Acceptance criteria:
+  - Implements `AC-B01`–`AC-B06`; preserves evidence/provenance and confirmation boundaries in `AC-A02`–`AC-A06`; preserves Phase 8 doctor-control/non-blocking boundaries in `AC-C01`–`AC-C07`; enforces `AC-R02`–`AC-R03`; and preserves `AC-E03`.
+- Targeted validation run:
+  - `npx supabase migration up --local` — pass.
+  - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
+  - `npm test` — pass, 60 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `npx next build --webpack` — pass.
+- Safety and scope:
+  - The brief is derivative only; it cannot confirm state, generate Priority, diagnose, recommend treatment, prescribe, or replace authorized evidence. Original document access remains via existing private authorized routes; no brief content is written to generic logs.
+  - Phase 10 Review Changes UI and Phase 11 in-consultation persistence are intentionally not started. Trends use only the existing eligible observation inputs; no unit conversion or clinical-significance labels were added.
 
 ### Phase 5 follow-up — senior review hardening
 

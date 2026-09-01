@@ -158,9 +158,18 @@ async function reconcileWorkItem(work: ReconciliationWork): Promise<void> {
     const row = data as Record<string, unknown>;
     const domain = row.observation_type as ClinicalStateDomain;
     if (domain !== work.domain) throw new ClinicalStateError("invalid");
-    const normalized = row.normalized_value as { valueText?: string };
+    // Phase 9 corrections are a doctor-authorized interpretation overlay. The
+    // immutable extraction row and its evidence remain untouched.
+    const { data: correction, error: correctionError } = await service
+      .from("current_clinical_observation_corrections")
+      .select("corrected_display_name, corrected_normalized_value")
+      .eq("source_observation_id", work.source_observation_id)
+      .maybeSingle();
+    if (correctionError) throw new ClinicalStateError("unavailable");
+    const corrected = correction as Record<string, unknown> | null;
+    const normalized = (corrected?.corrected_normalized_value ?? row.normalized_value) as { valueText?: string };
     const value: ClinicalStateValue = {
-      displayName: String(row.display_name), valueText: String(normalized.valueText ?? ""),
+      displayName: String(corrected?.corrected_display_name ?? row.display_name), valueText: String(normalized.valueText ?? ""),
       ...(domain === "medication" ? { regimenText: String(normalized.valueText ?? "") } : {}),
     };
     outcome = compareExternalObservation(domain, value, current);

@@ -79,13 +79,9 @@ export function DoctorTodayList({ items }: { items: AppointmentQueueItem[] }) {
     setBusyId(item.appointmentId);
     setError(null);
     try {
-      const response = await fetch(`/api/appointments/${item.appointmentId}/queue`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operation: "start_consultation" }),
-      });
-      if (!response.ok) throw new Error("Could not open the consultation. Please try again.");
-      router.push(`/consultations/${item.consultationId}`);
+      // Opening the doctor-only preparation surface must not transition the
+      // authoritative queue state. Start Consultation remains explicit there.
+      router.push(`/patients/${item.patientId}/preconsult?consultation=${item.consultationId}`);
     } catch (openError) {
       setError(openError instanceof Error ? openError.message : "Could not open the consultation.");
       setBusyId(null);

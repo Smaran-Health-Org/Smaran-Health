@@ -197,6 +197,24 @@
 .secondaryButton { border: 1px solid #dbe2df; background: #fff; color: #4e5e59; }
 .primaryButton { border: 1px solid var(--green); background: var(--green); color: #fff; box-shadow: 0 8px 20px rgba(23, 116, 91, 0.16); }
 .primaryButton:disabled { border-color: #c8cfcc; background: #c8cfcc; box-shadow: none; cursor: not-allowed; }
+
+.trendAffordances, .trendActions { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.trendDialog { position: fixed; inset: auto; z-index: 60; width: min(700px, calc(100vw - 2rem)); max-height: min(780px, calc(100vh - 2rem)); overflow: auto; border: 1px solid var(--line); border-radius: 18px; background: #fff; padding: 1.2rem; color: var(--ink); box-shadow: 0 24px 80px rgba(20, 36, 30, 0.28); }
+.trendDialog::backdrop { background: rgba(15, 30, 24, 0.38); }
+.trendDialogHeader { display: flex; justify-content: space-between; gap: 1rem; align-items: start; }
+.trendDialogHeader h2 { margin: 0.2rem 0 0; font-size: 1.05rem; }
+.trendChart { margin: 1rem 0; border: 1px solid #e3ebe7; border-radius: 12px; background: #fbfdfc; padding: 0.75rem; }
+.trendChart svg { display: block; width: 100%; height: auto; }
+.trendChart figcaption { color: var(--muted); font-size: 0.68rem; }
+.trendAxis { stroke: #b8c7c0; stroke-width: 1; }
+.trendLine { fill: none; stroke: var(--green); stroke-width: 2.5; }
+.trendDot { fill: #fff; stroke: var(--green-dark); stroke-width: 2; }
+.trendCorrectionForm { display: grid; gap: 0.65rem; margin-top: 0.8rem; border-top: 1px solid #e3ebe7; padding-top: 0.8rem; }
+.trendCorrectionForm p { margin: 0; color: var(--muted); font-size: 0.72rem; line-height: 1.45; }
+.trendCorrectionForm label { display: grid; gap: 0.3rem; color: #52635d; font-size: 0.68rem; font-weight: 800; }
+.trendCorrectionForm input, .trendCorrectionForm select { width: 100%; border: 1px solid #ccd8d2; border-radius: 8px; background: #fff; padding: 0.5rem 0.6rem; color: var(--ink); font: inherit; font-size: 0.76rem; }
+.trendCorrectionForm .consentCheck { display: flex; align-items: center; gap: 0.45rem; font-weight: 650; }
+.trendCorrectionForm .consentCheck input { width: auto; }
 .stopButton { border: 1px solid #cd4a43; background: #cd4a43; color: #fff; }
 .rejectButton { border: 1px solid #efdad7; background: #fff8f7; color: #9e4139; }
 .declineButton { border: 1px solid #eadcc8; background: #fffaf3; color: #815b27; }
