@@ -1,39 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 import { getSessionContext } from "@/lib/db/session";
-import { getConsultation } from "@/lib/db/consultations";
-import { upsertTranscript } from "@/lib/db/transcripts";
+import { getConsultation, updateConsultation } from "@/lib/db/consultations";
+import { upsertTranscript, getTranscriptByConsultation } from "@/lib/db/transcripts";
 import { createAudioFile } from "@/lib/db/audio-files";
 import { createAuditLog } from "@/lib/db/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   isSarvamConfigured,
-  mimeTypeToExtension,
   SARVAM_STT_MODEL,
-  transcribeSegment,
+  initiateBatchJob,
+  uploadBatchFile,
+  startBatchJob,
+  getBatchJobStatus,
+  downloadBatchTranscript,
 } from "@/lib/ai/sarvam";
 import { logEvent, logError, logWarn } from "@/lib/logger";
 import { badRequest, internalError, notFound, unauthorized } from "@/lib/api/error-handler";
 
 const AUDIO_BUCKET = "audio";
-// ~20-second segments at the client's 64 kbps opus bitrate are ≈ 160 KB. The
-// cap keeps each Sarvam call well inside the Vercel Hobby 60 s function limit.
-const MAX_SEGMENT_BYTES = 4_000_000;
 
 /**
  * POST /api/consultations/[id]/transcribe
  *
- * Body: multipart/form-data — audio file + segment metadata.
+ * Body: { storagePath: string; mimeType: string; durationSeconds?: number }
  *
- * Pipeline (server-only; SARVAM_API_KEY never touches the browser):
- *   1. Persist the raw audio in the private `audio` bucket (clinic-scoped path).
- *   2. Record the audio_files row (clinic-scoped RLS insert).
- *   3. Sarvam STT (saaras:v3, codemix, auto-detect language).
- *   4. Upsert the transcripts row (segment 0 replaces, later segments append).
- *   5. Audit + return the accumulated transcript.
+ * Starts a Sarvam Batch transcription job for a recording the browser already
+ * uploaded directly to Supabase Storage (see `upload-url/route.ts`). The
+ * server downloads the object, streams it to Sarvam's presigned upload URL,
+ * starts the job, and persists `sarvam_job_id` so the client can poll.
  *
- * The client uploads one request per segment; each response returns the
- * full transcript accumulated so far.
+ * GET /api/consultations/[id]/transcribe
+ *
+ * Polls the persisted job. On "Completed" the transcript is downloaded,
+ * upserted, and returned; the client then hands off to draft generation.
  */
 export async function POST(
   request: NextRequest,
@@ -48,76 +47,61 @@ export async function POST(
 
   if (!isSarvamConfigured()) {
     return NextResponse.json(
-      {
-        error:
-          "AI transcription is not configured on the server yet. Please try again later.",
-      },
+      { error: "AI transcription is not configured on the server yet." },
       { status: 503 }
     );
   }
 
-  let form: FormData;
+  let body: { storagePath?: unknown; mimeType?: unknown; durationSeconds?: unknown };
   try {
-    form = await request.formData();
+    body = await request.json();
   } catch {
-    return badRequest("Expected a multipart audio upload.");
+    return badRequest("Expected a JSON body.");
   }
 
-  const audio = form.get("audio");
-  if (!(audio instanceof Blob)) {
-    return badRequest("Missing audio file.");
-  }
-  if (audio.size <= 0 || audio.size > MAX_SEGMENT_BYTES) {
-    return badRequest(
-      `Audio segment must be between 1 byte and ${MAX_SEGMENT_BYTES} bytes.`
-    );
+  const storagePath = typeof body.storagePath === "string" ? body.storagePath : "";
+  // The upload is only accepted if it lives under this clinic/consultation
+  // prefix — this pins the server download to objects this caller owns.
+  const allowedPrefix = `${session.clinicId}/${id}/`;
+  if (!storagePath || !storagePath.startsWith(allowedPrefix)) {
+    return badRequest("Invalid storage path.");
   }
 
-  const segmentIndex = Number(form.get("segmentIndex") ?? "0");
-  const segmentCount = Number(form.get("segmentCount") ?? "1");
-  const mimeType =
-    typeof form.get("mimeType") === "string" ? String(form.get("mimeType")) : audio.type;
-  // Browsers report MediaRecorder types with parameters (e.g.
-  // "audio/webm;codecs=opus"). Supabase Storage validates the content-type
-  // against its allowlist as an exact string and rejects the parameterized
-  // form, so normalize to the bare media type before uploading.
+  const mimeType = typeof body.mimeType === "string" ? body.mimeType : "audio/webm";
   const baseMimeType = mimeType.split(";")[0].trim().toLowerCase();
-  if (
-    !Number.isInteger(segmentIndex) ||
-    segmentIndex < 0 ||
-    !Number.isInteger(segmentCount) ||
-    segmentCount < 1
-  ) {
-    return badRequest("Invalid segment metadata.");
-  }
+  const durationSeconds =
+    typeof body.durationSeconds === "number" && body.durationSeconds > 0
+      ? Math.round(body.durationSeconds)
+      : null;
 
-  const audioBuffer = await audio.arrayBuffer();
-
-  // 1. Persist the raw audio in the private bucket. The route already enforced
-  //    auth + clinic scope; storage is only reachable via the service-role
-  //    client here (server-only), and the path itself is clinic-scoped.
-  const storagePath = `${session.clinicId}/${id}/${randomUUID()}.${mimeTypeToExtension(baseMimeType)}`;
   const admin = createAdminClient();
-  const { error: uploadError } = await admin.storage
-    .from(AUDIO_BUCKET)
-    .upload(storagePath, audioBuffer, { contentType: baseMimeType, upsert: false });
 
-  if (uploadError) {
-    logError("transcribe.storage_upload_failed", uploadError, {
+  // 1. Fetch the audio the browser already uploaded (service-role download).
+  let audioBlob: Blob;
+  try {
+    const { data, error } = await admin.storage.from(AUDIO_BUCKET).download(storagePath);
+    if (error || !data) throw error ?? new Error("Download returned no data.");
+    audioBlob = data;
+  } catch (error) {
+    logError("transcribe.storage_download_failed", error, {
       consultationId: id,
       clinicId: session.clinicId,
-      segmentIndex,
     });
-    return internalError("The recording could not be stored. Please retry.");
+    return badRequest("The recording could not be found. Please retry the upload.");
   }
 
-  // 2. Record the audio file row. Non-fatal if it fails — the audio itself is
-  //    already stored and the transcript pipeline continues.
+  const audioBuffer = await audioBlob.arrayBuffer();
+  if (audioBuffer.byteLength === 0) {
+    return badRequest("The recording is empty.");
+  }
+
+  // 2. Record the audio file row (non-fatal — transcription continues).
   try {
     await createAudioFile({
       consultationId: id,
       clinicId: session.clinicId,
       storagePath,
+      durationSeconds,
       format: baseMimeType,
     });
   } catch (error) {
@@ -128,81 +112,147 @@ export async function POST(
     });
   }
 
-  // 3. Sarvam speech-to-text (codemix keeps Hinglish faithful; "unknown"
-  //    auto-detects the language).
-  let stt;
+  // 3. Sarvam Batch: initiate → upload → start. The single continuous file
+  //    preserves cross-sentence context for Hindi/Hinglish transcription.
+  let jobId: string;
   try {
-    stt = await transcribeSegment({
-      audioBuffer,
-      mimeType: baseMimeType,
-      mode: "codemix",
-      languageCode: "unknown",
-    });
+    jobId = await initiateBatchJob({ mode: "codemix", languageCode: "unknown" });
+    const fileName = storagePath.split("/").pop() ?? "consultation.webm";
+    await uploadBatchFile({ jobId, fileName, audioBuffer, mimeType: baseMimeType });
+    await startBatchJob(jobId);
   } catch (error) {
-    logError("transcribe.sarvam_failed", error, {
+    logError("transcribe.batch_start_failed", error, {
       consultationId: id,
       clinicId: session.clinicId,
-      segmentIndex,
-      segmentCount,
     });
     return NextResponse.json(
-      { error: "Transcription failed. Please retry." },
+      { error: "Transcription could not be started. Please retry." },
       { status: 502 }
     );
   }
 
-  // 4. Upsert the transcript — segment 0 replaces, later segments append.
-  let transcript;
+  // 4. Persist the job id so the client can poll (and resume after a reload).
   try {
-    transcript = await upsertTranscript(
-      {
-        consultationId: id,
-        rawText: stt.transcript,
-        replace: segmentIndex === 0,
-        modelVersion: SARVAM_STT_MODEL,
-        languageCodes: stt.languageCode ? [stt.languageCode] : undefined,
-      },
-      session.clinicId
-    );
+    await updateConsultation(id, { sarvamJobId: jobId }, session.clinicId);
   } catch (error) {
-    logError("transcribe.transcript_save_failed", error, {
+    logError("transcribe.job_persist_failed", error, {
       consultationId: id,
       clinicId: session.clinicId,
-      segmentIndex,
+      jobId,
     });
-    return internalError(
-      "The transcript could not be saved. Please retry."
-    );
+    return internalError("Transcription could not be tracked. Please retry.");
   }
 
-  // 5. Audit trail (metadata is PHI-safe: ids, counts, model names — no text).
-  createAuditLog(
-    session.clinicId,
-    session.profileId,
-    "transcript.transcribed",
-    "transcript",
-    transcript.id,
-    {
-      segmentIndex,
-      segmentCount,
-      model: SARVAM_STT_MODEL,
-      languageCode: stt.languageCode,
-    }
-  );
-
-  logEvent("transcribe.completed", {
+  logEvent("transcribe.batch_started", {
     consultationId: id,
     clinicId: session.clinicId,
-    segmentIndex,
-    segmentCount,
+    jobId,
     model: SARVAM_STT_MODEL,
   });
 
+  return NextResponse.json({ jobId });
+}
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await getSessionContext();
+  if (!session) return unauthorized();
+
+  const consultation = await getConsultation(id, session.clinicId);
+  if (!consultation) return notFound("Consultation not found");
+
+  // No job in flight: either the transcript is already saved (reload case) or
+  // transcription was never started.
+  if (!consultation.sarvamJobId) {
+    const existing = await getTranscriptByConsultation(id, session.clinicId);
+    if (existing?.rawText?.trim()) {
+      return NextResponse.json({
+        state: "completed",
+        transcript: { rawText: existing.rawText },
+      });
+    }
+    return NextResponse.json({ state: "idle" });
+  }
+
+  let status;
+  try {
+    status = await getBatchJobStatus(consultation.sarvamJobId);
+  } catch (error) {
+    logError("transcribe.batch_status_failed", error, {
+      consultationId: id,
+      clinicId: session.clinicId,
+      jobId: consultation.sarvamJobId,
+    });
+    return internalError("Transcription status could not be checked. Please retry.");
+  }
+
+  if (status.jobState === "Completed") {
+    try {
+      const result = await downloadBatchTranscript(
+        consultation.sarvamJobId,
+        status.outputFiles
+      );
+      const transcript = await upsertTranscript(
+        {
+          consultationId: id,
+          rawText: result.transcript,
+          replace: true,
+          modelVersion: SARVAM_STT_MODEL,
+          languageCodes: result.languageCode ? [result.languageCode] : undefined,
+        },
+        session.clinicId
+      );
+
+      createAuditLog(
+        session.clinicId,
+        session.profileId,
+        "transcript.transcribed",
+        "transcript",
+        transcript.id,
+        { model: SARVAM_STT_MODEL, languageCode: result.languageCode }
+      );
+
+      // Clear the job id so a later poll short-circuits to "already completed".
+      await updateConsultation(id, { sarvamJobId: null }, session.clinicId).catch(
+        () => {
+          // Non-fatal — the transcript is already saved.
+        }
+      );
+
+      logEvent("transcribe.batch_completed", {
+        consultationId: id,
+        clinicId: session.clinicId,
+        jobId: consultation.sarvamJobId,
+        model: SARVAM_STT_MODEL,
+      });
+
+      return NextResponse.json({
+        state: "completed",
+        transcript: { rawText: transcript.rawText },
+      });
+    } catch (error) {
+      logError("transcribe.batch_download_failed", error, {
+        consultationId: id,
+        clinicId: session.clinicId,
+        jobId: consultation.sarvamJobId,
+      });
+      return internalError("The transcript could not be retrieved. Please retry.");
+    }
+  }
+
+  if (status.jobState === "Failed") {
+    return NextResponse.json({
+      state: "failed",
+      error: status.errorMessage ?? "Transcription failed on the server.",
+    });
+  }
+
+  // Accepted / Pending / Running — the client keeps polling.
   return NextResponse.json({
-    transcript: {
-      rawText: transcript.rawText,
-      segmentIndex,
-      segmentCount,
-    },
+    state: status.jobState.toLowerCase(),
+    jobId: consultation.sarvamJobId,
   });
 }

@@ -84,6 +84,9 @@ export const consultations = pgTable("consultations", {
   consentTimestamp: timestamp("consent_timestamp", { withTimezone: true }),
   startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
   endedAt: timestamp("ended_at", { withTimezone: true }),
+  // Sarvam Batch API job id. Persisted so the client can poll completion
+  // (and resume after a reload) without re-uploading the audio.
+  sarvamJobId: text("sarvam_job_id"),
 });
 
 export const audioFiles = pgTable("audio_files", {

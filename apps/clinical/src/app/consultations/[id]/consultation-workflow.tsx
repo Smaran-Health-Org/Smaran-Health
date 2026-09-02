@@ -119,11 +119,11 @@ const LENGTH_WARN_SECONDS = 15 * 60;
 const LENGTH_HARD_STOP_SECONDS = 30 * 60;
 
 // Sarvam's realtime REST endpoint only accepts audio up to 30 seconds per
-// request ("quick responses under 30 seconds"); longer audio returns 400 and
-// must go through the Batch API. Audio is captured in ~20-second MediaRecorder
-// segments so each Sarvam request stays well inside that limit (and small
-// enough for the Vercel Hobby 60-second serverless function limit).
-const SEGMENT_MS = 20 * 1000;
+// request, so the whole consultation is captured as ONE continuous
+// MediaRecorder stream and handed to Sarvam's Batch API on stop. This keeps
+// Hindi/Hinglish sentences intact (no segment boundaries to clip them).
+// The recording is uploaded directly to Supabase Storage (presigned URL), so
+// a long file never has to squeeze through a Vercel request-body limit.
 
 type MicErrorKind =
   | "unsupported"
@@ -311,7 +311,7 @@ function RecordingRail({
         <strong>
           <i aria-hidden="true" /> {paused ? "Audio paused" : "Audio clear"}
         </strong>
-        <small>{paused ? "Resume when ready" : "Transcript syncing"} · Consent protected</small>
+        <small>{paused ? "Resume when ready" : "Audio is being recorded and saved"} · Consent protected</small>
       </div>
     </div>
   );
@@ -352,27 +352,31 @@ export function ConsultationWorkflow({
   // the summary as a fallback draft.
   const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const [recordingWarningDismissed, setRecordingWarningDismissed] = useState(false);
+  // True when the page reloaded mid-transcription: the Batch job is still in
+  // flight and no transcript has been saved yet. The poll effect below picks
+  // it back up; nothing here re-renders synchronously on mount.
+  const isResuming =
+    (initialStatus === "uploading" || initialStatus === "processing") &&
+    !initialTranscript?.trim();
   // Progress shown while the AI layer prepares the draft:
   // 0 = just entered, 1 = recording received, 2 = transcript prepared,
   // 3 = AI generating, 4 = draft ready (review). A reloaded "processing"
-  // consultation has already saved its transcript, so start at stage 2.
+  // consultation has already saved its transcript (stage 2), while a reloaded
+  // "uploading" consultation is still transcribing (stage 1).
   const [processingStage, setProcessingStage] = useState(() =>
-    initialStatus === "processing" || initialStatus === "uploading" ? 2 : 0
+    isResuming ? 1 : initialStatus === "processing" ? 2 : initialStatus === "uploading" ? 1 : 0
   );
-  // Shown while audio segments are being uploaded + transcribed by Sarvam.
-  const [transcribeProgress, setTranscribeProgress] = useState<{
-    uploaded: number;
-    total: number;
-  } | null>(null);
+  // True while the Sarvam Batch job is running (the server is transcribing).
+  const [transcribing, setTranscribing] = useState(isResuming);
+  const [transcribeElapsedSeconds, setTranscribeElapsedSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  // Completed ~20-second audio segments, awaiting server-side transcription.
-  const segmentsRef = useRef<Blob[]>([]);
-  // Chunks being accumulated by the currently active MediaRecorder segment.
-  const activeSegmentChunksRef = useRef<Blob[]>([]);
-  const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Chunks accumulated by the single continuous MediaRecorder for the whole
+  // recording; concatenated into one Blob on stop and uploaded to Sarvam Batch.
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingMimeRef = useRef<string>("audio/webm");
   const recordingActiveRef = useRef(false);
   const pausedRef = useRef(false);
   // Guards against double-submitting the AI generation step.
@@ -397,10 +401,8 @@ export function ConsultationWorkflow({
   const headerLabel =
     workflowStates.find((item) => item.id === state)?.label ?? workflowStates[step].label;
   // Monotonic progress for the AI pipeline — always moves forward to 100%.
-  // Stage 1 (transcription) is the slowest phase, so the bar advances in
-  // real time as each audio segment is uploaded + transcribed: the first
-  // segment sits near 25%, the last finishes around 50%, then the remaining
-  // pipeline stages continue to 100%.
+  // Stage 1 (transcription) is the slowest phase, so the bar creeps forward
+  // in real time while Sarvam transcribes, then the remaining stages continue.
   const progressPercent =
     processingStage >= 4
       ? 100
@@ -409,24 +411,29 @@ export function ConsultationWorkflow({
         : processingStage >= 2
           ? 50
           : processingStage >= 1
-            ? transcribeProgress && transcribeProgress.total > 0
-              ? Math.round(
-                  25 +
-                    ((transcribeProgress.uploaded + 0.5) /
-                      transcribeProgress.total) *
-                      25
-                )
+            ? transcribing
+              ? Math.min(49, 26 + Math.floor(transcribeElapsedSeconds / 15))
               : 25
             : 8;
   const draftReady = processingStage >= 4;
-  // True while recorded audio segments are being uploaded + transcribed.
-  const transcribing = transcribeProgress !== null;
 
   useEffect(() => {
     if (state !== "recording" || isRecordingPaused) return;
     const timer = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
     return () => clearInterval(timer);
   }, [state, isRecordingPaused]);
+
+  // Elapsed-time readout while the Sarvam Batch job transcribes on the server.
+  // The counter is reset where `transcribing` flips to true (uploadAndTranscribe
+  // / startMicCapture) so this effect only advances it.
+  useEffect(() => {
+    if (!transcribing) return;
+    const timer = setInterval(
+      () => setTranscribeElapsedSeconds((s) => s + 1),
+      1000
+    );
+    return () => clearInterval(timer);
+  }, [transcribing]);
 
   // Recording length safeguard: the 15-minute warning is derived from the
   // timer; the 30-minute auto-stop fires exactly once via a deferred call so
@@ -445,15 +452,43 @@ export function ConsultationWorkflow({
     }
   }, [elapsedSeconds, state]);
 
+  // Resume a Batch transcription that was still running when the page reloaded
+  // (status "uploading"/"processing" and no transcript saved yet). The initial
+  // state is already "processing" + stage 1 + transcribing for this case, so
+  // this effect only polls the server, then either shows the prepared draft or
+  // surfaces the failure for a safe retry.
+  useEffect(() => {
+    if (!isResuming) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const result = await pollTranscription();
+      if (cancelled) return;
+      setTranscribing(false);
+      if (result.ok && result.transcript) {
+        setTranscript(result.transcript);
+        setProcessingStage(2);
+      } else {
+        setError(
+          result.error ??
+            "Transcription could not be resumed. Retry safely, or write the note manually."
+        );
+        setState("failed");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Release the microphone if the doctor navigates away mid-recording.
   useEffect(() => {
     return () => {
       recordingActiveRef.current = false;
       stopLevelMeter();
-      if (segmentTimerRef.current) {
-        clearTimeout(segmentTimerRef.current);
-        segmentTimerRef.current = null;
-      }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
         try {
           mediaRecorderRef.current.stop();
@@ -756,82 +791,48 @@ export function ConsultationWorkflow({
     setState("consent");
   }
 
-  // Starts a fresh MediaRecorder segment on the given stream. Each segment is
-  // finalized by the segment timer (or by a stop/pause) and queued for
-  // server-side transcription. Capturing in ~20-second chunks stays under
-  // Sarvam's 30-second realtime API limit while keeping each request small
-  // enough for the 60-second serverless limit; a long consultation is never
-  // lost if the page closes mid-way.
-  function startNewSegment(stream: MediaStream) {
+  // Starts one continuous MediaRecorder for the whole consultation. A 5-second
+  // timeslice flushes chunks periodically (so a crash loses at most a few
+  // seconds and the browser never holds one huge blob in memory); all chunks
+  // are concatenated into a single file on stop and sent to Sarvam Batch.
+  function startRecorder(stream: MediaStream) {
     const chunks: Blob[] = [];
-    activeSegmentChunksRef.current = chunks;
+    recordingChunksRef.current = chunks;
     const recorder = new MediaRecorder(stream, { audioBitsPerSecond: 64_000 });
+    recordingMimeRef.current = recorder.mimeType || "audio/webm";
     recorder.ondataavailable = (event) => {
       if (event.data && event.data.size > 0) chunks.push(event.data);
     };
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-      chunks.length = 0;
-      if (blob.size > 0) segmentsRef.current.push(blob);
-      // Rotation: keep recording if this stop came from the segment timer
-      // (mediaRecorderRef still points at this recorder). A deliberate stop
-      // clears mediaRecorderRef first, so it never rotates here.
-      if (
-        recordingActiveRef.current &&
-        !pausedRef.current &&
-        mediaRecorderRef.current
-      ) {
-        startNewSegment(stream);
-        startSegmentTimer();
-      }
-    };
-    recorder.start();
+    recorder.start(5000);
     mediaRecorderRef.current = recorder;
-    startSegmentTimer();
   }
 
-  function startSegmentTimer() {
-    if (segmentTimerRef.current) clearTimeout(segmentTimerRef.current);
-    segmentTimerRef.current = setTimeout(() => {
-      const recorder = mediaRecorderRef.current;
-      if (recorder && recorder.state !== "inactive") {
-        try {
-          recorder.stop();
-        } catch {
-          // Ignore — the recorder may have just stopped on its own.
-        }
-      }
-    }, SEGMENT_MS);
-  }
-
-  // Finalizes the in-progress segment and resolves once it is queued.
-  function stopCurrentRecorder(): Promise<void> {
+  // Finalizes the recorder and resolves with the assembled audio Blob.
+  function stopRecorder(): Promise<Blob> {
     return new Promise((resolve) => {
       const recorder = mediaRecorderRef.current;
       mediaRecorderRef.current = null;
+      const chunks = recordingChunksRef.current;
+      const mimeType = recordingMimeRef.current;
+      const finish = () => resolve(new Blob(chunks, { type: mimeType }));
       if (!recorder || recorder.state === "inactive") {
-        resolve();
+        finish();
         return;
       }
-      recorder.onstop = () => {
-        const chunks = activeSegmentChunksRef.current;
-        const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-        chunks.length = 0;
-        if (blob.size > 0) segmentsRef.current.push(blob);
-        resolve();
-      };
+      recorder.onstop = finish;
       try {
         recorder.stop();
       } catch {
-        resolve();
+        finish();
       }
     });
   }
 
   async function startMicCapture(previewStream?: MediaStream): Promise<boolean> {
     setTranscript("");
-    segmentsRef.current = [];
-    setTranscribeProgress(null);
+    recordingChunksRef.current = [];
+    setTranscribing(false);
+    setTranscribeElapsedSeconds(0);
     try {
       // Reuse the stream acquired during the mic check when it is still live;
       // otherwise acquire a fresh one.
@@ -855,10 +856,7 @@ export function ConsultationWorkflow({
         track.onended = handleUnexpectedTrackEnd;
       });
 
-      startNewSegment(stream);
-
-      // Mark the recording active so the segment-rotation onstop handler keeps
-      // recording after each 20-second segment completes.
+      startRecorder(stream);
       recordingActiveRef.current = true;
       return true;
     } catch {
@@ -868,20 +866,17 @@ export function ConsultationWorkflow({
   }
 
   // Stops the recorder and releases the microphone. Only audio is captured;
-  // transcription happens server-side (Sarvam) from the queued segments.
-  async function stopMicCapture(): Promise<void> {
+  // transcription happens server-side (Sarvam Batch) from the assembled Blob.
+  async function stopMicCapture(): Promise<Blob> {
     recordingActiveRef.current = false;
     releaseWakeLock();
     stopLevelMeter();
-    if (segmentTimerRef.current) {
-      clearTimeout(segmentTimerRef.current);
-      segmentTimerRef.current = null;
-    }
-    await stopCurrentRecorder();
+    const blob = await stopRecorder();
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
+    return blob;
   }
 
   async function beginRecording() {
@@ -919,18 +914,12 @@ export function ConsultationWorkflow({
     const next = !isRecordingPaused;
     setPaused(next);
     if (next) {
-      // Suspend the segment timer so a rotation can't fire mid-pause.
-      if (segmentTimerRef.current) {
-        clearTimeout(segmentTimerRef.current);
-        segmentTimerRef.current = null;
-      }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         mediaRecorderRef.current.pause();
       }
     } else {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
         mediaRecorderRef.current.resume();
-        startSegmentTimer();
       }
     }
   }
@@ -941,16 +930,13 @@ export function ConsultationWorkflow({
     try {
       setError(null);
 
-      // Stop the recorder — its final onstop queues the last audio segment.
-      await stopMicCapture();
-
-      const segments = segmentsRef.current.slice();
-      segmentsRef.current = [];
+      // Stop the recorder and assemble the single continuous audio file.
+      const blob = await stopMicCapture();
 
       // Nothing was captured at all (silent recording, or a browser without
       // MediaRecorder support). Route straight to a manual note without ever
       // showing the "recording received / transcript prepared" steps.
-      if (segments.length === 0) {
+      if (blob.size === 0) {
         await patchConsultation({
           status: "draft",
           endedAt: new Date().toISOString(),
@@ -974,10 +960,10 @@ export function ConsultationWorkflow({
         // Non-fatal; the transcript + status are patched again below.
       });
 
-      // Upload the audio and transcribe server-side (Sarvam). There is no
-      // browser fallback — only Sarvam's transcript becomes the draft, so
+      // Upload the audio and transcribe server-side (Sarvam Batch). There is
+      // no browser fallback — only Sarvam's transcript becomes the draft, so
       // Hindi and mixed-language speech is transcribed accurately.
-      const result = await uploadSegments(segments);
+      const result = await uploadAndTranscribe(blob);
       if (!result.ok || !result.transcript) {
         setProcessingStage(0);
         setState("failed");
@@ -988,8 +974,6 @@ export function ConsultationWorkflow({
         return;
       }
       setTranscript(result.transcript);
-      // Batched with the stage bump so the bar never dips back to 25%.
-      setTranscribeProgress(null);
       setProcessingStage(2);
 
       try {
@@ -1008,48 +992,141 @@ export function ConsultationWorkflow({
     }
   }
 
-  // Uploads each recorded segment to the server for Sarvam transcription.
-  // The server saves the transcript (segment 0 replaces, later segments
-  // append) and returns the accumulated text; the last response is used.
-  async function uploadSegments(
-    segments: Blob[]
+  // Uploads the single recording to Supabase Storage via a presigned URL,
+  // starts the Sarvam Batch job, then polls the server until the transcript
+  // is ready. Returns the transcript or a safe, retryable error.
+  async function uploadAndTranscribe(
+    blob: Blob
   ): Promise<{ ok: boolean; transcript?: string; error?: string }> {
-    let transcript = "";
-    for (let i = 0; i < segments.length; i++) {
-      setTranscribeProgress({ uploaded: i, total: segments.length });
-      const form = new FormData();
-      form.append("audio", segments[i], `segment-${i}.webm`);
-      form.append("mimeType", segments[i].type || "audio/webm");
-      form.append("segmentIndex", String(i));
-      form.append("segmentCount", String(segments.length));
+    setTranscribing(true);
+    setTranscribeElapsedSeconds(0);
+    const mimeType = blob.type || "audio/webm";
+    try {
+      // 1. Ask the server for a presigned upload URL (direct browser→storage,
+      //    so a long recording never hits Vercel's request-body limit).
+      const urlRes = await fetch(
+        `/api/consultations/${consultationId}/transcribe/upload-url`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mimeType }),
+        }
+      );
+      if (!urlRes.ok) {
+        const body = await urlRes.json().catch(() => null);
+        return {
+          ok: false,
+          error: body?.error ?? "The recording could not be uploaded.",
+        };
+      }
+      const urlData = await urlRes.json();
+      const storagePath: string | undefined = urlData?.storagePath;
+      const signedUrl: string | undefined = urlData?.signedUrl;
+      const contentType: string = urlData?.contentType ?? mimeType;
+      if (!storagePath || !signedUrl) {
+        return { ok: false, error: "The recording could not be uploaded." };
+      }
+
+      // 2. PUT the audio directly to the private bucket.
+      const putRes = await fetch(signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: blob,
+      });
+      if (!putRes.ok && putRes.status !== 200 && putRes.status !== 201) {
+        return {
+          ok: false,
+          error: "The recording could not be uploaded. Retry safely.",
+        };
+      }
+
+      // 3. Tell the server to start the Batch transcription job.
+      const startRes = await fetch(
+        `/api/consultations/${consultationId}/transcribe`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storagePath,
+            mimeType: contentType,
+            durationSeconds: elapsedSeconds,
+          }),
+        }
+      );
+      if (!startRes.ok) {
+        const body = await startRes.json().catch(() => null);
+        return {
+          ok: false,
+          error: body?.error ?? "Transcription could not be started.",
+        };
+      }
+
+      // 4. Poll until Sarvam finishes and the server saves the transcript.
+      return await pollTranscription();
+    } catch {
+      return {
+        ok: false,
+        error:
+          "The recording could not be transcribed. Retry safely, or write the note manually.",
+      };
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  // Polls the persisted Batch job. The server downloads the transcript on
+  // completion; polling just checks state, so each call is fast and cheap.
+  async function pollTranscription(): Promise<{
+    ok: boolean;
+    transcript?: string;
+    error?: string;
+  }> {
+    const POLL_INTERVAL_MS = 4000;
+    const MAX_POLL_MS = 15 * 60 * 1000; // generous safety cap
+    const startedAt = Date.now();
+
+    while (true) {
       try {
         const res = await fetch(
           `/api/consultations/${consultationId}/transcribe`,
-          { method: "POST", body: form }
+          { method: "GET" }
         );
-        if (!res.ok) {
-          const body = await res.json().catch(() => null);
-          setTranscribeProgress(null);
-          return {
-            ok: false,
-            error:
-              body?.error ??
-              "The recording could not be transcribed. Retry safely, or write the note manually.",
-          };
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (data?.state === "completed") {
+            const raw: unknown = data?.transcript?.rawText;
+            if (typeof raw === "string" && raw.trim()) {
+              return { ok: true, transcript: raw };
+            }
+          }
+          if (data?.state === "failed") {
+            return {
+              ok: false,
+              error:
+                (typeof data?.error === "string" && data.error) ||
+                "Transcription failed on the server.",
+            };
+          }
+          if (data?.state === "idle") {
+            return {
+              ok: false,
+              error: "No transcription job was found. Retry safely.",
+            };
+          }
         }
-        const data = await res.json();
-        const raw: unknown = data?.transcript?.rawText;
-        if (typeof raw === "string" && raw.trim()) transcript = raw;
       } catch {
-        setTranscribeProgress(null);
+        // Transient network error — keep polling until the safety cap.
+      }
+
+      if (Date.now() - startedAt > MAX_POLL_MS) {
         return {
           ok: false,
           error:
-            "The recording could not be transcribed. Retry safely, or write the note manually.",
+            "Transcription is taking too long. Retry safely, or write the note manually.",
         };
       }
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
-    return { ok: true, transcript };
   }
 
   async function generateDraft() {
@@ -1115,8 +1192,8 @@ export function ConsultationWorkflow({
 
   async function cancelRecording() {
     await stopMicCapture();
-    segmentsRef.current = [];
-    setTranscribeProgress(null);
+    recordingChunksRef.current = [];
+    setTranscribing(false);
     setTranscript("");
     try {
       await patchConsultation({ status: "draft" });
@@ -1130,8 +1207,8 @@ export function ConsultationWorkflow({
   // pre-flight mic check so the doctor can re-verify input before re-recording.
   async function backToMicTest() {
     await stopMicCapture();
-    segmentsRef.current = [];
-    setTranscribeProgress(null);
+    recordingChunksRef.current = [];
+    setTranscribing(false);
     setTranscript("");
     setElapsedSeconds(0);
     setPaused(false);
@@ -1492,7 +1569,7 @@ export function ConsultationWorkflow({
             <h2>{isRecordingPaused ? "Recording paused" : "Consultation in progress"}</h2>
             <RecordingRail paused={isRecordingPaused} seconds={elapsedSeconds} level={micLevel} />
 
-            <div className={styles.liveTranscript} aria-live="polite">
+            <div className={styles.liveTranscript} aria-live="polite" role="status">
               <div className={styles.liveTranscriptHead}>
                 <span>
                   <Icon name="mic" /> Recording audio
@@ -1507,8 +1584,15 @@ export function ConsultationWorkflow({
                   </div>
                 )}
                 <p className={styles.liveTranscriptEmpty}>
-                  Speak naturally. The AI transcript is prepared after you stop — Hindi and
-                  mixed-language speech is transcribed accurately on the server.
+                  {isRecordingPaused ? (
+                    "Recording is paused — resume to keep capturing audio."
+                  ) : (
+                    <>
+                      <strong>Recording in progress.</strong> Audio is being captured and saved
+                      securely. There is no live transcript — your Hindi and mixed-language
+                      transcript is prepared on the server after you stop.
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -1686,11 +1770,10 @@ export function ConsultationWorkflow({
             </div>
 
             {/* Live processing log — one line per pipeline stage. */}
-            {transcribing && transcribeProgress && (
+            {transcribing && (
               <p className={styles.generatingHint} role="status">
-                Uploading &amp; transcribing audio with AI — segment{" "}
-                {transcribeProgress.uploaded + 1} of {transcribeProgress.total} (
-                {progressPercent}%)…
+                Transcribing the recording on the server —{" "}
+                {formatClock(transcribeElapsedSeconds)} elapsed ({progressPercent}%)…
               </p>
             )}
             {generating && (

@@ -24,6 +24,7 @@ const files = [
   "0002_grants.sql",
   "0003_clinics_select.sql",
   "0004_transcripts_update.sql",
+  "0005_consultation_sarvam_job.sql",
 ];
 
 async function run(sql) {

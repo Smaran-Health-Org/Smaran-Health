@@ -3,7 +3,7 @@ import type { Consultation } from "@/types";
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
 const CONSULTATION_COLUMNS =
-  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, status, consentAcquired:consent_acquired, consentVersion:consent_version, consentTimestamp:consent_timestamp, startedAt:started_at, endedAt:ended_at";
+  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, status, consentAcquired:consent_acquired, consentVersion:consent_version, consentTimestamp:consent_timestamp, startedAt:started_at, endedAt:ended_at, sarvamJobId:sarvam_job_id";
 
 export async function getConsultations(
   patientId: string,
@@ -176,6 +176,7 @@ export async function updateConsultation(
     consentAcquired?: boolean;
     consentVersion?: string;
     endedAt?: string;
+    sarvamJobId?: string | null;
   },
   clinicId: string
 ): Promise<Consultation> {
@@ -186,6 +187,7 @@ export async function updateConsultation(
   if (input.consentAcquired !== undefined) updateData.consent_acquired = input.consentAcquired;
   if (input.consentVersion !== undefined) updateData.consent_version = input.consentVersion;
   if (input.endedAt !== undefined) updateData.ended_at = input.endedAt;
+  if (input.sarvamJobId !== undefined) updateData.sarvam_job_id = input.sarvamJobId;
 
   const { data, error } = await supabase
     .from("consultations")
