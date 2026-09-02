@@ -7,7 +7,7 @@ import { internalError, notFound, unauthorized } from "@/lib/api/error-handler";
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -17,7 +17,10 @@ export async function GET(
     if (!document) return notFound("Document not found");
     const signedUrl = await createDocumentViewUrl(document.storagePath);
     await recordStaffDocumentView(id);
-    const response = NextResponse.redirect(signedUrl, { status: 302 });
+    const destination = new URL(signedUrl);
+    const page = Number(request.nextUrl.searchParams.get("page"));
+    if (Number.isInteger(page) && page > 0) destination.hash = `page=${page}`;
+    const response = NextResponse.redirect(destination, { status: 302 });
     response.headers.set("Cache-Control", "no-store");
     response.headers.set("Referrer-Policy", "no-referrer");
     return response;

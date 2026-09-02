@@ -10,25 +10,15 @@ import { getClinicName } from "@/lib/db/clinics";
 import { getPatients } from "@/lib/db/patients";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { drainPreconsultBriefGeneration, getPreconsultBriefSnapshot, getPreconsultTrendGroups, recordPreconsultBriefView, type PreconsultBrief } from "@/lib/preconsult/brief";
+import { preconsultEvidenceHref, preconsultEvidenceLabel } from "@/lib/preconsult/evidence";
 
 function verificationLabel(value: string) {
   return value === "confirmed" ? "Doctor-confirmed" : value === "proposed" ? "Proposed — review required" : value === "patient_reported_unconfirmed" ? "Patient-reported — unconfirmed" : value === "external_unconfirmed" ? "External evidence — unconfirmed" : "Needs Review";
 }
 
-function evidenceDestination(patientId: string, source: PreconsultBrief["evidenceSummary"][number]) {
-  // Documents have a dedicated authorized original-evidence route. The other
-  // Phase 9 source classes are inspected through the existing patient record,
-  // rather than inventing Phase 10 review controls or exposing storage URLs.
-  return source.type === "document" ? `/api/documents/${source.id}/view` : `/patients/${patientId}`;
-}
-
-function evidenceLabel(source: PreconsultBrief["evidenceSummary"][number]) {
-  return source.type === "document" ? "View original evidence" : "Open patient source";
-}
-
 function Claims({ patientId, claims }: { patientId: string; claims: Array<{ id: string; text: string; verification: string; sources: PreconsultBrief["evidenceSummary"] }> }) {
   if (!claims.length) return <p className={styles.memorySummary}>No supported information is available in this section.</p>;
-  return <div className={styles.noteReadonly}>{claims.map((claim) => <div key={claim.id}><strong>{verificationLabel(claim.verification)}</strong><p>{claim.text}</p><p>{claim.sources.map((source) => <Link key={`${source.type}-${source.id}`} href={evidenceDestination(patientId, source)} className={styles.panelLink}>{evidenceLabel(source)}</Link>)}</p></div>)}</div>;
+  return <div className={styles.noteReadonly}>{claims.map((claim) => <div key={claim.id}><strong>{verificationLabel(claim.verification)}</strong><p>{claim.text}</p><p>{claim.sources.map((source) => <Link key={`${source.type}-${source.id}`} href={preconsultEvidenceHref(patientId, source)} className={styles.panelLink}>{preconsultEvidenceLabel(source)}</Link>)}</p></div>)}</div>;
 }
 
 export default async function PreconsultPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ consultation?: string }> }) {

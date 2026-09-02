@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { PRECONSULT_BRIEF_SCHEMA_VERSION, buildComparableTrendGroups, derivePreconsultBriefLifecycle, hasActivePreconsultGenerationWork, isReturningChange, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, type PreconsultTrendPoint } from "../lib/preconsult/contract";
 import { createClinicalObservationCorrectionSchema } from "../lib/validation";
+import { preconsultEvidenceHref, preconsultEvidenceLabel, type PreconsultEvidenceSource } from "../lib/preconsult/evidence";
 
 test("Phase 9 baseline uses visit chronology and only approved-note candidates", () => {
   const baseline = selectPriorApprovedBaseline([
@@ -58,6 +59,22 @@ test("correction evidence dates require a real calendar date without adding a fu
   assert.equal(createClinicalObservationCorrectionSchema.safeParse({ ...base, effectiveDate: "2026-02-31" }).success, false);
   assert.equal(createClinicalObservationCorrectionSchema.safeParse({ ...base, effectiveDate: "2026-13-01" }).success, false);
   assert.equal(createClinicalObservationCorrectionSchema.safeParse({ ...base, effectiveDate: "2099-01-01" }).success, true);
+});
+
+test("every Phase 9 evidence action preserves its exact source identity", () => {
+  const patientId = "00000000-0000-4000-8000-000000000001";
+  const sourceId = "00000000-0000-4000-8000-000000000002";
+  const document: PreconsultEvidenceSource = { type: "document", id: sourceId, page: 3 };
+  assert.equal(preconsultEvidenceHref(patientId, document), `/api/documents/${sourceId}/view?page=3`);
+  assert.equal(preconsultEvidenceLabel(document), "View original evidence");
+
+  for (const type of ["observation", "intake_statement", "clinical_note", "delta", "state_version"] as const) {
+    const href = preconsultEvidenceHref(patientId, { type, id: sourceId });
+    assert.match(href, new RegExp(`/patients/${patientId}/preconsult/evidence\\?`));
+    assert.match(href, new RegExp(`type=${type}`));
+    assert.match(href, new RegExp(`source=${sourceId}`));
+    assert.doesNotMatch(href, /clinical-state-deltas\/.*\/decision/);
+  }
 });
 
 function point(overrides: Partial<PreconsultTrendPoint> = {}): PreconsultTrendPoint {

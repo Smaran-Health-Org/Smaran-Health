@@ -732,7 +732,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - `npx supabase test db --local supabase/tests/0041_preconsult_phase9_senior_review_fixes.test.sql` — pass, 37 assertions, including actual service-role worker invocation, ordinary-caller denial, and authenticated doctor source writes through the permitted consultation, approved-note, intake, document, and confirmed-state paths.
   - `npm test -- --test-name-pattern='Phase 9|returning changes|source watermark'` — pass, 64 tests.
   - `npx tsc --noEmit` — pass.
-- Final targeted senior-review fixes (migration `0042`, uncommitted):
+- Final targeted senior-review fixes (migration `0042`):
   - Added a claimed reconciliation revision and an atomic, locked final-create check. A worker that was claimed for correction C1 exits without a delta/evidence when C2 advances the shared work; it cannot reinterpret C1 as the original observation.
   - Added effective-source-revision delta idempotency. An equivalent proposal from a later correction creates a distinct current delta with correction provenance while the prior stale delta stays immutable history.
   - Corrected the correction enqueue enum conversion and narrowed merge-time provenance validation to the authorized source-to-canonical reassignment transaction, preserving correction/origin identities through the real merge path.
@@ -748,8 +748,25 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - `npx tsc --noEmit` — pass.
   - `npm run lint` — pass.
   - `npx next build --webpack` — pass.
+- Final closure blockers (migration `0043`, uncommitted):
+  - Correction publication and correction-aware reconciliation finalization now share the immutable observation-row transaction lock, with deterministic mutation order `observation -> reconciliation work -> delta/evidence`. A later correction atomically retires every unresolved superseded-source delta before publishing/requeueing its own revision.
+  - Added a small doctor-only, read-only exact-evidence surface for every Phase 9 emitted source type. It validates the authenticated doctor, clinic, patient, and source membership independently; it preserves correction/provenance context without adding Phase 10 decision controls.
+  - Document citations preserve their page locator through the existing private authorized document route, which redirects the signed viewer URL with a page fragment only when a cited page exists. Observation-derived document citations now carry the source page as well.
+  - Added a real two-PostgreSQL-session regression harness that holds C1 finalization open at the source boundary while exercising the real authorized C2 correction path, plus correction-before-Accept and Accept-before-correction cases.
+- Closure-blocker validation run:
+  - `npx supabase db reset --local` — pass; clean replay through `0043`.
+  - `npx supabase test db --local supabase/tests/0038_preconsult_phase8_review_fixes.test.sql` — pass, 14 assertions.
+  - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
+  - `npx supabase test db --local supabase/tests/0041_preconsult_phase9_senior_review_fixes.test.sql` — pass, 37 assertions.
+  - `npx supabase test db --local supabase/tests/0042_preconsult_phase9_final_review_fixes.test.sql` — pass, 35 assertions.
+  - `npx supabase test db --local supabase/tests/0043_preconsult_phase9_closure_fixes.test.sql` — pass, 19 assertions.
+  - `npm run test:db:phase9-correction-race` — pass; genuine two-session C1-finalize/C2-correction interleaving, stale-Accept rejection, and accepted-before-correction preservation.
+  - `npm test` — pass, 66 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `npx next build --webpack` — pass.
 - Remaining known limitations:
-  - Source-trigger enqueue intentionally swallows unexpected enqueue infrastructure errors to preserve the non-blocking-care invariant; durable work is retried by subsequent successful source events/authorized generation invocation. There is still no independent scheduler (Phase 13 hardening).
+  - Source-trigger enqueue intentionally swallows unexpected enqueue infrastructure errors to preserve the non-blocking-care invariant. Phase 9 has no independent background scheduler; durable work is retried through authorized invocations/events (Phase 13 hardening).
   - Pre-0041 Encounter origin backfill is deterministic but cannot reconstruct an original merged identity where no prior Phase 9 artifact recorded it; the migration documents and preserves that conservative fallback rather than guessing.
 
 ### Phase 5 follow-up — senior review hardening

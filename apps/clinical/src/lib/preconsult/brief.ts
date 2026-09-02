@@ -23,7 +23,7 @@ function observationClaim(row: RecordRow): z.infer<typeof briefClaim> {
   const name = stringValue(correction?.corrected_display_name) ?? stringValue(row.display_name) ?? "External observation";
   const detail = stringValue(value.valueText);
   const sources: z.infer<typeof briefClaim>["sources"] = [{ type: "observation", id: String(row.id), page: typeof row.source_page_number === "number" ? row.source_page_number : null }];
-  if (typeof row.source_document_id === "string") sources.push({ type: "document", id: row.source_document_id });
+  if (typeof row.source_document_id === "string") sources.push({ type: "document", id: row.source_document_id, page: typeof row.source_page_number === "number" ? row.source_page_number : null });
   return { id: `observation:${String(row.id)}`, text: detail ? `${name}: ${detail}` : name, verification: "external_unconfirmed", sources };
 }
 

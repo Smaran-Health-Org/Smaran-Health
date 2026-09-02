@@ -10,6 +10,7 @@
     "test": "tsx --test src/tests/*.test.ts",
     "test:db": "supabase test db --local supabase/tests",
     "test:db:phase8-lock-order": "tsx --test scripts/test-phase8-lock-order.ts",
+    "test:db:phase9-correction-race": "tsx --test scripts/test-phase9-correction-race.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "npx supabase migration up --local",
     "db:seed": "npx tsx src/db/seed.ts",
