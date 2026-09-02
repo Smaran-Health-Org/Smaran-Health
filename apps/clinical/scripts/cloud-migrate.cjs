@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /* Apply apps/clinical/supabase/migrations/*.sql to a remote Supabase project
    via the Management API (the same path the dashboard SQL editor uses).
    The Supabase CLI does not recognize the Drizzle-style numbered migration

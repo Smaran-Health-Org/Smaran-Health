@@ -195,41 +195,6 @@ function formatClock(totalSeconds: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-// ── Speech recognition (Web Speech API) ────────────────────────────────────
-// Chrome/Edge expose this as webkitSpeechRecognition; Safari exposes it directly.
-// It powers live, on-device transcription for the pilot demo. No audio leaves the
-// browser today — only the transcribed text is persisted.
-type SpeechRecognitionResult = {
-  isFinal: boolean;
-  0: { transcript: string };
-};
-
-type SpeechRecognitionResultEvent = {
-  resultIndex: number;
-  results: ArrayLike<SpeechRecognitionResult>;
-};
-
-type SpeechRecognitionErrorEvent = { error: string };
-
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-};
-
-function getSpeechRecognition(): (new () => SpeechRecognitionLike) | null {
-  const win = window as unknown as {
-    SpeechRecognition?: new () => SpeechRecognitionLike;
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-  };
-  return win.SpeechRecognition ?? win.webkitSpeechRecognition ?? null;
-}
-
 function initialStateFor(status: string): WorkflowState {
   switch (status) {
     case "draft_ready":
@@ -372,7 +337,6 @@ export function ConsultationWorkflow({
     summary: initialNote?.summary ?? initialTranscript ?? "",
   }));
   const [transcript, setTranscript] = useState<string>(initialTranscript ?? "");
-  const [interimTranscript, setInterimTranscript] = useState("");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
@@ -381,7 +345,6 @@ export function ConsultationWorkflow({
   const [micErrorKind, setMicErrorKind] = useState<MicErrorKind | null>(null);
   const [micLevel, setMicLevel] = useState(0);
   const [micLowLevel, setMicLowLevel] = useState(false);
-  const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
   const [saving, setSaving] = useState<"draft" | "approve" | "reject" | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -405,14 +368,11 @@ export function ConsultationWorkflow({
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   // Completed ~20-second audio segments, awaiting server-side transcription.
   const segmentsRef = useRef<Blob[]>([]);
   // Chunks being accumulated by the currently active MediaRecorder segment.
   const activeSegmentChunksRef = useRef<Blob[]>([]);
   const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const finalTranscriptRef = useRef("");
-  const interimTranscriptRef = useRef("");
   const recordingActiveRef = useRef(false);
   const pausedRef = useRef(false);
   // Guards against double-submitting the AI generation step.
@@ -427,7 +387,7 @@ export function ConsultationWorkflow({
   // Auto-stop at 30 minutes fires exactly once per recording.
   const autoStoppedRef = useRef(false);
   // Screen Wake Lock keeps the display on during a consultation so the phone
-  // doesn't auto-sleep (and kill live transcription) mid-recording. Best-effort.
+  // doesn't auto-sleep mid-recording. Best-effort.
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   const step = activeStep[state];
@@ -494,13 +454,6 @@ export function ConsultationWorkflow({
         clearTimeout(segmentTimerRef.current);
         segmentTimerRef.current = null;
       }
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch {
-          // Ignore.
-        }
-      }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
         try {
           mediaRecorderRef.current.stop();
@@ -515,22 +468,14 @@ export function ConsultationWorkflow({
     };
   }, []);
 
-  // Mobile browsers pause live transcription (Web Speech API) when the tab is
-  // backgrounded or the phone locks. When the doctor returns, re-acquire the
-  // wake lock and restart the recognizer so recording picks up where it left
-  // off instead of silently dying.
+  // Browsers throttle background tabs, which can pause MediaRecorder while the
+  // phone is locked. When the doctor returns, re-acquire the wake lock so the
+  // recording keeps going instead of silently dying.
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState !== "visible") return;
       if (!recordingActiveRef.current || pausedRef.current) return;
       requestWakeLock();
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.start();
-        } catch {
-          // Already running or not yet ended — the onend handler will restart.
-        }
-      }
     }
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
@@ -793,7 +738,6 @@ export function ConsultationWorkflow({
     setError(null);
     setMicError(null);
     setMicErrorKind(null);
-    setTranscriptError(null);
     stopLevelMeter();
     const result = await acquireMicStream();
     if (!result.ok) {
@@ -885,10 +829,7 @@ export function ConsultationWorkflow({
   }
 
   async function startMicCapture(previewStream?: MediaStream): Promise<boolean> {
-    finalTranscriptRef.current = "";
-    interimTranscriptRef.current = "";
     setTranscript("");
-    setInterimTranscript("");
     segmentsRef.current = [];
     setTranscribeProgress(null);
     try {
@@ -916,71 +857,9 @@ export function ConsultationWorkflow({
 
       startNewSegment(stream);
 
-      // Mark recording active before starting recognition, so the onend
-      // auto-restart below works even if recognition ends immediately.
+      // Mark the recording active so the segment-rotation onstop handler keeps
+      // recording after each 20-second segment completes.
       recordingActiveRef.current = true;
-
-      const Recognition = getSpeechRecognition();
-      if (Recognition) {
-        const recognition = new Recognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "en-IN";
-        recognition.onresult = (event) => {
-          let interim = "";
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const result = event.results[i];
-            if (result.isFinal) {
-              finalTranscriptRef.current += `${result[0].transcript} `;
-              interim = "";
-            } else {
-              interim += result[0].transcript;
-            }
-          }
-          // Keep the latest interim phrase so it survives a stop before the
-          // recognizer flushes its final result.
-          interimTranscriptRef.current = interim;
-          setTranscript(finalTranscriptRef.current);
-          setInterimTranscript(interim);
-        };
-        recognition.onerror = (event) => {
-          // no-speech and aborted are transient and handled by onend restart.
-          if (event.error === "no-speech" || event.error === "aborted") return;
-          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-            setTranscriptError(
-              "Live transcription is blocked in this browser, but audio is still recording. You can type the summary manually after stopping."
-            );
-          } else if (event.error === "audio-capture") {
-            setTranscriptError(
-              "No microphone audio was captured for live transcription. Check the mic isn't in use elsewhere, or type the summary manually."
-            );
-          } else if (event.error === "network") {
-            setTranscriptError(
-              "Live transcription needs an internet connection and could not start. Audio is still recording — type the summary manually after stopping."
-            );
-          } else {
-            setTranscriptError(
-              "Live transcription stopped unexpectedly. Audio is still recording — type the summary manually after stopping."
-            );
-          }
-        };
-        recognition.onend = () => {
-          // The Web Speech API stops after silence; keep listening while active.
-          if (recordingActiveRef.current && !pausedRef.current) {
-            try {
-              recognition.start();
-            } catch {
-              // Ignore — a new start will be attempted on resume.
-            }
-          }
-        };
-        recognition.start();
-        recognitionRef.current = recognition;
-      } else {
-        setTranscriptError(
-          "Live transcription isn't supported in this browser (try Chrome or Edge). Audio is still recording — you can type the summary manually after stopping."
-        );
-      }
       return true;
     } catch {
       recordingActiveRef.current = false;
@@ -988,7 +867,9 @@ export function ConsultationWorkflow({
     }
   }
 
-  async function stopMicCapture(): Promise<string> {
+  // Stops the recorder and releases the microphone. Only audio is captured;
+  // transcription happens server-side (Sarvam) from the queued segments.
+  async function stopMicCapture(): Promise<void> {
     recordingActiveRef.current = false;
     releaseWakeLock();
     stopLevelMeter();
@@ -996,32 +877,17 @@ export function ConsultationWorkflow({
       clearTimeout(segmentTimerRef.current);
       segmentTimerRef.current = null;
     }
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        // Ignore.
-      }
-      recognitionRef.current = null;
-    }
     await stopCurrentRecorder();
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
-    const finalText = finalTranscriptRef.current.trim();
-    // The recognizer sometimes never flushed a final result before stop, or
-    // only finalized an earlier phrase — recover the pending interim text so
-    // a real draft can be generated instead of reporting "no transcript".
-    const interimText = interimTranscriptRef.current.trim();
-    return [finalText, interimText].filter(Boolean).join(" ");
   }
 
   async function beginRecording() {
     setError(null);
     setMicError(null);
     setMicErrorKind(null);
-    setTranscriptError(null);
     // Reuse the stream from the mic check when possible (no double
     // permission prompt, no re-acquisition race). The level meter keeps
     // running so the recording rail shows a live audio level.
@@ -1061,24 +927,10 @@ export function ConsultationWorkflow({
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         mediaRecorderRef.current.pause();
       }
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch {
-          // Ignore.
-        }
-      }
     } else {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
         mediaRecorderRef.current.resume();
         startSegmentTimer();
-      }
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.start();
-        } catch {
-          // Ignore.
-        }
       }
     }
   }
@@ -1088,19 +940,17 @@ export function ConsultationWorkflow({
     stopBusyRef.current = true;
     try {
       setError(null);
-      setTranscriptError(null);
 
-      const finalTranscript = (await stopMicCapture()) || transcript.trim();
-      setTranscript(finalTranscript);
-      setInterimTranscript("");
+      // Stop the recorder — its final onstop queues the last audio segment.
+      await stopMicCapture();
 
       const segments = segmentsRef.current.slice();
       segmentsRef.current = [];
 
       // Nothing was captured at all (silent recording, or a browser without
-      // the Web Speech API). Route straight to a manual note without ever
-      // showing the fake "recording received / transcript prepared" steps.
-      if (segments.length === 0 && !finalTranscript.trim()) {
+      // MediaRecorder support). Route straight to a manual note without ever
+      // showing the "recording received / transcript prepared" steps.
+      if (segments.length === 0) {
         await patchConsultation({
           status: "draft",
           endedAt: new Date().toISOString(),
@@ -1124,62 +974,23 @@ export function ConsultationWorkflow({
         // Non-fatal; the transcript + status are patched again below.
       });
 
-      let serverTranscript = "";
-      if (segments.length > 0) {
-        // Primary path: upload the audio and transcribe server-side (Sarvam).
-        const result = await uploadSegments(segments);
-        if (result.ok && result.transcript) {
-          serverTranscript = result.transcript;
-          setTranscript(serverTranscript);
-          // Batched with the stage bump so the bar never dips back to 25%.
-          setTranscribeProgress(null);
-          setProcessingStage(2);
-        } else if (finalTranscript.trim()) {
-          // Sarvam unavailable/failed → fall back to the live browser
-          // transcript captured during recording.
-          const saved = await persistTranscript(finalTranscript);
-          if (saved) {
-            serverTranscript = finalTranscript;
-            setTranscript(serverTranscript);
-            setProcessingStage(2);
-          } else {
-            setProcessingStage(0);
-            setState("failed");
-            setError(
-              "The transcript could not be saved, so a draft could not be prepared. Retry safely, or write the note manually."
-            );
-            return;
-          }
-        } else {
-          setProcessingStage(0);
-          setState("failed");
-          setError(
-            result.error ??
-              "Transcription failed. Retry safely, or write the note manually."
-          );
-          return;
-        }
-      } else if (finalTranscript.trim()) {
-        // No audio segments (unsupported recorder?) — live transcript only.
-        const saved = await persistTranscript(finalTranscript);
-        if (!saved) {
-          setProcessingStage(0);
-          setState("failed");
-          setError(
-            "The transcript could not be saved, so a draft could not be prepared. Retry safely, or write the note manually."
-          );
-          return;
-        }
-        serverTranscript = finalTranscript;
-        setProcessingStage(2);
-      } else {
+      // Upload the audio and transcribe server-side (Sarvam). There is no
+      // browser fallback — only Sarvam's transcript becomes the draft, so
+      // Hindi and mixed-language speech is transcribed accurately.
+      const result = await uploadSegments(segments);
+      if (!result.ok || !result.transcript) {
         setProcessingStage(0);
         setState("failed");
         setError(
-          "Nothing was captured. Retry the recording, or write the note manually."
+          result.error ??
+            "Transcription failed. Retry safely, or write the note manually."
         );
         return;
       }
+      setTranscript(result.transcript);
+      // Batched with the stage bump so the bar never dips back to 25%.
+      setTranscribeProgress(null);
+      setProcessingStage(2);
 
       try {
         await patchConsultation({ status: "processing" });
@@ -1307,7 +1118,6 @@ export function ConsultationWorkflow({
     segmentsRef.current = [];
     setTranscribeProgress(null);
     setTranscript("");
-    setInterimTranscript("");
     try {
       await patchConsultation({ status: "draft" });
     } catch {
@@ -1323,7 +1133,6 @@ export function ConsultationWorkflow({
     segmentsRef.current = [];
     setTranscribeProgress(null);
     setTranscript("");
-    setInterimTranscript("");
     setElapsedSeconds(0);
     setPaused(false);
     setRecordingWarningDismissed(false);
@@ -1686,9 +1495,9 @@ export function ConsultationWorkflow({
             <div className={styles.liveTranscript} aria-live="polite">
               <div className={styles.liveTranscriptHead}>
                 <span>
-                  <Icon name="mic" /> Live transcript
+                  <Icon name="mic" /> Recording audio
                 </span>
-                <small>{isRecordingPaused ? "Paused" : transcript ? "Listening" : "Listening for speech…"}</small>
+                <small>{isRecordingPaused ? "Paused" : "Recording…"}</small>
               </div>
               <div className={styles.liveTranscriptBody}>
                 {isRecordingPaused && (
@@ -1697,28 +1506,12 @@ export function ConsultationWorkflow({
                     <span>Paused — audio is not being captured</span>
                   </div>
                 )}
-                {transcript || interimTranscript ? (
-                  <p>
-                    {transcript}
-                    {interimTranscript && <span className={styles.interim}>{interimTranscript}</span>}
-                  </p>
-                ) : (
-                  <p className={styles.liveTranscriptEmpty}>
-                    Speak naturally — your words will appear here in real time.
-                  </p>
-                )}
+                <p className={styles.liveTranscriptEmpty}>
+                  Speak naturally. The AI transcript is prepared after you stop — Hindi and
+                  mixed-language speech is transcribed accurately on the server.
+                </p>
               </div>
             </div>
-
-            {transcriptError && (
-              <div className={styles.errorBanner} role="alert">
-                <strong>Transcription note</strong>
-                <span>{transcriptError}</span>
-                <button type="button" onClick={() => setTranscriptError(null)}>
-                  Dismiss
-                </button>
-              </div>
-            )}
 
             {micError && (
               <div className={styles.errorBanner} role="alert">
@@ -1951,7 +1744,7 @@ export function ConsultationWorkflow({
             {!isManualReview && transcript.trim() && (
               <details className={styles.transcriptPreview}>
                 <summary>
-                  Live transcript <small>Reference only · not part of the note</small>
+                  AI transcript <small>Reference only · not part of the note</small>
                 </summary>
                 <div>
                   <p>{transcript}</p>
