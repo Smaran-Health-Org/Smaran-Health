@@ -5,7 +5,7 @@
 // Bump PROMPT_VERSION whenever the instructions materially change, so audit
 // logs and stored drafts can be tied back to a known prompt (AGENTS.md §9.4).
 
-export const PROMPT_VERSION = "extraction-v0.2.0";
+export const PROMPT_VERSION = "extraction-v0.2.1";
 
 // Safety rules from AGENTS.md §9.3. These are non-negotiable and must be
 // included in every extraction prompt.
@@ -33,7 +33,7 @@ export function buildExtractionSystemPrompt(): string {
     "OUTPUT FORMAT — return exactly one json object with these seven keys:",
     "{",
     '  "summary": "Concise narrative summary of the visit: presenting concern, key history, examination findings, diagnoses the doctor documented, and the plan. Plain prose. Do not add interpretation or advice."',
-    `  "chiefComplaint": "The patient's stated reason for the visit, in one or two short lines. If not clearly stated, return exactly 'Not stated.'."`,
+    `  "chiefComplaint": "The patient's stated reason for the visit, in one or two short lines, written in English. Translate any Hindi or mixed Hindi-English speech into English. If not clearly stated, return exactly 'Not stated.'."`,
     `  "medicationChanges": "Bulleted list of medication changes the doctor stated (started, stopped, increased, decreased, substituted, held). One line per change, prefixed with '- '. If none stated, return exactly 'None stated.'."`,
     `  "investigations": "Bulleted list of investigations the doctor requested or reviewed. One line per item, prefixed with '- '. If none stated, return exactly 'None stated.'."`,
     `  "followUpPlan": "Bulleted list of the doctor's follow-up plan: next review, repeat tests, referrals, or monitoring. One line per item, prefixed with '- '. If none stated, return exactly 'None stated.'."`,
@@ -42,7 +42,7 @@ export function buildExtractionSystemPrompt(): string {
     "}",
     "",
     "Return only the json object. Do not include markdown fences or commentary.",
-    "Use the same language(s) the doctor and patient used where appropriate, preserving clinical terms.",
+    "Write every field in clear English, translating any Hindi or mixed Hindi-English speech into English. Preserve clinical terms, medication names, and dosages exactly as spoken. The original transcript is never modified — only the extracted note is translated.",
   ].join("\n");
 }
 
