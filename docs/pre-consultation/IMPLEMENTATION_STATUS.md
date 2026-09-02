@@ -5,7 +5,7 @@ Baseline commit reviewed: `bbf2a07`
 
 ## Overall status
 
-**PHASE 9 IMPLEMENTATION READY FOR REVIEW — doctor-only, derivative pre-consult briefs implemented; senior review and full CI remain pending**
+**PHASE 9 COMPLETE — doctor-only derivative pre-consult brief implemented, validated, independently senior-reviewed, and approved for closure; Phase 10 remains not started**
 
 ## Phase tracker
 
@@ -21,7 +21,7 @@ Baseline commit reviewed: `bbf2a07`
 | 6.5 | Role workspaces, dashboards, and Clinic Desk automation | Complete | AC-W01–W19; AC-I08–I09; AC-A06 | Workspace boundary, role landings, dashboards, Clinic Desk, Priority, queue/walk-ins, and assisted intake with immutable additive provenance implemented. |
 | 7 | Normalized observations + provenance | Complete | AC-D03, AC-A01–A04 | Immutable doctor-only observations, page/evidence/date provenance, unconfirmed boundary, and duplicate/retry-safe trend inputs implemented. |
 | 8 | Confirmed state + delta engine | Complete | AC-C01–C05, AC-C07, AC-A03–A05, AC-R02–R03 | The engine/data contract supports later consolidated Review Changes (AC-C06); the actual consolidated UI remains Phase 10. |
-| 9 | 30-second doctor brief | Implementation ready for review | AC-B01–B06, AC-A02–A06, AC-C01–C07 (integration), AC-R02–R03, AC-E03 | Immutable doctor-only brief artifacts, durable regeneration, correction overlay, evidence links, Start Consultation snapshot, and dedicated pre-consult UI are implemented. Senior review/full CI remain pending. |
+| 9 | 30-second doctor brief | Complete | AC-B01–B06, AC-A02–A06, AC-C01–C07 (integration), AC-R02–R03, AC-E03 | Immutable doctor-only derivative brief artifacts, bounded evidence/provenance, durable stale-safe regeneration, correction/reconciliation integration, exact evidence navigation, and immutable Start Consultation snapshots are complete. Final targeted Sol closure review passed. |
 | 10 | Review Changes UI | Not started | AC-C02–C07 | |
 | 11 | Consultation integration | Not started | AC-B06, D-034 | |
 | 12 | 30-minute reminder automation | Not started | AC-I06 | |
@@ -698,7 +698,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 
 ### Phase 9 — Doctor 30-second pre-consult brief
 
-- Status: Senior-review fixes implemented locally; ready for targeted validation and full CI, not marked production-complete.
+- Status: Complete — final targeted independent Sol closure review passed at `c41f5dbf1a1057bc0870eb7e41b5a9be69fc4acc`; Phase 9 acceptance and safety closure are approved. This was a targeted review of accepted Phase 9 findings, not a fresh broad repository audit.
 - Implemented:
   - Added immutable, Encounter-scoped `preconsult_brief_versions`, explicit evidence links, durable generation work, current correction overlay, doctor-view provenance, and immutable consultation-start snapshots in migration `0040`.
   - Added doctor-only RLS and guarded RPCs. Generation claim/persist functions are service-only; direct authenticated writes to brief/work tables remain unavailable.
@@ -748,7 +748,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - `npx tsc --noEmit` — pass.
   - `npm run lint` — pass.
   - `npx next build --webpack` — pass.
-- Final closure blockers (migration `0043`, uncommitted):
+- Final closure blockers (migration `0043`, committed, pushed, and accepted by final closure review at `c41f5dbf1a1057bc0870eb7e41b5a9be69fc4acc`):
   - Correction publication and correction-aware reconciliation finalization now share the immutable observation-row transaction lock, with deterministic mutation order `observation -> reconciliation work -> delta/evidence`. A later correction atomically retires every unresolved superseded-source delta before publishing/requeueing its own revision.
   - Added a small doctor-only, read-only exact-evidence surface for every Phase 9 emitted source type. It validates the authenticated doctor, clinic, patient, and source membership independently; it preserves correction/provenance context without adding Phase 10 decision controls.
   - Document citations preserve their page locator through the existing private authorized document route, which redirects the signed viewer URL with a page fragment only when a cited page exists. Observation-derived document citations now carry the source page as well.
@@ -765,9 +765,19 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - `npx tsc --noEmit` — pass.
   - `npm run lint` — pass.
   - `npx next build --webpack` — pass.
+- Final independent Sol closure review:
+  - Final closure review range: `df6a81166e7160af982a8f97720d79e90867b5da..c41f5dbf1a1057bc0870eb7e41b5a9be69fc4acc`.
+  - Result: `PASS — APPROVE PHASE 9 FOR CLOSURE`. The targeted review found no P0 findings, no P1 findings, and all closure safety invariants passing.
+  - Closed: shared correction/finalization serialization; real two-session race coverage; correction versus Accept; exact document/page, observation, intake, note/consultation, delta, and confirmed-state evidence; and evidence authorization/no-side-effects.
+  - Sol reran `npm test` (66 passed), `npm run test:db:phase9-correction-race` (1 passed), pgTAP `0042` plus `0043` (54 assertions passed), `npx tsc --noEmit`, and the exact-range `git diff --check`.
+  - Sol did not repeat clean database replay, lint, production build, or browser PDF-page navigation; those passed during Terra implementation validation and were not rerun by Sol.
 - Remaining known limitations:
-  - Source-trigger enqueue intentionally swallows unexpected enqueue infrastructure errors to preserve the non-blocking-care invariant. Phase 9 has no independent background scheduler; durable work is retried through authorized invocations/events (Phase 13 hardening).
+  - Source-trigger enqueue intentionally swallows unexpected enqueue infrastructure errors to preserve the non-blocking-care invariant. Phase 9 has no independent background scheduler; durable work remains persisted and is retried through authorized invocations/events (Phase 13 hardening).
+  - There is no configured GitHub Actions CI workflow proving `apps/clinical`. Deterministic local validation and the independent Sol review supplied Phase 9 closure evidence; clinical CI remains an infrastructure gap.
+  - The two-session concurrency harness proves the required blocking/interleaving outcome through blocking inference rather than exhaustive database lock introspection; this accepted P2 precision limitation is non-blocking.
   - Pre-0041 Encounter origin backfill is deterministic but cannot reconstruct an original merged identity where no prior Phase 9 artifact recorded it; the migration documents and preserves that conservative fallback rather than guessing.
+- Recommended next task:
+  - Phase 10 — Review Changes UI. Consume the closed Phase 8/9 contracts without retroactively changing doctor-owned confirmed state, immutable original evidence, approved-note-only memory, Phase 9 brief artifacts, or Start Consultation snapshot history.
 
 ### Phase 5 follow-up — senior review hardening
 
