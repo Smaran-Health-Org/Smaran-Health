@@ -118,10 +118,12 @@ const LEVEL_BAR_COUNT = 25;
 const LENGTH_WARN_SECONDS = 15 * 60;
 const LENGTH_HARD_STOP_SECONDS = 30 * 60;
 
-// Audio is captured in ~2-minute MediaRecorder segments. Each segment is
-// uploaded + transcribed by Sarvam separately, keeping every request small
-// enough to fit the Vercel Hobby 60-second serverless function limit.
-const SEGMENT_MS = 2 * 60 * 1000;
+// Sarvam's realtime REST endpoint only accepts audio up to 30 seconds per
+// request ("quick responses under 30 seconds"); longer audio returns 400 and
+// must go through the Batch API. Audio is captured in ~20-second MediaRecorder
+// segments so each Sarvam request stays well inside that limit (and small
+// enough for the Vercel Hobby 60-second serverless function limit).
+const SEGMENT_MS = 20 * 1000;
 
 type MicErrorKind =
   | "unsupported"
@@ -404,7 +406,7 @@ export function ConsultationWorkflow({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  // Completed ~2-minute audio segments, awaiting server-side transcription.
+  // Completed ~20-second audio segments, awaiting server-side transcription.
   const segmentsRef = useRef<Blob[]>([]);
   // Chunks being accumulated by the currently active MediaRecorder segment.
   const activeSegmentChunksRef = useRef<Blob[]>([]);
@@ -812,9 +814,10 @@ export function ConsultationWorkflow({
 
   // Starts a fresh MediaRecorder segment on the given stream. Each segment is
   // finalized by the segment timer (or by a stop/pause) and queued for
-  // server-side transcription. Capturing in ~2-minute chunks means a long
-  // consultation is never lost if the page closes mid-way, and each Sarvam
-  // request stays small enough for the 60-second serverless limit.
+  // server-side transcription. Capturing in ~20-second chunks stays under
+  // Sarvam's 30-second realtime API limit while keeping each request small
+  // enough for the 60-second serverless limit; a long consultation is never
+  // lost if the page closes mid-way.
   function startNewSegment(stream: MediaStream) {
     const chunks: Blob[] = [];
     activeSegmentChunksRef.current = chunks;

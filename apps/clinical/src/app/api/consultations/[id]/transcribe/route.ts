@@ -16,8 +16,8 @@ import { logEvent, logError, logWarn } from "@/lib/logger";
 import { badRequest, internalError, notFound, unauthorized } from "@/lib/api/error-handler";
 
 const AUDIO_BUCKET = "audio";
-// ~2-minute segments at the client's 64 kbps opus bitrate are ≈ 1 MB. This cap
-// keeps each Sarvam call well inside the Vercel Hobby 60 s function limit.
+// ~20-second segments at the client's 64 kbps opus bitrate are ≈ 160 KB. The
+// cap keeps each Sarvam call well inside the Vercel Hobby 60 s function limit.
 const MAX_SEGMENT_BYTES = 4_000_000;
 
 /**

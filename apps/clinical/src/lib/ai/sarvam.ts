@@ -15,10 +15,11 @@ const SARVAM_BASE_URL = "https://api.sarvam.ai";
 const SARVAM_STT_PATH = "/speech-to-text";
 export const SARVAM_STT_MODEL = "saaras:v3";
 
-// Sarvam REST is designed for quick responses; each request must also fit
-// inside the Vercel Hobby 60 s function limit, so cap the client timeout at
-// 50 s. Long consultations are split into ~2-minute segments on the client,
-// so each call stays small and fast.
+// Sarvam REST is designed for quick responses — it only accepts audio up to
+// 30 seconds per request (longer audio must use the Batch API) — and each
+// request must also fit inside the Vercel Hobby 60 s function limit, so cap
+// the client timeout at 50 s. The client splits recordings into ~20-second
+// segments, so each call stays small and fast.
 const REQUEST_TIMEOUT_MS = 50_000;
 
 export function isSarvamConfigured(): boolean {
