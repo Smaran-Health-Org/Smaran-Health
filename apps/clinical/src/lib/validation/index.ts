@@ -73,6 +73,22 @@ export const decideClinicalStateDeltaSchema = z.object({
   idempotencyKey: z.string().trim().min(1).max(200),
 });
 
+export const applyClinicalStateDeltaBatchSchema = z.object({
+  idempotencyKey: z.string().trim().min(1).max(200),
+  decisions: z.array(z.object({
+    deltaId: z.string().uuid(),
+    action: z.enum(["accept", "keep_current"]),
+    expectedBaseStateVersionId: z.string().uuid().nullable(),
+    expectedEffectiveSourceRevision: z.string().trim().min(1).max(100),
+  })).min(1).max(50).superRefine((decisions, context) => {
+    const ids = new Set<string>();
+    decisions.forEach((decision, index) => {
+      if (ids.has(decision.deltaId)) context.addIssue({ code: "custom", path: [index, "deltaId"], message: "Each clinical change can be reviewed once" });
+      ids.add(decision.deltaId);
+    });
+  }),
+});
+
 export const createClinicalObservationCorrectionSchema = z.object({
   displayName: z.string().trim().min(1).max(200),
   normalizedValue: z.object({

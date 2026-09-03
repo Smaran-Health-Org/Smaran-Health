@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { PRECONSULT_BRIEF_SCHEMA_VERSION, buildComparableTrendGroups, derivePreconsultBriefLifecycle, hasActivePreconsultGenerationWork, isReturningChange, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, type PreconsultTrendPoint } from "../lib/preconsult/contract";
 import { createClinicalObservationCorrectionSchema } from "../lib/validation";
-import { preconsultEvidenceHref, preconsultEvidenceLabel, type PreconsultEvidenceSource } from "../lib/preconsult/evidence";
+import { deltaEvidenceSources, preconsultEvidenceHref, preconsultEvidenceLabel, type PreconsultEvidenceSource } from "../lib/preconsult/evidence";
 
 test("Phase 9 baseline uses visit chronology and only approved-note candidates", () => {
   const baseline = selectPriorApprovedBaseline([
@@ -75,6 +75,19 @@ test("every Phase 9 evidence action preserves its exact source identity", () => 
     assert.match(href, new RegExp(`source=${sourceId}`));
     assert.doesNotMatch(href, /clinical-state-deltas\/.*\/decision/);
   }
+});
+
+test("delta evidence resolves to doctor-authorized source records instead of opaque identifiers", () => {
+  const observationId = "00000000-0000-4000-8000-000000000011";
+  const statementId = "00000000-0000-4000-8000-000000000012";
+  assert.deepEqual(deltaEvidenceSources({ evidence: [
+    { observationId, intakeStatementId: null, itemIndex: 0, correctionId: null },
+    { observationId: null, intakeStatementId: statementId, itemIndex: 2, correctionId: null },
+  ] }), [
+    { type: "observation", id: observationId, itemIndex: 0 },
+    { type: "intake_statement", id: statementId, itemIndex: 2 },
+  ]);
+  assert.deepEqual(deltaEvidenceSources({ evidence: [{ observationId: "not-a-uuid" }] }), []);
 });
 
 function point(overrides: Partial<PreconsultTrendPoint> = {}): PreconsultTrendPoint {

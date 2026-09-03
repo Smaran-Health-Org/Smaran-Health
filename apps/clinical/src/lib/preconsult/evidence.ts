@@ -26,6 +26,23 @@ const preconsultEvidenceRecordSchema = z.object({
 
 export type PreconsultEvidenceRecord = z.infer<typeof preconsultEvidenceRecordSchema>;
 
+const deltaEvidenceReferenceSchema = z.array(z.object({
+  observationId: z.string().uuid().nullable(),
+  intakeStatementId: z.string().uuid().nullable(),
+  itemIndex: z.number().int().nonnegative(),
+  correctionId: z.string().uuid().nullable(),
+}));
+
+export function deltaEvidenceSources(detail: Record<string, unknown>): PreconsultEvidenceSource[] {
+  const parsed = deltaEvidenceReferenceSchema.safeParse(detail.evidence);
+  if (!parsed.success) return [];
+  return parsed.data.flatMap<PreconsultEvidenceSource>((reference) => {
+    if (reference.observationId) return [{ type: "observation" as const, id: reference.observationId, itemIndex: reference.itemIndex }];
+    if (reference.intakeStatementId) return [{ type: "intake_statement" as const, id: reference.intakeStatementId, itemIndex: reference.itemIndex }];
+    return [];
+  });
+}
+
 export function preconsultEvidenceHref(patientId: string, source: PreconsultEvidenceSource) {
   if (source.type === "document") {
     const page = typeof source.page === "number" ? `?page=${source.page}` : "";

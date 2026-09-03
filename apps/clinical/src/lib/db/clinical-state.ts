@@ -11,6 +11,7 @@ import {
   type ClinicalStateValue,
   type CurrentClinicalState,
 } from "@/lib/clinical-state/comparator";
+import type { CurrentClinicalStateForReview, CurrentClinicalStateForReviewRead } from "@/lib/clinical-state/review-command";
 
 export type ConfirmedClinicalState = CurrentClinicalState & {
   confirmedAt: string;
@@ -24,12 +25,18 @@ export type ConfirmedClinicalStateSnapshot = {
 };
 
 export class ClinicalStateError extends Error {
-  constructor(public readonly kind: "forbidden" | "not_found" | "conflict" | "invalid" | "unavailable") {
+  constructor(public readonly kind: "forbidden" | "not_found" | "conflict" | "invalid" | "unavailable" | "stale" | "resolved" | "patient_context" | "batch_conflict" | "idempotency_mismatch") {
     super("Clinical state operation failed");
   }
 }
 
 function mapRpcError(error: { code?: string; message?: string }): never {
+  if (error.message?.includes("phase10:stale_comparison")) throw new ClinicalStateError("stale");
+  if (error.message?.includes("phase10:already_resolved")) throw new ClinicalStateError("resolved");
+  if (error.message?.includes("phase10:stale_patient_context")) throw new ClinicalStateError("patient_context");
+  if (error.message?.includes("phase10:internal_submitted_conflict")) throw new ClinicalStateError("batch_conflict");
+  if (error.message?.includes("phase10:idempotency_payload_mismatch")) throw new ClinicalStateError("idempotency_mismatch");
+  if (error.message?.includes("phase10:malformed_request")) throw new ClinicalStateError("invalid");
   if (error.code === "42501") throw new ClinicalStateError("forbidden");
   if (error.code === "P0002") throw new ClinicalStateError("not_found");
   if (["40901", "23505"].includes(error.code ?? "")) throw new ClinicalStateError("conflict");
@@ -118,6 +125,91 @@ export async function decideClinicalStateDelta(input: {
     disposition: row.disposition as "accepted" | "kept_current" | "stale",
     resultingStateVersionId: typeof row.resulting_state_version_id === "string" ? row.resulting_state_version_id : null,
   };
+}
+
+export type PendingClinicalStateDelta = {
+  id: string;
+  domain: ClinicalStateDomain;
+  classification: string;
+  baseStateVersionId: string | null;
+  proposedStateKey: string;
+  proposedValue: ClinicalStateValue;
+  proposedStateStatus: ClinicalStateStatus;
+  effectiveSourceRevision: string;
+  createdAt: string;
+};
+
+export async function getPendingClinicalStateDeltas(patientId: string): Promise<PendingClinicalStateDelta[]> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("clinical_state_delta_status")
+    .select("id, domain, classification, base_state_version_id, proposed_state_key, proposed_value_json, proposed_state_status, effective_source_revision, created_at")
+    .eq("patient_id", patientId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (error) throw new ClinicalStateError("unavailable");
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    id: String(row.id), domain: row.domain as ClinicalStateDomain, classification: String(row.classification),
+    baseStateVersionId: typeof row.base_state_version_id === "string" ? row.base_state_version_id : null,
+    proposedStateKey: String(row.proposed_state_key), proposedValue: row.proposed_value_json as ClinicalStateValue,
+    proposedStateStatus: row.proposed_state_status as ClinicalStateStatus,
+    effectiveSourceRevision: String(row.effective_source_revision), createdAt: String(row.created_at),
+  }));
+}
+
+/**
+ * Read model for Review Changes. The discriminant preserves the difference
+ * between a successful empty result and a database/RLS failure so the UI can
+ * fail closed while leaving Start Consultation available.
+ */
+export async function getCurrentClinicalStateForReview(patientId: string): Promise<CurrentClinicalStateForReviewRead> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("current_confirmed_clinical_state")
+    .select("id, domain, state_key, value_json")
+    .eq("patient_id", patientId);
+  if (error || !Array.isArray(data)) return { status: "unavailable" };
+  const current: CurrentClinicalStateForReview[] = [];
+  for (const row of data as Array<Record<string, unknown>>) {
+    const value = row.value_json;
+    if (
+      typeof row.id !== "string"
+      || (row.domain !== "medication" && row.domain !== "condition" && row.domain !== "allergy")
+      || typeof row.state_key !== "string"
+      || !value || typeof value !== "object" || Array.isArray(value)
+      || typeof (value as Record<string, unknown>).displayName !== "string"
+      || typeof (value as Record<string, unknown>).valueText !== "string"
+      || ("regimenText" in (value as Record<string, unknown>) && typeof (value as Record<string, unknown>).regimenText !== "string")
+    ) return { status: "unavailable" };
+    current.push({
+      id: row.id,
+      domain: row.domain,
+      stateKey: row.state_key,
+      value: value as ClinicalStateValue,
+    });
+  }
+  return {
+    status: "available",
+    current,
+  };
+}
+
+export async function applyClinicalStateDeltaBatch(input: {
+  patientId: string;
+  idempotencyKey: string;
+  decisions: Array<{ deltaId: string; action: "accept" | "keep_current"; expectedBaseStateVersionId: string | null; expectedEffectiveSourceRevision: string }>;
+}) {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase.rpc("apply_clinical_state_delta_batch", {
+    p_patient_id: input.patientId,
+    p_decisions: input.decisions.map(({ deltaId, action, expectedBaseStateVersionId, expectedEffectiveSourceRevision }) => ({ deltaId, action, expectedBaseStateVersionId, expectedEffectiveSourceRevision })),
+    p_idempotency_key: input.idempotencyKey,
+  });
+  if (error) mapRpcError(error);
+  const row = data as Record<string, unknown> | null;
+  if (!row || (row.outcome !== "success" && row.outcome !== "exact_replay")) throw new ClinicalStateError("unavailable");
+  return row;
 }
 
 type ReconciliationWork = {

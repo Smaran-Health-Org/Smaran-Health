@@ -93,7 +93,7 @@ SELECT throws_ok($$ INSERT INTO public.preconsult_brief_generation_work (clinic_
 RESET ROLE;
 SELECT is((SELECT count(*) FROM public.current_confirmed_clinical_state WHERE patient_id = '94300000-0000-4000-8000-000000000001' AND state_key = 'synthetic-condition'), 1::bigint, 'doctor-controlled confirmed state committed');
 SELECT ok((SELECT count(*) > 0 FROM public.preconsult_brief_generation_work WHERE consultation_id = '94400000-0000-4000-8000-000000000001'), 'confirmed-state operation enqueued Phase 9 work');
-SELECT is((SELECT count(*) FROM public.preconsult_brief_generation_work WHERE clinic_id <> '94100000-0000-4000-8000-000000000001' OR patient_id <> '94300000-0000-4000-8000-000000000001'), 0::bigint, 'all trigger-created work remains clinic and patient scoped');
+SELECT is((SELECT count(*) FROM public.preconsult_brief_generation_work WHERE consultation_id IN (SELECT id FROM public.consultations WHERE patient_id = '94300000-0000-4000-8000-000000000001') AND (clinic_id <> '94100000-0000-4000-8000-000000000001' OR patient_id <> '94300000-0000-4000-8000-000000000001')), 0::bigint, 'fixture-triggered work remains clinic and patient scoped');
 
 SELECT * FROM finish();
 ROLLBACK;

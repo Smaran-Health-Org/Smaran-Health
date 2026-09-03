@@ -197,6 +197,17 @@
 .secondaryButton { border: 1px solid #dbe2df; background: #fff; color: #4e5e59; }
 .primaryButton { border: 1px solid var(--green); background: var(--green); color: #fff; box-shadow: 0 8px 20px rgba(23, 116, 91, 0.16); }
 .primaryButton:disabled { border-color: #c8cfcc; background: #c8cfcc; box-shadow: none; cursor: not-allowed; }
+.reviewLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 0.38fr); gap: 1rem; align-items: start; }
+.reviewSidebar { display: grid; gap: 1rem; position: sticky; top: 6rem; }
+.reviewTag { border-radius: 999px; background: #f1f5f3; color: #586761; padding: .4rem .6rem; font-size: .65rem; font-weight: 750; text-transform: capitalize; }
+.reviewComparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin: 1rem 0; }
+.reviewComparison > div { display: grid; gap: .4rem; border: 1px solid #e3e9e6; border-radius: 12px; background: #fbfdfc; padding: .8rem; }
+.reviewComparison span { color: var(--muted); font-size: .65rem; font-weight: 800; }
+.reviewComparison strong { font-size: .8rem; line-height: 1.45; }
+.reviewActions, .reviewNavigation { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+.reviewNavigation { border-top: 1px solid #e8edeb; padding-top: 1rem; }
+.reviewMessage { margin: .8rem 0 0; color: #285e4d; font-size: .72rem; line-height: 1.5; }
+@media (max-width: 780px) { .reviewLayout { grid-template-columns: 1fr; } .reviewSidebar { position: static; } .reviewComparison { grid-template-columns: 1fr; } }
 
 .trendAffordances, .trendActions { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
 .trendDialog { position: fixed; inset: auto; z-index: 60; width: min(700px, calc(100vw - 2rem)); max-height: min(780px, calc(100vh - 2rem)); overflow: auto; border: 1px solid var(--line); border-radius: 18px; background: #fff; padding: 1.2rem; color: var(--ink); box-shadow: 0 24px 80px rgba(20, 36, 30, 0.28); }

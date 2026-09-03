@@ -18,6 +18,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (error instanceof ClinicalStateError) {
       if (error.kind === "forbidden") return forbidden();
       if (error.kind === "not_found") return notFound("Clinical change not found");
+      if (error.kind === "stale") return conflict("This clinical change is stale and must be re-evaluated against the current state", { outcome: "stale_comparison" });
+      if (error.kind === "resolved") return conflict("This clinical change is already resolved", { outcome: "already_resolved" });
+      if (error.kind === "patient_context") return conflict("This patient record has changed or been merged", { outcome: "merged_or_stale_patient_context" });
+      if (error.kind === "idempotency_mismatch") return conflict("This decision key was already used for different input", { outcome: "idempotency_payload_mismatch" });
       if (error.kind === "conflict") return conflict("This clinical change is already resolved or stale");
       if (error.kind === "invalid") return badRequest("Invalid clinical change decision");
     }

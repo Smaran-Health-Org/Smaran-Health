@@ -5,7 +5,7 @@ Baseline commit reviewed: `bbf2a07`
 
 ## Overall status
 
-**PHASE 9 COMPLETE — doctor-only derivative pre-consult brief implemented, validated, independently senior-reviewed, and approved for closure; Phase 10 remains not started**
+**PHASE 10 COMPLETE — doctor-only consolidated Review Changes implemented, validated, and approved by final Sol closure review.**
 
 ## Phase tracker
 
@@ -22,7 +22,7 @@ Baseline commit reviewed: `bbf2a07`
 | 7 | Normalized observations + provenance | Complete | AC-D03, AC-A01–A04 | Immutable doctor-only observations, page/evidence/date provenance, unconfirmed boundary, and duplicate/retry-safe trend inputs implemented. |
 | 8 | Confirmed state + delta engine | Complete | AC-C01–C05, AC-C07, AC-A03–A05, AC-R02–R03 | The engine/data contract supports later consolidated Review Changes (AC-C06); the actual consolidated UI remains Phase 10. |
 | 9 | 30-second doctor brief | Complete | AC-B01–B06, AC-A02–A06, AC-C01–C07 (integration), AC-R02–R03, AC-E03 | Immutable doctor-only derivative brief artifacts, bounded evidence/provenance, durable stale-safe regeneration, correction/reconciliation integration, exact evidence navigation, and immutable Start Consultation snapshots are complete. Final targeted Sol closure review passed. |
-| 10 | Review Changes UI | Not started | AC-C02–C07 | |
+| 10 | Review Changes UI | Complete | AC-C02–C07 | Doctor-only consolidated review, fail-closed current-state comparison, atomic reviewed-subset Apply, evidence drill-down, and nonblocking Start Consultation passed final Sol closure review. |
 | 11 | Consultation integration | Not started | AC-B06, D-034 | |
 | 12 | 30-minute reminder automation | Not started | AC-I06 | |
 | 13 | Security/pilot hardening | Not started | All | |
@@ -778,6 +778,53 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Pre-0041 Encounter origin backfill is deterministic but cannot reconstruct an original merged identity where no prior Phase 9 artifact recorded it; the migration documents and preserves that conservative fallback rather than guessing.
 - Recommended next task:
   - Phase 10 — Review Changes UI. Consume the closed Phase 8/9 contracts without retroactively changing doctor-owned confirmed state, immutable original evidence, approved-note-only memory, Phase 9 brief artifacts, or Start Consultation snapshot history.
+
+### Phase 10 — Review Changes UI
+
+- Status: Complete — final Sol closure review passed with no remaining P0/P1 findings.
+- Implemented:
+  - Added a dedicated doctor-only `/patients/[id]/preconsult/review-changes?consultation=<consultationId>` route that consolidates unresolved deltas and preserves Start Consultation as an independent, nonblocking action.
+  - Added client-local Accept / Keep existing staging and atomic Apply for only the reviewed subset. Nothing mutates clinical truth until Apply; partial review preserves every unsubmitted delta for continued review, with at most 50 decisions staged in one batch.
+  - Current-state comparison loading distinguishes a successful empty read from an unavailable or malformed read. Query failures, missing non-null bases, and null-base proposals with a newly current same-key record require refresh and cannot be staged or included in Apply. Only a null-base proposal with no current same-key state is presented as `Not currently in confirmed state`.
+  - Added stale protection for both Accept and Keep existing, bounded 50-decision commands, stable client command identity for safe retry after an ambiguous response, immutable batch receipts, exact replay, payload mismatch rejection, and all-or-nothing database preflight.
+  - Added deterministic state-key/delta lock ordering, stale base/source revision checks, legacy single-delta compatibility, per-disposition audit records, and merge-safe patient-context validation. Receipt replay is bound to the original clinic and unmerged patient context.
+  - Extended the existing doctor-authorized evidence surface so a delta links through to its exact observation or patient-intake source and onward to original private document evidence where available.
+  - Successful reviewed changes enqueue Phase 9 brief regeneration without blocking the Apply response or Start Consultation.
+- Acceptance criteria:
+  - Implements `AC-C02`–`AC-C06` and preserves `AC-C07`. Doctor confirmation remains required; Keep existing preserves the immutable proposal/evidence history without changing confirmed state.
+- Files changed:
+  - `src/app/patients/[id]/preconsult/review-changes/page.tsx`
+  - `src/components/review-clinical-changes.tsx`
+  - `src/lib/clinical-state/review-command.ts`
+  - `src/app/api/patients/[id]/clinical-state-deltas/batch/route.ts`
+  - `src/lib/db/clinical-state.ts`, `src/lib/validation/index.ts`, and the existing pre-consult/evidence surfaces
+  - migrations `0044`–`0049`, `supabase/tests/0044_preconsult_phase10_review_changes.test.sql`, `scripts/test-phase10-concurrency.ts`, and Phase 10 unit coverage
+- Validation run:
+  - `npm test` — pass, 77 tests, including safe current-state comparison regression coverage.
+  - `npm run test:db` — pass, 443 pgTAP assertions across 16 files.
+  - `npm run test:db:phase10-concurrency` — pass, 5 two-session transactional/authorization tests.
+  - `npm run test:db:phase8-lock-order` — pass.
+  - `npm run test:db:phase9-correction-race` — pass.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass with no warnings.
+  - `npx supabase db lint --local --level warning` — no Phase 10 findings; one pre-existing Phase 9 unused-parameter warning remains.
+  - `npx next build --webpack` — pass. The default Turbopack build cannot bind its local CSS worker port in this execution environment; no application compile/type error remains.
+  - `git diff --check` — pass.
+- Security/privacy/clinical safety:
+  - Batch and legacy decision paths authorize the doctor and clinic before exposing or mutating delta state. Admin/assistant callers remain forbidden and cross-clinic delta lookup does not disclose existence.
+  - Proposed external/patient evidence remains unconfirmed until explicit doctor Apply. Original evidence and ignored proposals remain immutable and traceable.
+  - Receipt and audit metadata contain internal identifiers, action/domain, and state-version references only; no patient names, source text, medication details, or private URLs were added to general logs.
+  - Stale, conflicting, already-resolved, merged-patient, and mixed-invalid batches make no partial clinical-state changes. Unresolved items never block consultation.
+- Known limitations / nonblocking findings:
+  - Deeper adapter/render-level regression coverage would strengthen direct verification of failed-read presentation, disabled controls, Apply-payload exclusion, and independent Start Consultation behavior.
+  - Stronger controlled concurrency barriers would improve race-test precision; behavioral database coverage can also be broadened beyond the current transactional and authorization cases.
+  - Older unresolved grouping and source/date/domain context can be made richer without changing the closed safety contract.
+  - Decisions made before the Phase 10 receipt model cannot always provide full receipt-based replay semantics after upgrade.
+  - Receipt immutability wording should remain aligned with the actual database enforcement.
+  - More than 50 decisions are applied as multiple bounded batches; the UI prevents staging beyond one batch while preserving the remaining unresolved list.
+  - Phase 11 in-consultation persistence, Phase 12 reminders, and Phase 13 scheduler/security hardening remain out of scope.
+- Recommended next task:
+  - Phase 11 — Consultation Integration product refinement. Do not begin implementation without its dedicated scope and acceptance review.
 
 ### Phase 5 follow-up — senior review hardening
 
