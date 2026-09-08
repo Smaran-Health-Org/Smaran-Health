@@ -34,7 +34,7 @@ These criteria are behavioral contracts. Codex should map each implemented phase
 
 **AC-I05** Conditions, medications, and allergies entered by the patient MUST be optional and treated as unconfirmed until doctor confirmation.
 
-**AC-I06** IF intake is incomplete 30 minutes before a scheduled appointment THEN one reminder SHOULD be sent; manual resend remains available.
+**AC-I06** Pre-consultation MVP MUST NOT automatically send time-based intake reminders. Authorized clinic staff MAY manually send/resend intake access; automated appointment-linked reminders are deferred to post-MVP Scheduler communications.
 
 **AC-I07** Patient may correct allowed demographics; changes MUST be auditable.
 
