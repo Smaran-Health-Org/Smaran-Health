@@ -5,7 +5,7 @@ Baseline commit reviewed: `bbf2a07`
 
 ## Overall status
 
-**PHASE 10 COMPLETE — doctor-only consolidated Review Changes implemented, validated, and approved by final Sol closure review.**
+**PHASE 11 COMPLETE — immutable consultation-start context integration implemented, validated, and approved by final Sol closure re-review.**
 
 ## Phase tracker
 
@@ -23,7 +23,7 @@ Baseline commit reviewed: `bbf2a07`
 | 8 | Confirmed state + delta engine | Complete | AC-C01–C05, AC-C07, AC-A03–A05, AC-R02–R03 | The engine/data contract supports later consolidated Review Changes (AC-C06); the actual consolidated UI remains Phase 10. |
 | 9 | 30-second doctor brief | Complete | AC-B01–B06, AC-A02–A06, AC-C01–C07 (integration), AC-R02–R03, AC-E03 | Immutable doctor-only derivative brief artifacts, bounded evidence/provenance, durable stale-safe regeneration, correction/reconciliation integration, exact evidence navigation, and immutable Start Consultation snapshots are complete. Final targeted Sol closure review passed. |
 | 10 | Review Changes UI | Complete | AC-C02–C07 | Doctor-only consolidated review, fail-closed current-state comparison, atomic reviewed-subset Apply, evidence drill-down, and nonblocking Start Consultation passed final Sol closure review. |
-| 11 | Consultation integration | Not started | AC-B06, D-034 | |
+| 11 | Consultation integration | Complete | AC-B06, D-034 | Immutable start-snapshot context, persistent/collapsible doctor-only presentation, verification/provenance preservation, and nonblocking evidence navigation passed final Sol closure re-review. |
 | 12 | 30-minute reminder automation | Not started | AC-I06 | |
 | 13 | Security/pilot hardening | Not started | All | |
 
@@ -828,51 +828,47 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 
 ### Phase 11 — Consultation Integration
 
-- Status: Pending closure re-review — the Phase 11 implementation is committed at `9eac932` on `dev-neelesh`. Independent Sol review found one P1 verification/provenance defect; its bounded fix is implemented, but Phase 11 is not Complete until Sol re-approves it. The pre-existing unrelated login-page edit remains unmodified and excluded.
+- Status: Complete — implementation commit `9eac932` plus verification/provenance fix commit `d1f49558d1d15d23c8d2a3f3665209e3d71aca98`; final Sol re-review passed with `PASS — P1 FIX VERIFIED; APPROVE PHASE 11 FOR CLOSURE`.
 - Implementation summary:
-  - Added a server-only consultation-start resolver that reads only `preconsult_brief_start_snapshots` and its exact immutable `preconsult_brief_versions` reference. It never reads the current pointer, snapshot RPC, lifecycle contract, generation work, or trends.
-  - Resolver validates the authorized consultation's current clinic/canonical patient against both records, their consultation IDs, the immutable version ID, and origin provenance before parsing the payload. Missing, malformed, inaccessible, or inconsistent data returns a nonblocking `unavailable` result; an explicit snapshot with no brief remains `none_available`.
-  - The consultation page passes only a serializable frozen result to a persistent, collapsed-by-default client panel. Its local expand/collapse state does not navigate, refresh, or change the established recording/transcription/manual-note state machine.
-  - The read-only panel preserves the five verification labels and opens existing authorized evidence links in a new tab with `noreferrer`. Evidence links now retain supplied page and intake-item locators through the existing authorized evidence route.
-  - Successful frozen reads record existing view provenance after the response on a best-effort basis; audit failure cannot block consultation loading.
-  - P1 closure fix: the Phase 9 preparation and Phase 11 consultation surfaces now share one exhaustive why-today provenance-to-label mapping. Only `patient` displays as `Patient-reported — unconfirmed`; `reception_assisted` and `unknown` display as `Needs Review`.
+  - Completed continuity between pre-consult preparation and the existing consultation workflow through the exact immutable `preconsult_brief_start_snapshots -> brief_version_id -> preconsult_brief_versions` artifact captured when consultation began.
+  - The resolver never reads or falls back to a mutable/current/latest brief. Missing, malformed, inaccessible, or inconsistent start context remains nonblocking and renders a calm unavailable state.
+  - Added a persistent, collapsible, doctor-only read-only panel without remounting or changing the established recording, transcription, manual-fallback, processing, draft-review, approval, or rejection workflow.
+  - Preserved verification/provenance semantics through one shared exhaustive mapping: only `patient` is `Patient-reported — unconfirmed`; `reception_assisted` and `unknown` remain `Needs Review`.
+  - Evidence retains authorized source/page/item provenance and opens in a separate tab without replacing the active consultation tab.
+  - The panel has no pin/carry-to-note behavior and cannot mutate clinical state, delta disposition, consultation notes, Priority, source evidence, or approved-note-only follow-up memory.
 - Acceptance criteria satisfied:
-  - `P11-01`–`P11-12`: frozen start-only context; no mutable replacement or regeneration; local collapsible presentation; explicit verification/evidence provenance; nonblocking unavailable states; doctor/clinic authorization preserved; no clinical-state, note, Priority, source, or memory mutation; merge-safe canonical re-rooting; and no pin/carry-to-note work.
-- Files changed:
-  - `apps/clinical/src/lib/preconsult/brief.ts`, `consultation-start.ts`, `evidence.ts`, `evidence-links.ts`, and `verification-label.ts`
-  - `apps/clinical/src/app/consultations/[id]/page.tsx`, `consultation-workflow.tsx`, and `consultation-preconsult-context.tsx`
-  - `apps/clinical/src/app/patients/[id]/preconsult/evidence/page.tsx`, `apps/clinical/src/components/clinical.module.css`, and `apps/clinical/src/tests/preconsult-phase11.test.ts`
-  - `docs/pre-consultation/README.md` and this status ledger
+  - `P11-01`–`P11-12` are satisfied; `AC-B06` and `D-034` remain preserved.
 - Database migrations: None.
-- Validation run:
-  - `npm test` — pass, 82 tests.
+- Initial implementation validation:
+  - `npm test` — pass, 82/82 tests.
   - `npx tsc --noEmit` — pass.
   - `npm run lint` — pass.
-  - `npx tsx --test --test-name-pattern='Phase 9|Phase 11' src/tests/*.test.ts` — pass, 17 tests.
   - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
   - `npx next build --webpack` — pass; existing middleware-to-proxy deprecation warning only.
   - `git diff --check` — pass.
-- Independent Sol P1 fix validation run:
-  - `npx tsx --test src/tests/preconsult-phase11.test.ts` — pass, 6 tests, including all accepted why-today provenance values and both surface imports/uses of the shared mapping.
-  - `npm test` — pass, 83 tests.
+- P1 fix validation:
+  - Targeted Phase 11 tests — pass, 6/6.
+  - `npm test` — pass, 83/83 tests.
   - `npx tsc --noEmit` — pass.
   - `npm run lint` — pass.
   - `git diff --check` — pass.
+- Final Sol re-review validation:
+  - Phase 11 test file — pass, 6/6.
+  - `npm test` — pass, 83/83 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - Exact-range `git diff --check 9eac932..d1f49558d1d15d23c8d2a3f3665209e3d71aca98` — pass.
+- Final review status:
+  - No P0 or P1 findings remain. Final Sol re-review confirmed `P11-01`–`P11-12` and approved Phase 11 for closure.
 - Security/privacy/clinical safety:
-  - Doctor-only server authorization and clinic RLS remain the first boundary; the resolver adds relationship validation before any frozen payload leaves the server. No fallback can disclose a different same-clinic patient's brief.
-  - The derivative frozen brief stays read-only and visibly unconfirmed where applicable. It cannot accept deltas, update clinical state, generate Priority, edit notes, or alter approved-note-only follow-up memory.
-  - No brief text, patient identity, private URL, or clinical content is added to general logs. View audit uses the established internal-ID-only behavior.
-- Known limitations:
-  - Legacy/direct Encounter creation already in `in_consultation` can lack the Phase 9 transition-captured snapshot. It deliberately displays `Pre-consult context is unavailable`; no snapshot is backfilled and no current brief is substituted.
-  - Pin/carry-to-note is intentionally out of scope because the note model has no approved structured provenance-preserving representation.
-  - The repository has no browser interaction harness for a physical microphone/recording continuity exercise. The panel is deliberately component-local state with no workflow callbacks, and the existing recording/manual/approval unit suite plus production build remain green.
-  - Independent Sol review P2 (open, nonblocking): deferred view provenance inside `after()` may be unreliable because authenticated server-client creation calls `cookies()` within the callback.
-  - Independent Sol review P2 (open, nonblocking): Phase 11 UI/integration rendering coverage could be more comprehensive.
-  - Phase 11 remains pending closure re-review after the bounded P1 provenance fix; neither P2 is included in this fix.
-- Product decisions/questions surfaced:
-  - No new product decision or migration was required. The existing immutable snapshot/version contract was sufficient.
+  - Doctor/clinic/patient authorization, merge/origin provenance, explicit unconfirmed states, evidence authorization, and approved-note-only follow-up memory remain intact. No consultation-blocking or clinical mutation path was added.
+- Known accepted limitation:
+  - Legacy consultations created directly already in `in_consultation` without a Phase 9 start snapshot show the safe unavailable state. No retroactive snapshot or current-brief substitution occurs.
+- Nonblocking follow-ups:
+  - P2: Deferred pre-consult brief view-provenance recording may be unreliable because authenticated server-client creation occurs inside Next.js `after()` and reaches `cookies()`.
+  - P2: Broader Phase 11 render/workflow integration tests would strengthen regression coverage.
 - Recommended next task:
-  - Do not begin Phase 12 without separately approved scope. Phase 13 hardening and pin/carry-to-note remain separate future work.
+  - Phase 12 — Reminder Automation product refinement. Do not start Phase 12 implementation without separately approved scope.
 
 ### Phase 5 follow-up — senior review hardening
 
