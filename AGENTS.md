@@ -43,6 +43,33 @@ Do not read every file in `docs/pre-consultation/` merely because the task is pr
 
 If documents conflict, `DECISIONS.md` contains approved product decisions and takes precedence over assumptions. Surface unresolved conflicts instead of silently making a new product decision.
 
+### Scheduler work
+
+For Smaran Scheduler, doctor availability, calendar booking, appointment rescheduling/cancellation, scheduling conflicts, patient self-booking, or Scheduler-specific patient portal work:
+
+1. Read `docs/scheduler/README.md`.
+2. Locate the requested phase/subphase in `docs/scheduler/IMPLEMENTATION_PLAN.md` and read that section, not the whole file unless needed.
+3. Read only the relevant `AC-SCH-*` IDs in `docs/scheduler/ACCEPTANCE_CRITERIA.md`.
+4. Inspect only the relevant Scheduler phase section of `docs/scheduler/IMPLEMENTATION_STATUS.md`.
+5. Read `docs/scheduler/DECISIONS.md` when behavior/scope is ambiguous; approved Scheduler decisions take precedence over assumptions.
+6. Read `docs/scheduler/SCHEDULER_MVP_SPEC.md` only when the requested phase requires detailed behavior beyond the phase summary.
+7. Load pre-consultation documents only for the existing boundary being touched, such as Appointment→Encounter creation, patient identity/merge, intake/OTP, documents, Clinic Desk/Queue, workspace permissions, or pre-consultation preservation.
+
+Do not implement the whole Scheduler in one task. Implement only the named Scheduler phase/subphase and update `docs/scheduler/IMPLEMENTATION_STATUS.md` before moving on.
+
+Scheduler invariants that must be preserved:
+
+- extend existing `appointments` and `consultations`/Encounter architecture; do not create a parallel visit subsystem;
+- availability is dynamically calculated, not persisted as theoretical slot rows;
+- patient availability is strict and has no override path;
+- authorized staff overrides must be explicit and auditable;
+- a concurrency race is never an implicit override: first successful save wins;
+- rescheduling preserves Encounter/intake/documents/pre-consult context;
+- schedule/leave changes never silently move or cancel existing appointments;
+- Scheduler planning remains separate from Clinic Desk/Queue execution;
+- scheduling permissions must not expose doctor-only clinical interpretation;
+- all scheduling data remains clinic scoped.
+
 ## 2. Pre-consultation invariants
 
 1. Product language uses **Encounter**, but MVP reuses the existing `consultations` subsystem. Do not rename or recreate it as part of pre-consultation work.
