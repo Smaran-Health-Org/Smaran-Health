@@ -97,6 +97,6 @@ These decisions are approved from the Scheduler refinement. Do not silently reve
 ## Timezone, communications and scope
 
 - **S-D069** MVP timezone is `Asia/Kolkata`; no timezone-selection UI is required.
-- **S-D070** Reschedule/cancel notifications are explicit/manual for MVP; automated communication can be added later.
-- **S-D071** The existing separate 30-minute incomplete-intake reminder remains a different automation concern.
+- **S-D070** Scheduler MVP patient communication is explicit/manual. Send Patient Link and optional manual Notify Patient actions may be exposed, but automated reschedule/cancellation/reminder messaging is deferred.
+- **S-D071** Appointment-linked reminder automation, including an incomplete-intake reminder such as a 30-minute-before-appointment reminder, belongs to Scheduler communications but is deferred until after Scheduler MVP. Pre-consultation does not own or implement this automation.
 - **S-D072** Billing/payments, external calendar sync, Month view, recurring series, token system, predictive waits, automated bulk rescheduling and advanced service catalogs are out of scope.
