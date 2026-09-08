@@ -50,6 +50,8 @@ A warning is not an override. An override must be a conscious action.
 
 A race condition is never treated as an override.
 
+Patient communication is human-triggered in Scheduler MVP. Appointment-linked reminder/notification automation is a post-MVP Scheduler concern.
+
 ---
 
 # 3. Existing architecture to preserve
@@ -334,6 +336,8 @@ Domain history for scheduling lifecycle and patient-safe timeline projection.
 
 Used when later availability changes make already-booked appointments inconsistent with current availability. Appointment may remain Scheduled while carrying an open scheduling issue.
 
+No reminder/notification job table is required for Scheduler MVP.
+
 ---
 
 # 16. Staff calendar UX
@@ -591,7 +595,7 @@ Shared phone/duplicate scenarios must follow existing clinic-scoped patient iden
 
 ---
 
-# 32. Send Patient Link
+# 32. Send Patient Link and communications
 
 Staff has an explicit Send Patient Link action.
 
@@ -604,7 +608,16 @@ Useful surfaces:
 
 Automatic send after every booking is not required.
 
-The existing 30-minute incomplete-intake reminder remains a separate automation concern.
+Scheduler MVP does not automatically send appointment-linked patient reminders or notifications. This includes:
+
+- incomplete-intake reminders, including a possible 30-minute-before-appointment reminder;
+- automatic reschedule notifications;
+- automatic cancellation notifications;
+- generic appointment reminder campaigns.
+
+Manual Send Patient Link remains available. Reschedule/cancel surfaces may expose an explicit human-triggered Notify Patient action where provider plumbing exists.
+
+Ownership of future appointment-linked automation belongs to Scheduler communications, not pre-consultation. It is deferred until after Scheduler MVP and requires a separate product/architecture phase before implementation.
 
 ---
 
@@ -672,6 +685,8 @@ Potential event types:
 Continue using general audit logs where appropriate for security/audit coverage.
 
 Do not place patient names, phone numbers or clinical content in generic audit metadata.
+
+Automated reminder/notification delivery events are not part of the MVP event contract.
 
 ---
 
@@ -749,10 +764,13 @@ Exact route names may follow repository conventions, but required capabilities i
 - mark no-show;
 - rebook;
 - send patient link;
+- optional explicit/manual notify patient action if approved for the surface;
 - patient-safe availability;
 - patient self-booking.
 
 Structured conflict responses should distinguish doctor overlap, patient overlap, blocked/outside-hours, stale availability and patient future-appointment cap.
+
+No background reminder scheduler, cron-triggered notification worker, or automatic messaging API is required for Scheduler MVP.
 
 ---
 
@@ -837,12 +855,14 @@ Appointment exists before arrival specifically so patient preparation has visit 
 
 After booking:
 
-- link can be sent;
+- link can be sent manually;
 - intake can attach to the Encounter;
 - documents can be uploaded using existing rules;
 - pre-consult preparation can proceed.
 
 Reschedule must not reset this context.
+
+Incomplete intake remains non-blocking. Scheduler MVP does not introduce automatic reminder automation into this integration.
 
 ---
 
@@ -878,7 +898,11 @@ Do not implement in Scheduler MVP:
 - advanced service catalog;
 - complex timezone support;
 - AI urgency/priority;
-- automatic no-show classification.
+- automatic no-show classification;
+- automatic intake reminders;
+- automatic appointment reminders;
+- automatic reschedule/cancellation messaging;
+- generic patient notification campaigns.
 
 ---
 
@@ -897,6 +921,8 @@ Implementation must follow `IMPLEMENTATION_PLAN.md`:
 - S8 Security/regression/pilot hardening
 
 Do not ask Codex to implement the entire Scheduler as one unbounded task.
+
+Patient communications/reminder automation is not an S0–S8 phase. It is deferred until after Scheduler MVP.
 
 ---
 
@@ -921,7 +947,7 @@ Scheduler MVP is pilot-ready only when a clinic can:
 15. cancel;
 16. manually mark no-show;
 17. rebook late/no-show patients;
-18. send patient link;
+18. manually send patient link;
 19. enable/disable patient self-booking;
 20. let OTP-authenticated patients self-book clean availability;
 21. enforce 30-day booking window;
@@ -931,6 +957,7 @@ Scheduler MVP is pilot-ready only when a clinic can:
 25. allow intake/documents immediately after booking;
 26. preserve internal audit/history;
 27. show patients safe appointment history;
-28. keep Clinic Desk/Queue behavior intact.
+28. keep Clinic Desk/Queue behavior intact;
+29. operate without requiring any automated reminder/notification worker.
 
 A rendered calendar alone is not completion.
