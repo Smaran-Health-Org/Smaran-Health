@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   preconsultVerificationLabel,
@@ -8,6 +9,7 @@ import {
   type PreconsultBriefVersionRecord,
 } from "../lib/preconsult/consultation-start";
 import { preconsultEvidenceHref } from "../lib/preconsult/evidence";
+import { whyTodayProvenanceLabel } from "../lib/preconsult/verification-label";
 
 const ids = {
   consultation: "00000000-0000-4000-8000-000000000001",
@@ -143,4 +145,22 @@ test("Phase 11 keeps every verification state explicit and opens exact evidence 
     preconsultEvidenceHref(ids.patient, { type: "observation", id: ids.document, page: 4, itemIndex: 1 }),
     `/patients/${ids.patient}/preconsult/evidence?type=observation&source=${ids.document}&page=4&item=1`,
   );
+});
+
+test("Phase 9 and 11 preserve why-today provenance through one cautious display mapping", () => {
+  assert.deepEqual(
+    (["patient", "reception_assisted", "unknown"] as const).map(whyTodayProvenanceLabel),
+    ["Patient-reported — unconfirmed", "Needs Review", "Needs Review"],
+  );
+  assert.notEqual(whyTodayProvenanceLabel("reception_assisted"), "Patient-reported — unconfirmed");
+
+  const surfaces = [
+    new URL("../app/patients/[id]/preconsult/page.tsx", import.meta.url),
+    new URL("../app/consultations/[id]/consultation-preconsult-context.tsx", import.meta.url),
+  ];
+  for (const surface of surfaces) {
+    const source = readFileSync(surface, "utf8");
+    assert.match(source, /import\s*{[^}]*whyTodayProvenanceLabel[^}]*}\s*from\s*"@\/lib\/preconsult\/verification-label"/);
+    assert.match(source, /whyTodayProvenanceLabel\([^)]*whyToday\.provenance\)/);
+  }
 });

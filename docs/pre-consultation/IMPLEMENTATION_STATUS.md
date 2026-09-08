@@ -828,13 +828,14 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 
 ### Phase 11 — Consultation Integration
 
-- Status: Complete — working tree implementation on `dev-neelesh`, based on `0bad861be51fb109da39f2186240595be2aea70e`; not committed by Codex. The pre-existing unrelated login-page edit remains unmodified and excluded.
+- Status: Pending closure re-review — the Phase 11 implementation is committed at `9eac932` on `dev-neelesh`. Independent Sol review found one P1 verification/provenance defect; its bounded fix is implemented, but Phase 11 is not Complete until Sol re-approves it. The pre-existing unrelated login-page edit remains unmodified and excluded.
 - Implementation summary:
   - Added a server-only consultation-start resolver that reads only `preconsult_brief_start_snapshots` and its exact immutable `preconsult_brief_versions` reference. It never reads the current pointer, snapshot RPC, lifecycle contract, generation work, or trends.
   - Resolver validates the authorized consultation's current clinic/canonical patient against both records, their consultation IDs, the immutable version ID, and origin provenance before parsing the payload. Missing, malformed, inaccessible, or inconsistent data returns a nonblocking `unavailable` result; an explicit snapshot with no brief remains `none_available`.
   - The consultation page passes only a serializable frozen result to a persistent, collapsed-by-default client panel. Its local expand/collapse state does not navigate, refresh, or change the established recording/transcription/manual-note state machine.
   - The read-only panel preserves the five verification labels and opens existing authorized evidence links in a new tab with `noreferrer`. Evidence links now retain supplied page and intake-item locators through the existing authorized evidence route.
   - Successful frozen reads record existing view provenance after the response on a best-effort basis; audit failure cannot block consultation loading.
+  - P1 closure fix: the Phase 9 preparation and Phase 11 consultation surfaces now share one exhaustive why-today provenance-to-label mapping. Only `patient` displays as `Patient-reported — unconfirmed`; `reception_assisted` and `unknown` display as `Needs Review`.
 - Acceptance criteria satisfied:
   - `P11-01`–`P11-12`: frozen start-only context; no mutable replacement or regeneration; local collapsible presentation; explicit verification/evidence provenance; nonblocking unavailable states; doctor/clinic authorization preserved; no clinical-state, note, Priority, source, or memory mutation; merge-safe canonical re-rooting; and no pin/carry-to-note work.
 - Files changed:
@@ -851,6 +852,12 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
   - `npx next build --webpack` — pass; existing middleware-to-proxy deprecation warning only.
   - `git diff --check` — pass.
+- Independent Sol P1 fix validation run:
+  - `npx tsx --test src/tests/preconsult-phase11.test.ts` — pass, 6 tests, including all accepted why-today provenance values and both surface imports/uses of the shared mapping.
+  - `npm test` — pass, 83 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `git diff --check` — pass.
 - Security/privacy/clinical safety:
   - Doctor-only server authorization and clinic RLS remain the first boundary; the resolver adds relationship validation before any frozen payload leaves the server. No fallback can disclose a different same-clinic patient's brief.
   - The derivative frozen brief stays read-only and visibly unconfirmed where applicable. It cannot accept deltas, update clinical state, generate Priority, edit notes, or alter approved-note-only follow-up memory.
@@ -859,6 +866,9 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Legacy/direct Encounter creation already in `in_consultation` can lack the Phase 9 transition-captured snapshot. It deliberately displays `Pre-consult context is unavailable`; no snapshot is backfilled and no current brief is substituted.
   - Pin/carry-to-note is intentionally out of scope because the note model has no approved structured provenance-preserving representation.
   - The repository has no browser interaction harness for a physical microphone/recording continuity exercise. The panel is deliberately component-local state with no workflow callbacks, and the existing recording/manual/approval unit suite plus production build remain green.
+  - Independent Sol review P2 (open, nonblocking): deferred view provenance inside `after()` may be unreliable because authenticated server-client creation calls `cookies()` within the callback.
+  - Independent Sol review P2 (open, nonblocking): Phase 11 UI/integration rendering coverage could be more comprehensive.
+  - Phase 11 remains pending closure re-review after the bounded P1 provenance fix; neither P2 is included in this fix.
 - Product decisions/questions surfaced:
   - No new product decision or migration was required. The existing immutable snapshot/version contract was sufficient.
 - Recommended next task:

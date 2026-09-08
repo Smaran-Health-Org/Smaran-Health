@@ -7,7 +7,7 @@ import styles from "@/components/clinical.module.css";
 import type { PreconsultBrief } from "@/lib/preconsult/contract";
 import type { PreconsultBriefAtConsultationStart } from "@/lib/preconsult/consultation-start";
 import { preconsultEvidenceHref, preconsultEvidenceLabel } from "@/lib/preconsult/evidence-links";
-import { preconsultVerificationLabel } from "@/lib/preconsult/verification-label";
+import { preconsultVerificationLabel, whyTodayProvenanceLabel } from "@/lib/preconsult/verification-label";
 
 type ConsultationPreconsultContextProps = {
   patientId: string;
@@ -52,16 +52,12 @@ function Claims({
 }
 
 function Brief({ patientId, brief }: { patientId: string; brief: PreconsultBrief }) {
-  const whyTodayVerification = brief.whyToday.provenance === "unknown"
-    ? "needs_review"
-    : "patient_reported_unconfirmed";
-
   return (
     <div className={styles.consultationPreconsultContent}>
       <section>
         <h3>Why today?</h3>
         <article className={styles.consultationPreconsultWhyToday}>
-          <strong>{preconsultVerificationLabel(whyTodayVerification)}</strong>
+          <strong>{whyTodayProvenanceLabel(brief.whyToday.provenance)}</strong>
           <p>{brief.whyToday.verbatim ?? "No reason for visit was submitted."}</p>
         </article>
       </section>
