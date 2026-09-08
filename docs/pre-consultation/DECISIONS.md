@@ -13,7 +13,7 @@ Do not silently reverse these decisions during implementation. If the existing c
 - **D-009** Product concept `Encounter` maps to existing `consultations` implementation for MVP; do not rename the whole subsystem now.
 - **D-010** Appointment creation should automatically create/associate the visit consultation/Encounter.
 - **D-011** Patient intake is optional/non-blocking; clinic can finish preparation at arrival.
-- **D-012** If intake remains incomplete 30 minutes before appointment, send one reminder; manual resend is allowed.
+- **D-012** Pre-consultation MVP does not send automatic time-based intake reminders. Authorized staff may manually send/resend intake access. Appointment-linked reminder automation belongs to Scheduler communications and is deferred until after Scheduler MVP.
 - **D-013** Patient enters reason for visit in free text; exact patient wording remains available.
 - **D-014** Patient may optionally enter existing conditions, current medicines, and allergies.
 - **D-015** Explicit consent is required for intake/document processing/storage.
