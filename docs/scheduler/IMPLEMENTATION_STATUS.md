@@ -6,13 +6,13 @@ Planning baseline when Scheduler pack was created: `0bad861be51fb109da39f2186240
 
 ## Overall status
 
-**PHASE S0 IN PROGRESS — product refinement/specification complete; planning pack being committed; product implementation not started.**
+**PHASE S0 COMPLETE — Scheduler product refinement/specification and Codex guardrails are committed. Phase S1 — Core scheduling data model is next. Product implementation has not started.**
 
 ## Phase tracker
 
 | Phase | Scope | Status | Primary acceptance criteria |
 | --- | --- | --- | --- |
-| S0 | Specification guardrails | In progress | Documentation/discoverability |
+| S0 | Specification guardrails | Complete | Documentation/discoverability |
 | S1 | Core scheduling data model | Not started | AC-SCH-F*, D*, M01, R03–R05 |
 | S2 | Availability engine | Not started | AC-SCH-A*, P05–P08 |
 | S3 | Atomic lifecycle + conflicts/concurrency | Not started | AC-SCH-B*, L*, P09–P12 |
@@ -77,18 +77,20 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 
 ## Phase S0 — Specification guardrails
 
-- Status: In progress
+- Status: Complete
 - Work completed:
   - founder/product refinement completed for Scheduler MVP decisions;
-  - `README.md` created;
-  - `DECISIONS.md` created;
-  - `ACCEPTANCE_CRITERIA.md` created;
-  - `IMPLEMENTATION_PLAN.md` created;
-  - `IMPLEMENTATION_STATUS.md` created;
-  - `SCHEDULER_MVP_SPEC.md` and root Codex routing are part of S0 completion.
+  - `README.md` created as the Scheduler context router;
+  - `DECISIONS.md` created with the approved refinement decisions;
+  - `ACCEPTANCE_CRITERIA.md` created with `AC-SCH-*` behavioral contracts;
+  - `IMPLEMENTATION_PLAN.md` created with phases S0–S8;
+  - `IMPLEMENTATION_STATUS.md` created as the living phase ledger;
+  - `SCHEDULER_MVP_SPEC.md` created as the detailed implementation contract;
+  - root `AGENTS.md` updated with Scheduler-specific context-loading and invariants.
 - Product code changed: No.
 - DB migrations: None.
 - Tests run: Documentation-only phase; no application tests required.
-- Security/privacy review: Planning explicitly preserves clinic isolation, patient OTP scope, staff/doctor role separation, audit privacy and existing pre-consult clinical boundaries.
+- Security/privacy review: Planning explicitly preserves clinic isolation, patient OTP scope, staff/doctor role separation, audit privacy, Appointment→Encounter continuity and existing pre-consult clinical boundaries.
 - Known limitations: Product implementation has not begun.
-- Recommended next task after S0: **Phase S1 — Core scheduling data model.**
+- Product decisions/questions surfaced: None unresolved from the approved refinement. Patient-side reschedule/cancel and Queue/token behavior remain explicitly deferred.
+- Recommended next task: **Phase S1 — Core scheduling data model.**
