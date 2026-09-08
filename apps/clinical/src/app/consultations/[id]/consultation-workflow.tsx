@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { formatDate } from "@/lib/status";
+import type { PreconsultBriefAtConsultationStart } from "@/lib/preconsult/brief";
 import styles from "@/components/clinical.module.css";
+import { ConsultationPreconsultContext } from "./consultation-preconsult-context";
 
 export type WorkflowState =
   | "patient"
@@ -68,6 +70,7 @@ type ConsultationWorkflowProps = {
   initialStatus: string;
   initialTranscript: string | null;
   memory?: WorkflowMemory | null;
+  preconsultContext: PreconsultBriefAtConsultationStart;
 };
 
 const activeStep: Record<WorkflowState, number> = {
@@ -362,6 +365,7 @@ export function ConsultationWorkflow({
   initialStatus,
   initialTranscript,
   memory,
+  preconsultContext,
 }: ConsultationWorkflowProps) {
   const router = useRouter();
   const [state, setState] = useState<WorkflowState>(() => initialStateFor(initialStatus));
@@ -1221,6 +1225,8 @@ export function ConsultationWorkflow({
             </button>
           </div>
         )}
+
+        <ConsultationPreconsultContext patientId={patient.id} context={preconsultContext} />
 
         {state === "patient" && (
           <>

@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import type { PreconsultBrief } from "@/lib/preconsult/contract";
+import type { PreconsultEvidenceSource } from "@/lib/preconsult/evidence-links";
+
+export { preconsultEvidenceHref, preconsultEvidenceLabel, type PreconsultEvidenceSource } from "@/lib/preconsult/evidence-links";
 
 export const preconsultEvidenceSourceTypeSchema = z.enum([
   "document",
@@ -12,7 +14,6 @@ export const preconsultEvidenceSourceTypeSchema = z.enum([
 ]);
 
 export type PreconsultEvidenceSourceType = z.infer<typeof preconsultEvidenceSourceTypeSchema>;
-export type PreconsultEvidenceSource = PreconsultBrief["evidenceSummary"][number];
 
 const preconsultEvidenceRecordSchema = z.object({
   sourceType: preconsultEvidenceSourceTypeSchema,
@@ -41,24 +42,6 @@ export function deltaEvidenceSources(detail: Record<string, unknown>): Preconsul
     if (reference.intakeStatementId) return [{ type: "intake_statement" as const, id: reference.intakeStatementId, itemIndex: reference.itemIndex }];
     return [];
   });
-}
-
-export function preconsultEvidenceHref(patientId: string, source: PreconsultEvidenceSource) {
-  if (source.type === "document") {
-    const page = typeof source.page === "number" ? `?page=${source.page}` : "";
-    return `/api/documents/${source.id}/view${page}`;
-  }
-  const query = new URLSearchParams({ type: source.type, source: source.id });
-  return `/patients/${patientId}/preconsult/evidence?${query.toString()}`;
-}
-
-export function preconsultEvidenceLabel(source: PreconsultEvidenceSource) {
-  if (source.type === "document") return "View original evidence";
-  if (source.type === "clinical_note") return "Open approved note";
-  if (source.type === "intake_statement") return "Open patient statement";
-  if (source.type === "observation") return "Open source observation";
-  if (source.type === "delta") return "Open proposed change source";
-  return "Open confirmed-state source";
 }
 
 export async function getPreconsultEvidenceSource(

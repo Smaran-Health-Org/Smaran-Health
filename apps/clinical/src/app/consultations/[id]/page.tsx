@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { after } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import { getConsultation } from "@/lib/db/consultations";
 import { getPatient, getPatients } from "@/lib/db/patients";
@@ -7,6 +8,10 @@ import { getPatientTimeline } from "@/lib/db/timeline";
 import { getClinicalNoteByConsultation } from "@/lib/db/clinical-notes";
 import { getTranscriptByConsultation } from "@/lib/db/transcripts";
 import { getFollowUpMemory } from "@/lib/db/follow-up-memory";
+import {
+  getPreconsultBriefAtConsultationStart,
+  recordPreconsultBriefView,
+} from "@/lib/preconsult/brief";
 import {
   ConsultationWorkflow,
   type NoteContent,
@@ -30,14 +35,24 @@ export default async function ConsultationPage({
   const patient = await getPatient(consultation.patientId, session.clinicId);
   if (!patient) notFound();
 
-  const [clinicName, timeline, note, transcript, patientList, memory] = await Promise.all([
+  const [clinicName, timeline, note, transcript, patientList, memory, preconsultContext] = await Promise.all([
     getClinicName(session.clinicId),
     getPatientTimeline(patient.id, session.clinicId),
     getClinicalNoteByConsultation(id, session.clinicId),
     getTranscriptByConsultation(id, session.clinicId),
     getPatients(session.clinicId, { pageSize: 1 }),
     getFollowUpMemory(patient.id, session.clinicId),
+    getPreconsultBriefAtConsultationStart({
+      consultationId: consultation.id,
+      clinicId: session.clinicId,
+      patientId: consultation.patientId,
+    }),
   ]);
+
+  if (preconsultContext.status === "brief_available") {
+    // Viewing provenance is useful but must never delay or block a consultation.
+    after(() => recordPreconsultBriefView(consultation.id, preconsultContext.briefVersionId).catch(() => undefined));
+  }
 
   const workflowPatient: WorkflowPatient = {
     id: patient.id,
@@ -71,6 +86,7 @@ export default async function ConsultationPage({
       initialStatus={consultation.status}
       initialTranscript={transcript?.rawText ?? null}
       memory={memory}
+      preconsultContext={preconsultContext}
     />
   );
 }

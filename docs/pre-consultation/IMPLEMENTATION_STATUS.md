@@ -826,6 +826,44 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 - Recommended next task:
   - Phase 11 — Consultation Integration product refinement. Do not begin implementation without its dedicated scope and acceptance review.
 
+### Phase 11 — Consultation Integration
+
+- Status: Complete — working tree implementation on `dev-neelesh`, based on `0bad861be51fb109da39f2186240595be2aea70e`; not committed by Codex. The pre-existing unrelated login-page edit remains unmodified and excluded.
+- Implementation summary:
+  - Added a server-only consultation-start resolver that reads only `preconsult_brief_start_snapshots` and its exact immutable `preconsult_brief_versions` reference. It never reads the current pointer, snapshot RPC, lifecycle contract, generation work, or trends.
+  - Resolver validates the authorized consultation's current clinic/canonical patient against both records, their consultation IDs, the immutable version ID, and origin provenance before parsing the payload. Missing, malformed, inaccessible, or inconsistent data returns a nonblocking `unavailable` result; an explicit snapshot with no brief remains `none_available`.
+  - The consultation page passes only a serializable frozen result to a persistent, collapsed-by-default client panel. Its local expand/collapse state does not navigate, refresh, or change the established recording/transcription/manual-note state machine.
+  - The read-only panel preserves the five verification labels and opens existing authorized evidence links in a new tab with `noreferrer`. Evidence links now retain supplied page and intake-item locators through the existing authorized evidence route.
+  - Successful frozen reads record existing view provenance after the response on a best-effort basis; audit failure cannot block consultation loading.
+- Acceptance criteria satisfied:
+  - `P11-01`–`P11-12`: frozen start-only context; no mutable replacement or regeneration; local collapsible presentation; explicit verification/evidence provenance; nonblocking unavailable states; doctor/clinic authorization preserved; no clinical-state, note, Priority, source, or memory mutation; merge-safe canonical re-rooting; and no pin/carry-to-note work.
+- Files changed:
+  - `apps/clinical/src/lib/preconsult/brief.ts`, `consultation-start.ts`, `evidence.ts`, `evidence-links.ts`, and `verification-label.ts`
+  - `apps/clinical/src/app/consultations/[id]/page.tsx`, `consultation-workflow.tsx`, and `consultation-preconsult-context.tsx`
+  - `apps/clinical/src/app/patients/[id]/preconsult/evidence/page.tsx`, `apps/clinical/src/components/clinical.module.css`, and `apps/clinical/src/tests/preconsult-phase11.test.ts`
+  - `docs/pre-consultation/README.md` and this status ledger
+- Database migrations: None.
+- Validation run:
+  - `npm test` — pass, 82 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `npx tsx --test --test-name-pattern='Phase 9|Phase 11' src/tests/*.test.ts` — pass, 17 tests.
+  - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
+  - `npx next build --webpack` — pass; existing middleware-to-proxy deprecation warning only.
+  - `git diff --check` — pass.
+- Security/privacy/clinical safety:
+  - Doctor-only server authorization and clinic RLS remain the first boundary; the resolver adds relationship validation before any frozen payload leaves the server. No fallback can disclose a different same-clinic patient's brief.
+  - The derivative frozen brief stays read-only and visibly unconfirmed where applicable. It cannot accept deltas, update clinical state, generate Priority, edit notes, or alter approved-note-only follow-up memory.
+  - No brief text, patient identity, private URL, or clinical content is added to general logs. View audit uses the established internal-ID-only behavior.
+- Known limitations:
+  - Legacy/direct Encounter creation already in `in_consultation` can lack the Phase 9 transition-captured snapshot. It deliberately displays `Pre-consult context is unavailable`; no snapshot is backfilled and no current brief is substituted.
+  - Pin/carry-to-note is intentionally out of scope because the note model has no approved structured provenance-preserving representation.
+  - The repository has no browser interaction harness for a physical microphone/recording continuity exercise. The panel is deliberately component-local state with no workflow callbacks, and the existing recording/manual/approval unit suite plus production build remain green.
+- Product decisions/questions surfaced:
+  - No new product decision or migration was required. The existing immutable snapshot/version contract was sufficient.
+- Recommended next task:
+  - Do not begin Phase 12 without separately approved scope. Phase 13 hardening and pin/carry-to-note remain separate future work.
+
 ### Phase 5 follow-up — senior review hardening
 
 - Status: Complete.

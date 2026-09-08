@@ -2,7 +2,22 @@ import { z } from "zod";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { PRECONSULT_BRIEF_SCHEMA_VERSION, PRECONSULT_GENERATOR_VERSION, PRECONSULT_SELECTION_CONTRACT_VERSION, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, isReturningChange, buildComparableTrendGroups, type PreconsultBrief, type PreconsultBriefLifecycle, type PreconsultTrendGroup, type PreconsultTrendPoint, briefClaim } from "@/lib/preconsult/contract";
+import {
+  resolvePreconsultBriefAtConsultationStart,
+  type PreconsultBriefAtConsultationStart,
+  type PreconsultBriefStartContext,
+  type PreconsultBriefStartSnapshotRecord,
+  type PreconsultBriefVersionRecord,
+} from "@/lib/preconsult/consultation-start";
 export { PRECONSULT_BRIEF_SCHEMA_VERSION, PRECONSULT_GENERATOR_VERSION, PRECONSULT_SELECTION_CONTRACT_VERSION, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, isReturningChange, buildComparableTrendGroups, hasActivePreconsultGenerationWork, type PreconsultBrief, type PreconsultBriefLifecycle, type PreconsultTrendGroup, type PreconsultTrendPoint } from "@/lib/preconsult/contract";
+export {
+  resolvePreconsultBriefAtConsultationStart,
+  preconsultVerificationLabel,
+  type PreconsultBriefAtConsultationStart,
+  type PreconsultBriefStartContext,
+  type PreconsultBriefStartSnapshotRecord,
+  type PreconsultBriefVersionRecord,
+} from "@/lib/preconsult/consultation-start";
 
 export type PreconsultArtifact = { id: string; resultState: "ready" | "partial"; sourceWatermark: string; generatedAt: string; payload: PreconsultBrief };
 type RecordRow = Record<string, unknown>;
@@ -126,6 +141,51 @@ export async function drainPreconsultBriefGeneration(limit = 8): Promise<void> {
     } catch {
       await service.rpc("fail_preconsult_brief_generation_work", { p_work_id: String(work.id), p_failure_code: "brief_generation_failed" });
     }
+  }
+}
+
+/**
+ * Returns the frozen pre-consult artifact captured at consultation start.
+ * It never consults the mutable current pointer, lifecycle RPC, or generator.
+ */
+export async function getPreconsultBriefAtConsultationStart(
+  context: PreconsultBriefStartContext,
+): Promise<PreconsultBriefAtConsultationStart> {
+  try {
+    const client = await createServerClient();
+    const { data: snapshotData, error: snapshotError } = await client
+      .from("preconsult_brief_start_snapshots")
+      .select("consultation_id,clinic_id,patient_id,origin_patient_id,brief_version_id,availability")
+      .eq("consultation_id", context.consultationId)
+      .maybeSingle();
+    if (snapshotError || !snapshotData) return { status: "unavailable" };
+
+    const snapshot = snapshotData as PreconsultBriefStartSnapshotRecord;
+    if (snapshot.availability === "none_available") {
+      return resolvePreconsultBriefAtConsultationStart(context, snapshot, null);
+    }
+
+    const briefVersionId = stringValue(snapshot.brief_version_id);
+    if (snapshot.availability !== "brief_available" || !briefVersionId) {
+      return { status: "unavailable" };
+    }
+
+    // Query only the immutable ID stored in this snapshot. In particular, do
+    // not fall back to a current or latest version if this read cannot resolve.
+    const { data: versionData, error: versionError } = await client
+      .from("preconsult_brief_versions")
+      .select("id,consultation_id,clinic_id,patient_id,origin_patient_id,payload")
+      .eq("id", briefVersionId)
+      .maybeSingle();
+    if (versionError || !versionData) return { status: "unavailable" };
+
+    return resolvePreconsultBriefAtConsultationStart(
+      context,
+      snapshot,
+      versionData as PreconsultBriefVersionRecord,
+    );
+  } catch {
+    return { status: "unavailable" };
   }
 }
 

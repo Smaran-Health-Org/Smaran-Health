@@ -1,6 +1,6 @@
 # Smaran Health — Pre-Consultation Planning Pack
 
-Status: **Approved product direction; Phases 1–7 implemented; Phase 8 is next**
+Status: **Approved product direction; Phases 1–11 implemented; Phase 12 is next**
 
 Branch baseline: `dev-neelesh`. The original planning baseline was `b782fde415073fe24eccd2207cd1a212a3e23ad5`; use the relevant section of `IMPLEMENTATION_STATUS.md` for current implementation progress.
 
@@ -63,9 +63,9 @@ Do **not** rename `consultations` to `encounters` as part of the pre-consultatio
 
 ## Current sequencing rule
 
-Phases 1–7 are implemented according to the current implementation ledger. **Phase 8 — Confirmed clinical state + delta engine — is next.**
+Phases 1–11 are implemented according to the current implementation ledger. **Phase 12 — Reminder and operational automation — is next.**
 
-Phase 8 must preserve the Phase 7 boundary that external observations remain unconfirmed and must never directly mutate confirmed clinical state. Smaran Scheduler and Smaran Pay remain deferred product surfaces unless a later approved phase explicitly changes scope.
+Phase 12 must preserve the established boundary that external observations remain unconfirmed and must never directly mutate confirmed clinical state. Smaran Scheduler and Smaran Pay remain deferred product surfaces unless a later approved phase explicitly changes scope.
 
 ## Codex operating rule
 
