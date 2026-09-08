@@ -1,6 +1,6 @@
 # Smaran Health — Pre-Consultation Planning Pack
 
-Status: **Approved product direction; Phases 1–7 implemented; Phase 8 is next**
+Status: **Approved product direction; Phase 10 complete; Phase 11 consultation integration is next; Phase 12 is final hardening/pilot QA**
 
 Branch baseline: `dev-neelesh`. The original planning baseline was `b782fde415073fe24eccd2207cd1a212a3e23ad5`; use the relevant section of `IMPLEMENTATION_STATUS.md` for current implementation progress.
 
@@ -12,7 +12,7 @@ This folder is the source of truth for the pre-consultation workflow. It convert
 
 > Every important clinical claim Smaran presents should be traceable to evidence whenever evidence exists.
 
-> Reception should manage people, not software states. Automate the normal path, surface the exception, and require human judgment only where human judgment adds value.
+> Reception should manage people, not software states. Automate the normal internal path, surface the exception, and require human judgment only where human judgment adds value. Patient communication remains human-triggered in the MVP.
 
 ## Context map — do not read exhaustively
 
@@ -63,9 +63,11 @@ Do **not** rename `consultations` to `encounters` as part of the pre-consultatio
 
 ## Current sequencing rule
 
-Phases 1–7 are implemented according to the current implementation ledger. **Phase 8 — Confirmed clinical state + delta engine — is next.**
+Phases 1–10 are complete according to the current implementation ledger. **Phase 11 — Consultation integration — is next. Phase 12 — Hardening and pilot QA — is the final pre-consultation MVP phase.**
 
-Phase 8 must preserve the Phase 7 boundary that external observations remain unconfirmed and must never directly mutate confirmed clinical state. Smaran Scheduler and Smaran Pay remain deferred product surfaces unless a later approved phase explicitly changes scope.
+There is no pre-consultation reminder-automation phase. Manual intake-link send/resend remains available; clock-driven or event-driven appointment-linked patient reminders belong to post-MVP Scheduler communications.
+
+Phase 11 must preserve the established safety boundary that unresolved intake, documents, deltas, or pre-consult preparation never block consultation. Phase 12 should harden the implemented MVP rather than add new product scope. Smaran Scheduler and Smaran Pay remain separate product surfaces.
 
 ## Codex operating rule
 
