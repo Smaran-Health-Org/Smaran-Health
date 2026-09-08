@@ -15,7 +15,7 @@ Baseline commit reviewed: `bbf2a07`
 | 1 | Patient identity + appointment/Encounter foundation | Complete | AC-P01, AC-P03, AC-P04, AC-E01, AC-E02 | Clinic-scoped identity foundation, appointments, atomic Encounter creation, separate operational state, RLS, APIs, and tests implemented. |
 | 2 | Lightweight registration + duplicate patient protection | Complete | AC-P01–P05 | Staged identity-first registration, duplicate warning/override, and audited non-destructive merge implemented. |
 | 3 | Admin Today/Queue | Complete | AC-R01–R02, AC-E03 | Appointment-driven queue with atomic, role-aware transitions and no doctor-only clinical interpretation. |
-| 4 | OTP patient intake + consent | Complete | AC-I01–I05, AC-I07, AC-R01, AC-R04 | Reminder automation (AC-I06) remains Phase 12. |
+| 4 | OTP patient intake + consent | Complete | AC-I01–I07, AC-R01, AC-R04 | Manual intake-link send/resend is available; AC-I06 prohibits automatic time-based intake reminders in Pre-Consultation MVP. |
 | 5 | Document ingestion foundation | Complete | AC-D01–D02, D07 | Exact-hash duplicate flag foundation included; extraction and Needs Review remain Phase 6. |
 | 6 | Document processing + Needs Review | Complete | AC-D04–D06, AC-A01; AC-D03 detection | Structured trend exclusion remains Phase 7. |
 | 6.5 | Role workspaces, dashboards, and Clinic Desk automation | Complete | AC-W01–W19; AC-I08–I09; AC-A06 | Workspace boundary, role landings, dashboards, Clinic Desk, Priority, queue/walk-ins, and assisted intake with immutable additive provenance implemented. |
@@ -24,8 +24,7 @@ Baseline commit reviewed: `bbf2a07`
 | 9 | 30-second doctor brief | Complete | AC-B01–B06, AC-A02–A06, AC-C01–C07 (integration), AC-R02–R03, AC-E03 | Immutable doctor-only derivative brief artifacts, bounded evidence/provenance, durable stale-safe regeneration, correction/reconciliation integration, exact evidence navigation, and immutable Start Consultation snapshots are complete. Final targeted Sol closure review passed. |
 | 10 | Review Changes UI | Complete | AC-C02–C07 | Doctor-only consolidated review, fail-closed current-state comparison, atomic reviewed-subset Apply, evidence drill-down, and nonblocking Start Consultation passed final Sol closure review. |
 | 11 | Consultation integration | Complete | AC-B06, D-034 | Immutable start-snapshot context, persistent/collapsible doctor-only presentation, verification/provenance preservation, and nonblocking evidence navigation passed final Sol closure re-review. |
-| 12 | 30-minute reminder automation | Not started | AC-I06 | |
-| 13 | Security/pilot hardening | Not started | All | |
+| 12 | Security / hardening / pilot QA | Not started | All relevant | RLS/security, role-matrix and audit tests, upload/OTP protections, existing-workflow retry/idempotency review, accessibility/UI states, synthetic evaluation fixtures, and end-to-end consultation-integration regression; no reminder automation. |
 
 ## Update template
 
@@ -868,7 +867,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - P2: Deferred pre-consult brief view-provenance recording may be unreliable because authenticated server-client creation occurs inside Next.js `after()` and reaches `cookies()`.
   - P2: Broader Phase 11 render/workflow integration tests would strengthen regression coverage.
 - Recommended next task:
-  - Phase 12 — Reminder Automation product refinement. Do not start Phase 12 implementation without separately approved scope.
+  - Phase 12 — Hardening and pilot QA. Do not add reminder automation or other clock-driven patient communications.
 
 ### Phase 5 follow-up — senior review hardening
 

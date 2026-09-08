@@ -1,6 +1,6 @@
 # Smaran Health — Pre-Consultation Planning Pack
 
-Status: **Approved product direction; Phases 1–11 implemented; Phase 12 is next**
+Status: **Approved product direction; Phases 1–11 complete; Phase 12 is final hardening/pilot QA**
 
 Branch baseline: `dev-neelesh`. The original planning baseline was `b782fde415073fe24eccd2207cd1a212a3e23ad5`; use the relevant section of `IMPLEMENTATION_STATUS.md` for current implementation progress.
 
@@ -12,7 +12,7 @@ This folder is the source of truth for the pre-consultation workflow. It convert
 
 > Every important clinical claim Smaran presents should be traceable to evidence whenever evidence exists.
 
-> Reception should manage people, not software states. Automate the normal path, surface the exception, and require human judgment only where human judgment adds value.
+> Reception should manage people, not software states. Automate the normal internal path, surface the exception, and require human judgment only where human judgment adds value. Patient communication remains human-triggered in the MVP.
 
 ## Context map — do not read exhaustively
 
@@ -63,9 +63,11 @@ Do **not** rename `consultations` to `encounters` as part of the pre-consultatio
 
 ## Current sequencing rule
 
-Phases 1–11 are implemented according to the current implementation ledger. **Phase 12 — Reminder and operational automation — is next.**
+Phases 1–11 are complete according to the current implementation ledger. **Phase 12 — Hardening and pilot QA — is the final pre-consultation MVP phase.**
 
-Phase 12 must preserve the established boundary that external observations remain unconfirmed and must never directly mutate confirmed clinical state. Smaran Scheduler and Smaran Pay remain deferred product surfaces unless a later approved phase explicitly changes scope.
+There is no pre-consultation reminder-automation phase. Manual intake-link send/resend remains available; clock-driven or event-driven appointment-linked patient reminders belong to post-MVP Scheduler communications.
+
+Phase 12 must preserve the established safety boundary that unresolved intake, documents, deltas, or pre-consult preparation never block consultation, and that external observations remain unconfirmed unless authorized doctor review confirms a clinically meaningful change. It should harden the implemented MVP rather than add new product scope. Smaran Scheduler and Smaran Pay remain separate product surfaces.
 
 ## Codex operating rule
 

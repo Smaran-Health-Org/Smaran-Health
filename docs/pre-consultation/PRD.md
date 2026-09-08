@@ -70,7 +70,7 @@ No dedicated patient app in MVP. Uses a secure mobile web link, OTP, consent, a 
 - Delta detection against confirmed clinic records.
 - Consolidated Review Changes workflow.
 - Doctor can Accept/Ignore proposed changes without blocking consultation.
-- 30-minute pre-appointment reminder when intake remains incomplete.
+- Authorized staff may manually send or resend intake access; no time-based intake or appointment-linked messages are sent automatically.
 - Audit logging for sensitive changes and approvals.
 
 ### Explicitly not in MVP

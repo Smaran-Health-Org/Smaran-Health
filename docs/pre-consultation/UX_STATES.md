@@ -210,7 +210,7 @@ Reception should not navigate through separate Patient -> Appointment -> Encount
 - submitted
 - expired link/session
 
-Reminder rule: if incomplete 30 minutes before scheduled appointment, send one reminder. Admin can resend manually.
+Communication rule: authorized staff may manually send or resend intake access. Pre-Consultation MVP does not automatically send time-based intake reminders or appointment-linked messages.
 
 ## 10. Document states
 
