@@ -14,6 +14,8 @@ This folder is the source of truth for Smaran Scheduler. It converts the founder
 
 > Scheduler controls the planned visit. Clinic Desk/Queue controls what actually happens on the day.
 
+> Patient communication is human-triggered in Scheduler MVP. Appointment-linked reminders/notifications are deferred until after MVP.
+
 ## Context map — do not read exhaustively
 
 For Codex/AI agents, use the smallest sufficient context for the requested phase.
@@ -69,6 +71,7 @@ Scheduler must extend these foundations. Do not create parallel patient, appoint
 10. Scheduler permissions do not expose doctor-only clinical interpretation.
 11. All scheduling data remains clinic scoped.
 12. MVP timezone is `Asia/Kolkata`.
+13. MVP patient communication is explicit/manual; do not add automatic intake reminders, appointment reminders, or reschedule/cancellation messaging in S0–S8.
 
 ## Phase sequence
 
@@ -83,3 +86,5 @@ Scheduler must extend these foundations. Do not create parallel patient, appoint
 - **S8** — Security, concurrency, regression and pilot hardening
 
 Do not implement future phases opportunistically. Each phase must satisfy its mapped acceptance criteria and update `IMPLEMENTATION_STATUS.md` before moving on.
+
+After Scheduler MVP, a separately planned communications/reminder phase may add appointment-linked automation such as incomplete-intake, reschedule, cancellation, or other reminders. That automation is not part of S0–S8.
