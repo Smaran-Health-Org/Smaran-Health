@@ -121,7 +121,8 @@ AC-SCH-F01–F05, AC-SCH-D01–D06, AC-SCH-M01, AC-SCH-R03–R05.
 - availability generation;
 - calendar UI;
 - self-booking UI;
-- concurrency override behavior.
+- concurrency override behavior;
+- automated patient messaging/reminders.
 
 ---
 
@@ -177,7 +178,8 @@ Property/table-driven tests covering:
 
 - persistence mutation for booking;
 - intentional override transaction;
-- calendar UI.
+- calendar UI;
+- automated patient messaging/reminders.
 
 ---
 
@@ -271,7 +273,8 @@ AC-SCH-B01–B09, AC-SCH-L01–L09, AC-SCH-P09–P12, AC-SCH-R01–R05.
 
 - calendar rendering;
 - schedule settings UI;
-- patient portal UI.
+- patient portal UI;
+- automated patient messaging/reminders.
 
 ---
 
@@ -357,7 +360,8 @@ AC-SCH-U01–U08, AC-SCH-B01–B07, AC-SCH-R01, AC-SCH-R04.
 - drag-and-drop;
 - Month view;
 - patient self-booking;
-- Queue/token redesign.
+- Queue/token redesign;
+- automated patient messaging/reminders.
 
 ---
 
@@ -428,7 +432,8 @@ AC-SCH-D01–D08, AC-SCH-M02, AC-SCH-R03–R05.
 ## Non-goals
 
 - schedule templates/copy between doctors;
-- automatic bulk rescheduling.
+- automatic bulk rescheduling;
+- automated patient messaging/reminders.
 
 ---
 
@@ -507,7 +512,8 @@ AC-SCH-P01–P12, AC-SCH-PP01–PP02, AC-SCH-R02–R05.
 
 - patient reschedule;
 - patient cancel;
-- external identity/account system.
+- external identity/account system;
+- automated patient messaging/reminders.
 
 ---
 
@@ -558,7 +564,7 @@ Do not expose raw internal audit metadata, staff-only notes, internal exception 
 
 ### Manual notification actions
 
-Reschedule/cancel may surface Notify Patient, but automated communication workflows remain deferred.
+Reschedule/cancel may surface Notify Patient. Send Patient Link and Notify Patient are explicit human actions in MVP; they must not become clock-driven or event-driven automatic communication workflows.
 
 ## Acceptance criteria
 
@@ -576,8 +582,9 @@ AC-SCH-PP03–PP05, AC-SCH-L02–L07, AC-SCH-R02–R04.
 ## Non-goals
 
 - automated notification campaigns;
-- patient reschedule/cancel;
-- 30-minute reminder implementation if still owned by pre-consult Phase 12.
+- automated intake reminders;
+- automated reschedule/cancellation messaging;
+- patient reschedule/cancel.
 
 ---
 
@@ -594,7 +601,7 @@ Prove Scheduler is safe under real clinic concurrency, tenancy, role and integra
 - patient-session isolation tests;
 - override authorization tests;
 - concurrency/race stress tests;
-- idempotency/retry tests;
+- idempotency/retry tests for implemented scheduling operations;
 - schedule-change affected-count tests;
 - appointment-event/audit privacy review;
 - accessibility/loading/empty/error-state review;
@@ -621,6 +628,19 @@ Never mark S8 complete because the UI appears functional.
 
 # Deferred after Scheduler MVP
 
+## Patient communications and reminders
+
+Scheduler owns appointment-linked patient communications after MVP. Future work may include:
+
+- incomplete-intake reminders, including a possible 30-minute-before-appointment reminder;
+- automated reschedule notifications;
+- automated cancellation notifications;
+- other explicitly approved appointment reminders.
+
+This future automation must have an explicit product contract for timing, eligibility, idempotency, delivery ambiguity, rescheduling/cancellation races, privacy and manual override behavior before implementation. Do not implement it opportunistically inside S0–S8.
+
+## Other deferred scope
+
 - patient reschedule/cancel;
 - recurring appointment series;
 - Month view;
@@ -632,8 +652,7 @@ Never mark S8 complete because the UI appears functional.
 - schedule-copy templates;
 - advanced service/procedure catalog;
 - billing/payments;
-- complex timezone support;
-- automated reschedule/cancellation messaging.
+- complex timezone support.
 
 ---
 
