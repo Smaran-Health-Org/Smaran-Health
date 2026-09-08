@@ -156,6 +156,8 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 
 **AC-SCH-M03** Scheduler MVP MUST NOT implement recurring appointment series, external calendar sync, Month view, token management, predictive wait time, billing, bulk auto-rescheduling, schedule-copy templates, or patient reschedule/cancel.
 
+**AC-SCH-M04** Scheduler MVP MUST NOT automatically send appointment-linked patient reminders or notifications, including incomplete-intake, reschedule, or cancellation messages. Patient communication in MVP is explicit/manual; automation is deferred to post-MVP Scheduler communications.
+
 ## Regression and safety
 
 **AC-SCH-R01** Scheduler implementation MUST preserve existing walk-in, check-in and waiting-queue behavior.
