@@ -214,29 +214,31 @@ Goal: continuity between preparation and existing consultation workflow.
 
 Avoid major refactor of the existing consultation workflow unless decomposed as a dedicated prerequisite with tests.
 
-## Phase 12 — Reminder and operational automation
+## Phase 12 — Hardening and pilot QA
 
-- one 30-minute incomplete-intake reminder.
-- idempotency so duplicate reminders are not sent.
-- manual resend.
-- provider abstraction for WhatsApp/SMS.
+Goal: prove the pre-consultation MVP is safe, resilient, and pilot-ready without adding new automation scope.
 
-## Phase 13 — Hardening and pilot QA
-
+Work:
 - RLS/security review for every new table/storage path.
 - role matrix tests.
 - audit tests.
 - upload limits/malware/content-type checks.
 - OTP abuse/rate limits.
-- retry/idempotency.
+- retry/idempotency for existing user-triggered/background processing paths.
 - accessibility/loading/empty/error states.
 - synthetic document/delta evaluation fixtures.
+- regression coverage for the complete pre-consultation path through consultation integration.
+
+Communication scope:
+- manual intake link send/resend remains supported.
+- no clock-driven intake reminders or automated patient messaging in pre-consultation MVP.
+- appointment-linked reminder/notification automation belongs to Scheduler communications and is deferred until after Scheduler MVP.
 
 ## Deferred product refinements after pre-consultation
 
 ### Smaran Scheduler
 
-Scheduler is intentionally a separate future feature/product refinement after current pre-consultation delivery. It may later support patient self-booking, receptionist booking, doctor availability, rescheduling, cancellations, and appointment reminders. Phase 6.5 may reserve a disabled/Coming Later navigation entry but must not implement it.
+Scheduler is intentionally a separate future feature/product refinement after current pre-consultation delivery. It may later support patient self-booking, receptionist booking, doctor availability, rescheduling, cancellations, and appointment-linked communications. Scheduler MVP remains manual for patient notifications; reminder/notification automation is a post-MVP Scheduler concern. Phase 6.5 may reserve a disabled/Coming Later navigation entry but must not implement it.
 
 ### Smaran Pay
 
