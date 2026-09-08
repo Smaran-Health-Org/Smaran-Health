@@ -7,7 +7,7 @@
 3. Smaran searches within the current clinic.
 4. If no strong match exists, admin enters only essential demographics: name, phone, DOB/age, sex, appointment time. Existing richer fields remain optional.
 5. Smaran creates the patient and consultation/Encounter; appointment is linked.
-6. Smaran sends secure intake link.
+6. Authorized staff may send the secure intake link.
 7. Patient opens link -> OTP -> consent -> reason for visit -> optional conditions/medicines/allergies -> uploads documents -> submit.
 8. Each document processes independently; queue reflects Processing / Processed / Needs Review.
 9. Pre-consult brief regenerates as useful information arrives.
@@ -36,9 +36,11 @@ Admin creates/finds patient, edits demographics if needed, scans/uploads physica
 
 ## 4. Intake incomplete
 
-- If still incomplete 30 minutes before the appointment, send one reminder message.
+- Pre-consultation MVP does not automatically send a timed reminder.
+- Authorized staff may manually send/resend the intake link when operationally useful.
 - If still incomplete at arrival, admin can finish basic details/upload documents at clinic.
 - Queue displays intake incomplete without preventing arrival or consultation.
+- Automated appointment-linked reminders are deferred to post-MVP Scheduler communications.
 
 ## 5. Duplicate patient detection
 
