@@ -1,0 +1,1154 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/2spr81",
+    "id": "2spr81",
+    "slide": 8,
+    "layoutId": "3c99e8d6-7187-40e4-9cd7-2c8bb7092dfe",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "0d8472b1-6591-486e-9bf5-b0662231c6ab",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#F4F8F5",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Arial",
+      "Avenir Next"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "3c99e8d6-7187-40e4-9cd7-2c8bb7092dfe",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "0d8472b1-6591-486e-9bf5-b0662231c6ab",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "0d8472b1-6591-486e-9bf5-b0662231c6ab",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gvi9w76d",
+      "id": "1",
+      "bbox": [
+        72,
+        31,
+        160,
+        22
+      ],
+      "geometry": "rect",
+      "text": "SMARAN HEALTH",
+      "textPreview": "SMARAN HEALTH",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "Arial",
+        "color": "#0D4F40",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "SMARAN HEALTH"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "SMARAN HEALTH",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Arial",
+            "color": "#0D4F40",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "SMARAN HEALTH",
+              "fontSize": 14,
+              "typeface": "Arial",
+              "color": "#0D4F40",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fu98nm58",
+      "id": "2",
+      "bbox": [
+        992,
+        28,
+        216,
+        30
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#DDE6E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ut0ruhon",
+      "id": "3",
+      "bbox": [
+        1004,
+        39,
+        8,
+        8
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#70D5AD",
+      "lineColor": "#70D5AD",
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tsrqlcn2",
+      "id": "4",
+      "bbox": [
+        1020,
+        34,
+        178,
+        20
+      ],
+      "geometry": "rect",
+      "text": "SYNTHETIC PROTOTYPE",
+      "textPreview": "SYNTHETIC PROTOTYPE",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 13,
+        "typeface": "Arial",
+        "color": "#0D4F40",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "SYNTHETIC PROTOTYPE"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "SYNTHETIC PROTOTYPE",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "typeface": "Arial",
+            "color": "#0D4F40",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "SYNTHETIC PROTOTYPE",
+              "fontSize": 13,
+              "typeface": "Arial",
+              "color": "#0D4F40",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/s7y9s76h",
+      "id": "5",
+      "name": "slide-title",
+      "bbox": [
+        72,
+        78,
+        1050,
+        58
+      ],
+      "geometry": "rect",
+      "text": "One patient view holds the whole approved story",
+      "textPreview": "One patient view holds the whole approved story",
+      "resolvedFontSize": 40,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 40,
+        "typeface": "Avenir Next",
+        "color": "#081A27",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "One patient view holds the whole approved story"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "One patient view holds the whole approved story",
+          "lineSpacingPercent": 102000,
+          "resolvedTextStyle": {
+            "fontSize": 40,
+            "typeface": "Avenir Next",
+            "color": "#081A27",
+            "bold": true,
+            "alignment": "left",
+            "lineSpacing": 1.02
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "One patient view holds the whole approved story",
+              "fontSize": 40,
+              "typeface": "Avenir Next",
+              "color": "#081A27",
+              "bold": true,
+              "alignment": "left",
+              "lineSpacing": 1.02
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/76p8j25w",
+      "id": "6",
+      "bbox": [
+        72,
+        139,
+        850,
+        34
+      ],
+      "geometry": "rect",
+      "text": "The next visit starts with approved context—not a reconstruction exercise.",
+      "textPreview": "The next visit starts with approved context—not a reconstruction exercise.",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 22,
+        "typeface": "Arial",
+        "color": "#66736F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The next visit starts with approved context—not a reconstruction exercise."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The next visit starts with approved context—not a reconstruction exercise.",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "typeface": "Arial",
+            "color": "#66736F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The next visit starts with approved context—not a reconstruction exercise.",
+              "fontSize": 22,
+              "typeface": "Arial",
+              "color": "#66736F",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/65g7qxob",
+      "id": "7",
+      "bbox": [
+        72,
+        196,
+        760,
+        430
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#DDE6E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 8,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/gjy5obmt",
+      "id": "8",
+      "bbox": [
+        84,
+        208,
+        736,
+        406
+      ],
+      "geometry": "roundRect",
+      "alt": "Synthetic patient profile showing approved medication history, pending investigations, advice and timeline",
+      "contentType": "image/jpeg",
+      "imageCrop": {
+        "left": 0.2,
+        "top": 0.13,
+        "right": 0.03,
+        "bottom": 0.01
+      },
+      "imageFit": "cover",
+      "imageMask": {
+        "geometry": "roundRect",
+        "adjustmentList": [
+          {
+            "name": "adj",
+            "formula": "val 2956"
+          }
+        ]
+      },
+      "asset": {
+        "assetId": "0483a2a4-1a55-47f7-83ef-e647e71d970e",
+        "contentType": "image/jpeg",
+        "byteLength": 64228
+      }
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cn294rml",
+      "id": "9",
+      "bbox": [
+        882,
+        214,
+        300,
+        24
+      ],
+      "geometry": "rect",
+      "text": "APPROVED HISTORY ONLY",
+      "textPreview": "APPROVED HISTORY ONLY",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "Arial",
+        "color": "#155D66",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "APPROVED HISTORY ONLY"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "APPROVED HISTORY ONLY",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Arial",
+            "color": "#155D66",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "APPROVED HISTORY ONLY",
+              "fontSize": 14,
+              "typeface": "Arial",
+              "color": "#155D66",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ad4ni5g3",
+      "id": "10",
+      "bbox": [
+        882,
+        254,
+        310,
+        32
+      ],
+      "geometry": "rect",
+      "text": "Reason for today",
+      "textPreview": "Reason for today",
+      "resolvedFontSize": 26,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 26,
+        "typeface": "Avenir Next",
+        "color": "#081A27",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Reason for today"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Reason for today",
+          "resolvedTextStyle": {
+            "fontSize": 26,
+            "typeface": "Avenir Next",
+            "color": "#081A27",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Reason for today",
+              "fontSize": 26,
+              "typeface": "Avenir Next",
+              "color": "#081A27",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vedobaxo",
+      "id": "11",
+      "bbox": [
+        882,
+        288,
+        310,
+        58
+      ],
+      "geometry": "rect",
+      "text": "Why the patient is returning, as documented in the record.",
+      "textPreview": "Why the patient is returning, as documented in the record.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Arial",
+        "color": "#66736F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Why the patient is returning, as"
+          },
+          {
+            "index": 2,
+            "text": "documented in the record."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Why the patient is returning, as documented in the record.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Arial",
+            "color": "#66736F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Why the patient is returning, as documented in the record.",
+              "fontSize": 18,
+              "typeface": "Arial",
+              "color": "#66736F",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wf6pkfy9",
+      "id": "12",
+      "bbox": [
+        882,
+        366,
+        310,
+        32
+      ],
+      "geometry": "rect",
+      "text": "What changed",
+      "textPreview": "What changed",
+      "resolvedFontSize": 26,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 26,
+        "typeface": "Avenir Next",
+        "color": "#081A27",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "What changed"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "What changed",
+          "resolvedTextStyle": {
+            "fontSize": 26,
+            "typeface": "Avenir Next",
+            "color": "#081A27",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "What changed",
+              "fontSize": 26,
+              "typeface": "Avenir Next",
+              "color": "#081A27",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xgf6dkfu",
+      "id": "13",
+      "bbox": [
+        882,
+        400,
+        310,
+        62
+      ],
+      "geometry": "rect",
+      "text": "Medication changes, investigations reviewed, symptoms and prior advice.",
+      "textPreview": "Medication changes, investigations reviewed, symptoms and prior advice.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Arial",
+        "color": "#66736F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Medication changes, investigations"
+          },
+          {
+            "index": 2,
+            "text": "reviewed, symptoms and prior advice."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Medication changes, investigations reviewed, symptoms and prior advice.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Arial",
+            "color": "#66736F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Medication changes, investigations reviewed, symptoms and prior advice.",
+              "fontSize": 18,
+              "typeface": "Arial",
+              "color": "#66736F",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/m94ne5g7",
+      "id": "14",
+      "bbox": [
+        882,
+        482,
+        310,
+        32
+      ],
+      "geometry": "rect",
+      "text": "What remains open",
+      "textPreview": "What remains open",
+      "resolvedFontSize": 26,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 26,
+        "typeface": "Avenir Next",
+        "color": "#081A27",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "What remains open"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "What remains open",
+          "resolvedTextStyle": {
+            "fontSize": 26,
+            "typeface": "Avenir Next",
+            "color": "#081A27",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "What remains open",
+              "fontSize": 26,
+              "typeface": "Avenir Next",
+              "color": "#081A27",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nado7axs",
+      "id": "15",
+      "bbox": [
+        882,
+        516,
+        310,
+        58
+      ],
+      "geometry": "rect",
+      "text": "Pending reports and unresolved items from approved records.",
+      "textPreview": "Pending reports and unresolved items from approved records.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Arial",
+        "color": "#66736F",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Pending reports and unresolved items"
+          },
+          {
+            "index": 2,
+            "text": "from approved records."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Pending reports and unresolved items from approved records.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Arial",
+            "color": "#66736F",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Pending reports and unresolved items from approved records.",
+              "fontSize": 18,
+              "typeface": "Arial",
+              "color": "#66736F",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8bm5gvyd",
+      "id": "16",
+      "bbox": [
+        882,
+        586,
+        310,
+        40
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFF1ED",
+      "lineColor": "#FF8A6B",
+      "lineWidth": 1
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9cv690fi",
+      "id": "17",
+      "bbox": [
+        898,
+        596,
+        278,
+        20
+      ],
+      "geometry": "rect",
+      "text": "Drafts and rejected notes stay out",
+      "textPreview": "Drafts and rejected notes stay out",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "Arial",
+        "color": "#8B4638",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Drafts and rejected notes stay out"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Drafts and rejected notes stay out",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Arial",
+            "color": "#8B4638",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Drafts and rejected notes stay out",
+              "fontSize": 15,
+              "typeface": "Arial",
+              "color": "#8B4638",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/65o7qpgb",
+      "id": "18",
+      "bbox": [
+        72,
+        670,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#DDE6E1",
+      "lineWidth": 1
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/76hojuxw",
+      "id": "19",
+      "bbox": [
+        72,
+        683,
+        420,
+        18
+      ],
+      "geometry": "rect",
+      "text": "Clinical memory for specialist follow-ups",
+      "textPreview": "Clinical memory for specialist follow-ups",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Arial",
+        "color": "#8B9793",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Clinical memory for specialist follow-ups"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Clinical memory for specialist follow-ups",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Arial",
+            "color": "#8B9793",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Clinical memory for specialist follow-ups",
+              "fontSize": 12,
+              "typeface": "Arial",
+              "color": "#8B9793",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3q94bmd8",
+      "id": "20",
+      "bbox": [
+        1158,
+        682,
+        50,
+        18
+      ],
+      "geometry": "rect",
+      "text": "08",
+      "textPreview": "08",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Arial",
+        "color": "#155D66",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "08"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "08",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Arial",
+            "color": "#155D66",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "08",
+              "fontSize": 12,
+              "typeface": "Arial",
+              "color": "#155D66",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

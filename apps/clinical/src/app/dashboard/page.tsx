@@ -4,19 +4,8 @@ import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
 import { getDashboardOverview } from "@/lib/db/dashboard";
 import { AppShell } from "@/components/app-shell";
-import { Icon } from "@/components/icons";
-import { StatusBadge } from "@/components/status-badge";
-import { formatRelativeDay } from "@/lib/status";
+import { DoctorTodayList } from "@/components/doctor-today-list";
 import styles from "@/components/clinical.module.css";
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -25,22 +14,10 @@ function greeting(): string {
   return "Good evening";
 }
 
-function draftLabel(status: string | null): string {
-  switch (status) {
-    case "approved":
-      return "Approved";
-    case "edited":
-      return "Edited";
-    case "rejected":
-      return "Rejected";
-    default:
-      return "Draft";
-  }
-}
-
 export default async function DashboardPage() {
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  if (session.role !== "doctor") redirect("/desk");
 
   const [overview, clinicName] = await Promise.all([
     getDashboardOverview(session.clinicId),
@@ -54,148 +31,48 @@ export default async function DashboardPage() {
       doctorName={session.fullName}
       clinicName={clinicName}
       patientCount={overview.totalPatients}
+      role={session.role}
+      workspace="clinical"
     >
       <div className={styles.pageContent}>
         <div className={styles.overviewHeader}>
           <div>
-            <p className={styles.eyebrow}>Overview</p>
             <h1>
               {greeting()}, {doctorFirstName}
             </h1>
-            <p>A calm snapshot of your clinic&apos;s clinical memory.</p>
+            <p>Your day at a glance.</p>
           </div>
-          <Link href="/new-consultation" className={styles.primaryButton}>
-            <Icon name="plus" /> New consultation
-          </Link>
+          <Link href="/desk" className={styles.secondaryButton}>Open Clinic Desk</Link>
         </div>
 
-        <div className={styles.statGrid}>
+        <div className={styles.doctorKpiGrid} aria-label="Today summary">
           <div className={styles.statCard}>
-            <span className={styles.statIcon}>
-              <Icon name="users" />
-            </span>
             <div>
-              <strong>{overview.totalPatients}</strong>
-              <small>Total patients</small>
+              <strong>{overview.patientsToday}</strong>
+              <small>Patients Today</small>
             </div>
           </div>
           <div className={styles.statCard}>
-            <span className={styles.statIcon}>
-              <Icon name="activity" />
-            </span>
             <div>
-              <strong>{overview.consultationsThisWeek}</strong>
-              <small>Consultations this week</small>
+              <strong>{overview.todayQueue.summary.waiting}</strong>
+              <small>Waiting Now</small>
             </div>
           </div>
           <div className={styles.statCard}>
-            <span className={styles.statIcon}>
-              <Icon name="alert" />
-            </span>
             <div>
-              <strong>{overview.awaitingReview}</strong>
-              <small>Awaiting review</small>
+              <strong>{overview.todayQueue.summary.priority}</strong>
+              <small>Priority</small>
             </div>
           </div>
           <div className={styles.statCard}>
-            <span className={styles.statIcon}>
-              <Icon name="clipboard" />
-            </span>
             <div>
-              <strong>{overview.approvedNotes}</strong>
-              <small>Approved notes</small>
+              <strong>{overview.todayQueue.summary.completed}</strong>
+              <small>Completed</small>
             </div>
           </div>
         </div>
 
-        <div className={styles.overviewGrid}>
-          <section className={styles.panel}>
-            <div className={styles.panelTitle}>
-              <div>
-                <p className={styles.eyebrow}>Recent activity</p>
-                <h2>Recent consultations</h2>
-              </div>
-              <Link href="/patients" className={styles.panelLink}>
-                All patients <Icon name="arrowRight" />
-              </Link>
-            </div>
-
-            {overview.recentConsultations.length === 0 ? (
-              <div className={styles.emptyState}>
-                <strong>No consultations yet</strong>
-                <p>Start a consultation from the patient list.</p>
-              </div>
-            ) : (
-              <ul className={styles.activityList}>
-                {overview.recentConsultations.map((consultation) => (
-                  <li key={consultation.id}>
-                    <Link
-                      href={`/consultations/${consultation.id}`}
-                      className={styles.activityItem}
-                    >
-                      <span className={styles.avatar}>
-                        {initials(consultation.patientFullName ?? "Patient")}
-                      </span>
-                      <div className={styles.activityMain}>
-                        <strong>{consultation.patientFullName ?? "Patient"}</strong>
-                        <span>{formatRelativeDay(consultation.startedAt)}</span>
-                        {consultation.draftPreview && (
-                          <span className={styles.draftPreview}>
-                            {draftLabel(consultation.draftStatus)} · {consultation.draftPreview}
-                          </span>
-                        )}
-                      </div>
-                      <StatusBadge status={consultation.status} />
-                      <Icon name="chevron" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className={styles.panel}>
-            <div className={styles.panelTitle}>
-              <div>
-                <p className={styles.eyebrow}>Action required</p>
-                <h2>Needs your review</h2>
-              </div>
-            </div>
-
-            {overview.needsAttention.length === 0 ? (
-              <div className={styles.emptyState}>
-                <strong>You&apos;re all caught up</strong>
-                <p>No drafts are waiting for review.</p>
-              </div>
-            ) : (
-              <ul className={styles.activityList}>
-                {overview.needsAttention.map((consultation) => (
-                  <li key={consultation.id}>
-                    <Link
-                      href={`/consultations/${consultation.id}`}
-                      className={styles.activityItem}
-                    >
-                      <span className={styles.avatar}>
-                        {initials(consultation.patientFullName ?? "Patient")}
-                      </span>
-                      <div className={styles.activityMain}>
-                        <strong>{consultation.patientFullName ?? "Patient"}</strong>
-                        <span>{formatRelativeDay(consultation.startedAt)}</span>
-                        {consultation.draftPreview && (
-                          <span className={styles.draftPreview}>
-                            {draftLabel(consultation.draftStatus)} · {consultation.draftPreview}
-                          </span>
-                        )}
-                      </div>
-                      <StatusBadge status={consultation.status} />
-                      <Icon name="chevron" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+        <DoctorTodayList items={overview.todayQueue.items} />
       </div>
     </AppShell>
   );

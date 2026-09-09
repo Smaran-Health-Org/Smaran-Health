@@ -1,0 +1,906 @@
+# Pre-Consultation Implementation Status
+
+Baseline branch: `dev-neelesh`
+Baseline commit reviewed: `bbf2a07`
+
+## Overall status
+
+**PHASE 11 COMPLETE — immutable consultation-start context integration implemented, validated, and approved by final Sol closure re-review.**
+
+## Phase tracker
+
+| Phase | Scope | Status | Acceptance criteria | Notes |
+|---|---|---|---|---|
+| 0 | Specification guardrails | Complete | — | Planning documents committed and referenced by root agent instructions. |
+| 1 | Patient identity + appointment/Encounter foundation | Complete | AC-P01, AC-P03, AC-P04, AC-E01, AC-E02 | Clinic-scoped identity foundation, appointments, atomic Encounter creation, separate operational state, RLS, APIs, and tests implemented. |
+| 2 | Lightweight registration + duplicate patient protection | Complete | AC-P01–P05 | Staged identity-first registration, duplicate warning/override, and audited non-destructive merge implemented. |
+| 3 | Admin Today/Queue | Complete | AC-R01–R02, AC-E03 | Appointment-driven queue with atomic, role-aware transitions and no doctor-only clinical interpretation. |
+| 4 | OTP patient intake + consent | Complete | AC-I01–I07, AC-R01, AC-R04 | Manual intake-link send/resend is available; AC-I06 prohibits automatic time-based intake reminders in Pre-Consultation MVP. |
+| 5 | Document ingestion foundation | Complete | AC-D01–D02, D07 | Exact-hash duplicate flag foundation included; extraction and Needs Review remain Phase 6. |
+| 6 | Document processing + Needs Review | Complete | AC-D04–D06, AC-A01; AC-D03 detection | Structured trend exclusion remains Phase 7. |
+| 6.5 | Role workspaces, dashboards, and Clinic Desk automation | Complete | AC-W01–W19; AC-I08–I09; AC-A06 | Workspace boundary, role landings, dashboards, Clinic Desk, Priority, queue/walk-ins, and assisted intake with immutable additive provenance implemented. |
+| 7 | Normalized observations + provenance | Complete | AC-D03, AC-A01–A04 | Immutable doctor-only observations, page/evidence/date provenance, unconfirmed boundary, and duplicate/retry-safe trend inputs implemented. |
+| 8 | Confirmed state + delta engine | Complete | AC-C01–C05, AC-C07, AC-A03–A05, AC-R02–R03 | The engine/data contract supports later consolidated Review Changes (AC-C06); the actual consolidated UI remains Phase 10. |
+| 9 | 30-second doctor brief | Complete | AC-B01–B06, AC-A02–A06, AC-C01–C07 (integration), AC-R02–R03, AC-E03 | Immutable doctor-only derivative brief artifacts, bounded evidence/provenance, durable stale-safe regeneration, correction/reconciliation integration, exact evidence navigation, and immutable Start Consultation snapshots are complete. Final targeted Sol closure review passed. |
+| 10 | Review Changes UI | Complete | AC-C02–C07 | Doctor-only consolidated review, fail-closed current-state comparison, atomic reviewed-subset Apply, evidence drill-down, and nonblocking Start Consultation passed final Sol closure review. |
+| 11 | Consultation integration | Complete | AC-B06, D-034 | Immutable start-snapshot context, persistent/collapsible doctor-only presentation, verification/provenance preservation, and nonblocking evidence navigation passed final Sol closure re-review. |
+| 12 | Security / hardening / pilot QA | Not started | All relevant | RLS/security, role-matrix and audit tests, upload/OTP protections, existing-workflow retry/idempotency review, accessibility/UI states, synthetic evaluation fixtures, and end-to-end consultation-integration regression; no reminder automation. |
+
+## Update template
+
+After each implementation phase, append:
+
+### Phase N — <name>
+
+- Status: Complete / Partial / Blocked
+- Commit/PR:
+- Acceptance criteria satisfied:
+- Files changed:
+- DB migrations:
+- Tests run:
+- Security/privacy review:
+- Known limitations:
+- Product decisions/questions surfaced:
+- Recommended next task:
+
+Do not mark a phase Complete solely because UI exists; relevant database, authorization, error states, and acceptance criteria must also be satisfied.
+
+### Phase 1 — Patient identity + appointment/Encounter foundation
+
+- Status: Complete
+- Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
+- Work completed:
+  - Added nullable DOB and conservative normalized phone/name matching signals while retaining raw identity values and legacy age.
+  - Added non-destructive future-merge provenance fields. They are deliberately write-locked until Phase 2 supplies an authorized, audited merge transaction.
+  - Added clinic-scoped appointments linked one-to-one to the existing consultation/Encounter implementation.
+  - Added a separate Encounter operational status without changing the existing consultation recording/note status enum.
+  - Added transactional, idempotent appointment + consultation creation through a PostgreSQL RPC.
+  - Added appointment create/status APIs and clinic-scoped service methods.
+  - Added appointment audit events without patient/clinical content in metadata.
+- Acceptance criteria satisfied:
+  - `AC-P01`: existing clinic-scoped patient UUID remains the Smaran Patient ID.
+  - `AC-P03`: normalized phone/name are indexed matching signals, not a unique key.
+  - `AC-P04`: patient, appointment, consultation references and reads remain clinic scoped.
+  - `AC-E01`: appointment booking atomically creates and links a consultation/Encounter.
+  - `AC-E02`: the existing `consultations` subsystem is reused without rename or recreation.
+  - Foundations only, not yet satisfied: `AC-P02` duplicate warning and `AC-P05` merge workflow remain Phase 2; `AC-E03` remains a later intake/operations contract.
+- Files changed:
+  - `apps/clinical/package.json`
+  - `apps/clinical/scripts/cloud-migrate.cjs`
+  - `apps/clinical/src/app/api/appointments/route.ts`
+  - `apps/clinical/src/app/api/appointments/[id]/route.ts`
+  - `apps/clinical/src/db/schema.ts`
+  - `apps/clinical/src/lib/api/error-handler.ts`
+  - `apps/clinical/src/lib/db/appointments.ts`
+  - `apps/clinical/src/lib/db/consultations.ts`
+  - `apps/clinical/src/lib/db/patients.ts`
+  - `apps/clinical/src/lib/identity.ts`
+  - `apps/clinical/src/lib/validation/index.ts`
+  - `apps/clinical/src/tests/preconsult-phase1.test.ts`
+  - `apps/clinical/src/types/index.ts`
+  - `apps/clinical/supabase/cloud-bootstrap.sql`
+  - `apps/clinical/supabase/tests/0005_preconsult_phase1.test.sql`
+  - `docs/pre-consultation/IMPLEMENTATION_STATUS.md`
+- DB migrations:
+  - `apps/clinical/supabase/migrations/0005_preconsult_phase1_foundation.sql`
+  - `apps/clinical/supabase/migrations/0006_preconsult_phase1_merge_guard.sql`
+  - Applied successfully to local Supabase without resetting existing data.
+- Tests run:
+  - `npm run lint` — pass.
+  - `npx tsc --noEmit` — pass.
+  - `npm test` — pass, 6/6.
+  - `npm run test:db` — pass, 16/16 pgTAP assertions.
+  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+  - `npm run build -- --webpack` — pass, production routes compiled and generated.
+  - `npm run build` — Turbopack could not bind its helper-process port in the execution environment; it failed on an unchanged CSS module before application compilation. The supported webpack build completed successfully.
+- Security/privacy review:
+  - Appointment RLS permits authenticated clinic members only; anonymous access is not granted.
+  - Database triggers enforce clinic consistency across appointment, consultation, patient, doctor, creator, and merge references, including service-role writes.
+  - Appointment booking derives `clinic_id` from the authenticated profile and accepts no caller-supplied clinic ID.
+  - Cross-clinic booking is rejected in database tests.
+  - Merge fields cannot be mutated through ordinary authenticated patient updates until the Phase 2 merge service is implemented.
+  - Cancellation/no-show changes appointment state only and cannot mutate the clinical recording/note state machine.
+  - Audit actions contain only internal IDs/status actions; no patient name, phone, or clinical content is logged.
+- Known limitations:
+  - No duplicate warning, fuzzy-name policy, country-code equivalence, merge workflow, or merge UI exists yet.
+  - No appointment booking/queue UI, appointment listing API, arrival workflow, or operational transition policy exists yet.
+  - Existing consultations remain valid without appointments; scheduled appointments use their scheduled time as the provisional `started_at` until later consultation integration.
+  - Operational status is represented and API-updatable but is not yet wired into the Phase 3 queue or Phase 11 Start Consultation UX.
+  - `supabase/cloud-bootstrap.sql` remains a baseline-through-0003 convenience bundle; deployers must run numbered migrations 0004 onward. `scripts/cloud-migrate.cjs` now discovers all numbered migrations automatically.
+- Product decisions/questions surfaced:
+  - No approved decision conflicts were found.
+  - Phone normalization removes formatting only and intentionally does not assume `+91`; country-code equivalence and fuzzy-name thresholds require explicit Phase 2 treatment.
+- Recommended next task:
+  - Phase 2 — implement lightweight admin registration and duplicate-patient warning first, then add the explicitly authorized/audited merge transaction using the Phase 1 merge guard. Do not add appointment queue, OTP, documents, or AI extraction in that task.
+
+### Phase 2 — Lightweight registration + duplicate patient protection
+
+- Status: Complete
+- Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
+- Work completed:
+  - Changed new-patient registration to an identity-first flow: full name and phone are checked before the optional DOB/age and gender fields are shown.
+  - Removed clinical-detail fields from the lightweight registration screen; the existing patient model/API still retains those fields for later profile updates.
+  - Added clinic-scoped possible-duplicate lookup using same-phone signals plus conservative name matching. Common Indian national, `0`-prefixed, and `+91` phone forms are treated as matching signals.
+  - Added a duplicate warning with actions to review the existing profile, start a consultation for it, or explicitly continue as a genuinely different patient.
+  - Enforced duplicate checking again during patient creation so direct API use and races cannot silently bypass the warning. Explicit overrides are audited using internal patient IDs only.
+  - Excluded merged source profiles from normal patient search while retaining them by ID as provenance records.
+  - Added a doctor/admin-only patient merge API backed by a transactional, `SECURITY DEFINER` database function.
+  - Merge retains the source patient row and all current record IDs, reassigns consultations, appointments, and patient timeline events to the canonical patient, and writes immutable merge provenance plus start/completion audit events.
+  - Added idempotent replay behavior and deterministic patient locking for concurrent merge requests.
+- Acceptance criteria satisfied:
+  - `AC-P01`: lightweight registration continues to create a clinic-scoped UUID Smaran Patient ID.
+  - `AC-P02`: same-phone plus matching/similar-name candidates trigger a warning before creation; the POST API independently enforces the same contract.
+  - `AC-P03`: phone/name remain non-unique matching signals and an explicit distinct-patient override is supported.
+  - `AC-P04`: matching, creation, active-patient search, merge reads, child reassignment, and provenance remain clinic scoped.
+  - `AC-P05`: one active canonical patient remains after merge; source identity, consultation, appointment, timeline IDs, and immutable merge/audit provenance are preserved. Document tables do not exist yet and must be added to this transaction when Phase 5 introduces them.
+- Files changed:
+  - `apps/clinical/package.json`
+  - `apps/clinical/src/app/api/patients/route.ts`
+  - `apps/clinical/src/app/api/patients/[id]/merge/route.ts`
+  - `apps/clinical/src/components/clinical.module.css`
+  - `apps/clinical/src/components/new-consultation-flow.tsx`
+  - `apps/clinical/src/db/schema.ts`
+  - `apps/clinical/src/lib/db/patient-merges.ts`
+  - `apps/clinical/src/lib/db/patients.ts`
+  - `apps/clinical/src/lib/identity.ts`
+  - `apps/clinical/src/lib/validation/index.ts`
+  - `apps/clinical/src/tests/preconsult-phase2.test.ts`
+  - `apps/clinical/src/types/index.ts`
+  - `apps/clinical/supabase/migrations/0007_preconsult_phase2_patient_merge.sql`
+  - `apps/clinical/supabase/tests/0007_preconsult_phase2.test.sql`
+  - `docs/pre-consultation/IMPLEMENTATION_STATUS.md`
+- DB migrations:
+  - `apps/clinical/supabase/migrations/0007_preconsult_phase2_patient_merge.sql`
+  - Applied successfully to local Supabase without resetting existing data.
+- Tests run:
+  - `npm run lint` — pass.
+  - `npx tsc --noEmit` — pass.
+  - `npm test` — pass, 12/12 unit tests.
+  - `npm run test:db` — pass, both Phase 1 and Phase 2 suites; 33/33 pgTAP assertions.
+  - `npx supabase db lint --local` — pass, no schema errors.
+  - `npx next build --webpack` — pass; all routes, including the merge API, compiled.
+  - `npm run build` — Turbopack still cannot bind its helper-process port in this execution environment, including after an escalated retry. The webpack production build completed successfully.
+- Security/privacy review:
+  - Duplicate candidates are selected only under the authenticated clinic's RLS context and merged sources are excluded.
+  - The browser cannot supply `clinic_id`; both duplicate checks and patient creation derive it from the authenticated profile.
+  - Merge authorization is checked in both the route and database function. Doctors and clinic admins are allowed; assistants are denied pending an approved clinic-level authorization policy.
+  - Cross-clinic and self-merge attempts are rejected, canonical/source rows are locked, and ordinary writes remain unable to alter merge provenance fields.
+  - Authenticated users have read-only access to clinic-scoped merge provenance; no update/delete grants exist, and a trigger protects against privileged accidental mutation.
+  - Audit metadata contains internal IDs/reasons only, not patient names, phones, or clinical content.
+  - The existing consultation recording/note status state machine, transcription, approval, timeline-generation, and follow-up-memory behavior were not changed.
+- Known limitations:
+  - No merge UI is included; authorized integrations can call `POST /api/patients/{sourceId}/merge` after confirmation. The Phase 2 plan explicitly allowed merge UI to remain a later subphase.
+  - The conservative matching policy requires phone equivalence and name similarity of at least `0.82`; it is a warning heuristic, never an automatic merge. It does not yet transliterate names or support non-Indian country-code equivalence.
+  - Patients without a phone can still be registered to avoid blocking care, but no automatic duplicate warning is possible for them.
+  - The check-then-create sequence can race, but the POST recheck prevents silent creation and returns the warning for review; there is intentionally no hard unique phone/name constraint.
+  - Future patient-derived tables, especially documents introduced in Phase 5, must be added to the merge transaction and preservation tests before those phases can claim merge completeness.
+  - No appointment queue, OTP, consent intake, documents, AI extraction, clinical deltas, or pre-consult brief was implemented.
+- Product decisions/questions surfaced:
+  - No conflict with approved decisions `D-002`, `D-004`, or `D-006` through `D-008` was found.
+  - The approved documents say "authorized users" may merge but do not define an assistant authorization mechanism. The conservative implemented policy allows doctors/admins and blocks assistants until that clinic-level policy is explicitly decided.
+  - Matching rules used for this phase are recorded implementation parameters, not hard identity truth: India-aware phone variants plus exact/token-order/Levenshtein name similarity at `0.82`.
+- Recommended next task:
+  - Phase 3 — build the admin Today/Queue operations on the existing appointment + consultation operational-status foundation, including arrived/waiting/start transitions and explicit non-blocking intake states. Do not add OTP, documents, or AI pre-consult summarization to that task.
+
+### Phase 3 — Admin Today/Queue operations
+
+- Status: Complete
+- Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
+- Work completed:
+  - Replaced the consultation-start-time dashboard list with a clinic-scoped, appointment-driven queue ordered by scheduled time in India Standard Time.
+  - Added operational rows with scheduled time, patient name, new/follow-up classification based on prior approved history, operational status, and honest intake/document placeholders.
+  - Added queue actions for Mark Arrived, Mark Waiting, and doctor-only Start Consultation. The doctor may start directly from Scheduled, Arrived, or Waiting; no intake or document state is inspected by the action.
+  - Consolidated role authorization, clinic validation, row locking, transition validation, operational-state update, and semantic audit insertion into one database transaction/RPC.
+  - Revoked direct authenticated updates to `consultations.operational_status`; operational changes must use the role-aware transition function.
+  - Prevented backward Waiting -> Arrived transitions and made repeated identical transitions idempotent without duplicating semantic audit events.
+  - Kept all pre-consult clinical summaries, extraction content, deltas, and doctor-only review actions out of the queue query and UI.
+- Acceptance criteria satisfied:
+  - `AC-R01`: Admin/receptionist/assistant can see clinic-scoped operational queue data and mark Arrived/Waiting; doctors can Start Consultation. Actual secure intake-link sending remains Phase 4, which owns OTP/session delivery.
+  - `AC-R02`: Queue data contains only operational patient/appointment fields; it does not load or render a doctor-facing AI brief or clinical delta controls.
+  - `AC-E03`: Mark Arrived, Mark Waiting, and Start Consultation do not require intake or document processing. Cancelled/no-show/completed appointments cannot be moved.
+- Files changed:
+  - `apps/clinical/src/app/api/appointments/[id]/queue/route.ts`
+  - `apps/clinical/src/app/api/consultations/[id]/route.ts`
+  - `apps/clinical/src/app/dashboard/page.tsx`
+  - `apps/clinical/src/components/clinical.module.css`
+  - `apps/clinical/src/components/today-patients-list.tsx`
+  - `apps/clinical/src/lib/db/appointment-queue.ts`
+  - `apps/clinical/src/lib/db/dashboard.ts`
+  - `apps/clinical/src/lib/validation/index.ts`
+  - `apps/clinical/src/tests/preconsult-phase3.test.ts`
+  - `apps/clinical/supabase/migrations/0008_preconsult_phase3_queue_hardening.sql`
+  - `apps/clinical/supabase/tests/0008_preconsult_phase3_queue.test.sql`
+  - `docs/pre-consultation/IMPLEMENTATION_STATUS.md`
+- DB migrations:
+  - `apps/clinical/supabase/migrations/0008_preconsult_phase3_queue_hardening.sql`
+  - Applied successfully to local Supabase without resetting existing data.
+- Tests run:
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `npm test` — pass, 18/18.
+  - `npm run test:db` — pass, 50/50 pgTAP assertions across Phase 1 through Phase 3 suites.
+  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+  - `npx next build --webpack` — pass; the new queue route was compiled.
+- Security/privacy review:
+  - Queue reads derive the clinic from the authenticated session. Queue mutations resolve clinic and actor role again inside the database transaction.
+  - Start Consultation is doctor-only at both the route and database layers; direct authenticated writes to operational status are denied.
+  - Appointment and consultation rows are locked during transitions, preventing concurrent queue actions from overwriting a newer state.
+  - Semantic audit writes are atomic with state changes. Metadata has only the internal appointment ID; no patient identity or clinical content is logged.
+  - The queue intentionally avoids doctor-only AI brief, extraction, confirmed-state, and delta data.
+- Known limitations:
+  - `patient_intakes`, secure OTP links, consent capture, document records, processing status, and actual Send/resend intake functionality are intentionally deferred to Phases 4–6.
+  - Until those sources exist, every active queue item shows Intake pending and No documents; the product does not claim a patient is clinically ready merely because no data is available.
+- Product decisions/questions surfaced:
+  - No approved decision conflict found. The plan lists Send/resend intake under Phase 3, but D-012/D-016 require that action to be backed by Phase 4's secure OTP/session design; exposing a placeholder sender would be unsafe.
+- Recommended next task:
+  - Phase 4 — implement secure patient intake sessions, OTP verification, versioned intake/document-processing consent, permitted demographic updates with audit, and the actual Send/resend intake action used by this queue.
+
+### Phase 4 — Secure patient intake
+
+- Status: Complete
+- Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
+- Work completed:
+  - Added accountless patient intake linked one-to-one to the existing consultation/Encounter, with `not_started`, `in_progress`, and `submitted` states.
+  - Added server-generated high-entropy link tokens, six-digit OTPs, HMAC-only credential storage, ten-minute OTP expiry, 24-hour link expiry, five-attempt lockout, one-minute resend cooldown, prior-session invalidation, and a post-OTP HttpOnly/SameSite browser credential.
+  - Added a narrow public RPC boundary: anonymous callers cannot query intake tables and may only verify one token/OTP pair, read that verified intake context, and submit that one intake.
+  - Added versioned consent capture for `intake_processing` and `document_storage` before medical intake data is persisted.
+  - Preserved the patient-entered reason for visit exactly on the intake evidence record, linked to the existing consultation/Encounter without duplicating that clinical text into the broadly readable `consultations` table.
+  - Stored optional patient-reported conditions, medicines, and allergies as explicitly `unconfirmed` inputs; no confirmed clinical state or approved-note memory is changed.
+  - Allowed patient correction of name, DOB, and gender while keeping the OTP mobile immutable in patient intake. Detailed before/after values are preserved in an immutable, clinic-scoped demographic history; general audit metadata contains field names only.
+  - Added a mobile patient-safe `/intake/[token]` route outside the authenticated clinic shell, with OTP, consent, optional self-report, loading/error/submitted states, no-index/no-referrer metadata, and non-blocking care language.
+  - Replaced the queue's intake placeholder with live intake status plus Send/Resend intake. The queue now derives status from the latest access session, so expired, locked, invalidated, failed, pending, sent, and verified links are not represented by stale historical send timestamps.
+  - Production delivery uses a server-only webhook adapter with a stable access-session idempotency key. Explicit provider rejection fails closed; an ambiguous timeout/network result remains pending and usable, avoiding invalidation or unsafe duplicate sends. Non-production supports an explicit local preview without logging credentials.
+  - Removed direct authenticated reads from `patient_intakes`. Clinic queue users receive only clinic-scoped operational state through a narrow security-definer RPC and cannot directly query patient-entered clinical intake text.
+  - Added database-boundary validation requiring optional self-report lists to contain only bounded non-empty JSON strings; public callers can no longer rely on JSON-to-text coercion.
+  - Extended the existing non-destructive patient merge so Phase 4 child ownership moves to the canonical patient while immutable `origin_patient_id` provenance remains.
+- Acceptance criteria satisfied:
+  - `AC-I01`: intake is a mobile web route and creates no auth user or patient account.
+  - `AC-I02`: the form requires an OTP tied to delivery to the registered patient mobile context; raw OTPs/tokens are never persisted.
+  - `AC-I03`: current-version intake-processing and document-storage consent records are captured before submission data is stored.
+  - `AC-I04`: reason for visit retains patient wording and is associated with the existing Encounter.
+  - `AC-I05`: conditions, medicines, and allergies are optional and explicitly unconfirmed.
+  - `AC-I07`: name, DOB, and gender corrections retain immutable before/after provenance and safe audit metadata; mobile is not patient-editable.
+  - `AC-R01`: clinic users can send/resend intake and see operational completion state without receiving clinical interpretation.
+  - `AC-R04`: the public session exposes only its linked clinic name, appointment, permitted demographics, and that single intake; direct anonymous table access is denied.
+  - Preserved `AC-E03`: arrival/waiting/start-consultation transitions still do not inspect or require intake state.
+  - Not yet satisfied: `AC-I06` automated 30-minute reminder remains Phase 12 by the approved implementation plan.
+- Files changed:
+  - `apps/clinical/.env.example`
+  - `apps/clinical/src/app/api/appointments/[id]/intake/route.ts`
+  - `apps/clinical/src/app/api/intake/[token]/route.ts`
+  - `apps/clinical/src/app/api/intake/[token]/verify/route.ts`
+  - `apps/clinical/src/app/intake/[token]/page.tsx`
+  - `apps/clinical/src/app/intake/[token]/patient-intake-form.tsx`
+  - `apps/clinical/src/components/clinical.module.css`
+  - `apps/clinical/src/components/today-patients-list.tsx`
+  - `apps/clinical/src/db/schema.ts`
+  - `apps/clinical/src/lib/db/appointment-queue.ts`
+  - `apps/clinical/src/lib/db/patient-intake.ts`
+  - `apps/clinical/src/lib/intake/delivery.ts`
+  - `apps/clinical/src/lib/intake/security.ts`
+  - `apps/clinical/src/lib/validation/index.ts`
+  - `apps/clinical/src/middleware.ts`
+  - `apps/clinical/src/tests/preconsult-phase3.test.ts`
+  - `apps/clinical/src/tests/preconsult-phase4.test.ts`
+  - `apps/clinical/src/types/index.ts`
+  - `apps/clinical/supabase/migrations/0009_preconsult_phase4_secure_intake.sql`
+  - `apps/clinical/supabase/migrations/0010_preconsult_phase4_merge_audit_guard.sql`
+  - `apps/clinical/supabase/migrations/0011_preconsult_phase4_issue_function_fix.sql`
+  - `apps/clinical/supabase/migrations/0012_preconsult_phase4_operational_column_access.sql`
+  - `apps/clinical/supabase/migrations/0013_preconsult_phase4_review_hardening.sql`
+  - `apps/clinical/supabase/migrations/0014_preconsult_phase4_pending_delivery_guard.sql`
+  - `apps/clinical/supabase/tests/0009_preconsult_phase4_secure_intake.test.sql`
+  - `docs/pre-consultation/IMPLEMENTATION_STATUS.md`
+- DB migrations:
+  - `0009_preconsult_phase4_secure_intake.sql` — intake/consent/access/demographic schema, RLS, RPCs, audit, and merge integration.
+  - `0010_preconsult_phase4_merge_audit_guard.sql` — permits only canonical ownership reassignment during the authorized merge transaction while keeping demographic history immutable.
+  - `0011_preconsult_phase4_issue_function_fix.sql` — qualifies an issuance-function column shared with a return parameter.
+  - `0012_preconsult_phase4_operational_column_access.sql` — limits clinic-role direct reads to operational intake columns.
+  - `0013_preconsult_phase4_review_hardening.sql` — removes clinical text from consultations, revokes direct clinic-role intake reads, adds clinic-scoped operational-state RPC access, validates JSON element types, preserves verbatim reason text, and supports ambiguous/pending delivery safely.
+  - `0014_preconsult_phase4_pending_delivery_guard.sql` — prevents a live ambiguous delivery from being invalidated by a duplicate resend until its OTP window ends.
+  - All applied successfully to local Supabase without resetting existing data.
+- Tests run:
+  - `npm run lint` — pass.
+  - `npx tsc --noEmit` — pass.
+  - `npm test` — pass, 24/24 unit tests.
+  - `npm run test:db` — pass, 93/93 pgTAP assertions across Phases 1–4.
+  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+  - `npx next build --webpack` — pass; public intake and staff delivery routes compiled.
+  - `npm run build` — Turbopack could not bind its helper-process port in this execution environment, including after an escalated retry; the supported webpack production build passed.
+- Security/privacy review:
+  - Token, OTP, and verified-browser credentials are random and stored only as HMAC-SHA-256 digests using a required server-side pepper.
+  - Production rejects preview delivery and fails closed unless the server-only delivery webhook and credential are configured.
+  - OTP attempt limits, expiry, resend cooldown, session invalidation, private HttpOnly cookie, no-store responses, no-referrer metadata, and no-index metadata reduce link/session exposure.
+  - Public RPCs reveal no clinic-wide or cross-encounter records; direct anonymous table access is revoked. Cross-clinic issuance is rejected in database tests.
+  - Authenticated clinic roles have no direct `patient_intakes` read grant. The queue RPC returns only clinic-scoped operational fields; patient-entered clinical content is not loaded by the queue.
+  - Patient-entered reason text is stored only on the intake evidence row and remains linked to the Encounter by `consultation_id`; leading/trailing patient wording is not normalized away.
+  - Webhook requests include the access-session ID as an idempotency key. Ambiguous network outcomes remain pending, while explicit rejection is marked failed.
+  - Audit metadata contains internal IDs, consent version/type, status, and changed field names only. It does not contain phone, reason for visit, conditions, medicines, allergies, or demographic values.
+  - Self-report stays unconfirmed and does not update clinical state, AI notes, timeline, or follow-up memory.
+- Known limitations:
+  - A real messaging vendor/template is not selected in product decisions. Deployment must configure `INTAKE_DELIVERY_MODE=webhook`, `INTAKE_DELIVERY_WEBHOOK_URL`, and its server-only token after privacy/vendor review. Local preview is development-only.
+  - The consent copy is technically versioned but still requires the planned Indian healthcare/privacy counsel review before real-patient use.
+  - Intake fields are submitted atomically after consent; there is no pre-consent autosave or post-submission patient editing/withdrawal UI.
+  - Document upload is Phase 5. The Phase 4 consent record prepares the scope but does not claim documents were uploaded.
+  - The automated 30-minute incomplete-intake reminder and provider-specific WhatsApp/SMS abstraction remain Phase 12; manual Send/Resend is complete.
+  - The queue exposes submitted/in-progress/sent state but no patient-entered medical content. Doctor-facing use of unconfirmed intake belongs to later brief/delta phases with explicit authorization.
+- Product decisions/questions surfaced:
+  - No approved decision conflict was found.
+  - The planning pack does not approve a messaging vendor or final legal consent wording. The implementation therefore uses a provider-neutral webhook and a versioned technical consent copy, both fail-closed for production readiness rather than treating vendor/legal choices as settled.
+- Recommended next task:
+  - Phase 5 — add immutable private document ingestion, content hashing/duplicate detection, date provenance, authorized original viewing, patient/admin upload, and non-destructive merge coverage. Do not add OCR/AI extraction until Phase 6.
+
+### Phase 5 — Document ingestion foundation
+
+- Status: Complete
+- Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
+- Work completed:
+  - Added clinic-scoped medical-document records linked to the existing patient and consultation/Encounter, with immutable origin-patient provenance and optional intake linkage.
+  - Added a private `medical-documents` Supabase Storage bucket and a storage path convention containing clinic, patient, and opaque document UUID segments. Patient filenames are never used in storage paths.
+  - Added staff and OTP-patient upload APIs for PDF, JPEG, PNG, WebP, HEIC, and HEIF originals up to 4 MB. File signatures are checked server-side instead of trusting the caller-provided MIME label.
+  - Enforced storage-before-registration at the database boundary: a document record cannot be created until its private original object exists.
+  - Made original evidence fields and registered document rows immutable, including against accidental privileged update/delete. Failed database registration removes only the unregistered orphan object.
+  - Added SHA-256 content fingerprints and clinic-patient-scoped exact duplicate flags. Duplicate uploads remain preserved as evidence and reference one stable root document.
+  - Extended non-destructive patient merge behavior so document ownership moves to the canonical patient, `origin_patient_id` remains unchanged, and exact duplicate families are re-rooted across the merged history.
+  - Added user-supplied document date with explicit exact/approximate precision and `user_entered` source. Staff date/type corrections create immutable detailed provenance plus a PHI-safe general audit event.
+  - Added 60-second signed original viewing for authorized clinic staff and for the OTP patient session's own uploads. View actions are audited using internal IDs/source channel only.
+  - Replaced queue document placeholders with encounter-scoped count/status and an expandable staff upload/originals panel. Added the patient upload/originals panel after consented intake submission; mobile file selection supports camera/photo-library/PDF input.
+  - Kept all new documents in honest `Uploaded` state. No OCR, classification AI, extraction, confidence, or clinical interpretation was added.
+- Acceptance criteria satisfied:
+  - `AC-D01`: original bytes are private, must exist before document registration, and registered source evidence cannot be replaced or hard-deleted.
+  - `AC-D02`: authorized admin/receptionist/assistant users may upload and open short-lived signed originals; no doctor-facing AI interpretation exists in or is exposed through the staff operational document surface.
+  - `AC-D07`: missing date remains `unknown`; patient/admin-supplied dates retain `user_entered` source plus exact/approximate precision, and later staff corrections retain immutable provenance.
+  - Foundation toward, but not full completion of, `AC-D03`: exact same-patient content hashes are flagged and merge re-rooting prevents separate exact-hash source families. Likely/perceptual duplicates and structured trend exclusion remain later phases.
+  - Preserved `AC-E03`: queue arrival/waiting/start-consultation transitions still do not inspect or require document state.
+- Files changed:
+  - `apps/clinical/src/app/api/consultations/[id]/documents/route.ts`
+  - `apps/clinical/src/app/api/documents/[id]/route.ts`
+  - `apps/clinical/src/app/api/documents/[id]/view/route.ts`
+  - `apps/clinical/src/app/api/intake/[token]/documents/route.ts`
+  - `apps/clinical/src/app/api/intake/[token]/documents/[id]/view/route.ts`
+  - `apps/clinical/src/app/api/intake/[token]/route.ts`
+  - `apps/clinical/src/app/intake/[token]/patient-intake-form.tsx`
+  - `apps/clinical/src/components/clinical.module.css`
+  - `apps/clinical/src/components/document-manager.tsx`
+  - `apps/clinical/src/components/today-patients-list.tsx`
+  - `apps/clinical/src/db/schema.ts`
+  - `apps/clinical/src/lib/db/appointment-queue.ts`
+  - `apps/clinical/src/lib/db/documents.ts`
+  - `apps/clinical/src/lib/documents/file.ts`
+  - `apps/clinical/src/lib/documents/ingest.ts`
+  - `apps/clinical/src/lib/documents/storage.ts`
+  - `apps/clinical/src/lib/intake/verified-session.ts`
+  - `apps/clinical/src/lib/supabase/storage-admin.ts`
+  - `apps/clinical/src/lib/validation/index.ts`
+  - `apps/clinical/src/tests/preconsult-phase3.test.ts`
+  - `apps/clinical/src/tests/preconsult-phase5.test.ts`
+  - `apps/clinical/src/types/index.ts`
+  - `apps/clinical/supabase/config.toml`
+  - `apps/clinical/supabase/tests/0015_preconsult_phase5_documents.test.sql`
+  - `docs/pre-consultation/IMPLEMENTATION_STATUS.md`
+- DB migrations:
+  - `apps/clinical/supabase/migrations/0015_preconsult_phase5_documents.sql` — document schema/enums, private bucket, scope/immutability triggers, upload/view/metadata RPCs, RLS/grants, audit, and merge preservation.
+  - `apps/clinical/supabase/migrations/0016_preconsult_phase5_merge_duplicate_roots.sql` — exact-hash duplicate re-rooting after a patient merge while retaining immutable original evidence.
+  - Both applied successfully to local Supabase without resetting existing data.
+- Tests run:
+  - `npm run lint` — pass.
+  - `npx tsc --noEmit` — pass after the production build regenerated Next.js route types. A parallel pre-build invocation raced with `.next` type generation and was rerun successfully.
+  - `npm test` — pass, 30/30 unit tests.
+  - `npm run test:db` — pass, 128/128 pgTAP assertions across Phases 1–5.
+  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+  - `npx next build --webpack` — pass; all document upload, metadata, view, and patient routes compiled.
+  - `npm run build` — Turbopack could not bind its helper-process port in this execution environment, including after an escalated retry. The supported webpack production build completed successfully.
+  - In-app browser check — authenticated dashboard rendered without browser console warnings/errors; empty queue state retained the explicit non-blocking document language. No existing local appointment was mutated solely to force an expanded document fixture.
+- Security/privacy review:
+  - Every document and detailed metadata-provenance record carries `clinic_id`; cross-clinic upload context, document reads, and original viewing are denied in database tests.
+  - Anonymous callers have no direct document-table access. Patient upload/list/view requires the existing hashed OTP browser credential, a submitted intake, a live scoped session, and accepted versioned document-storage consent.
+  - The service-role client is isolated to private Storage operations after database authorization; it is never returned to the browser and is not used to query clinic data.
+  - The bucket is private, has no authenticated/anonymous insert/update/delete policy, and originals are opened only through short-lived signed URLs after authorization.
+  - Audit metadata contains internal document/consultation IDs, channel, status-like flags, and changed field names only. It excludes filenames, dates, hashes, report values, and clinical content.
+  - Exact duplicate files remain visible evidence but are linked to a stable root; no AI extraction, clinical observation, confirmed state, approved note, timeline, or follow-up memory is changed.
+- Known limitations:
+  - Phase 6 still owns document processing, OCR/provider adapter, classification confidence, `Processed`/`Needs Review`, retryable technical errors, and doctor-facing uncertainty/evidence review.
+  - Duplicate detection is exact SHA-256 only. Likely/perceptual/report-identifier matching and the structured trend exclusion contract remain Phases 6–7.
+  - Patient upload appears after intake submission because Phase 4 captures versioned document-storage consent atomically at submission. Supporting pre-submit document selection would require a separate approved consent checkpoint rather than storing bytes before consent.
+  - Registered source evidence has no hard-delete UI. The permission document allows accidental-upload deletion only "according to policy," but retention/deletion policy remains unresolved; a future correction should prefer an audited void/tombstone workflow over silent deletion.
+  - Uploads are intentionally capped at 4 MB for the server-mediated MVP route. Direct/resumable private uploads, malware scanning, broader content validation, and larger-file policy remain Phase 13 hardening.
+- Product decisions/questions surfaced:
+  - No approved Phase 5 decision conflict was found.
+  - Final retention/deletion policy is still an explicit production-readiness decision. This phase chooses immutable evidence after registration and does not silently invent a destructive deletion rule.
+- Recommended next task:
+  - Phase 6 — add an adapter-based, versioned document processing pipeline with explicit confidence, retryable technical failure, and `Processed`/`Needs Review` states while preserving the original-storage and authorization boundaries implemented here.
+
+### Phase 6 — Document processing + Needs Review
+
+- Status: Complete
+- Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
+- Work completed:
+  - Added immutable, versioned `document_extractions` attempts linked to clinic, source document, initiating profile, schema version, pipeline version, provider, model, confidence, reason codes, and timestamps.
+  - Added an adapter-based document-understanding boundary and a configurable Gemini implementation using server-only inline PDF/image bytes plus schema-constrained JSON output. Provider/model selection is isolated from the product data model.
+  - Added deterministic post-provider validation and confidence rules. Low overall/classification/readability confidence, handwriting, partial unreadability, uncertain items, or missing reliable text produces `Needs Review` rather than a guessed clinical result.
+  - Added clinic-scoped, consent-gated processing claims with row locking, one active attempt at a time, stale-attempt recovery, immutable retry history, and safe `Processing`, `Processed`, `Needs Review`, and retryable technical-failure behavior.
+  - Bound processing to the exact submitted intake's accepted versioned document-processing/storage consent. A staff upload without that consent remains private immutable evidence and available to the consultation, but is not sent to an AI provider.
+  - Added server-only finalization functions. Authenticated browser users cannot directly write provider output or mutate completed attempts.
+  - Added exact-content duplicate preservation from Phase 5 plus conservative likely-duplicate matching from a high-confidence explicit report identifier. The identifier is stored only as a domain-separated HMAC when a dedicated 32+ character secret is configured; both originals remain available.
+  - Added operational Process/Reprocess/Retry controls and safe failure language. Admin/assistant users can see status and non-sensitive retry state but cannot read OCR text, confidence, model output, or doctor-facing interpretation.
+  - Added doctor-only extraction review with classification/readability confidence, explicit review reasons, uncertain items, page-level transcription/provenance, persistent `View original`, and an AI-draft/doctor-verification safety notice.
+  - Preserved Phase 5 original immutability, merge re-rooting, signed original access, clinic scoping, approved-note-only memory, and non-blocking arrival/start-consultation behavior.
+- Acceptance criteria satisfied:
+  - `AC-D04`: every document exposes Uploaded / Processing / Processed / Needs Review; a technical failure returns to honest Uploaded state with a retry action and a separate safe failure code.
+  - `AC-D05`: deterministic confidence, handwriting, partial-readability, uncertainty, and empty-text rules force Needs Review instead of silently treating uncertain content as fact.
+  - `AC-D06`: doctors can open the immutable original alongside every Needs Review extraction.
+  - `AC-A01`: each extraction stores source-document linkage, attempt number, schema/pipeline/provider/model versions, raw derivative JSON, classification and overall confidence, status, and provenance timestamps.
+  - Detection portion of `AC-D03`: exact hashes and conservative high-confidence report-identifier HMAC matches flag duplicate source families without deleting evidence. Preventing duplicate normalized observations from entering trends remains Phase 7 because normalized observations do not yet exist.
+  - Foundation toward `AC-A02`: doctor extraction review keeps page-level evidence and View original together. Claim-level region highlighting remains later provenance UX.
+  - Preserved `AC-A03`/`AC-A05`: extraction creates no confirmed clinical state, approved note, timeline event, diagnosis, prescription, or treatment recommendation.
+  - Preserved `AC-D02`/`AC-R02`: admin/assistant surfaces receive operational status only, not raw extraction or doctor-facing interpretation.
+  - Preserved `AC-E03`: intake/document processing state is not inspected by arrival, waiting, or Start Consultation transitions.
+- Files changed:
+  - `apps/clinical/.env.example`
+  - `apps/clinical/src/app/api/documents/[id]/extraction/route.ts`
+  - `apps/clinical/src/app/api/documents/[id]/process/route.ts`
+  - `apps/clinical/src/components/clinical.module.css`
+  - `apps/clinical/src/components/document-manager.tsx`
+  - `apps/clinical/src/components/today-patients-list.tsx`
+  - `apps/clinical/src/db/schema.ts`
+  - `apps/clinical/src/lib/db/documents.ts`
+  - `apps/clinical/src/lib/documents/extraction-schema.ts`
+  - `apps/clinical/src/lib/documents/gemini-document-adapter.ts`
+  - `apps/clinical/src/lib/documents/process.ts`
+  - `apps/clinical/src/lib/documents/processing-adapter.ts`
+  - `apps/clinical/src/lib/documents/storage.ts`
+  - `apps/clinical/src/lib/supabase/service-role.ts`
+  - `apps/clinical/src/lib/supabase/storage-admin.ts`
+  - `apps/clinical/src/tests/preconsult-phase6.test.ts`
+  - `apps/clinical/src/types/index.ts`
+  - `apps/clinical/supabase/migrations/0017_preconsult_phase6_document_processing.sql`
+  - `apps/clinical/supabase/migrations/0018_preconsult_phase6_processing_function_fixes.sql`
+  - `apps/clinical/supabase/migrations/0019_preconsult_phase6_consent_binding.sql`
+  - `apps/clinical/supabase/tests/0017_preconsult_phase6_document_processing.test.sql`
+  - `docs/pre-consultation/IMPLEMENTATION_STATUS.md`
+- DB migrations:
+  - `0017_preconsult_phase6_document_processing.sql` — extraction schema/enums, doctor-only RLS, immutable attempt/state guards, consent-gated claim/finalization/failure RPCs, safe operational listing, duplicate identity matching, and audit.
+  - `0018_preconsult_phase6_processing_function_fixes.sql` — preserves Phase 5 merge-authorized document re-rooting while adding processing transitions and qualifies processing-claim output names.
+  - `0019_preconsult_phase6_consent_binding.sql` — enforces that a new extraction attempt is bound to the exact document intake's accepted consent.
+  - All applied successfully to local Supabase without resetting existing data.
+- Tests run:
+  - `npm run lint` — pass.
+  - `npx tsc --noEmit` — pass.
+  - `npm test` — pass, 35/35 unit tests.
+  - `npm run test:db` — pass, 165/165 pgTAP assertions across Phases 1–6.
+  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+  - `npx next build --webpack` — pass; processing/extraction routes and doctor review UI compiled.
+  - `npm run build` — Turbopack could not bind its helper-process port in this environment, including after an escalated retry; the supported webpack production build passed.
+- Security/privacy review:
+  - Processing claims derive clinic and actor from the authenticated JWT, lock the document, require accepted consent tied to that exact patient/consultation/intake, and reject cross-clinic or concurrent claims.
+  - The service-role client is server-only and used only after the authenticated claim for private source download and guarded result finalization. It is never returned to a browser.
+  - Raw extraction JSON is clinic-scoped and doctor-readable only through RLS plus a doctor-role route check. Operational roles receive document state and allowlisted technical reason codes only.
+  - Completed attempts and originals cannot be updated or deleted, including through accidental privileged writes. Retries create new attempt numbers instead of overwriting history.
+  - General audit metadata contains internal IDs, versions, provider/model identifiers, status/reason codes, and duplicate boolean only; it excludes OCR text, report identifiers, values, patient identity, and other clinical content.
+  - Likely-duplicate metadata stores no raw report identifier; matching uses a domain-separated HMAC and is disabled when the dedicated secret or high-confidence explicit identifier is unavailable.
+  - Provider output is schema-validated and deterministically classified before persistence. It does not create normalized observations or mutate confirmed state, clinical notes, approved memory, timeline, prescriptions, or treatment.
+- Known limitations:
+  - Processing is initiated/retried from the clinic document panel; there is no durable background job queue yet. The request is synchronous and guarded by a 120-second route budget, provider timeout/retry, and stale-attempt recovery.
+  - Patient uploads do not call the clinic-authenticated processing route automatically. They remain safely Uploaded until clinic staff initiates processing; this avoids using the anonymous OTP session as a privileged AI orchestration identity.
+  - The Gemini adapter is implemented and configurable, but no second provider adapter is included. Production must configure and privacy-review `GEMINI_API_KEY`, `DOCUMENT_PROCESSING_PROVIDER`, `DOCUMENT_PROCESSING_MODEL`, and preferably `DOCUMENT_IDENTITY_HMAC_SECRET`.
+  - No real patient document or external provider call was used in verification. Provider quality, handwritten-document performance, language coverage, and threshold calibration require the Phase 13 frozen synthetic/de-identified evaluation set.
+  - Extraction is page-level transcription/classification only. Normalized labs/medications/conditions/allergies, claim-level regions, unconfirmed observations, trend exclusion, and downstream provenance belong to Phase 7.
+  - Extracted document date remains derivative evidence in the versioned payload and does not silently replace user-entered/unknown metadata. Doctor-confirmed metadata reconciliation can be designed with Phase 7 provenance.
+  - Likely-duplicate matching requires a high-confidence explicit report identifier and the HMAC secret. Perceptual similarity and weaker metadata matching remain out of scope; duplicate source families are not yet consumed by trends because trends begin in Phase 7.
+  - A retention/deletion policy and final vendor/legal review remain unresolved production-readiness gates. This phase keeps registered sources and extraction history immutable rather than inventing a destructive policy.
+- Product decisions/questions surfaced:
+  - No approved Phase 6 decision conflict was found.
+  - The safest interpretation of D-015 is fail-closed processing: a clinic-staff upload without the patient intake's accepted processing/storage consent may be retained/viewed operationally but is not sent to the configured AI provider. This does not block care.
+  - The planning pack does not choose a document-AI provider or approved confidence thresholds. The adapter boundary keeps provider choice configurable; the initial conservative thresholds (`0.80` overall/readability, `0.75` classification, any handwriting/partial unreadability/uncertainty) are versioned implementation parameters that require pilot evaluation rather than product truth.
+- Recommended next task:
+  - Phase 7 — normalize useful external observations as explicitly unconfirmed, attach document/page evidence and date precision, and ensure every exact/likely duplicate source family contributes at most one set of trend observations. Do not add delta acceptance or mutate confirmed clinical state until Phase 8.
+
+### Phase 6.5 — Role workspaces, dashboards, and Clinic Desk automation
+
+- Status: Complete
+- Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
+- Work completed:
+  - Added role-aware landing: doctor -> `/dashboard`; admin/assistant -> `/desk`. Safe redirect handling prevents manipulated or stale clinical deep links from carrying an operational role into the Clinical Workspace.
+  - Enforced doctor-only Clinical Workspace access on dashboard, patient chart, consultation, transcript, note, generation, and direct-consultation routes. Added RLS boundaries so operational roles cannot read clinical notes/transcripts/audio/timeline or update clinical consultation state through Supabase directly.
+  - Refined the account menu to show signed-in identity, active clinic, and active workspace separately. Doctors may switch Clinical <-> Clinic Desk without signing out; operational roles receive Clinic Desk only.
+  - Replaced the shared dashboard with the approved Doctor Dashboard KPIs: Patients Today, Waiting Now, human Priority, and Completed. Rows contain day-management information only.
+  - Added `/desk` with actionable Needs Attention, Waiting, Not arrived yet, With doctor, and Completed sections using operational language.
+  - Added one-click `Check in`: expected patient -> Waiting, immutable check-in timestamp, FIFO position, waiting duration basis, and immediate Doctor Dashboard visibility.
+  - Added deterministic FIFO waiting order plus accessible Move earlier / Move later controls. Manual changes are separate from Priority and audited.
+  - Added human-only Encounter Priority with a current snapshot and immutable event history preserving actor, role, timestamp, action, and optional reason. Priority never changes queue order.
+  - Added automatic Clinic Desk completion when a doctor approves or rejects the visit note outcome.
+  - Added an operational Admin Patient View with audited date-of-birth, age, and gender editing plus today's visit actions, intake send/resend, document/original access, Priority, wait state, and previous-visit count. It does not load doctor-only interpretation.
+  - Added an MVP walk-in surface with clinic-wide patient search. It reuses patient duplicate matching/creation and atomically creates today's appointment/consultation, checks in, enters FIFO Waiting, and starts the timer.
+  - Added Clinic Desk assisted intake on the operational patient view. Reception and a solo doctor can record reason for visit and optional patient-reported conditions, medicines, and allergies using the existing Encounter, patient-intake, consent, and document foundations.
+  - Added an immutable intake-statement ledger. It records the patient as information source, the authenticated staff member/role as data-entry actor, the assisted-entry channel, timestamp, and unconfirmed verification state.
+  - Added additive post-submission clarification. The original submitted statement remains unchanged and visible; every correction is a separate immutable/audited record.
+  - Hardened the Phase 6.5 review findings: queue sorting now uses a transitive section order before FIFO; authenticated clients cannot directly write check-in time or queue position; walk-in retries retain a target-bound key and return only the original walk-in; completed visits no longer expose dead Priority actions.
+  - Reserved Scheduler as a disabled `Later` item. No scheduler engine, billing, payment, revenue, or Smaran Pay work was added.
+- Acceptance criteria satisfied:
+  - `AC-W01`–`AC-W05`: one identity, role-aware landings, doctor workspace switch, server/data-layer authorization, and separate clinic/workspace identity.
+  - `AC-W06`–`AC-W07`: Doctor Dashboard is day-management only; Admin Today and default doctor rows receive no patient-specific clinical/extraction interpretation.
+  - `AC-W08`–`AC-W09`, `AC-A06`: Priority is an explicit human Encounter action with immutable provenance and no queue effect or AI inference path.
+  - `AC-W10`–`AC-W13`: one-click Check in -> Waiting, waiting-time basis, FIFO, accessible audited manual reorder, and factual `Not arrived yet` language.
+  - `AC-W14`–`AC-W16`: Clinic Desk exceptions are operational/actionable; normal successful work needs no acknowledgement; Admin Patient View stays operational.
+  - `AC-W18`: walk-in search/match/create -> Encounter -> Check in -> FIFO Waiting is one flow backed by an atomic database function.
+  - `AC-W19`: Scheduler remains a non-functional future label and no billing/payment surface was added.
+  - `AC-W17`: assisted onboarding reuses the existing patient, appointment/Encounter, intake, consent, and document foundations rather than creating a parallel clinical path.
+  - `AC-I08`: assisted entries preserve patient origin/source plus authenticated staff actor/role/channel/time and remain explicitly unconfirmed.
+  - `AC-I09`: submitted originals remain immutable; reception clarifications are additive, traceable, and audited.
+- Files changed:
+  - Role/landing/auth: `src/lib/auth/workspace.ts`, `src/app/page.tsx`, `src/app/login/page.tsx`, `src/app/auth/callback/route.ts`, and clinical page/API guards.
+  - Workspaces/UI: `src/app/dashboard/page.tsx`, `src/app/desk/**`, `src/components/app-shell.tsx`, `src/components/doctor-today-list.tsx`, `src/components/clinic-desk-today.tsx`, `src/components/walk-in-flow.tsx`, `src/components/operational-patient-details.tsx`, `src/components/clinical.module.css`.
+  - Domain/API: appointment queue/Priority/walk-in routes, `src/lib/db/appointment-queue.ts`, appointment/clinic/consultation services, validation, Drizzle schema, and types.
+  - Assisted intake: `src/components/assisted-intake.tsx`, `src/app/api/appointments/[id]/assisted-intake/route.ts`, `src/lib/db/patient-intake.ts`, and the Admin Patient View.
+  - Tests/docs: `src/tests/preconsult-phase3.test.ts`, `src/tests/preconsult-phase6-5.test.ts`, `supabase/tests/0020_preconsult_phase6_5_workspace_queue.test.sql`, `supabase/tests/0021_preconsult_phase6_5_assisted_intake.test.sql`, this ledger.
+- DB migrations:
+  - `0020_preconsult_phase6_5_workspace_queue.sql` — check-in/queue fields, Priority snapshot/events, guarded RPCs, automatic completion, atomic walk-in, RLS/grants/audit.
+  - `0021_preconsult_phase6_5_walk_in_permissions.sql` — narrow definer permission for guarded operational-state update inside atomic walk-in creation.
+  - `0022_preconsult_phase6_5_clinical_role_boundary.sql` — doctor-only policies for clinical-note/transcript/audio/timeline access and consultation-state updates.
+  - `0023_preconsult_phase6_5_assisted_intake.sql` — immutable statement ledger, original-submission capture, dual-provenance assisted submission/correction RPCs, RLS, grants, and PHI-safe audit events.
+  - `0024`–`0025` — narrow compatibility repairs for the assisted-intake function definition and explicit enum typing during local iterative migration application.
+  - `0026_preconsult_phase6_5_review_fixes.sql` — restricts direct queue-field writes, makes walk-in retries time-independent, and permits solo-doctor assisted intake with actor/consent provenance.
+  - `0027_preconsult_phase6_5_walk_in_provenance_guard.sql` — prevents an idempotency retry from claiming an unrelated checked-in appointment.
+  - All applied successfully to local Supabase without resetting existing data.
+- Tests run:
+  - `npm run lint` — pass.
+  - `npx tsc --noEmit` — pass after the production build regenerated Next.js route types; the parallel pre-build invocation raced with `.next` generation and was rerun successfully.
+  - `npm test` — pass, 42/42 unit tests.
+  - `npm run test:db` — pass, 222/222 pgTAP assertions across Phases 1–6.5.
+  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+  - `npx next build --webpack` — pass; all new workspace/API routes compiled.
+  - `npm run build` — Turbopack could not bind its helper-process port, including after an escalated retry; the webpack production build passed.
+  - In-app browser — authenticated doctor landed at Clinical Dashboard, switched to Clinic Desk without re-authentication, saw clinic/workspace identity separately, opened the walk-in surface, received a clinic-wide server search result, and opened the non-mutating demographic edit form; all checked routes returned `200`.
+- Security/privacy review:
+  - Added records and functions are clinic-scoped. Cross-clinic Priority is rejected; walk-in patient/doctor validation reuses the existing clinic-scoped appointment transaction.
+  - Operational roles are redirected away from clinical pages, receive `403` from clinical APIs, and are blocked by RLS from doctor-only artifacts and consultation-state writes.
+  - Priority can only be created by an authenticated human clinic profile. AI/extraction/clinical values are not inputs or triggers. Reason text stays in protected domain records and is excluded from general audit metadata.
+  - Queue order and check-in time are writable only through guarded functions. Check-in is idempotent, does not duplicate its semantic audit event, and a replay is accepted only for the original walk-in provenance.
+  - Clinic Desk receives operational document state/original access only. Doctor-only extraction payloads retain the existing doctor route/RLS boundary.
+  - No patient names, Priority reasons, report values, notes, transcripts, or other clinical content were added to application logs or general audit metadata.
+  - Intake statement content lives only in clinic-scoped protected domain records. General audit metadata contains identifiers and provenance state, not reason/medicine/condition/allergy text.
+  - Reception cannot make patient-reported content doctor-confirmed. The database constrains every statement to `information_source = patient` and `verification_state = unconfirmed`; update/delete is rejected.
+- Known limitations:
+  - Operational demographic editing intentionally covers date of birth, age, and gender. Name and phone changes remain outside this quick-edit surface so identity and duplicate handling are not bypassed.
+  - Needs Action currently derives from incomplete intake and Needs Review documents. Persisted possible-duplicate and missing-date-specific action cards remain a refinement.
+  - Phase 6 document processing remains request-driven rather than a durable background queue; patient uploads may remain Uploaded until authorized processing is initiated.
+  - Waiting duration updates on navigation/refresh rather than ticking every minute.
+  - The Next.js middleware deprecation warning predates this phase; migration to `proxy` remains separate cleanup.
+- Product decisions/questions surfaced:
+  - No approved Phase 6.5 decision conflict was found.
+  - Priority reason is optional in this slice, as the approved refinement leaves optional/required reason to final UX. Actor, role, time, action, and source-RPC provenance remain mandatory.
+  - Note approval/rejection is the current product's doctor completion signal, so it now drives operational Completed. A future explicit `Finish consultation` action can refine this mapping if product workflow separates completion from note disposition.
+- Recommended next task:
+  - Begin Phase 7 normalized observations and evidence provenance without weakening the unconfirmed/doctor-confirmation boundary completed here.
+
+### Phase 7 — Normalized observations + provenance
+
+- Status: Complete
+- Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
+- Work completed:
+  - Upgraded the versioned document-extraction contract to `smaran-document-extraction/v2.0.0` / `preconsult-document-pipeline/v2.0.0` and added schema-validated labs, medications, conditions, allergies, and vitals.
+  - Added an immutable, clinic-scoped `clinical_observations` model. Every row retains patient/Encounter scope, original patient provenance, observation domain, conservative normalized key/value, extraction attempt, original document, source page, exact evidence quote, confidence, and date provenance.
+  - Kept every document-derived observation explicitly `unconfirmed`. The database rejects any other verification state, and normalization does not create confirmed clinical state, deltas, notes, timeline events, diagnoses, prescriptions, or treatment recommendations.
+  - Preserved date precision without inventing dates: exact observation dates are structured, partial dates retain source wording as approximate, extracted document dates may be inherited, and user-entered document dates retain their source/precision.
+  - Added deterministic Needs Review handling for low-confidence normalized candidates. Needs Review observations remain traceable evidence but are excluded from trend inputs.
+  - Added `clinical_observation_trend_inputs`, a doctor-only security-invoker view that selects one latest reliable extraction set per patient/source family. It excludes Needs Review attempts, superseded retries, exact duplicate uploads, and likely duplicate reports identified by privacy-safe HMAC identity.
+  - Preserved immutable observation provenance through the existing non-destructive patient merge workflow.
+  - Fixed an existing Phase 6 retry edge case where reprocessing a canonical duplicate-family root could attempt to link the root to itself.
+  - Hardened the senior review findings: evidence quotes must match their referenced page transcription or the extraction becomes Needs Review; ISO-shaped dates must be real calendar dates; trusted duplicate-family identities survive later fingerprint-less retries; and empty normalization replay cannot duplicate semantic audit events.
+  - Extended doctor extraction review to show structured observations as unconfirmed, including value, date, confidence, page, evidence quote, trend inclusion/exclusion, and direct original-evidence access.
+- Acceptance criteria satisfied:
+  - `AC-D03`: exact and likely duplicate source families retain every original/evidence row but contribute at most one latest reliable observation set to trend consumers; retries cannot double count.
+  - `AC-A01`: normalized observations retain source document/extraction linkage, schema/pipeline/provider/model provenance through the extraction record, confidence, page/evidence, and date provenance.
+  - `AC-A02`: the doctor review shows claim-level evidence quotes/pages and provides direct original-evidence access.
+  - `AC-A03`: normalization cannot overwrite doctor-confirmed clinical state and creates no confirmed artifact.
+  - `AC-A04`: data and doctor UX label external observations unconfirmed; Needs Review and trend-excluded states remain explicit.
+  - Preserved `AC-A05`/`AC-A06`: no diagnosis/treatment/prescribing behavior and no AI Priority path were introduced.
+- Files changed:
+  - Extraction/processing: `apps/clinical/src/lib/documents/extraction-schema.ts`, `apps/clinical/src/lib/documents/gemini-document-adapter.ts`, `apps/clinical/src/lib/documents/process.ts`.
+  - Data/API/UI: `apps/clinical/src/db/schema.ts`, `apps/clinical/src/types/index.ts`, `apps/clinical/src/lib/db/documents.ts`, `apps/clinical/src/components/document-manager.tsx`.
+  - Tests: `apps/clinical/src/tests/preconsult-phase6.test.ts`, `apps/clinical/src/tests/preconsult-phase7.test.ts`, `apps/clinical/supabase/tests/0028_preconsult_phase7_clinical_observations.test.sql`.
+  - Migrations/docs: `apps/clinical/supabase/migrations/0028_preconsult_phase7_clinical_observations.sql`, `0029_preconsult_phase7_duplicate_root_retry_guard.sql`, `0030_preconsult_phase7_trend_family_identity.sql`, `0031_preconsult_phase7_review_hardening.sql`, `docs/pre-consultation/README.md`, and this ledger.
+- DB migrations:
+  - `0028_preconsult_phase7_clinical_observations.sql` — observation types/table, doctor-only RLS, scope/immutability/merge guards, atomic extraction finalizer overload, PHI-safe audit, and duplicate-safe trend view.
+  - `0029_preconsult_phase7_duplicate_root_retry_guard.sql` — prevents canonical document roots from becoming self-linked during a retry.
+  - `0030_preconsult_phase7_trend_family_identity.sql` — keeps likely duplicate reports in one patient-scoped trend family after patient-merge exact-hash re-rooting.
+  - `0031_preconsult_phase7_review_hardening.sql` — preserves the latest trusted non-null duplicate identity across later retries and makes empty normalization audit finalization idempotent.
+  - All applied successfully to local Supabase without resetting existing data.
+- Tests run:
+  - `npm run lint` — pass.
+  - `npx tsc --noEmit` — pass.
+  - `npm test` — pass, 49/49 unit tests. The sandbox blocked `tsx` IPC creation; the authorized retry passed.
+  - `npm run test:db` — pass, 269/269 pgTAP assertions across Phases 1–7.
+  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+  - `npx next build --webpack` — pass; all document processing/extraction routes and doctor review UI compiled.
+  - `npm run build` — Turbopack could not bind its helper-process port in this environment, including after an authorized retry; the supported webpack production build passed.
+- Security/privacy review:
+  - Every observation carries `clinic_id`; database scope triggers verify patient, original patient, Encounter, document, and extraction relationships.
+  - RLS exposes observations and the trend view only to doctors in the clinic. Assistant/admin and cross-clinic reads return no rows; the doctor-only extraction API retains its role guard.
+  - Observation/evidence rows are immutable. The only allowed update is canonical patient ownership during the existing authorized merge, while `origin_patient_id` remains unchanged.
+  - Provider output is schema-validated before atomic persistence. Low-confidence candidates become Needs Review; only the latest reliable set from one duplicate family enters the trend view.
+  - General audit metadata contains internal IDs, counts, versions, and the `unconfirmed` state only; it excludes report values, evidence quotes, patient identity, and other clinical content.
+  - No new logs contain PHI, no source-storage access changed, and approved-note-only follow-up memory remains unchanged.
+- Known limitations:
+  - Phase 7 normalizes document-derived observations. Existing patient self-report remains separately structured and unconfirmed in the intake/statement ledger; it is not copied into this document-evidence table.
+  - Normalized keys are conservative text normalization only. No LOINC/RxNorm/SNOMED mapping, medical synonym resolution, unit conversion, or clinical interpretation is attempted.
+  - Evidence provenance is page + exact quote. Bounding-box/region coordinates are not emitted by the current provider adapter.
+  - The trend view is a safe data contract, not a doctor-facing trend chart. Confirmed clinical state, proposed deltas, and Accept/Keep existing remain Phase 8.
+  - No real patient document or external provider call was used. Model quality, handwritten coverage, language coverage, and thresholds still require Phase 13 synthetic/de-identified evaluation and vendor/privacy review.
+- Product decisions/questions surfaced:
+  - No approved Phase 7 decision conflict was found.
+  - To avoid inventing clinical equivalence, the implementation intentionally does not map spelling/synonyms or convert units. Those behaviors require explicit clinical normalization policy and evaluation before adoption.
+  - Needs Review candidates are retained as unconfirmed evidence for doctor verification but are excluded from longitudinal trend inputs until a reliable reprocessing attempt exists.
+- Recommended next task:
+  - Phase 8 — introduce a separate doctor-confirmed clinical state and conservative proposed-delta records over unconfirmed observations. Do not mutate observations or approved-note memory directly, and keep Accept/Keep existing as explicit doctor actions with audit and provenance.
+
+### Phase 8 — Confirmed clinical state + delta engine
+
+- Status: Complete
+- Implementation history:
+  - Initial implementation: `8ab3aef2c234fc427316418c6becc68854b86bec` — `feat(preconsult): add confirmed clinical state and delta engine`
+  - Senior-review hardening: `5fe72fd4b31f26cd7120fbbabb2b62978f052334` — `fix(preconsult): harden phase 8 review findings`
+  - Final concurrency hardening: `2ff511363e498790283eb18ae7378ff780ec855a` — Phase 8 lock-order/deadlock closure fix.
+  - Complete Phase 8 implementation range: `3962881e2cd89fb30ddb9decee00285f3f583430..2ff511363e498790283eb18ae7378ff780ec855a`
+- Work completed:
+  - Added a doctor-only, versioned confirmed-state engine for medications, conditions, and allergies. Historical state versions are immutable; current state is a derived view of versions with no successor.
+  - Added incremental explicit baseline/correction creation. No approved note, patient statement, document, timeline item, or Phase 7 observation is silently promoted; an approved note may be linked only when a doctor explicitly confirms the exact structured item.
+  - Added immutable proposed delta, evidence-link, and exactly-one-terminal-disposition records. Accept creates one successor version; Keep current creates none; stale proposals remain durable history.
+  - Added conservative deterministic comparator contracts for exact medication/regimen matches, exact stopped/not-taking phrases, additions, regimen changes, and ambiguous relationships. No ontology, synonym, unit-conversion, substitution, or therapeutic-equivalence inference was added.
+  - Added non-blocking best-effort reconciliation after committed document processing and intake submission. Failures are swallowed at these source boundaries so evidence, intake, queue, and consultation workflows remain independent; the exported reconciliation service is safe to retry.
+  - Extended the authorized patient-merge path through guarded ownership reassignment while retaining origin-patient provenance and without copying/recreating clinical history or deltas.
+  - Preserved approved-note-only follow-up memory unchanged.
+  - Review fixes lock reconciliation RPC execution to the service role, derive all proposal scope from referenced evidence, and use keyed transaction locks so null-base proposals cannot create competing current state.
+  - Added a source-triggered, PHI-safe reconciliation work ledger. Source evidence commits independently; durable pending work is drained opportunistically after the response and retried by subsequent server invocations.
+  - Made the migration chain clean-bootstrap safe through `0038`, and made authorized merges move the full Phase 8 graph before verifying final internal references.
+  - Hardened same-key reconciliation lock ordering in `0039`: Accept and explicit baseline creation now acquire the shared keyed advisory lock before delta/state row locks, revalidate after locking, and stale siblings in stable UUID order. Keep remains a target-row-only decision and cannot invert that order.
+- Acceptance criteria satisfied:
+  - `AC-C01`–`AC-C05`, `AC-C07`: doctor-reviewable proposed deltas, Accept/Keep contracts, evidence/state provenance, stale protection, and non-blocking care.
+  - `AC-A03`–`AC-A05`: unconfirmed evidence never mutates confirmed state; confirmed/unconfirmed layers are separate; no diagnosis, prescribing, or treatment recommendation behavior.
+  - `AC-R02`–`AC-R03`: RLS, direct-table privilege restrictions, guarded RPCs, and API role checks exclude operational roles and require a doctor for confirmation/decisions.
+  - Preserved `AC-E03`: Phase 8 reconciliation is outside source, queue, and Start Consultation transactions.
+- Acceptance-criteria boundary:
+  - `AC-C06` is supported by the engine/data contract for later consolidated Review Changes; the actual consolidated Review Changes UI remains Phase 10.
+- Files changed:
+  - Database: `apps/clinical/supabase/migrations/0033_preconsult_phase8_confirmed_state_delta_engine.sql` through `0039_preconsult_phase8_lock_order_hardening.sql`.
+  - Application: `apps/clinical/src/lib/clinical-state/comparator.ts`, `apps/clinical/src/lib/db/clinical-state.ts`, document/intake reconciliation hooks, doctor-only API routes, validation, schema, and types.
+  - Tests: `apps/clinical/src/tests/preconsult-phase8.test.ts`, `apps/clinical/supabase/tests/0033_preconsult_phase8_confirmed_state_delta_engine.test.sql`, `apps/clinical/supabase/tests/0038_preconsult_phase8_review_fixes.test.sql`, and `apps/clinical/scripts/test-phase8-lock-order.ts`.
+- Tests run:
+  - `npm run lint` — pass.
+  - `npx tsc --noEmit` — pass.
+  - `npm test` — pass, 57/57 tests.
+  - Complete DB suite — pass, 324 assertions across 11 files.
+  - Supabase schema lint — pass.
+  - Production webpack build — pass.
+  - Clean disposable database migration chain through `0039` — pass.
+  - Phase 8 `0033` pgTAP — pass on the clean disposable schema.
+  - Phase 8 `0038` pgTAP — pass.
+  - Same-key concurrency harness — pass for Accept/Accept, baseline/Accept, baseline/baseline, and Accept/Keep; no `40P01`.
+  - Broad deterministic verification was performed locally because no GitHub Actions workflow was configured or triggered for these commits; GitHub Actions CI is not claimed.
+- Security/privacy review:
+  - Phase 8 values/evidence remain in doctor-protected domain tables. General audit metadata contains only identifiers, domain/action/disposition, and contract-version metadata.
+  - Admin/assistant and cross-clinic actors have no RLS read access and cannot call state mutation/decision RPCs successfully.
+  - Merge can move canonical ownership only under the existing transaction-local authorization flag; origin provenance remains immutable.
+  - Final closure review: doctor control — PASS; tenant isolation — PASS; append-only history — PASS; confirmed/unconfirmed separation — PASS; provenance — PASS; idempotency — PASS; stale/concurrency protection — PASS; patient merge — PASS; reconciliation durability — PASS; migration safety — PASS; non-blocking care — PASS; privacy/logging — PASS; approved-note follow-up-memory isolation — PASS.
+- Senior review closure:
+  - Initial Sol review: 0 P0, 5 P1, 2 P2; recommendation: fix P1 before closure.
+  - First closure review: all original five P1 findings closed; one new P1 lock-order deadlock found.
+  - Final closure review: `CLOSURE VERDICT: PASS`; remaining lock-order P1 CLOSED; previously closed P1 protections preserved; no new blocking regressions; `READY FOR PHASE 8 CLOSURE`.
+- Known limitations:
+  - Accepted Phase 8 P2 follow-up: confirmed-empty domain baseline cannot yet be represented separately from an unestablished structured baseline.
+  - Accepted Phase 8 P2 follow-up: confirmed-state `stateKey` is still caller-controlled and can theoretically disagree with its display value.
+  - There is intentionally no Phase 9 doctor brief or Phase 10 Review Changes UI. The engine exposes only minimal doctor APIs/data contracts.
+  - There is no generic background-job scheduler yet. Reconciliation-required source items are nevertheless durable, lease-reclaimable work records and are retried from subsequent authorized server invocations; source success remains independent.
+  - Patient stopped-medication detection is deliberately English-only and limited to `stopped`, `not taking`, `not using`, and `discontinued` followed by exactly one current medication key. Other wording becomes `possible_change`.
+- Recommended next task:
+  - Phase 9 — 30-second doctor pre-consult brief. Consume the explicit Phase 8 confirmed-state/delta contracts without changing confirmed-state ownership, doctor-control rules, or the approved-note-only follow-up-memory invariant.
+
+### Phase 9 — Doctor 30-second pre-consult brief
+
+- Status: Complete — final targeted independent Sol closure review passed at `c41f5dbf1a1057bc0870eb7e41b5a9be69fc4acc`; Phase 9 acceptance and safety closure are approved. This was a targeted review of accepted Phase 9 findings, not a fresh broad repository audit.
+- Implemented:
+  - Added immutable, Encounter-scoped `preconsult_brief_versions`, explicit evidence links, durable generation work, current correction overlay, doctor-view provenance, and immutable consultation-start snapshots in migration `0040`.
+  - Added doctor-only RLS and guarded RPCs. Generation claim/persist functions are service-only; direct authenticated writes to brief/work tables remain unavailable.
+  - Deterministically selects the most recent prior consultation with an approved note by visit chronology, keeps current confirmed state distinct from the last-visit baseline, and validates a bounded structured brief contract with explicit verification states.
+  - Added source-event invalidation for eligible still-pre-consult Encounters, safe retryable work, stale-result recheck, version serialization, merge ownership re-rooting with immutable origin provenance, and Phase 8 re-evaluation after doctor observation correction.
+  - Added `/patients/[id]/preconsult?consultation=<consultationId>` and changed Doctor Today `Open` to reach it without starting the consultation. The explicit Start Consultation action continues through the authoritative queue transition and records the at-start artifact/none-available snapshot. A protected lifecycle signal visibly labels retained briefs as Updating while relevant durable work is pending, processing, or retryable.
+  - Added factual, comparable numeric trend drill-downs with a recent default window, full eligible history, date precision, original evidence access, correction provenance, and a contextual doctor-confirmed correction form.
+- Acceptance criteria:
+  - Implements `AC-B01`–`AC-B06`; preserves evidence/provenance and confirmation boundaries in `AC-A02`–`AC-A06`; preserves Phase 8 doctor-control/non-blocking boundaries in `AC-C01`–`AC-C07`; enforces `AC-R02`–`AC-R03`; and preserves `AC-E03`.
+- Targeted validation run:
+  - `npx supabase migration up --local` — pass.
+  - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
+  - `npm test` — pass, 60 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `npx next build --webpack` — pass.
+- Safety and scope:
+  - The brief is derivative only; it cannot confirm state, generate Priority, diagnose, recommend treatment, prescribe, or replace authorized evidence. Original document access remains via existing private authorized routes; no brief content is written to generic logs.
+  - Phase 10 Review Changes UI and Phase 11 in-consultation persistence are intentionally not started. Trends use only the existing eligible observation inputs; no unit conversion or clinical-significance labels were added.
+- Senior-review fixes (migration `0041`):
+  - Replaced worker authorization checks with actual `auth.role() = service_role` enforcement, retained narrowly scoped grants, and made source-trigger enqueue security-definer/non-blocking so protected work-table access cannot roll back authoritative source writes.
+  - Added serialized Encounter generation revisions and a current-artifact pointer. The new atomic finalizer writes artifact, evidence links, work transition, and currentness together; a later target prevents an older worker from becoming current.
+  - Added deterministic source ordering and canonical source hashing, including approved-note content/approval signal. Consultation approval now invalidates dependent eligible briefs, covering note-before-consultation approval ordering.
+  - Added correction provenance to Phase 8 work/delta evidence, retired unresolved source-derived deltas as stale before corrected reconciliation, and retained already accepted historical state.
+  - Returning changes now use the last approved visit temporal baseline; current Encounter evidence and post-baseline confirmed state remain eligible, while older observations/current state do not appear as new changes. No-baseline intake arrays are selected and stay explicitly patient-reported/unconfirmed.
+  - Added one doctor-authorized artifact+lifecycle snapshot RPC; the pre-consult page consumes it atomically and safely falls back to explicit brief-unavailable UI while always keeping Start Consultation available after successful authorization/context loading.
+  - Added immutable Encounter-origin provenance with deterministic backfill from prior Phase 9 artifact metadata (or current Encounter patient when no artifact exists). Canonical patient ownership can re-root on merge without changing this origin or historical payloads.
+- Senior-fix validation run:
+  - `npx supabase db reset --local` — pass; clean replay through `0041`.
+  - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
+  - `npx supabase test db --local supabase/tests/0041_preconsult_phase9_senior_review_fixes.test.sql` — pass, 37 assertions, including actual service-role worker invocation, ordinary-caller denial, and authenticated doctor source writes through the permitted consultation, approved-note, intake, document, and confirmed-state paths.
+  - `npm test -- --test-name-pattern='Phase 9|returning changes|source watermark'` — pass, 64 tests.
+  - `npx tsc --noEmit` — pass.
+- Final targeted senior-review fixes (migration `0042`):
+  - Added a claimed reconciliation revision and an atomic, locked final-create check. A worker that was claimed for correction C1 exits without a delta/evidence when C2 advances the shared work; it cannot reinterpret C1 as the original observation.
+  - Added effective-source-revision delta idempotency. An equivalent proposal from a later correction creates a distinct current delta with correction provenance while the prior stale delta stays immutable history.
+  - Corrected the correction enqueue enum conversion and narrowed merge-time provenance validation to the authorized source-to-canonical reassignment transaction, preserving correction/origin identities through the real merge path.
+  - Made the snapshot RPC qualify its actor lookup, calculate Updating only for active work newer than the current-pointer revision, and made the consultation API consume the same snapshot/artifact/lifecycle contract as the page.
+  - Added database immutability for consultation-start snapshots (with only canonical patient reassignment during an authorized merge), strict structural correction calendar-date validation, patient-record navigation for non-document evidence, and explicit service-role-only execute grants for correction-aware reconciliation RPCs.
+- Final targeted validation run:
+  - `npx supabase db reset --local` — pass; clean replay through `0042`.
+  - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
+  - `npx supabase test db --local supabase/tests/0041_preconsult_phase9_senior_review_fixes.test.sql` — pass, 37 assertions.
+  - `npx supabase test db --local supabase/tests/0042_preconsult_phase9_final_review_fixes.test.sql` — pass, 35 assertions, including the C1→C2 stale-worker sequence, stale-equivalent D1/D2, correction-aware merge, snapshot immutability, privileges, and revision lifecycle cases.
+  - `npx supabase test db --local supabase/tests/0038_preconsult_phase8_review_fixes.test.sql` — pass, 14 assertions; preserved the established legacy reconciliation RPC contract while the correction worker uses the dedicated CAS finalizer.
+  - `npm test` — pass, 65 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `npx next build --webpack` — pass.
+- Final closure blockers (migration `0043`, committed, pushed, and accepted by final closure review at `c41f5dbf1a1057bc0870eb7e41b5a9be69fc4acc`):
+  - Correction publication and correction-aware reconciliation finalization now share the immutable observation-row transaction lock, with deterministic mutation order `observation -> reconciliation work -> delta/evidence`. A later correction atomically retires every unresolved superseded-source delta before publishing/requeueing its own revision.
+  - Added a small doctor-only, read-only exact-evidence surface for every Phase 9 emitted source type. It validates the authenticated doctor, clinic, patient, and source membership independently; it preserves correction/provenance context without adding Phase 10 decision controls.
+  - Document citations preserve their page locator through the existing private authorized document route, which redirects the signed viewer URL with a page fragment only when a cited page exists. Observation-derived document citations now carry the source page as well.
+  - Added a real two-PostgreSQL-session regression harness that holds C1 finalization open at the source boundary while exercising the real authorized C2 correction path, plus correction-before-Accept and Accept-before-correction cases.
+- Closure-blocker validation run:
+  - `npx supabase db reset --local` — pass; clean replay through `0043`.
+  - `npx supabase test db --local supabase/tests/0038_preconsult_phase8_review_fixes.test.sql` — pass, 14 assertions.
+  - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
+  - `npx supabase test db --local supabase/tests/0041_preconsult_phase9_senior_review_fixes.test.sql` — pass, 37 assertions.
+  - `npx supabase test db --local supabase/tests/0042_preconsult_phase9_final_review_fixes.test.sql` — pass, 35 assertions.
+  - `npx supabase test db --local supabase/tests/0043_preconsult_phase9_closure_fixes.test.sql` — pass, 19 assertions.
+  - `npm run test:db:phase9-correction-race` — pass; genuine two-session C1-finalize/C2-correction interleaving, stale-Accept rejection, and accepted-before-correction preservation.
+  - `npm test` — pass, 66 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `npx next build --webpack` — pass.
+- Final independent Sol closure review:
+  - Final closure review range: `df6a81166e7160af982a8f97720d79e90867b5da..c41f5dbf1a1057bc0870eb7e41b5a9be69fc4acc`.
+  - Result: `PASS — APPROVE PHASE 9 FOR CLOSURE`. The targeted review found no P0 findings, no P1 findings, and all closure safety invariants passing.
+  - Closed: shared correction/finalization serialization; real two-session race coverage; correction versus Accept; exact document/page, observation, intake, note/consultation, delta, and confirmed-state evidence; and evidence authorization/no-side-effects.
+  - Sol reran `npm test` (66 passed), `npm run test:db:phase9-correction-race` (1 passed), pgTAP `0042` plus `0043` (54 assertions passed), `npx tsc --noEmit`, and the exact-range `git diff --check`.
+  - Sol did not repeat clean database replay, lint, production build, or browser PDF-page navigation; those passed during Terra implementation validation and were not rerun by Sol.
+- Remaining known limitations:
+  - Source-trigger enqueue intentionally swallows unexpected enqueue infrastructure errors to preserve the non-blocking-care invariant. Phase 9 has no independent background scheduler; durable work remains persisted and is retried through authorized invocations/events (Phase 13 hardening).
+  - There is no configured GitHub Actions CI workflow proving `apps/clinical`. Deterministic local validation and the independent Sol review supplied Phase 9 closure evidence; clinical CI remains an infrastructure gap.
+  - The two-session concurrency harness proves the required blocking/interleaving outcome through blocking inference rather than exhaustive database lock introspection; this accepted P2 precision limitation is non-blocking.
+  - Pre-0041 Encounter origin backfill is deterministic but cannot reconstruct an original merged identity where no prior Phase 9 artifact recorded it; the migration documents and preserves that conservative fallback rather than guessing.
+- Recommended next task:
+  - Phase 10 — Review Changes UI. Consume the closed Phase 8/9 contracts without retroactively changing doctor-owned confirmed state, immutable original evidence, approved-note-only memory, Phase 9 brief artifacts, or Start Consultation snapshot history.
+
+### Phase 10 — Review Changes UI
+
+- Status: Complete — final Sol closure review passed with no remaining P0/P1 findings.
+- Implemented:
+  - Added a dedicated doctor-only `/patients/[id]/preconsult/review-changes?consultation=<consultationId>` route that consolidates unresolved deltas and preserves Start Consultation as an independent, nonblocking action.
+  - Added client-local Accept / Keep existing staging and atomic Apply for only the reviewed subset. Nothing mutates clinical truth until Apply; partial review preserves every unsubmitted delta for continued review, with at most 50 decisions staged in one batch.
+  - Current-state comparison loading distinguishes a successful empty read from an unavailable or malformed read. Query failures, missing non-null bases, and null-base proposals with a newly current same-key record require refresh and cannot be staged or included in Apply. Only a null-base proposal with no current same-key state is presented as `Not currently in confirmed state`.
+  - Added stale protection for both Accept and Keep existing, bounded 50-decision commands, stable client command identity for safe retry after an ambiguous response, immutable batch receipts, exact replay, payload mismatch rejection, and all-or-nothing database preflight.
+  - Added deterministic state-key/delta lock ordering, stale base/source revision checks, legacy single-delta compatibility, per-disposition audit records, and merge-safe patient-context validation. Receipt replay is bound to the original clinic and unmerged patient context.
+  - Extended the existing doctor-authorized evidence surface so a delta links through to its exact observation or patient-intake source and onward to original private document evidence where available.
+  - Successful reviewed changes enqueue Phase 9 brief regeneration without blocking the Apply response or Start Consultation.
+- Acceptance criteria:
+  - Implements `AC-C02`–`AC-C06` and preserves `AC-C07`. Doctor confirmation remains required; Keep existing preserves the immutable proposal/evidence history without changing confirmed state.
+- Files changed:
+  - `src/app/patients/[id]/preconsult/review-changes/page.tsx`
+  - `src/components/review-clinical-changes.tsx`
+  - `src/lib/clinical-state/review-command.ts`
+  - `src/app/api/patients/[id]/clinical-state-deltas/batch/route.ts`
+  - `src/lib/db/clinical-state.ts`, `src/lib/validation/index.ts`, and the existing pre-consult/evidence surfaces
+  - migrations `0044`–`0049`, `supabase/tests/0044_preconsult_phase10_review_changes.test.sql`, `scripts/test-phase10-concurrency.ts`, and Phase 10 unit coverage
+- Validation run:
+  - `npm test` — pass, 77 tests, including safe current-state comparison regression coverage.
+  - `npm run test:db` — pass, 443 pgTAP assertions across 16 files.
+  - `npm run test:db:phase10-concurrency` — pass, 5 two-session transactional/authorization tests.
+  - `npm run test:db:phase8-lock-order` — pass.
+  - `npm run test:db:phase9-correction-race` — pass.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass with no warnings.
+  - `npx supabase db lint --local --level warning` — no Phase 10 findings; one pre-existing Phase 9 unused-parameter warning remains.
+  - `npx next build --webpack` — pass. The default Turbopack build cannot bind its local CSS worker port in this execution environment; no application compile/type error remains.
+  - `git diff --check` — pass.
+- Security/privacy/clinical safety:
+  - Batch and legacy decision paths authorize the doctor and clinic before exposing or mutating delta state. Admin/assistant callers remain forbidden and cross-clinic delta lookup does not disclose existence.
+  - Proposed external/patient evidence remains unconfirmed until explicit doctor Apply. Original evidence and ignored proposals remain immutable and traceable.
+  - Receipt and audit metadata contain internal identifiers, action/domain, and state-version references only; no patient names, source text, medication details, or private URLs were added to general logs.
+  - Stale, conflicting, already-resolved, merged-patient, and mixed-invalid batches make no partial clinical-state changes. Unresolved items never block consultation.
+- Known limitations / nonblocking findings:
+  - Deeper adapter/render-level regression coverage would strengthen direct verification of failed-read presentation, disabled controls, Apply-payload exclusion, and independent Start Consultation behavior.
+  - Stronger controlled concurrency barriers would improve race-test precision; behavioral database coverage can also be broadened beyond the current transactional and authorization cases.
+  - Older unresolved grouping and source/date/domain context can be made richer without changing the closed safety contract.
+  - Decisions made before the Phase 10 receipt model cannot always provide full receipt-based replay semantics after upgrade.
+  - Receipt immutability wording should remain aligned with the actual database enforcement.
+  - More than 50 decisions are applied as multiple bounded batches; the UI prevents staging beyond one batch while preserving the remaining unresolved list.
+  - Phase 11 in-consultation persistence, Phase 12 reminders, and Phase 13 scheduler/security hardening remain out of scope.
+- Recommended next task:
+  - Phase 11 — Consultation Integration product refinement. Do not begin implementation without its dedicated scope and acceptance review.
+
+### Phase 11 — Consultation Integration
+
+- Status: Complete — implementation commit `9eac932` plus verification/provenance fix commit `d1f49558d1d15d23c8d2a3f3665209e3d71aca98`; final Sol re-review passed with `PASS — P1 FIX VERIFIED; APPROVE PHASE 11 FOR CLOSURE`.
+- Implementation summary:
+  - Completed continuity between pre-consult preparation and the existing consultation workflow through the exact immutable `preconsult_brief_start_snapshots -> brief_version_id -> preconsult_brief_versions` artifact captured when consultation began.
+  - The resolver never reads or falls back to a mutable/current/latest brief. Missing, malformed, inaccessible, or inconsistent start context remains nonblocking and renders a calm unavailable state.
+  - Added a persistent, collapsible, doctor-only read-only panel without remounting or changing the established recording, transcription, manual-fallback, processing, draft-review, approval, or rejection workflow.
+  - Preserved verification/provenance semantics through one shared exhaustive mapping: only `patient` is `Patient-reported — unconfirmed`; `reception_assisted` and `unknown` remain `Needs Review`.
+  - Evidence retains authorized source/page/item provenance and opens in a separate tab without replacing the active consultation tab.
+  - The panel has no pin/carry-to-note behavior and cannot mutate clinical state, delta disposition, consultation notes, Priority, source evidence, or approved-note-only follow-up memory.
+- Acceptance criteria satisfied:
+  - `P11-01`–`P11-12` are satisfied; `AC-B06` and `D-034` remain preserved.
+- Database migrations: None.
+- Initial implementation validation:
+  - `npm test` — pass, 82/82 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `npx supabase test db --local supabase/tests/0040_preconsult_phase9_doctor_brief.test.sql` — pass, 20 assertions.
+  - `npx next build --webpack` — pass; existing middleware-to-proxy deprecation warning only.
+  - `git diff --check` — pass.
+- P1 fix validation:
+  - Targeted Phase 11 tests — pass, 6/6.
+  - `npm test` — pass, 83/83 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - `git diff --check` — pass.
+- Final Sol re-review validation:
+  - Phase 11 test file — pass, 6/6.
+  - `npm test` — pass, 83/83 tests.
+  - `npx tsc --noEmit` — pass.
+  - `npm run lint` — pass.
+  - Exact-range `git diff --check 9eac932..d1f49558d1d15d23c8d2a3f3665209e3d71aca98` — pass.
+- Final review status:
+  - No P0 or P1 findings remain. Final Sol re-review confirmed `P11-01`–`P11-12` and approved Phase 11 for closure.
+- Security/privacy/clinical safety:
+  - Doctor/clinic/patient authorization, merge/origin provenance, explicit unconfirmed states, evidence authorization, and approved-note-only follow-up memory remain intact. No consultation-blocking or clinical mutation path was added.
+- Known accepted limitation:
+  - Legacy consultations created directly already in `in_consultation` without a Phase 9 start snapshot show the safe unavailable state. No retroactive snapshot or current-brief substitution occurs.
+- Nonblocking follow-ups:
+  - P2: Deferred pre-consult brief view-provenance recording may be unreliable because authenticated server-client creation occurs inside Next.js `after()` and reaches `cookies()`.
+  - P2: Broader Phase 11 render/workflow integration tests would strengthen regression coverage.
+- Recommended next task:
+  - Phase 12 — Hardening and pilot QA. Do not add reminder automation or other clock-driven patient communications.
+
+### Phase 5 follow-up — senior review hardening
+
+- Status: Complete.
+- Work completed:
+  - Replaced unbounded `request.formData()` ingestion with a total multipart-body reader that enforces a fixed ceiling even when `Content-Length` is absent or dishonest, before form-data parsing and file buffering.
+  - Kept the 4 MB evidence-file limit and added an explicit HTTP `413` response for oversized document requests.
+  - Added one shared `Asia/Kolkata` calendar-date helper for client input limits and API validation, including date-of-birth inputs that used the same UTC-derived pattern.
+  - Added a database clinic-calendar helper, an insert/update document-date guard, and an India-timezone execution setting for the existing metadata-update RPC.
+  - Made document authorization read-only. Staff and patient routes now create the private 60-second signed link first and only then record `document_viewed` with `signed_url_issued` provenance. A Storage signing failure can no longer produce a false-positive view audit.
+  - Added `no-store` and `no-referrer` headers to the staff signed-document redirect, matching the patient route.
+- Acceptance criteria preserved/hardened:
+  - `AC-D01`, `AC-D02`, `AC-D07`, `AC-R04`, and the audit requirements in `PERMISSIONS.md`.
+- Files changed:
+  - `src/lib/clinic-date.ts`
+  - `src/lib/documents/bounded-body.ts`
+  - `src/lib/documents/ingest.ts`
+  - `src/lib/validation/index.ts`
+  - `src/lib/db/documents.ts`
+  - document upload/view routes and date-input components
+  - `src/tests/preconsult-phase5.test.ts`
+  - `supabase/tests/0015_preconsult_phase5_documents.test.sql`
+  - `supabase/migrations/0032_preconsult_phase5_review_hardening.sql`
+- Tests run:
+  - `npm run lint` — pass.
+  - `npx tsc --noEmit` — pass.
+  - `npm test` — pass, 52/52 unit tests.
+  - `npm run test:db` — pass, 277/277 pgTAP assertions across Phases 1–7.
+  - `npx supabase db lint --local --level warning` — pass, no schema errors.
+  - `npx next build --webpack` — pass.
+- Security/privacy review:
+  - Oversized declared and chunked bodies fail before multipart parsing can allocate an unbounded request.
+  - Signed URLs remain private and 60-second scoped; audit metadata contains only internal IDs, channel, and link-issuance state.
+  - No patient identity, filename, date, report value, or clinical content was added to general logs or audit metadata.
+- Known limitations:
+  - Direct/resumable uploads, malware scanning, and larger-file policy remain Phase 13 hardening as previously documented.

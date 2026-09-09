@@ -12,6 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Icon } from "@/components/icons";
 import styles from "@/components/clinical.module.css";
+import type { SessionContext } from "@/types";
 
 // Idle timeout in ms — auto sign-out after inactivity (PHI safety). Default 30
 // minutes, overridable via NEXT_PUBLIC_SESSION_INACTIVITY_MINUTES.
@@ -37,17 +38,33 @@ export function AppShell({
   doctorName,
   clinicName,
   patientCount,
+  role = "doctor",
+  workspace = "clinical",
   children,
 }: {
   doctorName: string;
   clinicName: string;
   patientCount: number;
+  role?: SessionContext["role"];
+  workspace?: "clinical" | "desk";
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const signingOutRef = useRef(false);
+  const accountMenuRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    function closeAccountMenu(event: PointerEvent) {
+      const menu = accountMenuRef.current;
+      if (menu?.open && !menu.contains(event.target as Node)) {
+        menu.removeAttribute("open");
+      }
+    }
+    document.addEventListener("pointerdown", closeAccountMenu);
+    return () => document.removeEventListener("pointerdown", closeAccountMenu);
+  }, []);
 
   const handleSignOut = useCallback(
     async (reason?: "expired") => {
@@ -123,69 +140,105 @@ export function AppShell({
 
   const isPatients = pathname.startsWith("/patients");
   const isDashboard = pathname === "/dashboard";
+  const isDesk = pathname === "/desk" || pathname.startsWith("/desk/");
+  const homeHref = workspace === "desk" ? "/desk" : "/dashboard";
+  const workspaceLabel = workspace === "desk" ? "Clinic Desk" : "Clinical";
 
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
-        <Link href="/dashboard" className={styles.brand}>
+        <Link href={homeHref} className={styles.brand}>
           <span aria-hidden="true">
             <Icon name="sparkle" />
           </span>
           <div>
             <strong>Smaran</strong>
-            <small>Clinical memory</small>
+            <small>{workspaceLabel} workspace</small>
           </div>
         </Link>
 
-        <div className={styles.clinicSwitcher}>
-          <span>{initials(clinicName)}</span>
-          <div>
-            <small>Workspace</small>
-            <strong>{clinicName}</strong>
-          </div>
-          <Icon name="chevron" />
-        </div>
-
         <nav className={styles.sideNav} aria-label="Primary navigation">
           <p>Workspace</p>
-          <Link
-            href="/dashboard"
-            className={isDashboard ? styles.activeNav : undefined}
-          >
-            <Icon name="home" />
-            <span>Overview</span>
-          </Link>
-          <Link
-            href="/patients"
-            className={isPatients ? styles.activeNav : undefined}
-          >
-            <Icon name="users" />
-            <span>Patients</span>
-            <small>{patientCount}</small>
-          </Link>
+          {workspace === "clinical" ? (
+            <>
+              <Link
+                href="/dashboard"
+                className={isDashboard ? styles.activeNav : undefined}
+              >
+                <Icon name="home" />
+                <span>Today</span>
+              </Link>
+              <Link
+                href="/patients"
+                className={isPatients ? styles.activeNav : undefined}
+              >
+                <Icon name="users" />
+                <span>Patients</span>
+                <small>{patientCount}</small>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/desk" className={isDesk ? styles.activeNav : undefined}>
+                <Icon name="home" />
+                <span>Today</span>
+              </Link>
+              <span className={styles.disabledNav} aria-disabled="true">
+                <Icon name="calendar" />
+                <span>Scheduler</span>
+                <small>Later</small>
+              </span>
+            </>
+          )}
         </nav>
-
-        <div className={styles.doctorCard}>
-          <div className={styles.doctorAvatar}>{initials(doctorName)}</div>
-          <div>
-            <strong>{doctorName}</strong>
-            <small>Clinic account</small>
-          </div>
-          <button
-            type="button"
-            className={styles.signOutButton}
-            onClick={() => handleSignOut()}
-            disabled={signingOut}
-            aria-label="Sign out"
-            style={{ gridColumn: "1 / -1" }}
-          >
-            <Icon name="logOut" />
-            <span>{signingOut ? "Signing out…" : "Sign out"}</span>
-          </button>
-        </div>
       </aside>
 
-      <div className={styles.appSurface}>{children}</div>
+      <div className={styles.appSurface}>
+        <div className={styles.accountBar}>
+          <details className={styles.accountMenu} ref={accountMenuRef}>
+            <summary aria-label="Open profile menu">
+              <span className={styles.doctorAvatar}>{initials(doctorName)}</span>
+            </summary>
+            <div className={styles.accountPopover}>
+              <div className={styles.accountIdentity}>
+                <span className={styles.doctorAvatar}>{initials(doctorName)}</span>
+                <div>
+                  <strong>{doctorName}</strong>
+                  <small>{role === "doctor" ? "Doctor" : role === "admin" ? "Admin" : "Clinic assistant"}</small>
+                </div>
+              </div>
+              <div className={styles.workspaceDetails}>
+                <span>{initials(clinicName)}</span>
+                <div>
+                  <small>Active clinic</small>
+                  <strong>{clinicName}</strong>
+                </div>
+              </div>
+              <div className={styles.workspaceSwitch}>
+                <small>Workspace</small>
+                {role === "doctor" ? (
+                  <div>
+                    <Link data-active={workspace === "clinical"} href="/dashboard">Clinical</Link>
+                    <Link data-active={workspace === "desk"} href="/desk">Clinic Desk</Link>
+                  </div>
+                ) : (
+                  <strong>Clinic Desk</strong>
+                )}
+              </div>
+              <button
+                type="button"
+                className={styles.accountSignOut}
+                onClick={() => handleSignOut()}
+                disabled={signingOut}
+              >
+                <Icon name="logOut" />
+                {signingOut ? "Signing out…" : "Sign out"}
+              </button>
+            </div>
+          </details>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

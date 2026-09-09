@@ -1,0 +1,60 @@
+# Approved Product Decisions
+
+Do not silently reverse these decisions during implementation. If the existing code creates a conflict, surface it in planning/review.
+
+- **D-001** MVP patient experience is secure web link/OTP, not a patient mobile app.
+- **D-002** Patient creation/onboarding uses a hybrid model: receptionist can create the lightweight record; patient can complete intake/upload remotely.
+- **D-003** MVP is optimized for individual doctors, while architecture should avoid blocking future multi-doctor clinics.
+- **D-004** Clinic maintains its own patient database; no automatic cross-clinic global patient record in MVP.
+- **D-005** Existing `patients.id` UUID serves as internal Smaran Patient ID.
+- **D-006** Phone + patient name are the primary duplicate-matching signals, but are not a hard unique database key.
+- **D-007** Same/similar name + same phone should trigger duplicate warning; authorized users can merge true duplicates.
+- **D-008** Duplicate merge preserves underlying history/provenance and does not destructively erase medical history.
+- **D-009** Product concept `Encounter` maps to existing `consultations` implementation for MVP; do not rename the whole subsystem now.
+- **D-010** Appointment creation should automatically create/associate the visit consultation/Encounter.
+- **D-011** Patient intake is optional/non-blocking; clinic can finish preparation at arrival.
+- **D-012** Pre-Consultation MVP does not send automatic time-based intake reminders. Authorized staff may manually send/resend intake access. Appointment-linked reminder automation belongs to Scheduler communications and is deferred until after Scheduler MVP.
+- **D-013** Patient enters reason for visit in free text; exact patient wording remains available.
+- **D-014** Patient may optionally enter existing conditions, current medicines, and allergies.
+- **D-015** Explicit consent is required for intake/document processing/storage.
+- **D-016** Intake access requires OTP verification.
+- **D-017** Patient may correct permitted demographics; modifications are auditable.
+- **D-018** Admin/receptionist may scan/upload reports and prescriptions and view original files/images.
+- **D-019** Admin/receptionist sees operational document/readiness status but not the doctor-facing AI pre-consult clinical summary and cannot modify it.
+- **D-020** Original documents remain available to the doctor for verification and are treated as immutable source evidence.
+- **D-021** Duplicate reports should be detected and must not contaminate longitudinal trends by double counting.
+- **D-022** Low-confidence/unreadable/handwritten documents are labelled `Needs Review`; uncertainty is a product feature, not hidden failure.
+- **D-023** Missing document dates may be entered by patient/admin, preserving whether the date is approximate/user-supplied.
+- **D-024** Longitudinal history is a core differentiator; old documents and approved visit history remain accessible in future encounters.
+- **D-025** External/patient-provided information is unconfirmed until clinically meaningful changes are reviewed by a doctor.
+- **D-026** When external records conflict with confirmed clinic records, Smaran flags a delta rather than overwriting either value.
+- **D-027** Doctor decides to accept or ignore a delta; ignored evidence remains traceable.
+- **D-028** Review Changes should be consolidated where possible to reduce alert fatigue.
+- **D-029** Unresolved deltas, intake, or Needs Review items must not block consultation.
+- **D-030** Every important AI-derived clinical claim should be traceable to evidence whenever evidence exists.
+- **D-031** Returning-patient pre-consult brief starts with/strongly prioritizes `What changed since last visit?`; new patients receive a concise overview.
+- **D-032** Doctor 30-second preparation is the primary pre-consult outcome, while onboarding and patient convenience should remain low-friction.
+- **D-033** Pre-consult brief should regenerate as new information becomes available rather than waiting for a single manual finalization step.
+- **D-034** Preferred consultation integration keeps pre-consult context available in a persistent/collapsible panel after Start Consultation.
+- **D-035** AI extracts/proposes; doctors confirm. AI must not diagnose, prescribe, recommend treatment independently, or silently change confirmed state.
+- **D-036** Smaran uses one authentication system for clinic staff; do not build separate doctor and admin authentication stacks.
+- **D-037** Doctor and admin/receptionist use separate role-specific workspaces and navigation after authentication. Doctor lands in the clinical Doctor Workspace; admin/assistant lands in the Clinic Desk/Admin Workspace.
+- **D-038** Admin/receptionist must not be able to reach doctor-only clinical routes merely by entering the URL. Workspace separation must be enforced server-side through authorization, not only hidden navigation.
+- **D-039** A doctor may also perform permitted clinic-desk/admin operations so Smaran remains usable by a solo doctor without a receptionist.
+- **D-040** Patient intake is a third isolated experience accessed through secure OTP-scoped intake routes and is not a normal clinic-staff login or workspace.
+- **D-041** Clinic identity and workspace identity are distinct UI concepts. Account/workspace UI should show the active clinic separately from the active workspace.
+- **D-042** A doctor with permission may switch between Clinical and Admin workspaces without signing out; admin/receptionist/assistant sees only Admin. Switching workspace preserves clinic context and authenticated identity.
+- **D-043** Doctor Dashboard is a day-management surface, not a clinical-alert surface. Its MVP KPIs are Patients Today, Waiting Now, Priority, and Completed; patient-specific clinical flags/discrepancies belong after opening the patient review.
+- **D-044** Smaran must not infer or assign patient urgency/priority from trends, abnormal values, discrepancies, documents, extraction, or AI interpretation. Priority is assigned only by an authorized human.
+- **D-045** Human Priority is scoped to the current Encounter/visit and should preserve actor, role, timestamp, and reason/provenance. It is not a permanent patient label.
+- **D-046** Admin/receptionist may mark a current Encounter Priority based on human observation/reporting to bring it to the doctor's attention, but Priority must not automatically reorder the waiting queue.
+- **D-047** Admin Today/Clinic Desk should optimize for `What do I need to do right now?` and use exception-driven administration: automate the normal path, surface only actionable exceptions, and suggest one clear next action when possible.
+- **D-048** For receptionist-facing MVP UX, `Check in` means the patient has arrived and is now waiting. This should be one action that records arrival, starts waiting time, enters the waiting queue, and updates the doctor view.
+- **D-049** Waiting queue defaults to FIFO by check-in time. Authorized reception staff may manually override queue order; manual reorder must be accessible without relying only on drag-and-drop.
+- **D-050** Smaran should not automatically label patients `Late`. The operational UI should use factual `Not arrived yet` language and leave no-show/cancellation/rescheduling decisions to humans.
+- **D-051** `Needs Action` is an operational exception inbox, not a clinical-alert surface. It should contain only issues reception can act on and must not expose doctor-only clinical interpretation.
+- **D-052** Patient self-service is optional convenience. Reception may assist with permitted demographics, intake, patient-reported history, consent workflow, and document upload/scanning on the patient's behalf; provenance must record who entered the information.
+- **D-053** Reception must not silently overwrite an already-submitted patient statement to resolve a discrepancy. Clarifications/corrections should be additive and traceable; doctor confirmation still governs clinically meaningful state.
+- **D-054** Until Smaran Scheduler is developed, `+ Add patient` primarily serves the walk-in flow: identify/search patient, create if needed, create/associate today's Encounter, check in, and place into the waiting queue without forcing reception through separate technical screens.
+- **D-055** Smaran Scheduler is a separate future feature/product refinement to be developed after the current pre-consultation development. Phase 6.5 may reserve a navigation entry but must not implement the scheduling engine.
+- **D-056** Billing/payment (`Smaran Pay`) is outside MVP/Phase 6.5. Do not add billing, payment, revenue, or outstanding-balance KPIs to Doctor or Admin dashboards.

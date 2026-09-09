@@ -3,7 +3,7 @@ import type { Consultation } from "@/types";
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
 const CONSULTATION_COLUMNS =
-  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, status, consentAcquired:consent_acquired, consentVersion:consent_version, consentTimestamp:consent_timestamp, startedAt:started_at, endedAt:ended_at, sarvamJobId:sarvam_job_id";
+  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, status, operationalStatus:operational_status, isPriority:is_priority, priorityUpdatedBy:priority_updated_by, priorityUpdatedByRole:priority_updated_by_role, priorityUpdatedAt:priority_updated_at, priorityReason:priority_reason, consentAcquired:consent_acquired, consentVersion:consent_version, consentTimestamp:consent_timestamp, startedAt:started_at, endedAt:ended_at, sarvamJobId:sarvam_job_id";
 
 export async function getConsultations(
   patientId: string,
@@ -24,6 +24,15 @@ export async function getConsultations(
 export type ConsultationWithNote = Consultation & {
   noteStatus: string | null;
   noteSummary: string | null;
+  noteContent: {
+    summary?: string;
+    chiefComplaint?: string;
+    medicationChanges?: string;
+    investigations?: string;
+    followUpPlan?: string;
+    patientInstructions?: string;
+    uncertainItems?: string;
+  } | null;
 };
 
 export async function getConsultationsWithNotes(
@@ -42,7 +51,10 @@ export async function getConsultationsWithNotes(
 
   const rows = (data as unknown as Array<
     Consultation & {
-      note?: { content?: { summary?: string } | null; status?: string }[] | null;
+      note?: {
+        content?: ConsultationWithNote["noteContent"];
+        status?: string;
+      }[] | null;
     }
   >) ?? [];
 
@@ -53,6 +65,7 @@ export async function getConsultationsWithNotes(
       ...row,
       noteStatus: note?.status ?? null,
       noteSummary: summary && summary !== "None." && summary !== "None stated." ? summary : null,
+      noteContent: note?.content ?? null,
     };
   });
 }
@@ -161,6 +174,7 @@ export async function createConsultation(
       clinic_id: clinicId,
       doctor_id: doctorId,
       status: "draft",
+      operational_status: "in_consultation",
     })
     .select("*")
     .single();

@@ -4,6 +4,10 @@ import {
   getPendingConsultations,
   type ConsultationWithPatient,
 } from "./consultations";
+import {
+  getAppointmentQueue,
+  type AppointmentQueue,
+} from "./appointment-queue";
 
 export type DashboardOverview = {
   totalPatients: number;
@@ -11,6 +15,9 @@ export type DashboardOverview = {
   awaitingReview: number;
   approvedNotes: number;
   consultationsThisWeek: number;
+  patientsToday: number;
+  completedPatientsToday: number;
+  todayQueue: AppointmentQueue;
   recentConsultations: ConsultationWithPatient[];
   needsAttention: ConsultationWithPatient[];
 };
@@ -43,9 +50,10 @@ export async function getDashboardOverview(clinicId: string): Promise<DashboardO
   startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday start
   const weekIso = startOfWeek.toISOString();
 
-  // Fire all seven queries concurrently — one round-trip instead of two
-  // sequential phases (previously the counts then the lists).
+  // Fire all eight queries concurrently — one round-trip instead of sequential
+  // phases (previously the counts then the lists), plus the live clinic queue.
   const [
+    todayQueue,
     totalPatients,
     totalConsultations,
     awaitingReview,
@@ -54,6 +62,7 @@ export async function getDashboardOverview(clinicId: string): Promise<DashboardO
     recentConsultations,
     needsAttention,
   ] = await Promise.all([
+    getAppointmentQueue(clinicId),
     countRows(supabase, "patients", clinicId),
     countRows(supabase, "consultations", clinicId),
     countRows(supabase, "consultations", clinicId, { status: "draft_ready" }),
@@ -69,6 +78,11 @@ export async function getDashboardOverview(clinicId: string): Promise<DashboardO
     awaitingReview,
     approvedNotes,
     consultationsThisWeek,
+    patientsToday: todayQueue.summary.total,
+    completedPatientsToday: todayQueue.items.filter(
+      (item) => item.appointmentStatus === "completed" || item.operationalStatus === "completed"
+    ).length,
+    todayQueue,
     recentConsultations,
     needsAttention,
   };

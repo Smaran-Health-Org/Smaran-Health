@@ -8,6 +8,7 @@ import { PatientBrowser } from "@/components/patient-browser";
 export default async function PatientsPage() {
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  if (session.role !== "doctor") redirect("/desk");
 
   const [{ data: patients, total }, clinicName] = await Promise.all([
     getPatients(session.clinicId, { pageSize: 100 }),

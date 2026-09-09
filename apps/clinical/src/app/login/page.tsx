@@ -7,7 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") ?? "/dashboard";
+  const requestedRedirect = searchParams.get("redirect");
+  const redirect = requestedRedirect?.startsWith("/") && !requestedRedirect.startsWith("//")
+    && !requestedRedirect.includes("\\")
+    ? requestedRedirect
+    : "/";
   const expired = searchParams.get("expired") === "1";
 
   const [email, setEmail] = useState("");

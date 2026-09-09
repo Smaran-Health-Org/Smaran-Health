@@ -18,14 +18,11 @@ if (!TOKEN) {
   process.exit(1);
 }
 
-const files = [
-  "0000_gigantic_meteorite.sql",
-  "0001_rls_and_triggers.sql",
-  "0002_grants.sql",
-  "0003_clinics_select.sql",
-  "0004_transcripts_update.sql",
-  "0005_consultation_sarvam_job.sql",
-];
+const migrationDir = path.join(__dirname, "..", "supabase", "migrations");
+const files = fs
+  .readdirSync(migrationDir)
+  .filter((file) => /^\d+_.+\.sql$/.test(file))
+  .sort();
 
 async function run(sql) {
   const res = await fetch(
@@ -46,10 +43,7 @@ async function run(sql) {
 
 (async () => {
   for (const f of files) {
-    const sql = fs.readFileSync(
-      path.join(__dirname, "..", "supabase", "migrations", f),
-      "utf8"
-    );
+    const sql = fs.readFileSync(path.join(migrationDir, f), "utf8");
     process.stdout.write(`Applying ${f} ... `);
     await run(sql);
     console.log("OK");

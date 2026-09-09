@@ -1,0 +1,37 @@
+Internal product sources
+- /Users/Neelesh/Documents/Smaran Health/PROJECT_MEMORY.md
+- /Users/Neelesh/Documents/Smaran Health/PRODUCT.md
+- /Users/Neelesh/Documents/Smaran Health/ROADMAP.md
+- /Users/Neelesh/Documents/Smaran Health/AGENTS.md
+- /Users/Neelesh/Documents/Smaran Health/docs/prototype/task-10-workflow.md
+- /Users/Neelesh/Documents/Smaran Health/docs/prototype/task-14-doctor-test.md
+- /Users/Neelesh/Documents/Smaran Health/apps/website/app/prototype/mock-data.ts
+- /Users/Neelesh/Documents/Smaran Health/docs/sample-transcripts/SYN-DM-001-improved-hba1c-followup.txt
+- /Users/Neelesh/Documents/Smaran Health/docs/sample-transcripts/SYN-DM-006-lab-review.txt
+- /Users/Neelesh/Documents/Smaran Health/apps/website/app/smaran.css
+- /Users/Neelesh/Documents/Smaran Health/apps/website/app/prototype/prototype.module.css
+- /Users/Neelesh/Documents/Smaran Health/apps/website/public/favicon.svg
+
+Product screenshots captured from the local synthetic prototype
+- assets/prototype-patient-profile.png
+- assets/prototype-consent.png
+- assets/prototype-recording.png
+- assets/prototype-draft-review.png
+- assets/prototype-approved.png
+- assets/prototype-patient-profile-full.png
+
+Generated visual 1: cover-doctor-patient.png
+Use case: photorealistic-natural. 16:9 presentation cover. Indian specialist and patient in a calm consultation; doctor listening rather than typing; subtle mint memory thread; negative space on left; warm paper, mint and teal; no text, logos, patient data, medical procedure, or sci-fi holograms.
+
+Generated visual 2: fragmented-story.png
+Use case: stylized-concept. 16:9 editorial still life of disconnected lab report, notebook, calendar, generic chat, medication strip, and prescription sheet on midnight ink; broken mint thread and one coral unresolved point; no readable patient data, brands, or watermark.
+
+Generated visual 3: patient-journey.png
+Use case: infographic-diagram. 16:9 text-free journey showing onboarding, consent, consultation, doctor approval, secure phone handoff, and return follow-up connected by one mint thread; Indian clinic; deep ink, warm paper, mint/teal, one coral open loop; no logos, robots, or AI-generated prescription imagery.
+
+Claim discipline
+- All clinical content in the deck is synthetic.
+- Existing clickable workflow remains specialist-validation pending.
+- Report/vital trends, WhatsApp sharing, clinic dashboards, and footfall/follow-up effects are product directions or pilot hypotheses, not shipped or proven outcomes.
+- WhatsApp handoff is shown only after doctor approval and separate sharing consent.
+- Smaran does not diagnose, prescribe, recommend treatment, modify prescriptions, or finalize records without doctor approval.

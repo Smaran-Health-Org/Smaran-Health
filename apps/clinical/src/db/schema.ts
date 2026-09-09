@@ -2,12 +2,25 @@ import {
   pgTable,
   pgEnum,
   text,
+  date,
   timestamp,
   uuid,
   integer,
   jsonb,
   boolean,
+  real,
+  doublePrecision,
+  index,
+  uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+
+export type ClinicalStateValue = {
+  displayName: string;
+  valueText: string;
+  regimenText?: string;
+};
 
 // ── Enums ───────────────────────────────────────────────────────────────────
 
@@ -35,6 +48,135 @@ export const profileRoleEnum = pgEnum("profile_role", [
   "admin",
 ]);
 
+export const appointmentStatusEnum = pgEnum("appointment_status", [
+  "scheduled",
+  "cancelled",
+  "no_show",
+  "completed",
+]);
+
+export const encounterOperationalStatusEnum = pgEnum(
+  "encounter_operational_status",
+  [
+    "scheduled",
+    "preparing",
+    "ready",
+    "arrived",
+    "waiting",
+    "in_consultation",
+    "completed",
+  ]
+);
+
+export const patientIntakeStatusEnum = pgEnum("patient_intake_status", [
+  "not_started",
+  "in_progress",
+  "submitted",
+]);
+
+export const consentTypeEnum = pgEnum("consent_type", [
+  "intake_processing",
+  "document_storage",
+]);
+
+export const consentStatusEnum = pgEnum("consent_status", [
+  "accepted",
+  "withdrawn",
+]);
+
+export const consentCapturedViaEnum = pgEnum("consent_captured_via", [
+  "patient_web",
+  "admin",
+  "doctor",
+]);
+
+export const intakeDeliveryStatusEnum = pgEnum("intake_delivery_status", [
+  "pending",
+  "sent",
+  "preview",
+  "failed",
+]);
+
+export const documentStatusEnum = pgEnum("document_status", [
+  "uploaded",
+  "processing",
+  "processed",
+  "needs_review",
+]);
+
+export const documentUploadedViaEnum = pgEnum("document_uploaded_via", [
+  "patient",
+  "admin",
+  "doctor",
+]);
+
+export const medicalDocumentTypeEnum = pgEnum("medical_document_type", [
+  "lab_report",
+  "prescription",
+  "discharge_summary",
+  "imaging_report",
+  "procedure_report",
+  "consultation_note",
+  "other",
+]);
+
+export const documentDateSourceEnum = pgEnum("document_date_source", [
+  "unknown",
+  "user_entered",
+  "extracted",
+]);
+
+export const documentDatePrecisionEnum = pgEnum("document_date_precision", [
+  "unknown",
+  "exact",
+  "approximate",
+]);
+
+export const documentExtractionStatusEnum = pgEnum("document_extraction_status", [
+  "processing",
+  "succeeded",
+  "needs_review",
+  "technical_failure",
+]);
+
+export const clinicalObservationTypeEnum = pgEnum("clinical_observation_type", [
+  "lab",
+  "medication",
+  "condition",
+  "allergy",
+  "vital",
+]);
+
+export const clinicalObservationDateSourceEnum = pgEnum(
+  "clinical_observation_date_source",
+  ["unknown", "observation_extracted", "document_extracted", "user_entered"]
+);
+
+export const confirmedClinicalStateDomainEnum = pgEnum("confirmed_clinical_state_domain", [
+  "medication",
+  "condition",
+  "allergy",
+]);
+export const confirmedClinicalStateStatusEnum = pgEnum("confirmed_clinical_state_status", ["active", "inactive"]);
+export const confirmedClinicalStateConfirmationKindEnum = pgEnum("confirmed_clinical_state_confirmation_kind", [
+  "initial_doctor_confirmation",
+  "doctor_correction",
+  "accepted_delta",
+]);
+export const clinicalStateDeltaClassificationEnum = pgEnum("clinical_state_delta_classification", [
+  "possible_addition",
+  "possible_discontinuation",
+  "possible_regimen_change",
+  "possible_status_change",
+  "possible_removal",
+  "possible_change",
+]);
+export const clinicalStateDeltaDispositionKindEnum = pgEnum("clinical_state_delta_disposition_kind", [
+  "accepted",
+  "kept_current",
+  "stale",
+]);
+
 // ── Tables ──────────────────────────────────────────────────────────────────
 
 export const clinics = pgTable("clinics", {
@@ -60,18 +202,48 @@ export const clinicMemberships = pgTable("clinic_memberships", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const patients = pgTable("patients", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
-  fullName: text("full_name").notNull(),
-  age: integer("age"),
-  gender: text("gender"),
-  phone: text("phone"),
-  address: text("address"),
-  medicalRecordNumber: text("medical_record_number"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const patients = pgTable(
+  "patients",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    fullName: text("full_name").notNull(),
+    normalizedName: text("normalized_name"),
+    age: integer("age"),
+    dateOfBirth: date("date_of_birth"),
+    gender: text("gender"),
+    phone: text("phone"),
+    normalizedPhone: text("normalized_phone"),
+    address: text("address"),
+    medicalRecordNumber: text("medical_record_number"),
+    weightKg: real("weight_kg"),
+    heightCm: real("height_cm"),
+    bloodPressure: text("blood_pressure"),
+    bloodGroup: text("blood_group"),
+    hasDiabetes: boolean("has_diabetes"),
+    mergedIntoPatientId: uuid("merged_into_patient_id").references(
+      (): AnyPgColumn => patients.id,
+      { onDelete: "restrict" }
+    ),
+    mergedAt: timestamp("merged_at", { withTimezone: true }),
+    mergedBy: uuid("merged_by").references(() => profiles.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("patients_clinic_normalized_phone_idx").on(
+      table.clinicId,
+      table.normalizedPhone
+    ),
+    index("patients_clinic_normalized_name_idx").on(
+      table.clinicId,
+      table.normalizedName
+    ),
+    index("patients_merged_into_patient_id_idx").on(table.mergedIntoPatientId),
+  ]
+);
 
 export const consultations = pgTable("consultations", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -79,6 +251,16 @@ export const consultations = pgTable("consultations", {
   patientId: uuid("patient_id").references(() => patients.id, { onDelete: "cascade" }).notNull(),
   doctorId: uuid("doctor_id").references(() => profiles.id).notNull(),
   status: consultationStatusEnum("status").notNull().default("draft"),
+  operationalStatus: encounterOperationalStatusEnum("operational_status")
+    .notNull()
+    .default("in_consultation"),
+  isPriority: boolean("is_priority").notNull().default(false),
+  priorityUpdatedBy: uuid("priority_updated_by").references(() => profiles.id, {
+    onDelete: "set null",
+  }),
+  priorityUpdatedByRole: profileRoleEnum("priority_updated_by_role"),
+  priorityUpdatedAt: timestamp("priority_updated_at", { withTimezone: true }),
+  priorityReason: text("priority_reason"),
   consentAcquired: boolean("consent_acquired").default(false),
   consentVersion: text("consent_version"),
   consentTimestamp: timestamp("consent_timestamp", { withTimezone: true }),
@@ -88,6 +270,452 @@ export const consultations = pgTable("consultations", {
   // (and resume after a reload) without re-uploading the audio.
   sarvamJobId: text("sarvam_job_id"),
 });
+
+export const patientMergeEvents = pgTable(
+  "patient_merge_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    canonicalPatientId: uuid("canonical_patient_id")
+      .references(() => patients.id, { onDelete: "restrict" })
+      .notNull(),
+    sourcePatientId: uuid("source_patient_id")
+      .references(() => patients.id, { onDelete: "restrict" })
+      .notNull()
+      .unique(),
+    mergedBy: uuid("merged_by").references(() => profiles.id).notNull(),
+    reason: text("reason").notNull().default("confirmed_duplicate"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("patient_merge_events_clinic_created_at_idx").on(
+      table.clinicId,
+      table.createdAt
+    ),
+    index("patient_merge_events_canonical_patient_id_idx").on(
+      table.canonicalPatientId
+    ),
+  ]
+);
+
+export const appointments = pgTable(
+  "appointments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "cascade" }).notNull(),
+    doctorId: uuid("doctor_id").references(() => profiles.id).notNull(),
+    consultationId: uuid("consultation_id")
+      .references(() => consultations.id, { onDelete: "restrict" })
+      .notNull()
+      .unique(),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    status: appointmentStatusEnum("status").notNull().default("scheduled"),
+    idempotencyKey: text("idempotency_key"),
+    checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
+    queueOrder: integer("queue_order"),
+    createdBy: uuid("created_by").references(() => profiles.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("appointments_clinic_idempotency_key_uidx").on(
+      table.clinicId,
+      table.idempotencyKey
+    ),
+    index("appointments_clinic_scheduled_at_idx").on(
+      table.clinicId,
+      table.scheduledAt
+    ),
+    index("appointments_patient_id_idx").on(table.patientId),
+    index("appointments_doctor_id_idx").on(table.doctorId),
+  ]
+);
+
+export const encounterPriorityEvents = pgTable(
+  "encounter_priority_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    consultationId: uuid("consultation_id")
+      .references(() => consultations.id, { onDelete: "restrict" })
+      .notNull(),
+    actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    actorRole: profileRoleEnum("actor_role").notNull(),
+    action: text("action").$type<"marked" | "cleared">().notNull(),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("encounter_priority_events_consultation_created_idx").on(
+      table.consultationId,
+      table.createdAt
+    ),
+  ]
+);
+
+export const patientIntakes = pgTable(
+  "patient_intakes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "cascade" }).notNull().unique(),
+    status: patientIntakeStatusEnum("status").notNull().default("not_started"),
+    reasonForVisitRaw: text("reason_for_visit_raw"),
+    selfReportedConditions: jsonb("self_reported_conditions").$type<string[]>().notNull().default([]),
+    selfReportedMedications: jsonb("self_reported_medications").$type<string[]>().notNull().default([]),
+    selfReportedAllergies: jsonb("self_reported_allergies").$type<string[]>().notNull().default([]),
+    verificationState: text("verification_state").notNull().default("unconfirmed"),
+    lastLinkSentAt: timestamp("last_link_sent_at", { withTimezone: true }),
+    linkSendCount: integer("link_send_count").notNull().default(0),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("patient_intakes_clinic_patient_idx").on(table.clinicId, table.patientId),
+    index("patient_intakes_clinic_status_idx").on(table.clinicId, table.status),
+  ]
+);
+
+export const intakeStatementKindEnum = pgEnum("intake_statement_kind", ["original", "correction"]);
+
+export const patientIntakeStatements = pgTable(
+  "patient_intake_statements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "cascade" }).notNull(),
+    patientIntakeId: uuid("patient_intake_id").references(() => patientIntakes.id, { onDelete: "cascade" }).notNull(),
+    kind: intakeStatementKindEnum("kind").notNull(),
+    informationSource: text("information_source").notNull().default("patient"),
+    enteredByProfileId: uuid("entered_by_profile_id").references(() => profiles.id, { onDelete: "restrict" }),
+    enteredByRole: profileRoleEnum("entered_by_role"),
+    enteredVia: text("entered_via").notNull(),
+    reasonForVisitRaw: text("reason_for_visit_raw").notNull(),
+    selfReportedConditions: jsonb("self_reported_conditions").$type<string[]>().notNull().default([]),
+    selfReportedMedications: jsonb("self_reported_medications").$type<string[]>().notNull().default([]),
+    selfReportedAllergies: jsonb("self_reported_allergies").$type<string[]>().notNull().default([]),
+    verificationState: text("verification_state").notNull().default("unconfirmed"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("patient_intake_statements_intake_created_idx").on(table.patientIntakeId, table.createdAt)]
+);
+
+export const consents = pgTable(
+  "consents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "cascade" }).notNull(),
+    patientIntakeId: uuid("patient_intake_id").references(() => patientIntakes.id, { onDelete: "cascade" }).notNull(),
+    consentType: consentTypeEnum("consent_type").notNull(),
+    version: text("version").notNull(),
+    status: consentStatusEnum("status").notNull().default("accepted"),
+    capturedVia: consentCapturedViaEnum("captured_via").notNull(),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).defaultNow().notNull(),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("consents_version_unique").on(
+      table.consultationId,
+      table.consentType,
+      table.version
+    ),
+    index("consents_clinic_patient_idx").on(table.clinicId, table.patientId),
+  ]
+);
+
+export const intakeAccessSessions = pgTable(
+  "intake_access_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "cascade" }).notNull(),
+    patientIntakeId: uuid("patient_intake_id").references(() => patientIntakes.id, { onDelete: "cascade" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "cascade" }).notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    otpHash: text("otp_hash").notNull(),
+    verifiedSessionHash: text("verified_session_hash"),
+    deliveryStatus: intakeDeliveryStatusEnum("delivery_status").notNull().default("pending"),
+    failedAttempts: integer("failed_attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("intake_access_sessions_intake_created_idx").on(table.patientIntakeId, table.createdAt),
+    index("intake_access_sessions_clinic_appointment_idx").on(table.clinicId, table.appointmentId),
+  ]
+);
+
+export const patientDemographicChangeEvents = pgTable(
+  "patient_demographic_change_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    patientIntakeId: uuid("patient_intake_id").references(() => patientIntakes.id, { onDelete: "cascade" }).notNull(),
+    source: consentCapturedViaEnum("source").notNull(),
+    changedByProfileId: uuid("changed_by_profile_id").references(() => profiles.id, { onDelete: "set null" }),
+    changes: jsonb("changes").$type<Record<string, { from: unknown; to: unknown }>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("patient_demographic_changes_clinic_patient_idx").on(
+      table.clinicId,
+      table.patientId,
+      table.createdAt
+    ),
+  ]
+);
+
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "restrict" }).notNull(),
+    patientIntakeId: uuid("patient_intake_id").references(() => patientIntakes.id, { onDelete: "restrict" }),
+    uploadedByProfileId: uuid("uploaded_by_profile_id").references(() => profiles.id, { onDelete: "set null" }),
+    uploadedVia: documentUploadedViaEnum("uploaded_via").notNull(),
+    storagePath: text("storage_path").notNull().unique(),
+    contentHash: text("content_hash").notNull(),
+    mimeType: text("mime_type").notNull(),
+    fileSize: integer("file_size").notNull(),
+    originalFilename: text("original_filename").notNull(),
+    documentType: medicalDocumentTypeEnum("document_type").notNull().default("other"),
+    documentDate: date("document_date"),
+    documentDateSource: documentDateSourceEnum("document_date_source").notNull().default("unknown"),
+    documentDatePrecision: documentDatePrecisionEnum("document_date_precision").notNull().default("unknown"),
+    status: documentStatusEnum("status").notNull().default("uploaded"),
+    duplicateOfDocumentId: uuid("duplicate_of_document_id").references(
+      (): AnyPgColumn => documents.id,
+      { onDelete: "restrict" }
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("documents_clinic_patient_created_idx").on(table.clinicId, table.patientId, table.createdAt),
+    index("documents_consultation_created_idx").on(table.consultationId, table.createdAt),
+    index("documents_patient_hash_idx").on(table.clinicId, table.patientId, table.contentHash),
+    index("documents_duplicate_of_idx").on(table.duplicateOfDocumentId),
+  ]
+);
+
+export const documentMetadataChangeEvents = pgTable(
+  "document_metadata_change_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "restrict" }).notNull(),
+    changedByProfileId: uuid("changed_by_profile_id").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    previousDocumentType: medicalDocumentTypeEnum("previous_document_type").notNull(),
+    newDocumentType: medicalDocumentTypeEnum("new_document_type").notNull(),
+    previousDocumentDate: date("previous_document_date"),
+    newDocumentDate: date("new_document_date"),
+    previousDateSource: documentDateSourceEnum("previous_date_source").notNull(),
+    newDateSource: documentDateSourceEnum("new_date_source").notNull(),
+    previousDatePrecision: documentDatePrecisionEnum("previous_date_precision").notNull(),
+    newDatePrecision: documentDatePrecisionEnum("new_date_precision").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("document_metadata_events_document_created_idx").on(table.documentId, table.createdAt),
+    index("document_metadata_events_clinic_created_idx").on(table.clinicId, table.createdAt),
+  ]
+);
+
+export const documentExtractions = pgTable(
+  "document_extractions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "restrict" }).notNull(),
+    requestedByProfileId: uuid("requested_by_profile_id").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    attemptNumber: integer("attempt_number").notNull(),
+    schemaVersion: text("schema_version").notNull(),
+    pipelineVersion: text("pipeline_version").notNull(),
+    provider: text("provider").notNull(),
+    modelVersion: text("model_version").notNull(),
+    status: documentExtractionStatusEnum("status").notNull().default("processing"),
+    rawExtractionJson: jsonb("raw_extraction_json").$type<Record<string, unknown>>(),
+    classificationType: medicalDocumentTypeEnum("classification_type"),
+    classificationConfidence: doublePrecision("classification_confidence"),
+    overallConfidence: doublePrecision("overall_confidence"),
+    needsReviewReasons: text("needs_review_reasons").array().notNull().default([]),
+    documentIdentityHash: text("document_identity_hash"),
+    failureReasonCode: text("failure_reason_code"),
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("document_extractions_attempt_unique").on(table.documentId, table.attemptNumber),
+    index("document_extractions_document_attempt_idx").on(table.documentId, table.attemptNumber),
+    index("document_extractions_clinic_started_idx").on(table.clinicId, table.startedAt),
+    index("document_extractions_identity_idx")
+      .on(table.clinicId, table.documentIdentityHash)
+      .where(sql`${table.documentIdentityHash} is not null`),
+  ]
+);
+
+export const clinicalObservations = pgTable(
+  "clinical_observations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "restrict" }).notNull(),
+    observationType: clinicalObservationTypeEnum("observation_type").notNull(),
+    normalizedKey: text("normalized_key").notNull(),
+    displayName: text("display_name").notNull(),
+    normalizedValue: jsonb("normalized_value").$type<{
+      valueText: string;
+      numericValue: number | null;
+      unit: string | null;
+      referenceRange: string | null;
+      qualifier: string | null;
+    }>().notNull(),
+    sourceDocumentId: uuid("source_document_id").references(() => documents.id, { onDelete: "restrict" }).notNull(),
+    sourceExtractionId: uuid("source_extraction_id").references(() => documentExtractions.id, { onDelete: "restrict" }).notNull(),
+    sourceItemIndex: integer("source_item_index").notNull(),
+    sourcePageNumber: integer("source_page_number").notNull(),
+    sourceEvidenceText: text("source_evidence_text").notNull(),
+    confidence: doublePrecision("confidence").notNull(),
+    verificationState: text("verification_state").$type<"unconfirmed">().notNull().default("unconfirmed"),
+    effectiveDate: date("effective_date"),
+    effectiveDateText: text("effective_date_text"),
+    effectiveDatePrecision: documentDatePrecisionEnum("effective_date_precision").notNull().default("unknown"),
+    effectiveDateSource: clinicalObservationDateSourceEnum("effective_date_source").notNull().default("unknown"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("clinical_observations_extraction_item_uidx").on(
+      table.sourceExtractionId,
+      table.sourceItemIndex
+    ),
+    index("clinical_observations_patient_type_date_idx").on(
+      table.clinicId,
+      table.patientId,
+      table.observationType,
+      table.effectiveDate
+    ),
+    index("clinical_observations_document_idx").on(table.sourceDocumentId),
+  ]
+);
+
+export const confirmedClinicalStateVersions = pgTable(
+  "confirmed_clinical_state_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    domain: confirmedClinicalStateDomainEnum("domain").notNull(),
+    lineageId: uuid("lineage_id").notNull(),
+    stateKey: text("state_key").notNull(),
+    valueJson: jsonb("value_json").$type<ClinicalStateValue>().notNull(),
+    stateStatus: confirmedClinicalStateStatusEnum("state_status").notNull(),
+    confirmedBy: uuid("confirmed_by").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull(),
+    confirmationKind: confirmedClinicalStateConfirmationKindEnum("confirmation_kind").notNull(),
+    supersedesStateVersionId: uuid("supersedes_state_version_id"),
+    sourceDeltaId: uuid("source_delta_id"),
+    sourceClinicalNoteId: uuid("source_clinical_note_id").references(() => clinicalNotes.id, { onDelete: "restrict" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("confirmed_clinical_state_versions_current_lookup_idx").on(table.clinicId, table.patientId, table.domain, table.lineageId, table.confirmedAt),
+    index("confirmed_clinical_state_versions_patient_domain_key_idx").on(table.clinicId, table.patientId, table.domain, table.stateKey),
+  ]
+);
+
+export const clinicalStateDeltas = pgTable("clinical_state_deltas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+  originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+  domain: confirmedClinicalStateDomainEnum("domain").notNull(),
+  classification: clinicalStateDeltaClassificationEnum("classification").notNull(),
+  baseStateVersionId: uuid("base_state_version_id").references(() => confirmedClinicalStateVersions.id, { onDelete: "restrict" }),
+  targetLineageId: uuid("target_lineage_id"),
+  proposedStateKey: text("proposed_state_key").notNull(),
+  proposedValueJson: jsonb("proposed_value_json").$type<ClinicalStateValue>().notNull(),
+  proposedStateStatus: confirmedClinicalStateStatusEnum("proposed_state_status").notNull(),
+  comparatorContractVersion: text("comparator_contract_version").notNull(),
+  proposalFingerprint: text("proposal_fingerprint").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+export const clinicalStateDeltaEvidence = pgTable("clinical_state_delta_evidence", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  deltaId: uuid("delta_id").references(() => clinicalStateDeltas.id, { onDelete: "restrict" }).notNull(),
+  sourceObservationId: uuid("source_observation_id").references(() => clinicalObservations.id, { onDelete: "restrict" }),
+  sourceIntakeStatementId: uuid("source_intake_statement_id").references(() => patientIntakeStatements.id, { onDelete: "restrict" }),
+  sourceItemIndex: integer("source_item_index").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+export const clinicalStateDeltaDispositions = pgTable("clinical_state_delta_dispositions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  deltaId: uuid("delta_id").references(() => clinicalStateDeltas.id, { onDelete: "restrict" }).notNull(),
+  disposition: clinicalStateDeltaDispositionKindEnum("disposition").notNull(),
+  actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "restrict" }),
+  expectedBaseStateVersionId: uuid("expected_base_state_version_id").references(() => confirmedClinicalStateVersions.id, { onDelete: "restrict" }),
+  resultingStateVersionId: uuid("resulting_state_version_id").references(() => confirmedClinicalStateVersions.id, { onDelete: "restrict" }),
+  idempotencyKey: text("idempotency_key"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+export const clinicalStateReconciliationWork = pgTable(
+  "clinical_state_reconciliation_work",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    sourceObservationId: uuid("source_observation_id").references(() => clinicalObservations.id, { onDelete: "restrict" }),
+    sourceIntakeStatementId: uuid("source_intake_statement_id").references(() => patientIntakeStatements.id, { onDelete: "restrict" }),
+    sourceItemIndex: integer("source_item_index").notNull(),
+    domain: confirmedClinicalStateDomainEnum("domain").notNull(),
+    comparatorContractVersion: text("comparator_contract_version").notNull(),
+    status: text("status").$type<"pending" | "processing" | "completed" | "retryable_failed">().notNull(),
+    attemptCount: integer("attempt_count").notNull(),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull(),
+    processingStartedAt: timestamp("processing_started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    failureCode: text("failure_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("clinical_state_reconciliation_work_due_idx").on(table.status, table.nextAttemptAt, table.createdAt),
+  ]
+);
 
 export const audioFiles = pgTable("audio_files", {
   id: uuid("id").defaultRandom().primaryKey(),

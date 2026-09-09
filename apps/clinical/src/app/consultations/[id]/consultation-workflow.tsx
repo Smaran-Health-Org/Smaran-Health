@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { formatDate } from "@/lib/status";
+import type { PreconsultBriefAtConsultationStart } from "@/lib/preconsult/brief";
 import styles from "@/components/clinical.module.css";
+import { ConsultationPreconsultContext } from "./consultation-preconsult-context";
 
 export type WorkflowState =
   | "patient"
@@ -68,6 +70,7 @@ type ConsultationWorkflowProps = {
   initialStatus: string;
   initialTranscript: string | null;
   memory?: WorkflowMemory | null;
+  preconsultContext: PreconsultBriefAtConsultationStart;
 };
 
 const activeStep: Record<WorkflowState, number> = {
@@ -95,6 +98,12 @@ const workflowStates: Array<{ id: WorkflowState; label: string; safetyRule: stri
   { id: "rejected", label: "Rejected", safetyRule: "Rejected content is excluded from the timeline." },
   { id: "failed", label: "Failed", safetyRule: "Failure is explicit, safe, and retryable." },
 ];
+
+const manualWorkflowStates = [
+  { id: "patient", label: "Patient profile", safetyRule: "Only this clinic record is in scope." },
+  { id: "manual_review", label: "Manual prescription", safetyRule: "Only doctor-entered content is included." },
+  { id: "approved", label: "Approved", safetyRule: "Only doctor approval can update memory." },
+] as const;
 
 // The multi-field draft was collapsed to a single "Consultation summary" field for
 // the pilot. Medication changes / investigations / uncertain items are folded into
@@ -328,9 +337,11 @@ export function ConsultationWorkflow({
   initialStatus,
   initialTranscript,
   memory,
+  preconsultContext,
 }: ConsultationWorkflowProps) {
   const router = useRouter();
   const [state, setState] = useState<WorkflowState>(() => initialStateFor(initialStatus));
+  const [manualPath, setManualPath] = useState(false);
   const [draftFields, setDraftFields] = useState<NoteContent>(() => ({
     ...BLANK_NOTE,
     ...(initialNote ?? {}),
@@ -394,12 +405,22 @@ export function ConsultationWorkflow({
   // doesn't auto-sleep mid-recording. Best-effort.
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
-  const step = activeStep[state];
+  const recordedStep = activeStep[state];
   const isManualReview = state === "manual_review";
+  const displayedSteps = manualPath ? manualWorkflowStates : workflowStates.slice(0, 6);
+  const step = manualPath
+    ? state === "patient"
+      ? 0
+      : state === "manual_review"
+        ? 1
+        : 2
+    : recordedStep;
   // Terminal outcome states (rejected/failed) are not part of the 6-step happy
   // path, so resolve their header label directly instead of via the stepper index.
   const headerLabel =
-    workflowStates.find((item) => item.id === state)?.label ?? workflowStates[step].label;
+    manualPath && state === "manual_review"
+      ? "Manual prescription"
+      : workflowStates.find((item) => item.id === state)?.label ?? workflowStates[recordedStep].label;
   // Monotonic progress for the AI pipeline — always moves forward to 100%.
   // Stage 1 (transcription) is the slowest phase, so the bar creeps forward
   // in real time while Sarvam transcribes, then the remaining stages continue.
@@ -625,6 +646,7 @@ export function ConsultationWorkflow({
   }
 
   function startManualReview() {
+    setManualPath(true);
     setDraftFields(BLANK_NOTE);
     setReviewConfirmed(false);
     setError(null);
@@ -946,6 +968,7 @@ export function ConsultationWorkflow({
         setError(
           "No speech was captured during the recording, so a draft could not be prepared. Write the note manually instead."
         );
+        setManualPath(true);
         setState("manual_review");
         return;
       }
@@ -1264,10 +1287,10 @@ export function ConsultationWorkflow({
             <span>Safe workflow</span>
             <strong>{headerLabel}</strong>
           </div>
-          <small>Step {step + 1} of 6</small>
+          <small>Step {step + 1} of {displayedSteps.length}</small>
         </div>
         <nav className={styles.stepper} aria-label="Consultation workflow progress">
-          {workflowStates.slice(0, 6).map((item, index) => (
+          {displayedSteps.map((item, index) => (
             <div
               className={`${styles.step} ${index === step ? styles.activeStep : ""} ${
                 index < step ? styles.completeStep : ""
@@ -1294,6 +1317,8 @@ export function ConsultationWorkflow({
             </button>
           </div>
         )}
+
+        <ConsultationPreconsultContext patientId={patient.id} context={preconsultContext} />
 
         {state === "patient" && (
           <>
@@ -1441,7 +1466,7 @@ export function ConsultationWorkflow({
               <button
                 type="button"
                 className={styles.declineButton}
-                onClick={() => setState("consent_declined")}
+                onClick={startManualReview}
               >
                 Patient declined recording
               </button>
