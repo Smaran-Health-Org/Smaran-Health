@@ -3,6 +3,7 @@ import { getSessionContext } from "@/lib/db/session";
 import {
   DocumentAccessError,
   getStaffDocumentUploadContext,
+  getStaffRegisteredDocument,
   listStaffDocuments,
   registerStaffDocument,
 } from "@/lib/db/documents";
@@ -42,6 +43,7 @@ export async function POST(
       context,
       upload,
       register: (input) => registerStaffDocument(id, input),
+      lookupRegistered: (input) => getStaffRegisteredDocument(id, input),
     });
     return NextResponse.json({ document }, { status: 201 });
   } catch (error) {

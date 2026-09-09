@@ -82,7 +82,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '94200000-0000-4000-8000-000000000001', true);
 SELECT lives_ok($$ SELECT public.register_staff_document('94400000-0000-4000-8000-000000000001', '94800000-0000-4000-8000-000000000001', '94100000-0000-4000-8000-000000000001/94300000-0000-4000-8000-000000000001/94800000-0000-4000-8000-000000000001/original.pdf', repeat('d', 64), 'application/pdf', 100, 'synthetic.pdf', 'lab_report', '2026-01-01', 'exact') $$, 'authenticated doctor can register an eligible stored document');
 RESET ROLE;
-SELECT is((SELECT status::text FROM public.documents WHERE id = '94800000-0000-4000-8000-000000000001'), 'uploaded', 'authoritative document source write committed');
+SELECT is((SELECT status::text FROM public.documents WHERE registration_command_id = '94800000-0000-4000-8000-000000000001'), 'uploaded', 'authoritative document source write committed');
 SELECT ok((SELECT count(*) > 0 FROM public.preconsult_brief_generation_work WHERE consultation_id = '94400000-0000-4000-8000-000000000001'), 'document source path enqueued Phase 9 work');
 
 DELETE FROM public.preconsult_brief_generation_work WHERE patient_id = '94300000-0000-4000-8000-000000000001';

@@ -1,0 +1,18 @@
+BEGIN;
+SELECT plan(8);
+INSERT INTO public.clinics (id, name) VALUES ('d5200000-0000-4000-8000-000000000001', 'Phase 12 Closure Clinic'), ('d5200000-0000-4000-8000-000000000002', 'Other Clinic');
+INSERT INTO public.profiles (id, clinic_id, email, full_name, role) VALUES ('d5210000-0000-4000-8000-000000000001', 'd5200000-0000-4000-8000-000000000001', 'p12d-doctor@example.invalid', 'P12 Doctor', 'doctor'), ('d5210000-0000-4000-8000-000000000002', 'd5200000-0000-4000-8000-000000000002', 'p12d-other@example.invalid', 'P12 Other', 'doctor');
+INSERT INTO public.patients (id, clinic_id, full_name, phone) VALUES ('d5220000-0000-4000-8000-000000000001', 'd5200000-0000-4000-8000-000000000001', 'P12 Patient', '+919911110001'), ('d5220000-0000-4000-8000-000000000002', 'd5200000-0000-4000-8000-000000000002', 'P12 Other Patient', '+919911110002');
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'd5210000-0000-4000-8000-000000000001', true);
+SELECT lives_ok($$ SELECT * FROM public.create_direct_consultation('d5220000-0000-4000-8000-000000000001', 'd5230000-0000-4000-8000-000000000001') $$, 'first direct start succeeds');
+SELECT is((SELECT created FROM public.create_direct_consultation('d5220000-0000-4000-8000-000000000001', 'd5230000-0000-4000-8000-000000000001')), false, 'same command replays the committed consultation');
+SELECT is((SELECT count(*) FROM public.consultations WHERE clinic_id = 'd5200000-0000-4000-8000-000000000001' AND direct_start_command_id = 'd5230000-0000-4000-8000-000000000001'), 1::bigint, 'one direct-start command creates one consultation');
+SELECT throws_ok($$ SELECT * FROM public.create_direct_consultation('d5220000-0000-4000-8000-000000000002', 'd5230000-0000-4000-8000-000000000001') $$, '22023', NULL, 'same command cannot be reinterpreted for another patient');
+SELECT lives_ok($$ SELECT * FROM public.create_direct_consultation('d5220000-0000-4000-8000-000000000001', 'd5230000-0000-4000-8000-000000000002') $$, 'different command can start a distinct consultation');
+SELECT is((SELECT count(*) FROM public.consultations WHERE clinic_id = 'd5200000-0000-4000-8000-000000000001'), 2::bigint, 'different commands do not collide');
+SELECT set_config('request.jwt.claim.sub', 'd5210000-0000-4000-8000-000000000002', true);
+SELECT throws_ok($$ SELECT * FROM public.create_direct_consultation('d5220000-0000-4000-8000-000000000001', 'd5230000-0000-4000-8000-000000000003') $$, '22023', NULL, 'cross-clinic actor cannot use another clinic patient');
+SELECT ok(NOT has_function_privilege('anon', 'public.create_direct_consultation(uuid, uuid)', 'EXECUTE'), 'anonymous callers cannot create direct starts');
+SELECT * FROM finish();
+ROLLBACK;

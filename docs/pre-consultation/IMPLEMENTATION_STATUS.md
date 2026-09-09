@@ -24,7 +24,7 @@ Baseline commit reviewed: `bbf2a07`
 | 9 | 30-second doctor brief | Complete | AC-B01–B06, AC-A02–A06, AC-C01–C07 (integration), AC-R02–R03, AC-E03 | Immutable doctor-only derivative brief artifacts, bounded evidence/provenance, durable stale-safe regeneration, correction/reconciliation integration, exact evidence navigation, and immutable Start Consultation snapshots are complete. Final targeted Sol closure review passed. |
 | 10 | Review Changes UI | Complete | AC-C02–C07 | Doctor-only consolidated review, fail-closed current-state comparison, atomic reviewed-subset Apply, evidence drill-down, and nonblocking Start Consultation passed final Sol closure review. |
 | 11 | Consultation integration | Complete | AC-B06, D-034 | Immutable start-snapshot context, persistent/collapsible doctor-only presentation, verification/provenance preservation, and nonblocking evidence navigation passed final Sol closure re-review. |
-| 12 | Security / hardening / pilot QA | Not started | All relevant | RLS/security, role-matrix and audit tests, upload/OTP protections, existing-workflow retry/idempotency review, accessibility/UI states, synthetic evaluation fixtures, and end-to-end consultation-integration regression; no reminder automation. |
+| 12 | Security / hardening / pilot QA | In progress | All relevant | RLS/security, role-matrix and audit tests, upload/OTP protections, existing-workflow retry/idempotency review, accessibility/UI states, synthetic evaluation fixtures, and end-to-end consultation-integration regression; no reminder automation. |
 
 ## Update template
 
@@ -263,7 +263,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - `AC-R01`: clinic users can send/resend intake and see operational completion state without receiving clinical interpretation.
   - `AC-R04`: the public session exposes only its linked clinic name, appointment, permitted demographics, and that single intake; direct anonymous table access is denied.
   - Preserved `AC-E03`: arrival/waiting/start-consultation transitions still do not inspect or require intake state.
-  - Not yet satisfied: `AC-I06` automated 30-minute reminder remains Phase 12 by the approved implementation plan.
+  - `AC-I06` prohibits automated intake reminders in the Pre-Consultation MVP. Manual Send/Resend remains available; appointment-linked automation belongs to post-MVP Scheduler communications.
 - Files changed:
   - `apps/clinical/.env.example`
   - `apps/clinical/src/app/api/appointments/[id]/intake/route.ts`
@@ -322,7 +322,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - The consent copy is technically versioned but still requires the planned Indian healthcare/privacy counsel review before real-patient use.
   - Intake fields are submitted atomically after consent; there is no pre-consent autosave or post-submission patient editing/withdrawal UI.
   - Document upload is Phase 5. The Phase 4 consent record prepares the scope but does not claim documents were uploaded.
-  - The automated 30-minute incomplete-intake reminder and provider-specific WhatsApp/SMS abstraction remain Phase 12; manual Send/Resend is complete.
+  - Manual Send/Resend is complete. Clock-driven intake reminders, automated patient messaging, and provider-specific WhatsApp/SMS automation are outside the Pre-Consultation MVP and belong to post-MVP Scheduler communications.
   - The queue exposes submitted/in-progress/sent state but no patient-entered medical content. Doctor-facing use of unconfirmed intake belongs to later brief/delta phases with explicit authorization.
 - Product decisions/questions surfaced:
   - No approved decision conflict was found.
@@ -362,6 +362,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - `apps/clinical/src/app/intake/[token]/patient-intake-form.tsx`
   - `apps/clinical/src/components/clinical.module.css`
   - `apps/clinical/src/components/document-manager.tsx`
+  - `apps/clinical/src/db/schema.ts`
   - `apps/clinical/src/components/today-patients-list.tsx`
   - `apps/clinical/src/db/schema.ts`
   - `apps/clinical/src/lib/db/appointment-queue.ts`
@@ -403,7 +404,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Duplicate detection is exact SHA-256 only. Likely/perceptual/report-identifier matching and the structured trend exclusion contract remain Phases 6–7.
   - Patient upload appears after intake submission because Phase 4 captures versioned document-storage consent atomically at submission. Supporting pre-submit document selection would require a separate approved consent checkpoint rather than storing bytes before consent.
   - Registered source evidence has no hard-delete UI. The permission document allows accidental-upload deletion only "according to policy," but retention/deletion policy remains unresolved; a future correction should prefer an audited void/tombstone workflow over silent deletion.
-  - Uploads are intentionally capped at 4 MB for the server-mediated MVP route. Direct/resumable private uploads, malware scanning, broader content validation, and larger-file policy remain Phase 13 hardening.
+  - Uploads are intentionally capped at 4 MB for the server-mediated MVP route. Direct/resumable private uploads, broader content validation, and larger-file policy remain deferred; malware scanning/quarantine is an external pilot deployment gate.
 - Product decisions/questions surfaced:
   - No approved Phase 5 decision conflict was found.
   - Final retention/deletion policy is still an explicit production-readiness decision. This phase chooses immutable evidence after registration and does not silently invent a destructive deletion rule.
@@ -483,7 +484,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Processing is initiated/retried from the clinic document panel; there is no durable background job queue yet. The request is synchronous and guarded by a 120-second route budget, provider timeout/retry, and stale-attempt recovery.
   - Patient uploads do not call the clinic-authenticated processing route automatically. They remain safely Uploaded until clinic staff initiates processing; this avoids using the anonymous OTP session as a privileged AI orchestration identity.
   - The Gemini adapter is implemented and configurable, but no second provider adapter is included. Production must configure and privacy-review `GEMINI_API_KEY`, `DOCUMENT_PROCESSING_PROVIDER`, `DOCUMENT_PROCESSING_MODEL`, and preferably `DOCUMENT_IDENTITY_HMAC_SECRET`.
-  - No real patient document or external provider call was used in verification. Provider quality, handwritten-document performance, language coverage, and threshold calibration require the Phase 13 frozen synthetic/de-identified evaluation set.
+  - No real patient document or external provider call was used in verification. Provider quality, handwritten-document performance, language coverage, and threshold calibration require a later frozen synthetic/de-identified evaluation set and vendor/privacy review.
   - Extraction is page-level transcription/classification only. Normalized labs/medications/conditions/allergies, claim-level regions, unconfirmed observations, trend exclusion, and downstream provenance belong to Phase 7.
   - Extracted document date remains derivative evidence in the versioned payload and does not silently replace user-entered/unknown metadata. Doctor-confirmed metadata reconciliation can be designed with Phase 7 provenance.
   - Likely-duplicate matching requires a high-confidence explicit report identifier and the HMAC secret. Perceptual similarity and weaker metadata matching remain out of scope; duplicate source families are not yet consumed by trends because trends begin in Phase 7.
@@ -626,7 +627,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Normalized keys are conservative text normalization only. No LOINC/RxNorm/SNOMED mapping, medical synonym resolution, unit conversion, or clinical interpretation is attempted.
   - Evidence provenance is page + exact quote. Bounding-box/region coordinates are not emitted by the current provider adapter.
   - The trend view is a safe data contract, not a doctor-facing trend chart. Confirmed clinical state, proposed deltas, and Accept/Keep existing remain Phase 8.
-  - No real patient document or external provider call was used. Model quality, handwritten coverage, language coverage, and thresholds still require Phase 13 synthetic/de-identified evaluation and vendor/privacy review.
+  - No real patient document or external provider call was used. Model quality, handwritten coverage, language coverage, and thresholds still require a later synthetic/de-identified evaluation and vendor/privacy review.
 - Product decisions/questions surfaced:
   - No approved Phase 7 decision conflict was found.
   - To avoid inventing clinical equivalence, the implementation intentionally does not map spelling/synonyms or convert units. Those behaviors require explicit clinical normalization policy and evaluation before adoption.
@@ -771,7 +772,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Sol reran `npm test` (66 passed), `npm run test:db:phase9-correction-race` (1 passed), pgTAP `0042` plus `0043` (54 assertions passed), `npx tsc --noEmit`, and the exact-range `git diff --check`.
   - Sol did not repeat clean database replay, lint, production build, or browser PDF-page navigation; those passed during Terra implementation validation and were not rerun by Sol.
 - Remaining known limitations:
-  - Source-trigger enqueue intentionally swallows unexpected enqueue infrastructure errors to preserve the non-blocking-care invariant. Phase 9 has no independent background scheduler; durable work remains persisted and is retried through authorized invocations/events (Phase 13 hardening).
+  - Source-trigger enqueue intentionally swallows unexpected enqueue infrastructure errors to preserve the non-blocking-care invariant. Phase 9 has no independent background scheduler; durable work remains persisted and is retried through authorized invocations/events as future hardening.
   - There is no configured GitHub Actions CI workflow proving `apps/clinical`. Deterministic local validation and the independent Sol review supplied Phase 9 closure evidence; clinical CI remains an infrastructure gap.
   - The two-session concurrency harness proves the required blocking/interleaving outcome through blocking inference rather than exhaustive database lock introspection; this accepted P2 precision limitation is non-blocking.
   - Pre-0041 Encounter origin backfill is deterministic but cannot reconstruct an original merged identity where no prior Phase 9 artifact recorded it; the migration documents and preserves that conservative fallback rather than guessing.
@@ -821,7 +822,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Decisions made before the Phase 10 receipt model cannot always provide full receipt-based replay semantics after upgrade.
   - Receipt immutability wording should remain aligned with the actual database enforcement.
   - More than 50 decisions are applied as multiple bounded batches; the UI prevents staging beyond one batch while preserving the remaining unresolved list.
-  - Phase 11 in-consultation persistence, Phase 12 reminders, and Phase 13 scheduler/security hardening remain out of scope.
+  - Phase 11 in-consultation persistence, reminder automation, and future Scheduler/security hardening remain out of scope.
 - Recommended next task:
   - Phase 11 — Consultation Integration product refinement. Do not begin implementation without its dedicated scope and acceptance review.
 
@@ -903,4 +904,93 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Signed URLs remain private and 60-second scoped; audit metadata contains only internal IDs, channel, and link-issuance state.
   - No patient identity, filename, date, report value, or clinical content was added to general logs or audit metadata.
 - Known limitations:
-  - Direct/resumable uploads, malware scanning, and larger-file policy remain Phase 13 hardening as previously documented.
+  - Direct/resumable uploads and larger-file policy remain deferred; malware scanning/quarantine is an external pilot deployment/founder decision.
+
+### Phase 12 — Hardening and pilot QA (P12-A / P12-B / P12-C / P12-D)
+
+- Status: P12-A/B/C are approved baseline. P12-D's source-retention, Direct Start, persisted-integration, stale-refresh, and cross-clinic registration-oracle findings are closed. Phase 12 remains **IN PROGRESS**: implementation and local final validation are complete, awaiting commit, CI, and final senior closure. The MVP is not yet pilot-ready.
+- Work completed:
+  - Removed the authenticated `storage.objects` SELECT policy for `medical-documents`. Registered originals remain in the private bucket and are available only through the existing server-authorized, 60-second signed-link flow.
+  - Preserved staff and OTP-scoped patient authorization RPCs, cross-clinic denial, source immutability, and post-signing-only `document_viewed` provenance.
+  - Replaced raw provider/database error logging in the generic best-effort audit helper with the fixed `audit_log_write_failed` event identifier. The helper remains nonblocking; required transactional audit behavior is unchanged.
+  - Captured the cookie-backed authenticated Supabase client during consultation Server Component rendering and passed it to the deferred brief-view audit helper, so the `after()` callback does not access request APIs.
+  - Added one shared post-authorization document-view workflow for staff and OTP-patient routes. Its behavioral regression coverage proves signing failure cannot record a false view, successful signing precedes the existing audit RPC, and an audit failure retains the routes' existing safe failure behavior.
+  - Added P12-B's executable database authorization/OTP matrix. It proves permitted operational check-in, doctor-only brief and consultation-start boundaries, cross-clinic brief denial, anonymous direct-intake denial, OTP/link expiry, exact lockout, resend invalidation, duplicate-submit safety, and deliberate pending-delivery preservation.
+  - Added a real multi-client regression for concurrent incorrect OTP verification and concurrent Start Consultation. The test proves the OTP ceiling is serialized exactly and Start Consultation produces one immutable start snapshot and one audit event.
+  - Reused the existing Phase 4/5/10 executable regressions for the already-established intake, document, retry/idempotency, stale/replay, and parallel Review Changes contracts rather than copying them into a new suite. No production defect was found and no production behavior was changed by P12-B.
+  - Added deterministic, fictional P12-C pilot fixtures for new and returning patients, immutable/duplicate documents, Needs Review uncertainty, unconfirmed proposed changes, correction/reconciliation, consultation-start snapshots, and explicit nonblocking failure variants.
+  - P12-C added deterministic fixture coverage only; it did not independently prove the complete persisted integration path.
+  - P12-D P1-01 removes synchronous Storage cleanup from document registration. An existing matching immutable registration is reconciled without overwrite; a conflicting registration is rejected while retaining the original; and any failed or ambiguous no-row result retains a possible orphan rather than risking deletion of concurrently registered source evidence. A real two-client interleaving regression proves the registered object remains present.
+  - P12-D P1-02 makes Direct Start's creation audit transactional with the doctor/clinic-scoped command receipt. Every Direct Start caller, including create-patient → start, supplies and retains one command UUID across consultation-start retries; real same-command multi-client coverage proves one coherent consultation and one creation audit.
+  - P12-D P2-01 keeps Review Changes decision actions disabled through Refresh Changes until changed server-derived `refreshKey` props arrive. Merged context continues to offer the distinct safe Clinic Desk recovery route.
+  - P12-D P2-02 first scoped staff and OTP-patient reconciliation lookup by the authorized clinic. That 0056 change was necessary but incomplete because caller-controlled UUIDs still became globally keyed `documents.id` values during registration, exposing foreign UUID existence through success versus collision.
+  - P12-D's final registration-identity remediation separates the stable upload command from the persisted document UUID. Existing registrations are backfilled for upgrade-safe replay; new `documents.id` values are generated in trusted database code; and `(clinic_id, registration_command_id)` is the replay key. Staff and OTP-patient regressions prove foreign-used and previously unused commands have the same successful caller-visible outcome, two clinics may reuse one command independently, no foreign metadata is returned, identical local replay returns one document, and conflicting immutable local provenance is rejected. P1-01, P1-02, P1-03, and P2-01 remain closed. The transient “Refreshing changes…” status also clears when changed server-derived props release its guard.
+  - P12-D P1-03 remains closed with accepted persisted production-contract integration evidence: real queue starts cover submitted intake/brief, no intake, unavailable brief, and unresolved preparation; snapshots capture persisted brief A and remain pinned after persisted brief B becomes current.
+  - Fixed a P2 direct Start Consultation UX defect: failed requests now show a neutral, accessible retry message rather than silently clearing the loading state; provider/database details remain hidden and duplicate clicks remain disabled while pending.
+  - Hardened Review Changes stale/ambiguous recovery: the UI now announces a safe refresh-required state, prevents a stale re-apply, and offers an explicit refresh action. Generic failures no longer display uncontrolled transport/provider text.
+- Acceptance criteria preserved/hardened:
+  - `AC-D01`, `AC-D02`, `AC-R04`, `AC-B06`, and the source-access/audit requirements in `PERMISSIONS.md`; Phase 11's immutable consultation-start brief snapshot behavior remains unchanged.
+- Files changed:
+  - `apps/clinical/supabase/migrations/0050_preconsult_phase12_private_storage_hardening.sql`
+  - `apps/clinical/supabase/tests/0050_preconsult_phase12_private_storage_hardening.test.sql`
+  - `apps/clinical/src/lib/db/audit.ts`
+  - `apps/clinical/src/lib/documents/view.ts`
+  - `apps/clinical/src/lib/preconsult/brief.ts`
+  - `apps/clinical/src/lib/preconsult/brief-view.ts`
+  - `apps/clinical/src/app/consultations/[id]/page.tsx`
+  - `apps/clinical/src/app/patients/[id]/preconsult/review-changes/page.tsx`
+  - staff and patient document-view routes
+  - `apps/clinical/src/components/document-manager.tsx`
+  - `apps/clinical/src/tests/preconsult-phase12.test.ts`
+  - `apps/clinical/supabase/tests/0051_preconsult_phase12_security_matrix.test.sql`
+  - `apps/clinical/scripts/test-phase12-concurrency.ts`
+  - `apps/clinical/src/tests/fixtures/preconsult-phase12-synthetic.ts`
+  - `apps/clinical/src/tests/preconsult-phase12-e2e.test.ts`
+  - `apps/clinical/src/lib/consultations/start-request.ts`
+  - `apps/clinical/src/lib/consultations/new-patient-start.ts`
+  - `apps/clinical/src/lib/clinical-state/review-recovery.ts`
+  - `apps/clinical/src/lib/clinical-state/review-refresh-guard.ts`
+  - `apps/clinical/src/components/start-consultation.tsx`
+  - `apps/clinical/src/components/new-consultation-flow.tsx`
+  - `apps/clinical/src/components/review-clinical-changes.tsx`
+  - `apps/clinical/src/lib/db/documents.ts`
+  - `apps/clinical/src/db/schema.ts`
+  - `apps/clinical/src/lib/db/consultations.ts`
+  - `apps/clinical/src/lib/documents/ingest.ts`
+  - `apps/clinical/src/lib/documents/ingest-workflow.ts`
+  - `apps/clinical/src/lib/documents/storage.ts`
+  - staff and patient document-upload routes
+  - `apps/clinical/src/app/api/consultations/route.ts`
+  - `apps/clinical/src/lib/validation/index.ts`
+  - `apps/clinical/supabase/migrations/0052_preconsult_phase12_closure_idempotency.sql`
+  - `apps/clinical/supabase/migrations/0053_preconsult_phase12_direct_start_function_fix.sql`
+  - `apps/clinical/supabase/migrations/0054_preconsult_phase12_direct_start_conflict_fix.sql`
+  - `apps/clinical/supabase/migrations/0055_preconsult_phase12_reconciliation_closure.sql`
+  - `apps/clinical/supabase/migrations/0056_preconsult_phase12_document_reconciliation_scope.sql`
+  - `apps/clinical/supabase/migrations/0057_preconsult_phase12_document_registration_identity_scope.sql`
+  - `apps/clinical/supabase/tests/0052_preconsult_phase12_closure_idempotency.test.sql`
+  - `apps/clinical/supabase/tests/0053_preconsult_phase12_persisted_integration.test.sql`
+  - `apps/clinical/supabase/tests/0055_preconsult_phase12_reconciliation_closure.test.sql`
+  - `apps/clinical/supabase/tests/0056_preconsult_phase12_document_reconciliation_scope.test.sql`
+  - `apps/clinical/supabase/tests/0057_preconsult_phase12_document_registration_identity_scope.test.sql`
+  - `apps/clinical/supabase/tests/0015_preconsult_phase5_documents.test.sql` (updated to resolve persisted document IDs through tenant-scoped registration commands)
+  - `apps/clinical/supabase/tests/0041_preconsult_phase9_senior_review_fixes.test.sql` (same persisted-ID correction for the authoritative document-write assertion)
+  - `apps/clinical/src/tests/preconsult-phase12-remediation.test.ts`
+- Validation:
+  - Targeted Phase 5, Phase 11, and Phase 12 TypeScript tests passed (19/19).
+  - Targeted existing Phase 5 document pgTAP regression passed (43/43).
+  - Targeted Phase 12 pgTAP storage/access test passed (10/10).
+  - Targeted ESLint and TypeScript checks passed.
+  - P2 revalidation: targeted Phase 5 and Phase 12 TypeScript tests passed (15/15), with targeted ESLint, TypeScript, and diff checks passing.
+  - P12-B: Phase 12 authorization/OTP pgTAP matrix passed (28/28); Phase 12 multi-client concurrency regression passed (1/1); existing Phase 4 secure-intake pgTAP regression passed (43/43); existing Phase 5 document pgTAP regression passed (43/43); existing Phase 10 review-change pgTAP regression passed (8/8); and existing Phase 8/9/10 concurrency regressions passed (8/8).
+  - P12-C: targeted Phase 10/11/12 TypeScript regressions passed (26/26), including four deterministic fixture/contract tests; targeted ESLint, TypeScript, and diff checks passed.
+  - P12-D prior direct-start pgTAP idempotency regression passed (8/8); prior targeted Phase 5/10/11/12 TypeScript regressions passed (35/35).
+  - P12-D closure follow-up: TypeScript check passed; focused remediation and deterministic fixture regressions passed (10/10); authoritative reconciliation/direct-start-audit pgTAP regression passed (9/9); and the real multi-client concurrency harness passed (1/1).
+  - P12-D persisted integration: accepted targeted Phase 12 production-contract pgTAP regression passed (11/11).
+  - P12-D final closure findings: targeted Phase 5 document and Phase 12 remediation TypeScript regressions passed (15/15); Phase 5/reconciliation/scoped-lookup pgTAP passed (62/62); multi-client concurrency passed (2/2); and Direct Start plus persisted production-contract pgTAP passed (19/19, including 0053 at 11/11). Targeted ESLint, `npx tsc --noEmit`, and `git diff --check` passed.
+  - P12-D final UUID-oracle remediation: tenant-scoped registration-identity pgTAP passed (22/22); combined Phase 5/0055/0056/0057 document pgTAP passed (84/84); targeted Phase 5 and remediation TypeScript tests passed (15/15); multi-client concurrency passed (2/2); and Direct Start plus persisted production-contract pgTAP passed (19/19, including 0053 at 11/11). Targeted ESLint, `npx tsc --noEmit`, and `git diff --check` passed.
+  - Final local validation: complete application TypeScript suite passed (99/99); clean-from-zero disposable Supabase migration replay through `0057` passed; complete pgTAP suite on that clean database passed (542/542 across 23 files); Phase 8/9/10/12 dedicated concurrency suites passed (1/1, 1/1, 5/5, and 2/2); `npx tsc --noEmit` and full ESLint passed; and the Next.js Webpack production build passed. The default Turbopack build was blocked by the host's port-binding restriction during CSS processing, while the supported Webpack production-build fallback completed successfully.
+- Security/privacy/clinical safety:
+  - Browser JWTs no longer receive direct source-object reads; signed URLs remain short-lived and generated only after scoped authorization. No service-role credential reaches the browser. Error logs contain no provider body, metadata, filename, patient data, source content, or private URL. Brief-view provenance remains best-effort and cannot delay consultation rendering or alter the immutable start snapshot. The database-backed per-session OTP ceiling remains enforced; shared edge/WAF request-rate control is not configured in this repository and is a pilot deployment gate/founder-infrastructure decision, not a replacement for the OTP ceiling. Malware scanning/quarantine also remains an external pilot deployment/founder decision; current upload hardening is limited to the existing size, bounded-body, type/signature, private-storage, and immutable-evidence controls.
+- Remaining Phase 12 scope:
+  - Commit, CI, and final senior closure remain. No reminder automation, Scheduler, payment, malware vendor, or clinical-workflow changes were introduced.

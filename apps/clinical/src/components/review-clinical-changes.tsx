@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import styles from "@/components/clinical.module.css";
 import type { PendingClinicalStateDelta } from "@/lib/db/clinical-state";
 import { clinicalStateReviewCommandIdentity, clinicalStateReviewComparisonIsActionable, clinicalStateReviewComparisonPresentation, MAX_REVIEW_BATCH_SIZE, remainingClinicalStateReviewDeltas, type ClinicalStateReviewComparison, type ClinicalStateReviewDecision } from "@/lib/clinical-state/review-command";
+import { reviewSubmissionRecovery } from "@/lib/clinical-state/review-recovery";
+import { beginReviewRefresh, reviewActionsAreRefreshBlocked, reviewRefreshGuardAfterServerProps, reviewRefreshMessageAfterServerProps, reviewRefreshRecoveryAction, type ReviewRefreshGuard } from "@/lib/clinical-state/review-refresh-guard";
 
 type Decision = "accept" | "keep_current";
 
@@ -22,17 +24,19 @@ function deltaEvidenceHref(patientId: string, deltaId: string) {
 }
 
 export function ReviewClinicalChanges({
-  patientId, deltas, comparisons,
+  patientId, deltas, comparisons, refreshKey,
 }: {
   patientId: string;
   deltas: PendingClinicalStateDelta[];
   comparisons: Record<string, ClinicalStateReviewComparison>;
+  refreshKey: string;
 }) {
   const router = useRouter();
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [index, setIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [refreshGuard, setRefreshGuard] = useState<ReviewRefreshGuard | null>(null);
   const [locallyResolvedIds, setLocallyResolvedIds] = useState<ReadonlySet<string>>(() => new Set());
   const command = useRef<{ identity: string; idempotencyKey: string } | null>(null);
   const visible = useMemo(() => remainingClinicalStateReviewDeltas(deltas, locallyResolvedIds), [deltas, locallyResolvedIds]);
@@ -42,6 +46,12 @@ export function ReviewClinicalChanges({
   const focusedComparison = focused ? comparisonFor(focused) : null;
   const focusedPresentation = clinicalStateReviewComparisonPresentation(focusedComparison ?? undefined);
   const focusedActionable = focusedPresentation.actionable;
+  // `router.refresh()` is not awaitable. Deriving this transition from the
+  // server key keeps old actions disabled until refreshed props actually land.
+  const activeRefreshGuard = reviewRefreshGuardAfterServerProps(refreshGuard, refreshKey);
+  const refreshPending = reviewActionsAreRefreshBlocked(activeRefreshGuard);
+  const recoveryAction = reviewRefreshRecoveryAction(activeRefreshGuard);
+  const displayedMessage = reviewRefreshMessageAfterServerProps(refreshGuard, refreshKey, message);
 
   function choose(action: Decision) {
     if (!focused || !clinicalStateReviewComparisonIsActionable(comparisonFor(focused))) return;
@@ -55,7 +65,7 @@ export function ReviewClinicalChanges({
   }
 
   async function apply() {
-    if (!staged.length || submitting) return;
+    if (!staged.length || submitting || refreshPending) return;
     setSubmitting(true); setMessage(null);
     try {
       const submittedDecisions: ClinicalStateReviewDecision[] = staged.map((delta) => ({
@@ -69,7 +79,15 @@ export function ReviewClinicalChanges({
         body: JSON.stringify({ idempotencyKey: command.current.idempotencyKey, decisions: submittedDecisions }),
       });
       const body = await response.json().catch(() => null) as { error?: string; details?: { outcome?: string }; result?: { outcome?: string } } | null;
-      if (!response.ok) throw new Error(body?.error ?? "Could not apply reviewed changes");
+      if (!response.ok) {
+        const recovery = reviewSubmissionRecovery(body?.details?.outcome);
+        setRefreshGuard(recovery.refreshRequired ? {
+          refreshKeyAtFailure: refreshKey,
+          mergedContext: body?.details?.outcome === "merged_or_stale_patient_context",
+        } : null);
+        setMessage(recovery.message);
+        return;
+      }
       const submittedIds = new Set(staged.map((delta) => delta.id));
       setLocallyResolvedIds((previous) => new Set([...previous, ...submittedIds]));
       setDecisions((previous) => Object.fromEntries(Object.entries(previous).filter(([deltaId]) => !submittedIds.has(deltaId))));
@@ -77,12 +95,22 @@ export function ReviewClinicalChanges({
       command.current = null;
       setMessage(body?.result?.outcome === "exact_replay" ? "The same reviewed changes were already applied." : "Reviewed changes were applied. The pre-consult brief will refresh in the background.");
       router.refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not apply reviewed changes");
+    } catch {
+      const recovery = reviewSubmissionRecovery(undefined);
+      setRefreshGuard(recovery.refreshRequired ? { refreshKeyAtFailure: refreshKey, mergedContext: false } : null);
+      setMessage(recovery.message);
     } finally { setSubmitting(false); }
   }
 
-  if (!visible.length) return <section className={styles.panel}><div className={styles.panelTitle}><div><p className={styles.eyebrow}>Review Changes</p><h2>{locallyResolvedIds.size ? "Changes applied" : "No unresolved changes"}</h2></div></div><p className={styles.memorySummary}>{message ?? "There are no unresolved proposed clinical changes for this patient."}</p></section>;
+  function refreshChanges() {
+    command.current = null;
+    setDecisions({});
+    setRefreshGuard(beginReviewRefresh);
+    setMessage("Refreshing changes…");
+    router.refresh();
+  }
+
+  if (!visible.length) return <section className={styles.panel}><div className={styles.panelTitle}><div><p className={styles.eyebrow}>Review Changes</p><h2>{locallyResolvedIds.size ? "Changes applied" : "No unresolved changes"}</h2></div></div><p className={styles.memorySummary}>{displayedMessage ?? "There are no unresolved proposed clinical changes for this patient."}</p></section>;
 
   return <div className={styles.reviewLayout}>
     <section className={styles.panel} aria-live="polite">
@@ -90,10 +118,10 @@ export function ReviewClinicalChanges({
       <div className={styles.reviewComparison}><div><span>Current confirmed record</span><strong>{typeof focusedPresentation.currentRecord === "string" ? focusedPresentation.currentRecord : stateText(focusedPresentation.currentRecord)}</strong></div><div><span>Proposed from external/patient evidence</span><strong>{stateText(focused.proposedValue)}</strong></div></div>
       {focusedActionable ? <p className={styles.memorySummary}>This proposal is unconfirmed until you apply an explicit doctor decision.</p> : <p className={styles.memorySummary}>The confirmed record could not be loaded. Refresh this change before reviewing it.</p>}
       <Link className={styles.panelLink} href={deltaEvidenceHref(patientId, focused.id)} target="_blank" rel="noreferrer">View source evidence and provenance in a new tab</Link>
-      <div className={styles.reviewActions}><button type="button" className={decisions[focused.id] === "accept" ? styles.primaryButton : styles.secondaryButton} disabled={!focusedActionable} onClick={() => choose("accept")}>Accept</button><button type="button" className={decisions[focused.id] === "keep_current" ? styles.primaryButton : styles.secondaryButton} disabled={!focusedActionable} onClick={() => choose("keep_current")}>Keep existing</button>{!focusedActionable ? <button type="button" className={styles.secondaryButton} onClick={() => router.refresh()}>Refresh changes</button> : null}</div>
+      <div className={styles.reviewActions}><button type="button" className={decisions[focused.id] === "accept" ? styles.primaryButton : styles.secondaryButton} disabled={!focusedActionable || refreshPending} onClick={() => choose("accept")}>Accept</button><button type="button" className={decisions[focused.id] === "keep_current" ? styles.primaryButton : styles.secondaryButton} disabled={!focusedActionable || refreshPending} onClick={() => choose("keep_current")}>Keep existing</button>{recoveryAction === "clinic_desk" ? <button type="button" className={styles.secondaryButton} onClick={() => router.push("/desk")}>Return to Clinic Desk</button> : (recoveryAction === "refresh" || !focusedActionable) ? <button type="button" className={styles.secondaryButton} onClick={refreshChanges}>Refresh changes</button> : null}</div>
       <div className={styles.reviewNavigation}><button type="button" className={styles.secondaryButton} disabled={index === 0} onClick={() => setIndex(index - 1)}>Previous</button><button type="button" className={styles.secondaryButton} disabled={index >= visible.length - 1} onClick={() => setIndex(index + 1)}>Next</button></div>
     </section>
-    <aside className={styles.reviewSidebar}><section className={styles.panel}><p className={styles.eyebrow}>Staged locally</p><h2>{staged.length} decision{staged.length === 1 ? "" : "s"} ready</h2><p className={styles.memorySummary}>Nothing is saved until you apply these reviewed changes.</p><button type="button" className={styles.primaryButton} disabled={!staged.length || submitting} onClick={apply}>{submitting ? "Applying…" : `Apply ${staged.length || ""} reviewed changes`}</button>{message ? <p className={styles.reviewMessage} role="status">{message}</p> : null}</section>
+    <aside className={styles.reviewSidebar}><section className={styles.panel}><p className={styles.eyebrow}>Staged locally</p><h2>{staged.length} decision{staged.length === 1 ? "" : "s"} ready</h2><p className={styles.memorySummary}>Nothing is saved until you apply these reviewed changes.</p><button type="button" className={styles.primaryButton} disabled={!staged.length || submitting || refreshPending} aria-busy={submitting} onClick={apply}>{submitting ? "Applying…" : `Apply ${staged.length || ""} reviewed changes`}</button>{displayedMessage ? <p className={styles.reviewMessage} role={refreshPending ? "alert" : "status"}>{displayedMessage}</p> : null}</section>
     </aside>
   </div>;
 }

@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { recordPreconsultBriefViewWithClient } from "./brief-view";
+
+export { recordPreconsultBriefViewWithClient } from "./brief-view";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { PRECONSULT_BRIEF_SCHEMA_VERSION, PRECONSULT_GENERATOR_VERSION, PRECONSULT_SELECTION_CONTRACT_VERSION, preconsultBriefSchema, preconsultSourceWatermark, selectPriorApprovedBaseline, isReturningChange, buildComparableTrendGroups, type PreconsultBrief, type PreconsultBriefLifecycle, type PreconsultTrendGroup, type PreconsultTrendPoint, briefClaim } from "@/lib/preconsult/contract";
 import {
@@ -240,6 +243,5 @@ export async function getPreconsultTrendGroups(patientId: string, relevantObserv
 
 export async function recordPreconsultBriefView(consultationId: string, briefVersionId: string) {
   const client = await createServerClient();
-  const { error } = await client.rpc("record_preconsult_brief_view", { p_consultation_id: consultationId, p_brief_version_id: briefVersionId });
-  if (error) throw new Error("preconsult_view_unavailable");
+  return recordPreconsultBriefViewWithClient(client, consultationId, briefVersionId);
 }

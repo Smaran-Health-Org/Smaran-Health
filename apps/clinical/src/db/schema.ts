@@ -488,6 +488,7 @@ export const documents = pgTable(
   "documents",
   {
     id: uuid("id").primaryKey(),
+    registrationCommandId: uuid("registration_command_id").defaultRandom().notNull(),
     clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
     patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
     originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
@@ -517,6 +518,7 @@ export const documents = pgTable(
     index("documents_consultation_created_idx").on(table.consultationId, table.createdAt),
     index("documents_patient_hash_idx").on(table.clinicId, table.patientId, table.contentHash),
     index("documents_duplicate_of_idx").on(table.duplicateOfDocumentId),
+    uniqueIndex("documents_clinic_registration_command_uidx").on(table.clinicId, table.registrationCommandId),
   ]
 );
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   DocumentAccessError,
   getPatientDocumentUploadContext,
+  getPatientRegisteredDocument,
   listPatientDocuments,
   registerPatientDocument,
 } from "@/lib/db/documents";
@@ -60,6 +61,11 @@ export async function POST(
       context,
       upload,
       register: (input) => registerPatientDocument(
+        credentials.tokenHash,
+        credentials.verifiedSessionHash,
+        input
+      ),
+      lookupRegistered: (input) => getPatientRegisteredDocument(
         credentials.tokenHash,
         credentials.verifiedSessionHash,
         input

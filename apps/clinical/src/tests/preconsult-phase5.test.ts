@@ -179,7 +179,7 @@ test("staff registration delegates immutable evidence metadata to one guarded RP
   } as unknown as Parameters<typeof registerStaffDocumentWithClient>[0];
 
   const result = await registerStaffDocumentWithClient(client, consultationId, {
-    documentId,
+    registrationCommandId: documentId,
     storagePath: `clinic/patient/${documentId}/original.pdf`,
     contentHash: "c".repeat(64),
     mimeType: "application/pdf",
@@ -192,6 +192,7 @@ test("staff registration delegates immutable evidence metadata to one guarded RP
 
   assert.equal(rpcName, "register_staff_document");
   assert.equal(rpcArgs.p_consultation_id, consultationId);
+  assert.equal(rpcArgs.p_id, documentId);
   assert.equal(rpcArgs.p_content_hash, "c".repeat(64));
   assert.equal(result.status, "uploaded");
 });

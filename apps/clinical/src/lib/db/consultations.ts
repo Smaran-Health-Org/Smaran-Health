@@ -183,6 +183,26 @@ export async function createConsultation(
   return data as Consultation;
 }
 
+export async function createDirectConsultation(
+  input: { patientId: string; commandId: string },
+): Promise<{ consultation: Consultation; created: boolean }> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase.rpc("create_direct_consultation", {
+    p_patient_id: input.patientId,
+    p_command_id: input.commandId,
+  });
+  if (error) throw new Error("Failed to create direct consultation");
+  const row = (data as Array<Record<string, unknown>> | null)?.[0];
+  if (!row) throw new Error("Failed to create direct consultation");
+  return {
+    consultation: {
+      id: String(row.id), clinicId: String(row.clinic_id), patientId: String(row.patient_id), doctorId: String(row.doctor_id),
+      status: String(row.status) as Consultation["status"], operationalStatus: String(row.operational_status) as Consultation["operationalStatus"],
+    } as Consultation,
+    created: Boolean(row.created),
+  };
+}
+
 export async function updateConsultation(
   id: string,
   input: {

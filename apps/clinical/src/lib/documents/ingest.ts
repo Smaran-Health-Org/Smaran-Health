@@ -13,7 +13,8 @@ import {
   DocumentUploadBodyError,
   readBoundedDocumentBody,
 } from "./bounded-body";
-import { removeUnregisteredDocumentOriginal, storeDocumentOriginal } from "./storage";
+import { completeDocumentRegistration } from "./ingest-workflow";
+import { existingDocumentOriginalMatches, storeDocumentOriginal } from "./storage";
 
 export class DocumentIngestionError extends Error {
   constructor(public readonly kind: "request" | "size" | "storage" | "registration") {
@@ -29,6 +30,7 @@ function formString(formData: FormData, name: string): string | undefined {
 
 export async function parseDocumentUpload(request: Request): Promise<{
   bytes: Uint8Array;
+  registrationCommandId?: string;
   originalFilename: string;
   documentType: RegisterDocumentInput["documentType"];
   documentDate?: string;
@@ -68,11 +70,16 @@ export async function parseDocumentUpload(request: Request): Promise<{
     documentDatePrecision: formString(formData, "documentDatePrecision"),
   });
   if (!metadata.success) throw new DocumentIngestionError("request");
+  const registrationCommandId = formString(formData, "registrationCommandId");
+  if (registrationCommandId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(registrationCommandId)) {
+    throw new DocumentIngestionError("request");
+  }
 
   const bytes = new Uint8Array(await entry.arrayBuffer());
   const mime = validateDocumentBytes(bytes);
   return {
     bytes,
+    registrationCommandId,
     originalFilename: safeOriginalFilename(entry.name, mime),
     documentType: metadata.data.documentType,
     documentDate: metadata.data.documentDate,
@@ -84,17 +91,20 @@ export async function ingestDocument(input: {
   context: DocumentUploadContext;
   upload: Awaited<ReturnType<typeof parseDocumentUpload>>;
   register: (input: RegisterDocumentInput) => Promise<DocumentListItem>;
+  lookupRegistered: (input: RegisterDocumentInput) => Promise<DocumentListItem | null>;
+  store?: typeof storeDocumentOriginal;
+  verifyExisting?: typeof existingDocumentOriginalMatches;
 }): Promise<DocumentListItem> {
-  const documentId = randomUUID();
+  const registrationCommandId = input.upload.registrationCommandId ?? randomUUID();
   const mimeType = validateDocumentBytes(input.upload.bytes);
   const storagePath = documentStoragePath({
     clinicId: input.context.clinicId,
     patientId: input.context.patientId,
-    documentId,
+    documentId: registrationCommandId,
     mime: mimeType,
   });
   const registration: RegisterDocumentInput = {
-    documentId,
+    registrationCommandId,
     storagePath,
     contentHash: documentContentHash(input.upload.bytes),
     mimeType,
@@ -105,16 +115,14 @@ export async function ingestDocument(input: {
     documentDatePrecision: input.upload.documentDatePrecision,
   };
 
-  try {
-    await storeDocumentOriginal({ storagePath, bytes: input.upload.bytes, mimeType });
-  } catch {
-    throw new DocumentIngestionError("storage");
-  }
-
-  try {
-    return await input.register(registration);
-  } catch {
-    await removeUnregisteredDocumentOriginal(storagePath).catch(() => undefined);
-    throw new DocumentIngestionError("registration");
-  }
+  const result = await completeDocumentRegistration({
+    registration,
+    bytes: input.upload.bytes,
+    store: input.store ?? storeDocumentOriginal,
+    register: input.register,
+    lookupRegistered: input.lookupRegistered,
+    verifyExisting: input.verifyExisting ?? existingDocumentOriginalMatches,
+  });
+  if (result.kind === "registered") return result.document;
+  throw new DocumentIngestionError(result.kind === "storage_failure" ? "storage" : "registration");
 }

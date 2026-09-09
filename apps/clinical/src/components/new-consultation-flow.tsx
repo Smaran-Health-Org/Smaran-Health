@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clinicDateKey } from "@/lib/clinic-date";
 import { StartConsultationButton } from "@/components/start-consultation";
+import { directStartCommandForNewPatient, type NewPatientDirectStartCommand } from "@/lib/consultations/new-patient-start";
+import { requestConsultationStart } from "@/lib/consultations/start-request";
 import { Icon } from "@/components/icons";
 import type { Patient } from "@/types";
 import styles from "@/components/clinical.module.css";
@@ -137,6 +139,7 @@ function NewPatientForm() {
   const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [directStart, setDirectStart] = useState<NewPatientDirectStartCommand | null>(null);
 
   function validateIdentity(): string | null {
     const name = fullName.trim();
@@ -207,51 +210,50 @@ function NewPatientForm() {
     setError(null);
 
     try {
-      const createRes = await fetch("/api/patients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: name,
-          age: age.trim() ? Number(age) : null,
-          dateOfBirth: dateOfBirth || null,
-          gender: gender || null,
-          phone: phone.trim() || null,
-          duplicateOverride: duplicateOverride ? "confirmed_distinct_patient" : undefined,
-        }),
-      });
+      let command = directStart;
+      if (!command) {
+        const createRes = await fetch("/api/patients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: name,
+            age: age.trim() ? Number(age) : null,
+            dateOfBirth: dateOfBirth || null,
+            gender: gender || null,
+            phone: phone.trim() || null,
+            duplicateOverride: duplicateOverride ? "confirmed_distinct_patient" : undefined,
+          }),
+        });
 
-      if (createRes.status === 409) {
-        const result = (await createRes.json()) as {
-          code?: string;
-          details?: { candidates?: DuplicateCandidate[] };
-        };
-        if (result.code === "possible_duplicate") {
-          setCandidates(result.details?.candidates ?? []);
-          setDetailsVisible(false);
-          setDuplicateOverride(false);
-          setError("A possible match appeared while saving. Review it before continuing.");
-          setSubmitting(false);
-          return;
+        if (createRes.status === 409) {
+          const result = (await createRes.json()) as {
+            code?: string;
+            details?: { candidates?: DuplicateCandidate[] };
+          };
+          if (result.code === "possible_duplicate") {
+            setCandidates(result.details?.candidates ?? []);
+            setDetailsVisible(false);
+            setDuplicateOverride(false);
+            setError("A possible match appeared while saving. Review it before continuing.");
+            setSubmitting(false);
+            return;
+          }
         }
+        if (!createRes.ok) throw new Error("Could not create the patient record.");
+
+        const patient: Patient = await createRes.json();
+        command = directStartCommandForNewPatient(null, patient.id);
+        setDirectStart(command);
       }
-      if (!createRes.ok) throw new Error("Could not create the patient record.");
 
-      const patient: Patient = await createRes.json();
-
-      const consultRes = await fetch("/api/consultations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId: patient.id }),
-      });
-
-      if (!consultRes.ok) {
+      const consultationId = await requestConsultationStart(command.patientId, command.commandId);
+      if (!consultationId) {
         throw new Error(
           "Patient was created, but the consultation could not be started. Please find them in Patients and try again."
         );
       }
-
-      const consultation = await consultRes.json();
-      router.push(`/consultations/${consultation.id}`);
+      setDirectStart(null);
+      router.push(`/consultations/${consultationId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setSubmitting(false);

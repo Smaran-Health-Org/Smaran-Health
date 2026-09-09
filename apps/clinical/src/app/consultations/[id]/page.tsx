@@ -8,9 +8,10 @@ import { getPatientTimeline } from "@/lib/db/timeline";
 import { getClinicalNoteByConsultation } from "@/lib/db/clinical-notes";
 import { getTranscriptByConsultation } from "@/lib/db/transcripts";
 import { getFollowUpMemory } from "@/lib/db/follow-up-memory";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   getPreconsultBriefAtConsultationStart,
-  recordPreconsultBriefView,
+  recordPreconsultBriefViewWithClient,
 } from "@/lib/preconsult/brief";
 import {
   ConsultationWorkflow,
@@ -51,7 +52,14 @@ export default async function ConsultationPage({
 
   if (preconsultContext.status === "brief_available") {
     // Viewing provenance is useful but must never delay or block a consultation.
-    after(() => recordPreconsultBriefView(consultation.id, preconsultContext.briefVersionId).catch(() => undefined));
+    // Capture cookie-backed auth during rendering: Next.js Server Components
+    // cannot create request clients from an after() callback.
+    const briefViewClient = await createServerClient();
+    after(() => recordPreconsultBriefViewWithClient(
+      briefViewClient,
+      consultation.id,
+      preconsultContext.briefVersionId
+    ).catch(() => undefined));
   }
 
   const workflowPatient: WorkflowPatient = {

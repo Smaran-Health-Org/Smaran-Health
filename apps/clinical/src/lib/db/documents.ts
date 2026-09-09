@@ -94,7 +94,7 @@ export type DoctorClinicalObservation = {
 };
 
 export type RegisterDocumentInput = {
-  documentId: string;
+  registrationCommandId: string;
   storagePath: string;
   contentHash: string;
   mimeType: string;
@@ -200,7 +200,7 @@ export async function getPatientDocumentUploadContext(tokenHash: string, verifie
 
 function registrationArgs(input: RegisterDocumentInput) {
   return {
-    p_id: input.documentId,
+    p_id: input.registrationCommandId,
     p_storage_path: input.storagePath,
     p_content_hash: input.contentHash,
     p_mime_type: input.mimeType,
@@ -231,6 +231,25 @@ export async function registerStaffDocument(consultationId: string, input: Regis
   return registerStaffDocumentWithClient(supabase, consultationId, input);
 }
 
+export async function getStaffRegisteredDocumentWithClient(
+  supabase: ServerClient,
+  consultationId: string,
+  input: RegisterDocumentInput
+): Promise<DocumentListItem | null> {
+  const { data, error } = await supabase.rpc("get_staff_registered_document", {
+    p_consultation_id: consultationId,
+    ...registrationArgs(input),
+  });
+  if (error) mapRpcError(error);
+  const row = (data as Array<Record<string, unknown>> | null)?.[0];
+  return row ? documentItemFromRow(row) : null;
+}
+
+export async function getStaffRegisteredDocument(consultationId: string, input: RegisterDocumentInput) {
+  const supabase = await createServerClient();
+  return getStaffRegisteredDocumentWithClient(supabase, consultationId, input);
+}
+
 export async function registerPatientDocumentWithClient(
   supabase: ServerClient,
   tokenHash: string,
@@ -254,6 +273,31 @@ export async function registerPatientDocument(
 ) {
   const supabase = await createServerClient();
   return registerPatientDocumentWithClient(supabase, tokenHash, verifiedSessionHash, input);
+}
+
+export async function getPatientRegisteredDocumentWithClient(
+  supabase: ServerClient,
+  tokenHash: string,
+  verifiedSessionHash: string,
+  input: RegisterDocumentInput
+): Promise<DocumentListItem | null> {
+  const { data, error } = await supabase.rpc("get_patient_registered_document", {
+    p_token_hash: tokenHash,
+    p_verified_session_hash: verifiedSessionHash,
+    ...registrationArgs(input),
+  });
+  if (error) mapRpcError(error);
+  const row = (data as Array<Record<string, unknown>> | null)?.[0];
+  return row ? documentItemFromRow(row) : null;
+}
+
+export async function getPatientRegisteredDocument(
+  tokenHash: string,
+  verifiedSessionHash: string,
+  input: RegisterDocumentInput
+) {
+  const supabase = await createServerClient();
+  return getPatientRegisteredDocumentWithClient(supabase, tokenHash, verifiedSessionHash, input);
 }
 
 export async function listStaffDocuments(consultationId: string): Promise<DocumentListItem[]> {

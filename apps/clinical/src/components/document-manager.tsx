@@ -51,6 +51,7 @@ export function DocumentManager(props: {
     : `/api/intake/${encodeURIComponent(props.token ?? "")}/documents`;
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [file, setFile] = useState<File | null>(null);
+  const [documentCommandId, setDocumentCommandId] = useState<string | null>(null);
   const [documentType, setDocumentType] = useState<MedicalDocumentType>("other");
   const [documentDate, setDocumentDate] = useState("");
   const [dateApproximate, setDateApproximate] = useState(false);
@@ -126,6 +127,7 @@ export function DocumentManager(props: {
     setPending(true);
     const formData = new FormData();
     formData.set("file", file);
+    formData.set("registrationCommandId", documentCommandId ?? crypto.randomUUID());
     formData.set("documentType", documentType);
     if (documentDate) {
       formData.set("documentDate", documentDate);
@@ -137,6 +139,7 @@ export function DocumentManager(props: {
       const body = await response.json() as { document: DocumentListItem };
       setDocuments((current) => [body.document, ...current]);
       setFile(null);
+      setDocumentCommandId(null);
       setDocumentType("other");
       setDocumentDate("");
       setDateApproximate(false);
@@ -199,7 +202,11 @@ export function DocumentManager(props: {
           <input
             type="file"
             accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            onChange={(event) => {
+              const nextFile = event.target.files?.[0] ?? null;
+              setFile(nextFile);
+              setDocumentCommandId(nextFile ? crypto.randomUUID() : null);
+            }}
             required
           />
           <small>Maximum 4 MB. On mobile, you can use the camera or photo library.</small>

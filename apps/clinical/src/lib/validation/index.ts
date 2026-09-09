@@ -129,6 +129,7 @@ export const patientQuerySchema = z.object({
 
 export const createConsultationSchema = z.object({
   patientId: z.string().uuid(),
+  commandId: z.string().uuid(),
 });
 
 export const encounterOperationalStatusSchema = z.enum([
