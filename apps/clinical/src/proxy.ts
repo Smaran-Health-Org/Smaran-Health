@@ -55,13 +55,28 @@ export async function proxy(request: NextRequest) {
     return isPublic ? response : redirectToLogin(request, pathname);
   }
 
-  // Validate + refresh the session token. This also lets us enforce the
-  // absolute session expiry (Supabase's refresh token alone keeps a session
-  // alive indefinitely otherwise).
+  // Fast path: decode the session locally from the cookie (no GoTrue round
+  // trip). Only call getUser() — which refreshes via the refresh token — when
+  // the access token is missing or already expired. This removes one network
+  // hop from every authenticated request.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  let user = session?.user ?? null;
 
+  const accessTokenExpired =
+    !session ||
+    (session.expires_at ? session.expires_at * 1000 <= Date.now() : true);
+
+  if (accessTokenExpired) {
+    const {
+      data: { user: refreshedUser },
+    } = await supabase.auth.getUser();
+    user = refreshedUser ?? null;
+  }
+
+  // Enforce the absolute session expiry (Supabase's refresh token alone keeps
+  // a session alive indefinitely otherwise).
   if (!user || isSessionExpired(user.last_sign_in_at)) {
     if (isPublic) return response; // never loop on /login or /auth/callback
 

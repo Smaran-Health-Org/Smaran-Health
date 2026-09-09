@@ -1,11 +1,13 @@
 import { cache } from "react";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { cached, invalidate } from "@/lib/cache/memory-cache";
 import type { Patient } from "@/types";
 
 // Cheap exact count used by the shell's patient-count badge. `head: true` skips
 // the row payload, unlike `getPatients({ pageSize: 1 })` which wasted a fetch.
-export const countPatients = cache(
-  async (clinicId: string): Promise<number> => {
+// Cached briefly (keyed by clinicId) and invalidated on patient creation.
+export const countPatients = cache((clinicId: string): Promise<number> =>
+  cached(`patients-count:${clinicId}`, 60_000, async () => {
     const supabase = await createServerClient();
     const { count, error } = await supabase
       .from("patients")
@@ -14,7 +16,7 @@ export const countPatients = cache(
 
     if (error) throw new Error(`Failed to count patients: ${error.message}`);
     return count ?? 0;
-  }
+  })
 );
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
@@ -90,6 +92,7 @@ export async function createPatient(
     .single();
 
   if (error) throw new Error(`Failed to create patient: ${error.message}`);
+  invalidate(`patients-count:${clinicId}`);
   return data as Patient;
 }
 
