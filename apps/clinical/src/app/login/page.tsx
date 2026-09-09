@@ -8,6 +8,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/dashboard";
+  const expired = searchParams.get("expired") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,6 +47,12 @@ function LoginForm() {
       <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-sm border border-stone-200">
         <h1 className="text-xl font-semibold text-stone-900 mb-1">Smaran Health</h1>
         <p className="text-sm text-stone-500 mb-6">Sign in to your clinic account</p>
+
+        {expired && (
+          <div className="mb-4 rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            Your session has expired for security. Please sign in again.
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">

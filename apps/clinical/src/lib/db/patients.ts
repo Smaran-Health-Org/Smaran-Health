@@ -1,5 +1,21 @@
+import { cache } from "react";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import type { Patient } from "@/types";
+
+// Cheap exact count used by the shell's patient-count badge. `head: true` skips
+// the row payload, unlike `getPatients({ pageSize: 1 })` which wasted a fetch.
+export const countPatients = cache(
+  async (clinicId: string): Promise<number> => {
+    const supabase = await createServerClient();
+    const { count, error } = await supabase
+      .from("patients")
+      .select("id", { count: "exact", head: true })
+      .eq("clinic_id", clinicId);
+
+    if (error) throw new Error(`Failed to count patients: ${error.message}`);
+    return count ?? 0;
+  }
+);
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
 const PATIENT_COLUMNS =

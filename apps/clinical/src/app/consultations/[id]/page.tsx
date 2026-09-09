@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/db/session";
 import { getConsultation } from "@/lib/db/consultations";
-import { getPatient, getPatients } from "@/lib/db/patients";
+import { getPatient, countPatients } from "@/lib/db/patients";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatientTimeline } from "@/lib/db/timeline";
 import { getClinicalNoteByConsultation } from "@/lib/db/clinical-notes";
@@ -26,17 +26,20 @@ export default async function ConsultationPage({
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) notFound();
 
-  const patient = await getPatient(consultation.patientId, session.clinicId);
+  // Resolve everything else concurrently — the previously-sequential
+  // getPatient plus a wasteful `getPatients({ pageSize: 1 })` (only for its
+  // `.total`) are now folded in, using a cheap `countPatients` instead.
+  const [patient, clinicName, timeline, note, transcript, patientCount, memory] =
+    await Promise.all([
+      getPatient(consultation.patientId, session.clinicId),
+      getClinicName(session.clinicId),
+      getPatientTimeline(consultation.patientId, session.clinicId),
+      getClinicalNoteByConsultation(id, session.clinicId),
+      getTranscriptByConsultation(id, session.clinicId),
+      countPatients(session.clinicId),
+      getFollowUpMemory(consultation.patientId, session.clinicId),
+    ]);
   if (!patient) notFound();
-
-  const [clinicName, timeline, note, transcript, patientList, memory] = await Promise.all([
-    getClinicName(session.clinicId),
-    getPatientTimeline(patient.id, session.clinicId),
-    getClinicalNoteByConsultation(id, session.clinicId),
-    getTranscriptByConsultation(id, session.clinicId),
-    getPatients(session.clinicId, { pageSize: 1 }),
-    getFollowUpMemory(patient.id, session.clinicId),
-  ]);
 
   const workflowPatient: WorkflowPatient = {
     id: patient.id,
@@ -64,7 +67,7 @@ export default async function ConsultationPage({
       patient={workflowPatient}
       doctorName={session.fullName}
       clinicName={clinicName}
-      patientCount={patientList.total}
+      patientCount={patientCount}
       timeline={workflowTimeline}
       initialNote={initialNote}
       initialStatus={consultation.status}

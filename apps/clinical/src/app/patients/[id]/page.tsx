@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatientDetail } from "@/lib/db/patient-detail";
-import { getPatients } from "@/lib/db/patients";
+import { countPatients } from "@/lib/db/patients";
 import { AppShell } from "@/components/app-shell";
 import { StartConsultationButton } from "@/components/start-consultation";
 import { StatusBadge } from "@/components/status-badge";
@@ -29,12 +29,16 @@ export default async function PatientDetailPage({
   const session = await getSessionContext();
   if (!session) redirect("/login");
 
-  const detail = await getPatientDetail(id, session.clinicId);
+  // Fetch the patient detail, clinic name, and patient count concurrently —
+  // previously clinic name + count ran sequentially after the detail loaded.
+  const [detail, clinicName, patientCount] = await Promise.all([
+    getPatientDetail(id, session.clinicId),
+    getClinicName(session.clinicId),
+    countPatients(session.clinicId),
+  ]);
   if (!detail) notFound();
 
   const { patient, consultations, memory } = detail;
-  const clinicName = await getClinicName(session.clinicId);
-  const { total: patientCount } = await getPatients(session.clinicId, { pageSize: 1 });
 
   const meta = [
     patient.age != null ? `${patient.age} years` : null,
