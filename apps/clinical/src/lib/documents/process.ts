@@ -13,7 +13,7 @@ import {
   DOCUMENT_PIPELINE_VERSION,
   evaluateDocumentExtraction,
 } from "./extraction-schema";
-import { configuredDocumentProcessingAdapter } from "./gemini-document-adapter";
+import { configuredDocumentProcessingAdapter } from "./openai-document-adapter";
 import {
   DocumentProcessingProviderError,
   type DocumentProcessingAdapter,
