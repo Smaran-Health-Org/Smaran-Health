@@ -24,7 +24,7 @@ Baseline commit reviewed: `bbf2a07`
 | 9 | 30-second doctor brief | Complete | AC-B01–B06, AC-A02–A06, AC-C01–C07 (integration), AC-R02–R03, AC-E03 | Immutable doctor-only derivative brief artifacts, bounded evidence/provenance, durable stale-safe regeneration, correction/reconciliation integration, exact evidence navigation, and immutable Start Consultation snapshots are complete. Final targeted Sol closure review passed. |
 | 10 | Review Changes UI | Complete | AC-C02–C07 | Doctor-only consolidated review, fail-closed current-state comparison, atomic reviewed-subset Apply, evidence drill-down, and nonblocking Start Consultation passed final Sol closure review. |
 | 11 | Consultation integration | Complete | AC-B06, D-034 | Immutable start-snapshot context, persistent/collapsible doctor-only presentation, verification/provenance preservation, and nonblocking evidence navigation passed final Sol closure re-review. |
-| 12 | Security / hardening / pilot QA | In progress | All relevant | RLS/security, role-matrix and audit tests, upload/OTP protections, existing-workflow retry/idempotency review, accessibility/UI states, synthetic evaluation fixtures, and end-to-end consultation-integration regression; no reminder automation. |
+| 12 | Security / hardening / pilot QA | Complete / code-complete | All relevant | Complete at `f4a8e7e7fcdb69b5022dc0c811b2d328647606ee`; no reminder automation. Pre-Consultation MVP pilot readiness remains pending external deployment and governance gates. |
 
 ## Update template
 
@@ -908,7 +908,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 
 ### Phase 12 — Hardening and pilot QA (P12-A / P12-B / P12-C / P12-D)
 
-- Status: P12-A/B/C are approved baseline. P12-D's source-retention, Direct Start, persisted-integration, stale-refresh, and cross-clinic registration-oracle findings are closed. Phase 12 remains **IN PROGRESS**: implementation and local final validation are complete, awaiting commit, CI, and final senior closure. The MVP is not yet pilot-ready.
+- Status: **Complete / code-complete at `f4a8e7e7fcdb69b5022dc0c811b2d328647606ee`.** Phase 12 implementation, remediation, final local validation, commit/push, and final senior closure are complete, with no remaining P0/P1/P2 code findings. No applicable clinical-app CI workflow exists for this commit; clinical CI is unavailable/not applicable, not green, and is recorded as a separate process/infrastructure follow-up. Pre-Consultation MVP pilot readiness remains **BLOCKED/PENDING** external deployment and governance gates. No Phase 13 or reminder automation is introduced.
 - Work completed:
   - Removed the authenticated `storage.objects` SELECT policy for `medical-documents`. Registered originals remain in the private bucket and are available only through the existing server-authorized, 60-second signed-link flow.
   - Preserved staff and OTP-scoped patient authorization RPCs, cross-clinic denial, source immutability, and post-signing-only `document_viewed` provenance.
@@ -990,7 +990,19 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - P12-D final closure findings: targeted Phase 5 document and Phase 12 remediation TypeScript regressions passed (15/15); Phase 5/reconciliation/scoped-lookup pgTAP passed (62/62); multi-client concurrency passed (2/2); and Direct Start plus persisted production-contract pgTAP passed (19/19, including 0053 at 11/11). Targeted ESLint, `npx tsc --noEmit`, and `git diff --check` passed.
   - P12-D final UUID-oracle remediation: tenant-scoped registration-identity pgTAP passed (22/22); combined Phase 5/0055/0056/0057 document pgTAP passed (84/84); targeted Phase 5 and remediation TypeScript tests passed (15/15); multi-client concurrency passed (2/2); and Direct Start plus persisted production-contract pgTAP passed (19/19, including 0053 at 11/11). Targeted ESLint, `npx tsc --noEmit`, and `git diff --check` passed.
   - Final local validation: complete application TypeScript suite passed (99/99); clean-from-zero disposable Supabase migration replay through `0057` passed; complete pgTAP suite on that clean database passed (542/542 across 23 files); Phase 8/9/10/12 dedicated concurrency suites passed (1/1, 1/1, 5/5, and 2/2); `npx tsc --noEmit` and full ESLint passed; and the Next.js Webpack production build passed. The default Turbopack build was blocked by the host's port-binding restriction during CSS processing, while the supported Webpack production-build fallback completed successfully.
+  - Final independent Sol High senior closure reviewed `f4a8e7e7fcdb69b5022dc0c811b2d328647606ee` and approved Phase 12 code closure with no P0/P1/P2 findings.
 - Security/privacy/clinical safety:
   - Browser JWTs no longer receive direct source-object reads; signed URLs remain short-lived and generated only after scoped authorization. No service-role credential reaches the browser. Error logs contain no provider body, metadata, filename, patient data, source content, or private URL. Brief-view provenance remains best-effort and cannot delay consultation rendering or alter the immutable start snapshot. The database-backed per-session OTP ceiling remains enforced; shared edge/WAF request-rate control is not configured in this repository and is a pilot deployment gate/founder-infrastructure decision, not a replacement for the OTP ceiling. Malware scanning/quarantine also remains an external pilot deployment/founder decision; current upload hardening is limited to the existing size, bounded-body, type/signature, private-storage, and immutable-evidence controls.
-- Remaining Phase 12 scope:
-  - Commit, CI, and final senior closure remain. No reminder automation, Scheduler, payment, malware vendor, or clinical-workflow changes were introduced.
+- Pre-Consultation MVP pilot-readiness status: **Not yet approved — BLOCKED/PENDING external deployment and governance gates.** These are not Phase 12 application-code defects:
+  - Malware scanning/quarantine, or explicit approved constrained-pilot risk acceptance with compensating controls.
+  - Shared edge/WAF request-volume protection, or explicit approved constrained-pilot risk acceptance.
+  - Retention/deletion policy.
+  - Vendor/data-processing controls and production-provider approval.
+  - Legal/privacy/consent review.
+  - Frozen specialty benchmark and numeric quality/critical-error thresholds.
+  - Production monitoring.
+  - Incident containment/escalation.
+  - Rollback/manual shutdown procedures.
+  - Deployment-specific security/configuration verification before real patient data.
+  - Clinical CI infrastructure: no applicable clinical-app CI workflow exists for this commit; the repository workflow validates `apps/website` only and provides no clinical CI evidence for `dev-neelesh`.
+- Product boundary retained: manual intake-link send/resend remains allowed; there are no automatic time-based intake reminders or automated patient messages. Appointment-linked reminder automation remains Scheduler/post-MVP communications work; Scheduler and Smaran Pay remain separate; no active Pre-Consultation Phase 13 exists.
