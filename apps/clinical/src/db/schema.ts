@@ -214,6 +214,8 @@ export const patients = pgTable(
     gender: text("gender"),
     phone: text("phone"),
     normalizedPhone: text("normalized_phone"),
+    email: text("email"),
+    normalizedEmail: text("normalized_email"),
     address: text("address"),
     medicalRecordNumber: text("medical_record_number"),
     weightKg: real("weight_kg"),
@@ -236,6 +238,10 @@ export const patients = pgTable(
     index("patients_clinic_normalized_phone_idx").on(
       table.clinicId,
       table.normalizedPhone
+    ),
+    index("patients_clinic_normalized_email_idx").on(
+      table.clinicId,
+      table.normalizedEmail
     ),
     index("patients_clinic_normalized_name_idx").on(
       table.clinicId,
@@ -445,6 +451,15 @@ export const intakeAccessSessions = pgTable(
     otpHash: text("otp_hash").notNull(),
     verifiedSessionHash: text("verified_session_hash"),
     deliveryStatus: intakeDeliveryStatusEnum("delivery_status").notNull().default("pending"),
+    deliveryChannel: text("delivery_channel"),
+    deliveryProvider: text("delivery_provider"),
+    deliveryProviderStatus: text("delivery_provider_status"),
+    deliveryRecipient: text("delivery_recipient"),
+    providerMessageId: text("provider_message_id"),
+    deliveryAttemptedAt: timestamp("delivery_attempted_at", { withTimezone: true }),
+    deliverySentAt: timestamp("delivery_sent_at", { withTimezone: true }),
+    deliveryFailedAt: timestamp("delivery_failed_at", { withTimezone: true }),
+    deliveryFailureCode: text("delivery_failure_code"),
     failedAttempts: integer("failed_attempts").notNull().default(0),
     maxAttempts: integer("max_attempts").notNull().default(5),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

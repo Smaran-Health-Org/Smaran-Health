@@ -5,6 +5,7 @@ import styles from "@/components/clinical.module.css";
 
 type OperationalPatient = {
   id: string;
+  email: string | null;
   dateOfBirth: string | null;
   age: number | null;
   gender: string | null;
@@ -23,6 +24,7 @@ export function OperationalPatientDetails({
   const [dateOfBirth, setDateOfBirth] = useState(patient.dateOfBirth ?? "");
   const [age, setAge] = useState(patient.age === null ? "" : String(patient.age));
   const [gender, setGender] = useState(patient.gender ?? "");
+  const [email, setEmail] = useState(patient.email ?? "");
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,7 @@ export function OperationalPatientDetails({
     setDateOfBirth(details.dateOfBirth ?? "");
     setAge(details.age === null ? "" : String(details.age));
     setGender(details.gender ?? "");
+    setEmail(details.email ?? "");
     setError(null);
     setSaved(false);
     setEditing(false);
@@ -56,6 +59,7 @@ export function OperationalPatientDetails({
           dateOfBirth: dateOfBirth || null,
           age: numericAge,
           gender: gender.trim() || null,
+          email: email.trim() || null,
         }),
       });
       const payload = await response.json().catch(() => null) as (OperationalPatient & { error?: string }) | null;
@@ -64,6 +68,7 @@ export function OperationalPatientDetails({
       setDateOfBirth(payload.dateOfBirth ?? "");
       setAge(payload.age === null ? "" : String(payload.age));
       setGender(payload.gender ?? "");
+      setEmail(payload.email ?? "");
       setSaved(true);
       setEditing(false);
     } catch (saveError) {
@@ -87,6 +92,7 @@ export function OperationalPatientDetails({
           <label className={styles.formField}><span>Date of birth</span><input type="date" value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></label>
           <label className={styles.formField}><span>Age</span><input type="number" min={0} max={150} step={1} value={age} onChange={(event) => setAge(event.target.value)} /></label>
           <label className={styles.formField}><span>Gender</span><input maxLength={50} value={gender} onChange={(event) => setGender(event.target.value)} /></label>
+          <label className={styles.formField}><span>Email</span><input type="email" maxLength={320} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="patient@example.com" /></label>
           <div className={styles.operationalDetailsActions}>
             <button className={styles.primaryButton} disabled={busy}>{busy ? "Saving…" : "Save details"}</button>
             <button className={styles.secondaryButton} type="button" disabled={busy} onClick={cancel}>Cancel</button>
@@ -100,6 +106,7 @@ export function OperationalPatientDetails({
             <div><dt>Date of birth</dt><dd>{details.dateOfBirth || "Not recorded"}</dd></div>
             <div><dt>Age</dt><dd>{details.age ?? "Not recorded"}</dd></div>
             <div><dt>Gender</dt><dd>{details.gender || "Not recorded"}</dd></div>
+            <div><dt>Email</dt><dd>{details.email || "Not recorded"}</dd></div>
             <div><dt>Previous visits</dt><dd>{previousVisits}</dd></div>
           </dl>
         </>

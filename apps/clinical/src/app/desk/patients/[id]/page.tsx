@@ -39,7 +39,7 @@ export default async function DeskPatientPage({ params }: { params: Promise<{ id
         </div>
 
         <OperationalPatientDetails
-          patient={{ id: patient.id, dateOfBirth: patient.dateOfBirth, age: patient.age, gender: patient.gender }}
+          patient={{ id: patient.id, email: patient.email, dateOfBirth: patient.dateOfBirth, age: patient.age, gender: patient.gender }}
           previousVisits={Math.max(0, consultations.length - todayItems.length)}
           visitStatus={activeVisit?.operationalStatus?.replaceAll("_", " ") ?? null}
         />
