@@ -308,7 +308,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - `npx next build --webpack` — pass; public intake and staff delivery routes compiled.
   - `npm run build` — Turbopack could not bind its helper-process port in this execution environment, including after an escalated retry; the supported webpack production build passed.
 - Security/privacy review:
-  - Token, OTP, and verified-browser credentials are random and stored only as HMAC-SHA-256 digests using a required server-side pepper.
+  - Production token, OTP, and verified-browser credentials are random and stored only as HMAC-SHA-256 digests using a required server-side pepper; non-production uses the fixed UAT OTP `123456` while retaining random link and browser credentials, including when controlled UAT uses live email delivery.
   - Production rejects preview delivery and fails closed unless the server-only delivery webhook and credential are configured.
   - OTP attempt limits, expiry, resend cooldown, session invalidation, private HttpOnly cookie, no-store responses, no-referrer metadata, and no-index metadata reduce link/session exposure.
   - Public RPCs reveal no clinic-wide or cross-encounter records; direct anonymous table access is revoked. Cross-clinic issuance is rejected in database tests.

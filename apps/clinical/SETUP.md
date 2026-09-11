@@ -107,7 +107,7 @@ npx vercel deploy --prod --yes --token <vercel-token> \
 
 ## 7. Intake-link email delivery (Resend)
 
-Local development defaults to `INTAKE_DELIVERY_MODE=preview`: clicking **Send link** creates the normal secure link and OTP but displays them only to the authenticated clinic user. It never calls Resend.
+Local development defaults to `INTAKE_DELIVERY_MODE=preview`: clicking **Send link** creates the normal secure link and OTP but displays them only to the authenticated clinic user. It never calls Resend. Every non-production intake session uses the UAT code `123456`, including controlled local `live` email testing; production always issues a random code.
 
 To send a real UAT email, create a [Resend account](https://resend.com), verify a sending domain, then create a server-side API key. Add the following only to your deployment secret store or a local `.env.local` used for controlled UAT:
 

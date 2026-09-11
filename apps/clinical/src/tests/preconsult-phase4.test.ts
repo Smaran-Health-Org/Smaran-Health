@@ -15,7 +15,7 @@ import {
   type EmailNotificationProvider,
   NotificationDeliveryError,
 } from "../lib/notifications/intake-invitation";
-import { hashIntakeCredential, isPlausibleAccessToken } from "../lib/intake/security";
+import { createIntakeCredentials, hashIntakeCredential, isPlausibleAccessToken } from "../lib/intake/security";
 import { createPatientSchema, submitPatientIntakeSchema, verifyPatientIntakeOtpSchema } from "../lib/validation";
 
 const appointmentId = "51000000-0000-4000-8000-000000000001";
@@ -31,6 +31,32 @@ test("intake credentials use deterministic HMAC digests without retaining raw va
   assert.notEqual(first, "123456");
   assert.equal(isPlausibleAccessToken("a".repeat(43)), true);
   assert.equal(isPlausibleAccessToken("short"), false);
+});
+
+test("non-production intake credentials use the MVP OTP regardless of delivery mode", () => {
+  const environment = process.env as Record<string, string | undefined>;
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousDeliveryMode = process.env.INTAKE_DELIVERY_MODE;
+  const previousPepper = process.env.INTAKE_CREDENTIAL_PEPPER;
+  try {
+    environment.NODE_ENV = "development";
+    environment.INTAKE_DELIVERY_MODE = "preview";
+    environment.INTAKE_CREDENTIAL_PEPPER = "phase-four-test-pepper-that-is-at-least-32-characters";
+    assert.equal(createIntakeCredentials(new Date("2026-09-12T00:00:00.000Z")).otp, "123456");
+
+    environment.INTAKE_DELIVERY_MODE = "live";
+    assert.equal(createIntakeCredentials(new Date("2026-09-12T00:00:00.000Z")).otp, "123456");
+
+    environment.NODE_ENV = "production";
+    assert.match(createIntakeCredentials(new Date("2026-09-12T00:00:00.000Z")).otp, /^\d{6}$/);
+  } finally {
+    if (previousNodeEnv === undefined) delete environment.NODE_ENV;
+    else environment.NODE_ENV = previousNodeEnv;
+    if (previousDeliveryMode === undefined) delete environment.INTAKE_DELIVERY_MODE;
+    else environment.INTAKE_DELIVERY_MODE = previousDeliveryMode;
+    if (previousPepper === undefined) delete environment.INTAKE_CREDENTIAL_PEPPER;
+    else environment.INTAKE_CREDENTIAL_PEPPER = previousPepper;
+  }
 });
 
 test("patient intake validation requires OTP, consent, verbatim reason, and bounded optional lists", () => {

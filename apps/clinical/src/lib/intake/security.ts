@@ -17,9 +17,17 @@ export function hashIntakeCredential(value: string, pepper = intakePepper()): st
   return createHmac("sha256", pepper).update(value, "utf8").digest("hex");
 }
 
+function createIntakeOtp(): string {
+  // Local and staging UAT delivery may use a real email provider, but it must
+  // still share the documented non-production test code. Production always
+  // gets a new random OTP for every issued intake session.
+  if (process.env.NODE_ENV !== "production") return "123456";
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
+}
+
 export function createIntakeCredentials(now = new Date()) {
   const accessToken = randomBytes(32).toString("base64url");
-  const otp = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const otp = createIntakeOtp();
   return {
     accessToken,
     otp,

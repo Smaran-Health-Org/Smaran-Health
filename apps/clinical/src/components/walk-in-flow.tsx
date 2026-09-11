@@ -14,6 +14,7 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
   const [query, setQuery] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [doctorId, setDoctorId] = useState(doctors[0]?.id ?? "");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [searchResults, setSearchResults] = useState<Candidate[]>([]);
@@ -109,6 +110,7 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
         body: JSON.stringify({
           fullName: fullName.trim(),
           phone: phone.trim(),
+          email: email.trim() || undefined,
           duplicateOverride: distinctConfirmed ? "confirmed_distinct_patient" : undefined,
         }),
       });
@@ -144,6 +146,7 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
         <form className={styles.walkInForm} onSubmit={createAndAdd}>
           <label className={styles.formField}><span>Full name</span><input required value={fullName} onChange={(event) => { setFullName(event.target.value); setCandidates([]); setDistinctConfirmed(false); }} /></label>
           <label className={styles.formField}><span>Phone</span><input required type="tel" value={phone} onChange={(event) => { setPhone(event.target.value); setCandidates([]); setDistinctConfirmed(false); }} /></label>
+          <label className={styles.formField}><span>Email</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
           {candidates.length > 0 && !distinctConfirmed ? (
             <div className={styles.duplicateReview} role="alert">
               <strong>Possible existing patient</strong>
