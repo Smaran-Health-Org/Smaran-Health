@@ -46,7 +46,7 @@ export function AssistedIntake({ appointmentId, initialStatus, initialContext }:
 
   const isCorrection = context?.intakeStatus === "submitted" || initialStatus === "submitted";
   return (
-    <section className={styles.panel}>
+    <section className={`${styles.panel} ${styles.assistedIntakePanel}`}>
       <div className={styles.panelTitle}><div><p className={styles.eyebrow}>Patient-reported · unconfirmed</p><h2>Help patient complete intake</h2></div><span className={styles.panelHint}>{isCorrection ? "Add clarification" : "Assisted completion"}</span></div>
       <p className={styles.assistedNotice}>Record what the patient tells you. This will show the patient as the information source and you as the data-entry person. It is not doctor-confirmed.</p>
       {loading ? <p>Loading intake history…</p> : null}

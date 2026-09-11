@@ -261,7 +261,7 @@ export function TodayPatientsList({
                           ? "Awaiting delivery"
                           : item.intakeAccessStatus !== "not_sent"
                             ? "Resend intake"
-                            : "Send intake"}
+                            : "Send link"}
                     </button>
                   ) : null}
                   <button

@@ -153,7 +153,7 @@ export function ClinicDeskToday({ queue }: { queue: AppointmentQueue }) {
               <li key={`action-${item.appointmentId}`}>
                 <div><strong>{item.patientName}</strong><span>{item.documentStatus === "needs_review" ? "We couldn’t read a document clearly. The original is safe." : "Patient details are incomplete."}</span></div>
                 <div>
-                  {item.intakeStatus !== "submitted" ? <button className={styles.secondaryButton} disabled={busyId === item.appointmentId} onClick={() => void sendIntake(item)}>Send intake</button> : null}
+                  {item.intakeStatus !== "submitted" ? <button className={styles.secondaryButton} disabled={busyId === item.appointmentId} onClick={() => void sendIntake(item)}>Send link</button> : null}
                   <Link className={styles.secondaryButton} href={`/desk/patients/${item.patientId}`}>{item.documentStatus === "needs_review" ? "Review document" : "Open patient"}</Link>
                 </div>
               </li>

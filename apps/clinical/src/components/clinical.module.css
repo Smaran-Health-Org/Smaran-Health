@@ -516,11 +516,11 @@
 @media (max-width: 1100px) {
   .shell { grid-template-columns: 82px minmax(0, 1fr); }
   .sidebar { align-items: center; padding-inline: 12px; }
-  .brand > div, .clinicSwitcher div, .clinicSwitcher > svg, .sideNav p, .sideNav button span, .sideNav button small, .sidebarPatient > div:last-child, .doctorCard > div:nth-child(2), .doctorCard > span { display: none; }
+  .brand > div, .clinicSwitcher div, .clinicSwitcher > svg, .sideNav p, .sideNav button span, .sideNav button small, .sideNav a span, .sideNav a small, .disabledNav span, .disabledNav small, .sidebarPatient > div:last-child, .doctorCard > div:nth-child(2), .doctorCard > span { display: none; }
   .brand { padding: 0; }
   .clinicSwitcher { display: block; margin-top: 28px; padding: 7px; }
   .sideNav { width: 100%; }
-  .sideNav button { display: grid; grid-template-columns: 1fr; place-items: center; padding: 11px; }
+  .sideNav button, .sideNav a, .disabledNav { display: grid; grid-template-columns: 1fr; place-items: center; padding: 11px; }
   .sidebarPatient { justify-content: center; padding-inline: 0; }
   .doctorCard { display: flex; justify-content: center; padding-inline: 0; }
   .memoryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1341,7 +1341,7 @@
 .workspaceSwitch > strong { border: 1px solid #dfe6e2; border-radius: 8px; padding: 0.5rem 0.6rem; color: #50605b; font-size: 0.7rem; text-align: center; }
 .workspaceSwitch a[data-active="true"] { border-color: #87b8aa; background: #eef8f4; color: var(--green-dark); font-weight: 750; }
 
-.doctorKpiGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
+.doctorKpiGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
 .doctorKpiGrid .statCard { min-height: 96px; }
 .doctorKpiGrid .statCard strong { font-size: 1.65rem; }
 .doctorDaySections,
@@ -1427,7 +1427,13 @@
   .operationalDetails { grid-template-columns: 1fr; }
   .operationalDetailsForm { grid-template-columns: 1fr; }
 }
-.assistedNotice { color: var(--text-secondary); margin: 0 0 1rem; }
+
+@media (max-width: 1100px) {
+  .sideNav a,
+  .disabledNav { display: grid; grid-template-columns: 1fr; place-items: center; padding: 11px; }
+}
+.assistedIntakePanel .panelTitle h2 { font-size: .875rem; }
+.assistedNotice { color: var(--text-secondary); margin: 0 0 1rem; font-size: .84375rem; }
 .intakeStatement { border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin: .75rem 0; background: var(--surface-subtle); }
 .intakeStatement > div { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .intakeStatement span { color: var(--text-secondary); font-size: .82rem; }
@@ -1437,6 +1443,10 @@
 .assistedForm { display: grid; grid-template-columns: repeat(3, 1fr); gap: .85rem; margin-top: 1rem; }
 .assistedForm label:first-child, .assistedForm .consentCheck, .assistedForm .panelHint, .assistedForm .errorBanner { grid-column: 1 / -1; }
 .assistedForm label { display: grid; gap: .35rem; font-size: .86rem; font-weight: 600; }
-.assistedForm textarea { min-height: 84px; resize: vertical; padding: .65rem; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+.assistedForm textarea { min-height: 84px; resize: vertical; padding: .65rem; border: 1px solid #d9e2de; border-radius: 8px; background: #fbfcfb; color: var(--ink); font: inherit; }
+.assistedForm textarea:focus { border-color: #70a995; outline: 0; box-shadow: 0 0 0 3px rgba(23, 116, 91, 0.09); background: #fff; }
+.operationalDetailsPanel { margin-bottom: 1rem; }
+.patientLiveStatus { display: flex; align-items: center; gap: .55rem; margin-top: .85rem; padding-top: .85rem; border-top: 1px solid #edf0ee; color: #78837f; font-size: .68rem; }
+.patientLiveStatus strong { border: 1px solid #b9dacc; border-radius: 999px; background: #eef8f4; padding: .28rem .58rem; color: var(--green-dark); font-size: .68rem; text-transform: capitalize; }
 .assistedForm .consentCheck { display: flex; align-items: flex-start; font-weight: 500; }
 @media (max-width: 760px) { .assistedForm, .intakeStatement dl { grid-template-columns: 1fr; } }

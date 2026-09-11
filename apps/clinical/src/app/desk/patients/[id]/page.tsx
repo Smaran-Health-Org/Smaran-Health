@@ -3,11 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatient, getPatients } from "@/lib/db/patients";
-import { getAppointmentQueue, queueSummary } from "@/lib/db/appointment-queue";
+import { getAppointmentQueue } from "@/lib/db/appointment-queue";
 import { getConsultations } from "@/lib/db/consultations";
 import { getAssistedIntakeContext } from "@/lib/db/patient-intake";
 import { AppShell } from "@/components/app-shell";
-import { ClinicDeskToday } from "@/components/clinic-desk-today";
 import { DocumentManager } from "@/components/document-manager";
 import { AssistedIntake } from "@/components/assisted-intake";
 import { OperationalPatientDetails } from "@/components/operational-patient-details";
@@ -28,7 +27,6 @@ export default async function DeskPatientPage({ params }: { params: Promise<{ id
   if (!patient) notFound();
 
   const todayItems = queue.items.filter((item) => item.patientId === patient.id);
-  const todayQueue = { items: todayItems, summary: queueSummary(todayItems) };
   const activeVisit = todayItems.find((item) => item.appointmentStatus === "scheduled");
   const assistedIntake = activeVisit ? await getAssistedIntakeContext(activeVisit.appointmentId) : null;
 
@@ -43,9 +41,10 @@ export default async function DeskPatientPage({ params }: { params: Promise<{ id
         <OperationalPatientDetails
           patient={{ id: patient.id, dateOfBirth: patient.dateOfBirth, age: patient.age, gender: patient.gender }}
           previousVisits={Math.max(0, consultations.length - todayItems.length)}
+          visitStatus={activeVisit?.operationalStatus?.replaceAll("_", " ") ?? null}
         />
 
-        {todayItems.length > 0 ? <ClinicDeskToday queue={todayQueue} /> : <section className={styles.panel}><div className={styles.emptyState}><strong>No visit today</strong><p>Add this patient as a walk-in from Today.</p></div></section>}
+        {!activeVisit ? <section className={styles.panel}><div className={styles.emptyState}><strong>No visit today</strong><p>Add this patient as a walk-in from Today.</p></div></section> : null}
 
         {activeVisit ? (
           <AssistedIntake appointmentId={activeVisit.appointmentId} initialStatus={activeVisit.intakeStatus} initialContext={assistedIntake} />

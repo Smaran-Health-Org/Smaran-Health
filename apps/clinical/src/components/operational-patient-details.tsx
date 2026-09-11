@@ -13,9 +13,11 @@ type OperationalPatient = {
 export function OperationalPatientDetails({
   patient,
   previousVisits,
+  visitStatus,
 }: {
   patient: OperationalPatient;
   previousVisits: number;
+  visitStatus?: string | null;
 }) {
   const [details, setDetails] = useState(patient);
   const [dateOfBirth, setDateOfBirth] = useState(patient.dateOfBirth ?? "");
@@ -72,13 +74,14 @@ export function OperationalPatientDetails({
   }
 
   return (
-    <section className={styles.panel}>
+    <section className={`${styles.panel} ${styles.operationalDetailsPanel}`}>
       <div className={styles.panelTitle}>
         <h2>Patient details</h2>
         {editing ? <span className={styles.panelHint}>Clinic operations</span> : (
           <button className={styles.compactButton} type="button" onClick={() => { setEditing(true); setSaved(false); }}>Edit details</button>
         )}
       </div>
+      {visitStatus ? <div className={styles.patientLiveStatus}><span>Live visit status</span><strong>{visitStatus}</strong></div> : null}
       {editing ? (
         <form className={styles.operationalDetailsForm} onSubmit={submit}>
           <label className={styles.formField}><span>Date of birth</span><input type="date" value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></label>
