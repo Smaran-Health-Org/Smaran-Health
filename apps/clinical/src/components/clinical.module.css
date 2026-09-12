@@ -440,6 +440,7 @@
 .processingSteps span.stepActive { border-color: #4aa786; background: #e6f4ee; color: #1d6d56; animation: stepPulse 1.4s ease-in-out infinite; }
 .progressRail { height: 8px; margin: 1.2rem 0 0.35rem; border-radius: 999px; background: #e7ece9; overflow: hidden; }
 .progressFill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #2f8f6e, #4aa786); transition: width 0.5s ease; }
+.progressReadout { margin: 0 0 0.45rem; color: #5f736c; font-size: 0.62rem; font-weight: 850; letter-spacing: 0.02em; text-align: right; }
 .progressActive {
   background: linear-gradient(90deg, #2f8f6e, #4aa786, #7fd0b2, #4aa786, #2f8f6e);
   background-size: 220% 100%;
