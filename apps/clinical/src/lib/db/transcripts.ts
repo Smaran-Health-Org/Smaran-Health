@@ -22,32 +22,16 @@ export async function getTranscriptByConsultation(
 }
 
 export async function upsertTranscript(
-  input: {
-    consultationId: string;
-    rawText: string;
-    /** false appends to the existing transcript (multi-segment uploads). */
-    replace?: boolean;
-    modelVersion?: string;
-    languageCodes?: string[];
-  },
+  input: { consultationId: string; rawText: string },
   clinicId: string
 ): Promise<Transcript> {
   const supabase = await createServerClient();
   const existing = await getTranscriptByConsultation(input.consultationId, clinicId);
 
-  const effectiveText =
-    existing && input.replace === false
-      ? `${(existing.rawText ?? "").trim()}\n${input.rawText.trim()}`.trim()
-      : input.rawText;
-
   if (existing) {
     const { data, error } = await supabase
       .from("transcripts")
-      .update({
-        raw_text: effectiveText,
-        ...(input.modelVersion ? { model_version: input.modelVersion } : {}),
-        ...(input.languageCodes ? { language_codes: input.languageCodes } : {}),
-      })
+      .update({ raw_text: input.rawText })
       .eq("id", existing.id)
       .eq("clinic_id", clinicId)
       .select(TRANSCRIPT_COLUMNS)
@@ -62,9 +46,7 @@ export async function upsertTranscript(
     .insert({
       consultation_id: input.consultationId,
       clinic_id: clinicId,
-      raw_text: effectiveText,
-      model_version: input.modelVersion ?? null,
-      language_codes: input.languageCodes ?? null,
+      raw_text: input.rawText,
     })
     .select(TRANSCRIPT_COLUMNS)
     .single();
