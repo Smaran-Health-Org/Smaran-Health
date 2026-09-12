@@ -738,8 +738,23 @@ export const audioFiles = pgTable("audio_files", {
   storagePath: text("storage_path").notNull(),
   durationSeconds: integer("duration_seconds"),
   format: text("format"),
+  recordingStatus: text("recording_status").$type<"created" | "recording" | "paused" | "finalizing" | "finalized" | "interrupted">().notNull().default("created"),
+  transcriptionStatus: text("transcription_status").$type<"pending" | "processing" | "completed" | "retryable_failed">().notNull().default("pending"),
+  transcriptionFailureCode: text("transcription_failure_code"),
+  finalizedAt: timestamp("finalized_at", { withTimezone: true }),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const audioRecordingChunks = pgTable("audio_recording_chunks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  audioFileId: uuid("audio_file_id").references(() => audioFiles.id, { onDelete: "cascade" }).notNull(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  sequenceNumber: integer("sequence_number").notNull(),
+  storagePath: text("storage_path").notNull().unique(),
+  contentHash: text("content_hash").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [uniqueIndex("audio_recording_chunks_audio_sequence_idx").on(table.audioFileId, table.sequenceNumber)]);
 
 export const transcripts = pgTable("transcripts", {
   id: uuid("id").defaultRandom().primaryKey(),
