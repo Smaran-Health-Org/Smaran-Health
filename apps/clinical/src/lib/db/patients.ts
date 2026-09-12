@@ -113,18 +113,6 @@ export async function getPatients(
   return { data: (data as Patient[]) ?? [], total: count ?? 0 };
 }
 
-/** Lightweight count used by the patient detail shell. */
-export async function countPatients(clinicId: string): Promise<number> {
-  const supabase = await createServerClient();
-  const { count, error } = await supabase
-    .from("patients")
-    .select("id", { count: "exact", head: true })
-    .eq("clinic_id", clinicId)
-    .is("merged_into_patient_id", null);
-  if (error) throw new Error(`Failed to count patients: ${error.message}`);
-  return count ?? 0;
-}
-
 export async function getPatient(
   id: string,
   clinicId: string
