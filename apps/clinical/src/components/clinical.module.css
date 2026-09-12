@@ -1379,12 +1379,60 @@
 .priorityEditor input,
 .standaloneSearch { border: 1px solid #d9e1dd; border-radius: 9px; padding: 0.65rem 0.75rem; font: inherit; font-size: 0.72rem; }
 .needsActionPanel { border-color: #ead6b5; background: #fffdf8; }
+.needsActionDisclosure { padding: 0; }
+.needsActionDisclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; cursor: pointer; list-style: none; }
+.needsActionDisclosure > summary::-webkit-details-marker { display: none; }
+.needsActionDisclosure > summary::after { width: 0.45rem; height: 0.45rem; margin-left: 0.2rem; border-right: 1.5px solid #8c785a; border-bottom: 1.5px solid #8c785a; content: ""; transform: rotate(45deg) translateY(-2px); transition: transform 160ms ease; }
+.needsActionDisclosure[open] > summary { border-bottom: 1px solid #efe5d5; }
+.needsActionDisclosure[open] > summary::after { transform: rotate(225deg) translate(-1px, -2px); }
+.needsActionDisclosure .needsActionList { padding: 0 1rem 0.2rem; }
 .needsActionList li { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.75rem 0; border-top: 1px solid #efe5d5; }
 .needsActionList li:first-child { border-top: 0; }
 .needsActionList li > div:first-child { display: grid; gap: 0.2rem; }
 .needsActionList strong { font-size: 0.76rem; }
 .needsActionList span { color: #7f6d50; font-size: 0.66rem; }
 .secondaryDeskSection { opacity: 0.78; }
+.deskBoard { border: 1px solid #dfe6e2; border-radius: 18px; background: #fff; padding: 1rem; box-shadow: 0 12px 34px rgba(34, 54, 47, 0.05); }
+.deskBoardIntro { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin: 0.15rem 0 1rem; }
+.deskBoardIntro h2 { margin: 0.18rem 0 0; font-size: 1.05rem; }
+.deskBoardIntro > p { max-width: 410px; margin: 0; color: #71807a; font-size: 0.68rem; line-height: 1.45; text-align: right; }
+.deskBoardColumns { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; overflow-x: auto; padding-bottom: 0.15rem; }
+.deskBoardColumn { min-width: 220px; border: 1px solid #e5eae7; border-radius: 14px; background: #f8faf9; padding: 0.7rem; }
+.deskBoardColumnHeader { display: flex; align-items: start; justify-content: space-between; gap: 0.5rem; border-bottom: 1px solid #e8edeb; padding: 0.05rem 0.05rem 0.65rem; }
+.deskBoardColumnHeader > div { position: relative; padding-left: 0.8rem; }
+.deskBoardColumnHeader > div::before { position: absolute; top: 0.34rem; left: 0; width: 0.38rem; height: 0.38rem; border-radius: 50%; background: #83929c; content: ""; }
+.deskBoardColumn[data-stage="waiting"] .deskBoardColumnHeader > div::before { background: #c35c16; }
+.deskBoardColumn[data-stage="doctor"] .deskBoardColumnHeader > div::before { background: #6f42c1; }
+.deskBoardColumn[data-stage="completed"] .deskBoardColumnHeader > div::before { background: #147157; }
+.deskBoardColumnHeader h2 { margin: 0; font-size: 0.76rem; }
+.deskBoardColumnHeader p { margin: 0.22rem 0 0; color: #81908a; font-size: 0.61rem; }
+.deskBoardColumnHeader > span { display: grid; min-width: 1.35rem; height: 1.25rem; place-items: center; border-radius: 999px; background: #edf1ef; color: #66736f; font-size: 0.63rem; font-weight: 800; }
+.deskBoardColumn[data-stage="waiting"] .deskBoardColumnHeader > span { background: #fff0e5; color: #a4490c; }
+.deskBoardColumn[data-stage="doctor"] .deskBoardColumnHeader > span { background: #f0ebff; color: #6240ae; }
+.deskBoardColumn[data-stage="completed"] .deskBoardColumnHeader > span { background: #e5f5ee; color: #146c54; }
+.deskBoardList { display: grid; gap: 0.65rem; margin: 0.7rem 0 0; padding: 0; list-style: none; }
+.deskBoardEmpty { margin: 0; padding: 1.3rem 0.35rem 0.7rem; color: #98a29e; font-size: 0.64rem; text-align: center; }
+.deskBoardCard { display: grid; gap: 0.55rem; border: 1px solid #e6ebe8; border-radius: 12px; background: #fff; padding: 0.75rem; box-shadow: 0 3px 10px rgba(39, 57, 50, 0.025); cursor: pointer; transition: border-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease; }
+.deskBoardCard:focus-visible { outline: 3px solid rgba(23, 116, 91, 0.25); outline-offset: 2px; }
+.deskBoardCard[draggable="true"] { cursor: grab; }
+.deskBoardCard[draggable="true"]:active { cursor: grabbing; }
+.deskBoardCard[data-dragging="true"] { opacity: 0.45; }
+.deskBoardCard[data-drop-target="true"] { border-color: var(--green); box-shadow: 0 0 0 2px rgba(23, 116, 91, 0.14); }
+.deskCardHeader, .deskCardFooter, .deskCardActions, .deskReorderActions { display: flex; align-items: center; justify-content: space-between; gap: 0.45rem; }
+.deskToken { color: #46555f; font-size: 0.74rem; font-weight: 850; }
+.deskCardTime { color: #687784; font-size: 0.63rem; font-weight: 800; }
+.deskCardTime[data-urgent="true"] { color: #d22b2b; }
+.deskCardIdentity { display: grid; gap: 0.15rem; }
+.deskCardIdentity strong { font-size: 0.82rem; }
+.deskCardIdentity span { color: #718098; font-size: 0.64rem; }
+.deskCardHighlights { display: grid; gap: 0.3rem; border-block: 1px solid #f0f2f1; padding: 0.5rem 0; color: #8a96ab; font-size: 0.62rem; line-height: 1.35; }
+.deskCardMarkers { display: flex; min-width: 0; align-items: center; gap: 0.35rem; }
+.deskCardMarkers .statusBadge { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deskOpenLink { color: var(--green-dark); font-size: 0.64rem; font-weight: 800; text-decoration: none; }
+.deskOpenLink:hover { text-decoration: underline; }
+.deskCardActions { min-height: 1.65rem; flex-wrap: wrap; justify-content: flex-start; }
+.deskCardActions .primaryButton { width: 100%; min-height: 34px; padding: 0.42rem 0.65rem; font-size: 0.66rem; }
+.deskReorderActions { justify-content: flex-start; }
 .operationalDetails { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.7rem; margin: 0; }
 .operationalDetails div { display: grid; gap: 0.25rem; border-radius: 10px; background: #f6f8f7; padding: 0.7rem; }
 .operationalDetails dt { color: #78837f; font-size: 0.62rem; }
@@ -1418,6 +1466,9 @@
   .deskQueueRow { grid-template-columns: 1fr; }
   .deskQueueBadges,
   .deskQueueActions { justify-content: flex-start; }
+  .deskBoardIntro { align-items: start; flex-direction: column; }
+  .deskBoardIntro > p { max-width: none; text-align: left; }
+  .deskBoardColumns { grid-template-columns: repeat(4, minmax(220px, 1fr)); }
   .operationalDetails { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operationalDetailsForm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .walkInGrid { grid-template-columns: 1fr; }
