@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { isSessionExpired } from "@/lib/session-policy";
 
 // Public routes that don't require authentication
-const PUBLIC_ROUTES = ["/login", "/auth/callback"];
+const PUBLIC_ROUTES = ["/login", "/auth/callback", "/intake", "/api/intake"];
 
 function hasAuthCookie(request: NextRequest): boolean {
   return request.cookies.getAll().some((cookie) =>
