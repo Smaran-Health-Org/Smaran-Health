@@ -1,7 +1,7 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import { getConsultation } from "@/lib/db/consultations";
-import { createRecordingSession, finalizeRecordingSession, setRecordingSessionState } from "@/lib/db/recordings";
+import { createRecordingSession, finalizeRecordingSession, interruptRecordingSession, setRecordingSessionState } from "@/lib/db/recordings";
 import { transcribeDurableRecording } from "@/lib/audio-recording/process";
 import { badRequest, conflict, forbidden, notFound, unauthorized } from "@/lib/api/error-handler";
 
@@ -20,7 +20,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const format = typeof body.format === "string" && body.format.length <= 100 ? body.format : "audio/webm";
       return NextResponse.json({ recording: await createRecordingSession(id, format) }, { status: 201, headers: { "Cache-Control": "no-store" } });
     }
-    if (body?.action === "state" && typeof body.recordingId === "string" && (body.status === "recording" || body.status === "paused" || body.status === "interrupted")) {
+    if (body?.action === "state" && typeof body.recordingId === "string" && body.status === "interrupted") {
+      await interruptRecordingSession({ recordingId: body.recordingId, consultationId: id });
+      return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+    }
+    if (body?.action === "state" && typeof body.recordingId === "string" && (body.status === "recording" || body.status === "paused")) {
       await setRecordingSessionState({ recordingId: body.recordingId, consultationId: id, status: body.status });
       return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
     }

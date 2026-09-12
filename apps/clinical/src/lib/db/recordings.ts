@@ -26,8 +26,17 @@ export async function finalizeRecordingSession(input: { recordingId: string; con
   return recording(data as Record<string, unknown>);
 }
 
-export async function setRecordingSessionState(input: { recordingId: string; consultationId: string; status: "recording" | "paused" | "interrupted" }) {
+export async function setRecordingSessionState(input: { recordingId: string; consultationId: string; status: "recording" | "paused" }) {
   const client = await createServerClient();
   const { error } = await client.rpc("set_consultation_audio_session_state", { p_audio_file_id: input.recordingId, p_consultation_id: input.consultationId, p_recording_status: input.status });
   if (error) throw new Error("recording_state_update_failed");
+}
+
+export async function interruptRecordingSession(input: { recordingId: string; consultationId: string }) {
+  const client = await createServerClient();
+  const { error } = await client.rpc("interrupt_consultation_audio_session", {
+    p_audio_file_id: input.recordingId,
+    p_consultation_id: input.consultationId,
+  });
+  if (error) throw new Error("recording_interruption_failed");
 }

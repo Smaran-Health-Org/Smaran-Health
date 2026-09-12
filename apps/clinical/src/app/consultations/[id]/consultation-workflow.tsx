@@ -413,6 +413,8 @@ export function ConsultationWorkflow({
   const uploadedChunksRef = useRef(0);
   const chunkUploadChainRef = useRef<Promise<void>>(Promise.resolve());
   const chunkUploadFailedRef = useRef(false);
+  const interruptionPersistenceRef = useRef<Promise<void> | null>(null);
+  const interruptionPersistenceFailedRef = useRef(false);
   const finalTranscriptRef = useRef("");
   const interimTranscriptRef = useRef("");
   const recordingActiveRef = useRef(false);
@@ -592,10 +594,47 @@ export function ConsultationWorkflow({
     uploadedChunksRef.current = Math.max(uploadedChunksRef.current, sequence + 1);
   }
 
-  function reportRecordingState(status: "recording" | "paused" | "interrupted") {
+  function reportRecordingState(status: "recording" | "paused") {
     const recordingId = recordingIdRef.current;
     if (!recordingId) return;
     void fetch(`/api/consultations/${consultationId}/recording`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "state", recordingId, status }) });
+  }
+
+  async function persistRecordingInterruption() {
+    const recordingId = recordingIdRef.current;
+    if (!recordingId) return;
+    if (interruptionPersistenceRef.current) {
+      return interruptionPersistenceRef.current;
+    }
+    const persistence = (async () => {
+      const response = await fetch(`/api/consultations/${consultationId}/recording`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "state", recordingId, status: "interrupted" }),
+      });
+      if (!response.ok) throw new Error("recording_interruption_persistence_failed");
+    })();
+    interruptionPersistenceRef.current = persistence;
+    try {
+      await persistence;
+    } finally {
+      interruptionPersistenceRef.current = null;
+    }
+  }
+
+  async function handleRecordingInterruption(message: string, micMessage?: string) {
+    stopMicCapture();
+    try {
+      await persistRecordingInterruption();
+      setAudioCaptureError(message);
+      if (micMessage) setMicError(micMessage);
+      setState("recording_interrupted");
+    } catch {
+      interruptionPersistenceFailedRef.current = true;
+      setAudioCaptureError("Audio capture stopped, but its interrupted state could not be saved. Retry only after the save succeeds.");
+      setError("Recording stopped, but the secure interruption state could not be persisted. Check your connection and retry before starting another recording.");
+      setState("failed");
+    }
   }
 
   async function saveNote(status: "approved" | "rejected") {
@@ -792,12 +831,10 @@ export function ConsultationWorkflow({
   // lost from memory and the doctor can decide what to do next.
   function handleUnexpectedTrackEnd() {
     if (!recordingActiveRef.current) return; // Our own stop().
-    stopMicCapture();
-    reportRecordingState("interrupted");
-    setMicError(
-      "The microphone stopped unexpectedly — it may have been disconnected or taken by another app. The recording stopped safely."
+    void handleRecordingInterruption(
+      "The microphone stopped unexpectedly — the recording has stopped.",
+      "The microphone stopped unexpectedly — it may have been disconnected or taken by another app."
     );
-    setState("recording_interrupted");
   }
 
   // Pre-flight mic check: acquire the stream, show a live level meter, then
@@ -835,6 +872,7 @@ export function ConsultationWorkflow({
     chunkSequenceRef.current = 0;
     uploadedChunksRef.current = 0;
     chunkUploadFailedRef.current = false;
+    interruptionPersistenceFailedRef.current = false;
     chunkUploadChainRef.current = Promise.resolve();
     try {
       // Reuse the stream acquired during the mic check when it is still live;
@@ -861,20 +899,18 @@ export function ConsultationWorkflow({
 
       const recorder = new MediaRecorder(stream);
       recorder.ondataavailable = (event) => {
-        if (!event.data || event.data.size === 0 || !recordingIdRef.current) return;
+        if (!event.data || event.data.size === 0 || !recordingIdRef.current || chunkUploadFailedRef.current || !recordingActiveRef.current) return;
         const sequence = chunkSequenceRef.current++;
         chunksRef.current.push(event.data);
         chunkUploadChainRef.current = chunkUploadChainRef.current
-          .then(() => uploadRecordingChunk(recordingIdRef.current!, sequence, event.data))
-          .catch(() => {
+          .then(() => {
+            if (chunkUploadFailedRef.current) return;
+            return uploadRecordingChunk(recordingIdRef.current!, sequence, event.data);
+          })
+          .catch(async () => {
+            if (chunkUploadFailedRef.current) return;
             chunkUploadFailedRef.current = true;
-            recordingActiveRef.current = false;
-            reportRecordingState("interrupted");
-            setAudioCaptureError("Audio could not be saved securely. Recording has stopped; use the recoverable portion or write a manual note.");
-            setState("recording_interrupted");
-            try { recorder.stop(); } catch { /* already stopped */ }
-            try { recognitionRef.current?.stop(); } catch { /* already stopped */ }
-            stream.getTracks().forEach((track) => track.stop());
+            await handleRecordingInterruption("Audio could not be saved securely. Recording has stopped; use the recoverable portion or write a manual note.");
           });
       };
       recorder.start(10_000);
@@ -1031,8 +1067,7 @@ export function ConsultationWorkflow({
     // running so the recording rail shows a live audio level.
     const micOk = await startMicCapture(recordingId, streamRef.current ?? undefined);
     if (!micOk) {
-      reportRecordingState("interrupted");
-      await patchConsultation({ status: "draft" }).catch(() => undefined);
+      await handleRecordingInterruption("Audio capture could not start securely. The recording session was stopped.");
       return; // startMicCapture already set a mapped mic error.
     }
     setElapsedSeconds(0);
@@ -1091,8 +1126,10 @@ export function ConsultationWorkflow({
       setTranscript(previewTranscript);
       setInterimTranscript("");
       if (!recordingId || !uploaded) {
-        setState("recording_interrupted");
-        setError("Audio capture could not be finalized safely. The recoverable recording is retained; write the note manually until transcription is available.");
+        if (!interruptionPersistenceFailedRef.current) {
+          setState("recording_interrupted");
+          setError("Audio capture could not be finalized safely. The recoverable recording is retained; write the note manually until transcription is available.");
+        }
         return;
       }
       const finalize = await fetch(`/api/consultations/${consultationId}/recording`, {
@@ -1109,7 +1146,6 @@ export function ConsultationWorkflow({
       // substituted with browser text. Until an approved provider is
       // configured, route to the existing manual-note path.
       setProcessingStage(1);
-      await patchConsultation({ status: "draft", endedAt: new Date().toISOString() }).catch(() => undefined);
       setManualPath(true);
       setState("manual_review");
       setError("Recording was saved securely. Authoritative transcription is pending approved provider configuration, so no AI draft was generated.");
@@ -1184,9 +1220,12 @@ export function ConsultationWorkflow({
     setTranscript("");
     setInterimTranscript("");
     try {
-      await patchConsultation({ status: "draft" });
+      await persistRecordingInterruption();
     } catch {
-      // Non-fatal; the doctor is still leaving the recording state.
+      interruptionPersistenceFailedRef.current = true;
+      setError("Recording stopped, but the secure interruption state could not be persisted. Check your connection and retry before starting another recording.");
+      setState("failed");
+      return;
     }
     setState("recording_interrupted");
   }
@@ -1202,9 +1241,12 @@ export function ConsultationWorkflow({
     setRecordingWarningDismissed(false);
     autoStoppedRef.current = false;
     try {
-      await patchConsultation({ status: "draft" });
+      await persistRecordingInterruption();
     } catch {
-      // Non-fatal; the mic check still proceeds.
+      interruptionPersistenceFailedRef.current = true;
+      setError("Recording stopped, but the secure interruption state could not be persisted. Check your connection and retry before starting another recording.");
+      setState("failed");
+      return;
     }
     await beginMicTest();
   }
