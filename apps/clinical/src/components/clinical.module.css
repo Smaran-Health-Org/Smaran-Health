@@ -1452,11 +1452,8 @@
 .walkInPatientList strong { font-size: 0.76rem; }
 .walkInPatientList span { color: #78837f; font-size: 0.65rem; }
 .walkInForm { display: grid; gap: 0.8rem; }
-.walkInSuccess { display: flex; align-items: flex-start; gap: 0.8rem; }
-.walkInSuccess > span { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #e4f4ec; color: var(--green); font-weight: 900; }
-.walkInSuccess h2, .walkInSuccess p { margin: 0; }
-.walkInSuccess p:not(.eyebrow) { margin-top: 0.3rem; color: #687872; font-size: 0.72rem; line-height: 1.45; }
-.walkInSuccessActions { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-top: 1rem; }
+.walkInActions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.walkInActions .secondaryButton, .walkInActions .primaryButton { min-height: 38px; }
 
 @media (max-width: 900px) {
   .doctorKpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

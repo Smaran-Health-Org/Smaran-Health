@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import {
   DocumentAccessError,
   acceptPatientDocumentStorageConsent,
@@ -11,6 +11,7 @@ import { DocumentFileError } from "@/lib/documents/file";
 import { DocumentIngestionError, ingestDocument, parseDocumentUpload } from "@/lib/documents/ingest";
 import { verifiedIntakeCredentials } from "@/lib/intake/verified-session";
 import { badRequest, internalError, payloadTooLarge, unauthorized } from "@/lib/api/error-handler";
+import { wakeDocumentPipeline } from "@/lib/documents/pipeline";
 
 export const runtime = "nodejs";
 
@@ -78,6 +79,9 @@ export async function POST(
         input
       ),
     });
+    // Registration committed a durable queue row in the same database event.
+    // This wakeup lowers latency but may safely be lost on request termination.
+    after(() => wakeDocumentPipeline());
     return noStoreJson({ document }, { status: 201 });
   } catch (error) {
     if ((error instanceof DocumentFileError && error.kind === "size")

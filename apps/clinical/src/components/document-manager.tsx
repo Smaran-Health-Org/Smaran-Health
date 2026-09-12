@@ -92,9 +92,8 @@ export function DocumentManager(props: {
     try {
       const response = await fetch(`/api/documents/${documentId}/process`, { method: "POST" });
       if (!response.ok) throw new Error(await responseMessage(response, "Could not process the document."));
-      const body = await response.json() as { document: DocumentListItem };
-      setDocuments((current) => current.map((item) => item.id === documentId ? body.document : item));
-      if (props.canReviewExtraction) await openExtraction(documentId);
+      await response.json();
+      await fetchDocuments(endpoint).then(setDocuments);
     } catch (processingError) {
       setError(processingError instanceof Error ? processingError.message : "Could not process the document.");
       await fetchDocuments(endpoint).then(setDocuments).catch(() => undefined);
@@ -282,7 +281,7 @@ export function DocumentManager(props: {
                 >
                   View original
                 </a>
-                {props.mode === "staff" ? (
+                {props.mode === "staff" && (document.latestExtractionStatus === "technical_failure" || ["processed", "needs_review"].includes(document.status)) ? (
                   <>
                     <button
                       className={styles.secondaryButton}
@@ -292,20 +291,16 @@ export function DocumentManager(props: {
                     >
                       {processingId === document.id
                         ? "Processing…"
-                        : document.status === "uploaded"
-                          ? document.latestExtractionStatus === "technical_failure" ? "Retry processing" : "Process"
-                          : "Reprocess"}
+                        : document.latestExtractionStatus === "technical_failure" ? "Retry processing" : "Reprocess"}
                     </button>
                     {props.canReviewExtraction && ["processed", "needs_review"].includes(document.status) ? (
                       <button className={styles.textButton} type="button" onClick={() => void openExtraction(document.id)}>
                         {extractionId === document.id ? "Close extraction" : "Review extraction"}
                       </button>
                     ) : null}
-                    <button className={styles.textButton} type="button" onClick={() => beginEdit(document)}>
-                      Edit details
-                    </button>
                   </>
                 ) : null}
+                {props.mode === "staff" ? <button className={styles.textButton} type="button" onClick={() => beginEdit(document)}>Edit details</button> : null}
               </div>
               {props.mode === "staff" && editingId === document.id ? (
                 <div className={styles.documentEditForm}>

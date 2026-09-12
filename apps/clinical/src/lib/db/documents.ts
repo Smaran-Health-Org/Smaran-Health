@@ -366,6 +366,12 @@ export async function beginDocumentProcessing(
   return beginDocumentProcessingWithClient(supabase, input);
 }
 
+export async function retryDocumentProcessing(documentId: string): Promise<void> {
+  const supabase = await createServerClient();
+  const { error } = await supabase.rpc("retry_document_processing_work", { p_document_id: documentId });
+  if (error) mapRpcError(error);
+}
+
 export async function getDoctorLatestDocumentExtraction(
   documentId: string
 ): Promise<DoctorDocumentExtraction | null> {

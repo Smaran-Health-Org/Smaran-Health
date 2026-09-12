@@ -50,6 +50,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 - Status: Complete
 - Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
 - Work completed:
+  - UAT pipeline remediation: accepted patient document registration now atomically creates durable, clinic-scoped processing work. A protected scheduled worker claims it idempotently, preserves immutable originals, persists provider/result failures as retryable technical-failure codes, then drains the existing reconciliation and brief-generation work. The staff control is recovery-only; normal patient uploads do not require a Process click. Doctor pre-consult UI distinguishes waiting intake, document processing, brief preparation, partial/ready, and retryable failure, with bounded refresh only while asynchronous work is active.
   - Added nullable DOB and conservative normalized phone/name matching signals while retaining raw identity values and legacy age.
   - Added non-destructive future-merge provenance fields. They are deliberately write-locked until Phase 2 supplies an authorized, audited merge transaction.
   - Added clinic-scoped appointments linked one-to-one to the existing consultation/Encounter implementation.
@@ -881,6 +882,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Made document authorization read-only. Staff and patient routes now create the private 60-second signed link first and only then record `document_viewed` with `signed_url_issued` provenance. A Storage signing failure can no longer produce a false-positive view audit.
   - Added `no-store` and `no-referrer` headers to the staff signed-document redirect, matching the patient route.
 - Acceptance criteria preserved/hardened:
+  - `AC-D01`, `AC-D04`–`AC-D06`, `AC-A01`–`AC-A06`, `AC-C01`–`AC-C07`, `AC-B01`, `AC-B04`–`AC-B06`, and `AC-E03` for the durable document-to-brief chain.
   - `AC-D01`, `AC-D02`, `AC-D07`, `AC-R04`, and the audit requirements in `PERMISSIONS.md`.
 - Files changed:
   - `src/lib/clinic-date.ts`

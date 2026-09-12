@@ -26,24 +26,31 @@ async function seed() {
   }
   console.log(`✓ Clinic: ${clinic.name} (${clinic.id})`);
 
-  // ── 2. Create doctors ─────────────────────────────────────────────────────
+  // ── 2. Create clinic staff ────────────────────────────────────────────────
 
-  const doctors = [
-    { email: "doctor1@pilot.test", password: "pilot123!", fullName: "Dr. Meera Patil" },
-    { email: "doctor2@pilot.test", password: "pilot123!", fullName: "Dr. Rajesh Kumar" },
+  const staff: Array<{
+    email: string;
+    password: string;
+    fullName: string;
+    role: "doctor" | "admin";
+  }> = [
+    { email: "doctor1@pilot.test", password: "pilot123!", fullName: "Dr. Meera Patil", role: "doctor" },
+    { email: "doctor2@pilot.test", password: "pilot123!", fullName: "Dr. Rajesh Kumar", role: "doctor" },
+    { email: "doctor@test.com", password: "test@123", fullName: "Test Doctor", role: "doctor" },
+    { email: "admin@test.com", password: "test@123", fullName: "Test Admin", role: "admin" },
   ];
 
-  for (const doc of doctors) {
+  for (const member of staff) {
     // Create auth user
     const { data: authUser, error: authErr } = await supabase.auth.admin.createUser({
-      email: doc.email,
-      password: doc.password,
+      email: member.email,
+      password: member.password,
       email_confirm: true,
-      user_metadata: { full_name: doc.fullName },
+      user_metadata: { full_name: member.fullName },
     });
 
     if (authErr) {
-      console.error(`Failed to create auth user ${doc.email}:`, authErr.message);
+      console.error(`Failed to create auth user ${member.email}:`, authErr.message);
       continue;
     }
 
@@ -52,11 +59,11 @@ async function seed() {
     // Update profile to use our clinic
     const { error: profileErr } = await supabase
       .from("profiles")
-      .update({ clinic_id: clinic.id })
+      .update({ clinic_id: clinic.id, role: member.role })
       .eq("id", authUser.user.id);
 
     if (profileErr) {
-      console.error(`Failed to update profile for ${doc.email}:`, profileErr.message);
+      console.error(`Failed to update profile for ${member.email}:`, profileErr.message);
     }
 
     // Update membership too
@@ -65,10 +72,10 @@ async function seed() {
       .upsert({ clinic_id: clinic.id, profile_id: authUser.user.id });
 
     if (memErr) {
-      console.error(`Failed to update membership for ${doc.email}:`, memErr.message);
+      console.error(`Failed to update membership for ${member.email}:`, memErr.message);
     }
 
-    console.log(`✓ Doctor: ${doc.fullName} (${doc.email} / ${doc.password})`);
+    console.log(`✓ ${member.role === "admin" ? "Admin" : "Doctor"}: ${member.fullName} (${member.email} / ${member.password})`);
   }
 
   // ── 3. Create patients ────────────────────────────────────────────────────
@@ -184,6 +191,8 @@ async function seed() {
   console.log("\n📋 Login credentials:");
   console.log("   doctor1@pilot.test / pilot123!");
   console.log("   doctor2@pilot.test / pilot123!");
+  console.log("   doctor@test.com / test@123");
+  console.log("   admin@test.com / test@123 (admin only)");
   console.log("\n   Run: npm run dev  →  http://localhost:3000\n");
 }
 

@@ -6,8 +6,11 @@ import type { Patient } from "@/types";
 import type { ClinicDoctor } from "@/lib/db/clinics";
 import styles from "@/components/clinical.module.css";
 
-type Candidate = Pick<Patient, "id" | "fullName" | "phone" | "dateOfBirth" | "age" | "gender">;
-type WalkInSuccess = { appointmentId: string; canSendIntakeLink: boolean };
+type Candidate = Pick<Patient, "id" | "fullName" | "phone" | "email" | "dateOfBirth" | "age" | "gender">;
+
+function hasValidEmail(email: string | null | undefined): boolean {
+  return Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+}
 
 export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors: ClinicDoctor[] }) {
   const router = useRouter();
@@ -24,9 +27,6 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
   const [distinctConfirmed, setDistinctConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<WalkInSuccess | null>(null);
-  const [sendingIntake, setSendingIntake] = useState(false);
-  const [intakeNotice, setIntakeNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const normalized = query.trim();
@@ -64,7 +64,7 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
     return next.key;
   }
 
-  async function addWalkIn(patientId: string) {
+  async function addWalkIn(patientId: string, sendIntake = false) {
     if (!doctorId) {
       setError("A clinic doctor is required before a walk-in can be added.");
       return;
@@ -77,50 +77,33 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ patientId, doctorId, idempotencyKey: `walk-in-${requestKey(patientId)}` }),
       });
-      const payload = await response.json().catch(() => null) as ({ error?: string } & Partial<WalkInSuccess>) | null;
+      const payload = await response.json().catch(() => null) as { error?: string; appointmentId?: string } | null;
       if (!response.ok) throw new Error(payload?.error || "Could not add this walk-in.");
-      setSuccess({ appointmentId: payload?.appointmentId ?? "", canSendIntakeLink: Boolean(payload?.canSendIntakeLink) });
+      if (sendIntake) {
+        const appointmentId = payload?.appointmentId;
+        if (!appointmentId) throw new Error("Could not send the intake link for this walk-in.");
+        const deliveryResponse = await fetch(`/api/appointments/${appointmentId}/intake`, { method: "POST" });
+        const delivery = await deliveryResponse.json().catch(() => null) as { error?: string } | null;
+        if (!deliveryResponse.ok) throw new Error(delivery?.error || "The walk-in was added, but the intake link could not be sent.");
+      }
+      router.push("/desk");
+      router.refresh();
     } catch (walkInError) {
       setError(walkInError instanceof Error ? walkInError.message : "Could not add this walk-in.");
       setBusy(false);
     }
   }
 
-  async function sendIntakeLink() {
-    if (!success?.appointmentId || !success.canSendIntakeLink) return;
-    setSendingIntake(true); setError(null); setIntakeNotice(null);
-    try {
-      const response = await fetch(`/api/appointments/${success.appointmentId}/intake`, { method: "POST" });
-      const payload = await response.json().catch(() => null) as { error?: string; deliveryStatus?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || "Could not send the intake link.");
-      setIntakeNotice(payload?.deliveryStatus === "preview" ? "Intake link is ready for preview." : "Intake link sent to the patient.");
-    } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : "Could not send the intake link.");
-    } finally { setSendingIntake(false); }
-  }
-
-  if (success) {
-    return <section className={styles.panel} aria-live="polite">
-      <div className={styles.walkInSuccess}>
-        <span aria-hidden="true">✓</span>
-        <div><p className={styles.eyebrow}>Checked in</p><h2>Walk-in added to Clinic Desk</h2><p>The patient is now waiting. You can send the optional intake link, or continue.</p></div>
-      </div>
-      {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
-      {intakeNotice ? <p className={styles.savedNotice}>{intakeNotice}</p> : null}
-      <div className={styles.walkInSuccessActions}>
-        <button className={styles.secondaryButton} disabled={!success.canSendIntakeLink || sendingIntake} onClick={() => void sendIntakeLink()}>
-          {sendingIntake ? "Sending…" : "Send intake link"}
-        </button>
-        <button className={styles.primaryButton} onClick={() => { router.push("/desk"); router.refresh(); }}>Continue to Clinic Desk</button>
-      </div>
-      {!success.canSendIntakeLink ? <p className={styles.panelHint}>An intake link cannot be sent because this patient does not have a valid email address.</p> : null}
-    </section>;
-  }
-
   async function createAndAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!fullName.trim() || phone.replace(/\D/g, "").length < 6) {
       setError("Enter the patient’s name and a valid phone number.");
+      return;
+    }
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const sendIntake = submitter?.dataset.sendIntake === "true";
+    if (sendIntake && !hasValidEmail(email)) {
+      setError("Add a valid email address to send the intake link.");
       return;
     }
     setBusy(true);
@@ -150,7 +133,7 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
       });
       const payload = await response.json().catch(() => null) as (Patient & { error?: string }) | null;
       if (!response.ok || !payload?.id) throw new Error(payload?.error || "Could not create the patient record.");
-      await addWalkIn(payload.id);
+      await addWalkIn(payload.id, sendIntake);
     } catch (creationError) {
       setError(creationError instanceof Error ? creationError.message : "Could not add the patient.");
       setBusy(false);
@@ -170,7 +153,7 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
         {query.trim() && searching ? <p className={styles.panelHint}>Searching clinic patients…</p> : null}
         {query.trim() && searchError ? <div className={styles.errorBanner} role="alert">{searchError}</div> : null}
         <ul className={styles.walkInPatientList}>
-          {(query.trim() ? searchResults : patients.slice(0, 12)).map((patient) => <li key={patient.id}><div><strong>{patient.fullName}</strong><span>{patient.phone ?? "Phone not recorded"}</span></div><button className={styles.primaryButton} disabled={busy} onClick={() => void addWalkIn(patient.id)}>Use existing patient</button></li>)}
+          {(query.trim() ? searchResults : patients.slice(0, 12)).map((patient) => <li key={patient.id}><div><strong>{patient.fullName}</strong><span>{patient.phone ?? "Phone not recorded"}</span></div><button className={styles.secondaryButton} disabled={busy} onClick={() => void addWalkIn(patient.id)}>Add as walk-in</button></li>)}
         </ul>
         {!searching && query.trim() && searchResults.length === 0 ? <p className={styles.panelHint}>No matching clinic patient found.</p> : null}
       </section>
@@ -185,11 +168,15 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
             <div className={styles.duplicateReview} role="alert">
               <strong>Possible existing patient</strong>
               <p>Use the matching record, or confirm this is a different person.</p>
-              <ul>{candidates.map((candidate) => <li key={candidate.id}><div><strong>{candidate.fullName}</strong><span>{candidate.phone}</span></div><button type="button" className={styles.secondaryButton} onClick={() => void addWalkIn(candidate.id)}>Use existing patient</button></li>)}</ul>
+              <ul>{candidates.map((candidate) => <li key={candidate.id}><div><strong>{candidate.fullName}</strong><span>{candidate.phone}</span></div><button type="button" className={styles.secondaryButton} onClick={() => void addWalkIn(candidate.id)}>Add as walk-in</button></li>)}</ul>
               <button type="button" className={styles.secondaryButton} onClick={() => setDistinctConfirmed(true)}>Different patient</button>
             </div>
           ) : null}
-          <button className={styles.primaryButton} disabled={busy || (candidates.length > 0 && !distinctConfirmed)}>{busy ? "Adding…" : "Add as walk-in"}</button>
+          <div className={styles.walkInActions}>
+            <button className={styles.secondaryButton} type="submit" disabled={busy || (candidates.length > 0 && !distinctConfirmed)}>{busy ? "Adding…" : "Add as walk-in"}</button>
+            <button className={styles.primaryButton} type="submit" data-send-intake="true" disabled={busy || !hasValidEmail(email) || (candidates.length > 0 && !distinctConfirmed)}>{busy ? "Adding…" : "Add + send link"}</button>
+          </div>
+          {!hasValidEmail(email) ? <p className={styles.panelHint}>Add a valid email address to send an intake link.</p> : null}
         </form>
       </section>
     </div>

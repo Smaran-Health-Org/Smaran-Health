@@ -27,6 +27,15 @@ export class DocumentProcessingError extends Error {
   }
 }
 
+export type ClaimedDocumentProcessing = {
+  work_id: string;
+  extraction_id: string;
+  document_id: string;
+  storage_path: string;
+  mime_type: string;
+  attempt_number: number;
+};
+
 async function recordFailure(extractionId: string, code: DocumentProcessingFailureCode) {
   const service = createServiceRoleClient();
   await service.rpc("fail_document_processing", {
@@ -112,4 +121,40 @@ export async function processMedicalDocument(
   // The Phase 8 trigger persists one reconciliation-work row per source item
   // inside complete_document_processing's committed source transaction.
   return result;
+}
+
+/** Complete an extraction already claimed by the durable service worker. */
+export async function processClaimedMedicalDocument(
+  claim: ClaimedDocumentProcessing,
+  adapter: DocumentProcessingAdapter
+): Promise<void> {
+  let bytes: Uint8Array;
+  try { bytes = await downloadDocumentOriginal(claim.storage_path); }
+  catch { await recordFailure(claim.extraction_id, "source_unavailable").catch(() => undefined); throw new DocumentProcessingError("source_unavailable"); }
+  let actualMime: ReturnType<typeof validateDocumentBytes>;
+  try {
+    actualMime = validateDocumentBytes(bytes);
+    if (actualMime !== claim.mime_type) throw new DocumentFileError("type");
+  } catch (error) {
+    const code = error instanceof DocumentFileError ? "unsupported_source" : "source_unavailable";
+    await recordFailure(claim.extraction_id, code).catch(() => undefined);
+    throw new DocumentProcessingError(code);
+  }
+  let evaluated: ReturnType<typeof evaluateDocumentExtraction>;
+  try { evaluated = evaluateDocumentExtraction(await adapter.process({ bytes, mimeType: actualMime })); }
+  catch (error) {
+    const code = providerFailureCode(error);
+    await recordFailure(claim.extraction_id, code).catch(() => undefined);
+    throw new DocumentProcessingError(code);
+  }
+  const service = createServiceRoleClient();
+  const reasons = Array.from(new Set(evaluated.needsReviewReasons.map((reason) => reason === "evidence_mismatch" ? "uncertain_content" : reason)));
+  const { error } = await service.rpc("complete_document_processing", {
+    p_extraction_id: claim.extraction_id, p_status: evaluated.status,
+    p_raw_extraction_json: evaluated.payload, p_classification_type: evaluated.documentType,
+    p_classification_confidence: evaluated.classificationConfidence, p_overall_confidence: evaluated.overallConfidence,
+    p_needs_review_reasons: reasons, p_document_identity_hash: evaluated.documentIdentityHash,
+    p_normalized_observations: evaluated.normalizedObservations,
+  });
+  if (error) { await recordFailure(claim.extraction_id, "processing_interrupted").catch(() => undefined); throw new DocumentProcessingError("processing_interrupted"); }
 }
