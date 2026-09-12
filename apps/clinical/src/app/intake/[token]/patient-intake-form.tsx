@@ -143,6 +143,9 @@ export function PatientIntakeForm({ token }: { token: string }) {
               <h1>Help your doctor prepare</h1>
               <p>{appointmentLabel(context.scheduledAt)} · mobile {context.maskedPhone}</p>
               <div className={styles.intakeNonBlocking}>Optional details can help, but this form never blocks your consultation.</div>
+              <ol className={styles.intakeProgress} aria-label="Intake progress">
+                <li>Details</li><li>Visit</li><li>Optional health details</li><li>Documents</li><li>Review</li>
+              </ol>
             </header>
 
             <fieldset className={styles.intakeFieldset}>
@@ -192,6 +195,12 @@ export function PatientIntakeForm({ token }: { token: string }) {
               </label>
             </fieldset>
 
+            <fieldset className={styles.intakeFieldset}>
+              <legend>Documents <small>Optional</small></legend>
+              <p>Add reports, prescriptions, or photos now if you have them. You can continue without documents.</p>
+              <DocumentManager mode="patient" token={token} />
+            </fieldset>
+
             <label className={styles.intakeConsent}>
               <input
                 type="checkbox"
@@ -207,7 +216,7 @@ export function PatientIntakeForm({ token }: { token: string }) {
 
             {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
             <button className={styles.intakePrimaryButton} type="submit" disabled={pending || !consentAccepted || !reason.trim()}>
-              {pending ? "Submitting securely…" : "Submit intake"}
+              {pending ? "Submitting securely…" : "Submit details"}
             </button>
             <p className={styles.intakePrivacyNote}>Your optional medical details are shared as unconfirmed patient-reported information. Your doctor remains in control.</p>
           </form>
@@ -222,7 +231,6 @@ export function PatientIntakeForm({ token }: { token: string }) {
               <p>Your intake has been shared with the clinic for this appointment.</p>
               <div className={styles.intakeNonBlocking}>Documents are optional and never block your consultation.</div>
             </div>
-            <DocumentManager mode="patient" token={token} />
           </div>
         ) : null}
       </section>

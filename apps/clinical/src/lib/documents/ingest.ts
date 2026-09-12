@@ -35,6 +35,7 @@ export async function parseDocumentUpload(request: Request): Promise<{
   documentType: RegisterDocumentInput["documentType"];
   documentDate?: string;
   documentDatePrecision: RegisterDocumentInput["documentDatePrecision"];
+  documentStorageConsentAccepted: boolean;
 }> {
   let body: Uint8Array;
   try {
@@ -84,6 +85,7 @@ export async function parseDocumentUpload(request: Request): Promise<{
     documentType: metadata.data.documentType,
     documentDate: metadata.data.documentDate,
     documentDatePrecision: metadata.data.documentDatePrecision ?? "unknown",
+    documentStorageConsentAccepted: formString(formData, "documentStorageConsentAccepted") === "true",
   };
 }
 

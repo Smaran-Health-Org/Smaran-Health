@@ -7,6 +7,7 @@ import type { ClinicDoctor } from "@/lib/db/clinics";
 import styles from "@/components/clinical.module.css";
 
 type Candidate = Pick<Patient, "id" | "fullName" | "phone" | "dateOfBirth" | "age" | "gender">;
+type WalkInSuccess = { appointmentId: string; canSendIntakeLink: boolean };
 
 export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors: ClinicDoctor[] }) {
   const router = useRouter();
@@ -23,6 +24,9 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
   const [distinctConfirmed, setDistinctConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<WalkInSuccess | null>(null);
+  const [sendingIntake, setSendingIntake] = useState(false);
+  const [intakeNotice, setIntakeNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const normalized = query.trim();
@@ -73,14 +77,44 @@ export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ patientId, doctorId, idempotencyKey: `walk-in-${requestKey(patientId)}` }),
       });
-      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      const payload = await response.json().catch(() => null) as ({ error?: string } & Partial<WalkInSuccess>) | null;
       if (!response.ok) throw new Error(payload?.error || "Could not add this walk-in.");
-      router.push("/desk");
-      router.refresh();
+      setSuccess({ appointmentId: payload?.appointmentId ?? "", canSendIntakeLink: Boolean(payload?.canSendIntakeLink) });
     } catch (walkInError) {
       setError(walkInError instanceof Error ? walkInError.message : "Could not add this walk-in.");
       setBusy(false);
     }
+  }
+
+  async function sendIntakeLink() {
+    if (!success?.appointmentId || !success.canSendIntakeLink) return;
+    setSendingIntake(true); setError(null); setIntakeNotice(null);
+    try {
+      const response = await fetch(`/api/appointments/${success.appointmentId}/intake`, { method: "POST" });
+      const payload = await response.json().catch(() => null) as { error?: string; deliveryStatus?: string } | null;
+      if (!response.ok) throw new Error(payload?.error || "Could not send the intake link.");
+      setIntakeNotice(payload?.deliveryStatus === "preview" ? "Intake link is ready for preview." : "Intake link sent to the patient.");
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : "Could not send the intake link.");
+    } finally { setSendingIntake(false); }
+  }
+
+  if (success) {
+    return <section className={styles.panel} aria-live="polite">
+      <div className={styles.walkInSuccess}>
+        <span aria-hidden="true">✓</span>
+        <div><p className={styles.eyebrow}>Checked in</p><h2>Walk-in added to Clinic Desk</h2><p>The patient is now waiting. You can send the optional intake link, or continue.</p></div>
+      </div>
+      {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
+      {intakeNotice ? <p className={styles.savedNotice}>{intakeNotice}</p> : null}
+      <div className={styles.walkInSuccessActions}>
+        <button className={styles.secondaryButton} disabled={!success.canSendIntakeLink || sendingIntake} onClick={() => void sendIntakeLink()}>
+          {sendingIntake ? "Sending…" : "Send intake link"}
+        </button>
+        <button className={styles.primaryButton} onClick={() => { router.push("/desk"); router.refresh(); }}>Continue to Clinic Desk</button>
+      </div>
+      {!success.canSendIntakeLink ? <p className={styles.panelHint}>An intake link cannot be sent because this patient does not have a valid email address.</p> : null}
+    </section>;
   }
 
   async function createAndAdd(event: FormEvent<HTMLFormElement>) {

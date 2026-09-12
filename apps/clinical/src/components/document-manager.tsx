@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   DoctorDocumentExtraction,
   DocumentListItem,
@@ -55,6 +55,7 @@ export function DocumentManager(props: {
   const [documentType, setDocumentType] = useState<MedicalDocumentType>("other");
   const [documentDate, setDocumentDate] = useState("");
   const [dateApproximate, setDateApproximate] = useState(false);
+  const [documentStorageConsentAccepted, setDocumentStorageConsentAccepted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +66,7 @@ export function DocumentManager(props: {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [extractionId, setExtractionId] = useState<string | null>(null);
   const [extraction, setExtraction] = useState<DoctorDocumentExtraction | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -119,15 +121,18 @@ export function DocumentManager(props: {
     }
   }
 
-  async function uploadDocument(event: FormEvent) {
-    event.preventDefault();
+  async function uploadDocument() {
     if (!file) return;
-    const fileInput = event.currentTarget.querySelector<HTMLInputElement>('input[type="file"]');
+    if (props.mode === "patient" && !documentStorageConsentAccepted) {
+      setError("Please agree to secure document storage before uploading.");
+      return;
+    }
     setError(null);
     setPending(true);
     const formData = new FormData();
     formData.set("file", file);
     formData.set("registrationCommandId", documentCommandId ?? crypto.randomUUID());
+    if (props.mode === "patient") formData.set("documentStorageConsentAccepted", "true");
     formData.set("documentType", documentType);
     if (documentDate) {
       formData.set("documentDate", documentDate);
@@ -143,7 +148,7 @@ export function DocumentManager(props: {
       setDocumentType("other");
       setDocumentDate("");
       setDateApproximate(false);
-      if (fileInput) fileInput.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Could not upload the document.");
     } finally {
@@ -196,11 +201,12 @@ export function DocumentManager(props: {
         <span className={styles.documentCount}>{documents.length}</span>
       </div>
 
-      <form className={styles.documentUploadForm} onSubmit={uploadDocument}>
+      <div className={styles.documentUploadForm}>
         <label className={styles.intakeField}>
           <span>Choose PDF or photo</span>
           <input
             type="file"
+            ref={fileInputRef}
             accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
             onChange={(event) => {
               const nextFile = event.target.files?.[0] ?? null;
@@ -229,10 +235,17 @@ export function DocumentManager(props: {
             This date is approximate
           </label>
         ) : null}
-        <button className={styles.secondaryButton} type="submit" disabled={pending || !file}>
+        {props.mode === "patient" ? (
+          <label className={styles.documentConsent}>
+            <input type="checkbox" checked={documentStorageConsentAccepted} onChange={(event) => setDocumentStorageConsentAccepted(event.target.checked)} />
+            <span>I agree that this document can be securely stored for this appointment.</span>
+          </label>
+        ) : null}
+        {file ? <button className={styles.textButton} type="button" onClick={() => { setFile(null); setDocumentCommandId(null); }}>Remove selected file</button> : null}
+        <button className={styles.secondaryButton} type="button" onClick={() => void uploadDocument()} disabled={pending || !file || (props.mode === "patient" && !documentStorageConsentAccepted)}>
           {pending ? "Uploading securely…" : "Upload document"}
         </button>
-      </form>
+      </div>
 
       {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
       {loading ? <p className={styles.documentEmpty}>Loading documents…</p> : null}

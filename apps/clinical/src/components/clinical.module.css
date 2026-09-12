@@ -928,6 +928,8 @@
 .intakeHeader h1 { margin: 0; font-size: clamp(1.4rem, 5vw, 2rem); letter-spacing: -0.025em; }
 .intakeHeader > p:not(.eyebrow) { margin: 0; color: #687771; font-size: 0.78rem; line-height: 1.55; }
 .intakeNonBlocking { border: 1px solid #d4e9df; border-radius: 11px; background: #f0f8f4; padding: 0.72rem 0.8rem; color: #356555; font-size: 0.72rem; font-weight: 700; line-height: 1.5; }
+.intakeProgress { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+.intakeProgress li { border-radius: 999px; background: #eef5f1; padding: 0.32rem 0.55rem; color: #527166; font-size: 0.61rem; font-weight: 750; }
 .intakeFieldset { display: grid; gap: 0.85rem; min-width: 0; margin: 0; border: 1px solid #e1e8e4; border-radius: 15px; padding: 1rem; }
 .intakeFieldset legend { padding: 0 0.35rem; color: #29473e; font-size: 0.86rem; font-weight: 850; }
 .intakeFieldset > p { margin: -0.2rem 0 0; color: #74817c; font-size: 0.7rem; line-height: 1.5; }
@@ -964,6 +966,8 @@
 .documentMetadataGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
 .documentApproximate { display: inline-flex; align-items: center; gap: 0.45rem; color: #5f716b; font-size: 0.67rem; font-weight: 700; }
 .documentApproximate input { accent-color: var(--green); }
+.documentConsent { display: grid; grid-template-columns: 18px 1fr; gap: 0.55rem; align-items: start; color: #4b6259; font-size: 0.68rem; line-height: 1.45; }
+.documentConsent input { width: 16px; height: 16px; margin-top: 1px; accent-color: var(--green); }
 .documentUploadForm > .secondaryButton { justify-self: start; }
 .documentEmpty { margin: 0; color: #7c8984; font-size: 0.68rem; }
 .documentList { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
@@ -1400,6 +1404,11 @@
 .walkInPatientList strong { font-size: 0.76rem; }
 .walkInPatientList span { color: #78837f; font-size: 0.65rem; }
 .walkInForm { display: grid; gap: 0.8rem; }
+.walkInSuccess { display: flex; align-items: flex-start; gap: 0.8rem; }
+.walkInSuccess > span { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #e4f4ec; color: var(--green); font-weight: 900; }
+.walkInSuccess h2, .walkInSuccess p { margin: 0; }
+.walkInSuccess p:not(.eyebrow) { margin-top: 0.3rem; color: #687872; font-size: 0.72rem; line-height: 1.45; }
+.walkInSuccessActions { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-top: 1rem; }
 
 @media (max-width: 900px) {
   .doctorKpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
