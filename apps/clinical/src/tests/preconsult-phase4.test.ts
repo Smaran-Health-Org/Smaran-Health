@@ -16,7 +16,7 @@ import {
   NotificationDeliveryError,
 } from "../lib/notifications/intake-invitation";
 import { createIntakeCredentials, hashIntakeCredential, isPlausibleAccessToken } from "../lib/intake/security";
-import { createPatientSchema, submitPatientIntakeSchema, verifyPatientIntakeOtpSchema } from "../lib/validation";
+import { createPatientSchema, submitPatientIntakeSchema } from "../lib/validation";
 
 const appointmentId = "51000000-0000-4000-8000-000000000001";
 const accessSessionId = "61000000-0000-4000-8000-000000000001";
@@ -33,35 +33,22 @@ test("intake credentials use deterministic HMAC digests without retaining raw va
   assert.equal(isPlausibleAccessToken("short"), false);
 });
 
-test("non-production intake credentials use the MVP OTP regardless of delivery mode", () => {
+test("intake credentials make the high-entropy link the only MVP access credential", () => {
   const environment = process.env as Record<string, string | undefined>;
-  const previousNodeEnv = process.env.NODE_ENV;
-  const previousDeliveryMode = process.env.INTAKE_DELIVERY_MODE;
   const previousPepper = process.env.INTAKE_CREDENTIAL_PEPPER;
   try {
-    environment.NODE_ENV = "development";
-    environment.INTAKE_DELIVERY_MODE = "preview";
     environment.INTAKE_CREDENTIAL_PEPPER = "phase-four-test-pepper-that-is-at-least-32-characters";
-    assert.equal(createIntakeCredentials(new Date("2026-09-12T00:00:00.000Z")).otp, "123456");
-
-    environment.INTAKE_DELIVERY_MODE = "live";
-    assert.equal(createIntakeCredentials(new Date("2026-09-12T00:00:00.000Z")).otp, "123456");
-
-    environment.NODE_ENV = "production";
-    assert.match(createIntakeCredentials(new Date("2026-09-12T00:00:00.000Z")).otp, /^\d{6}$/);
+    const credentials = createIntakeCredentials(new Date("2026-09-12T00:00:00.000Z"));
+    assert.match(credentials.accessToken, /^[A-Za-z0-9_-]{40,60}$/);
+    assert.equal(credentials.otpHash, credentials.tokenHash);
+    assert.equal(credentials.expiresAt, "2026-09-13T00:00:00.000Z");
   } finally {
-    if (previousNodeEnv === undefined) delete environment.NODE_ENV;
-    else environment.NODE_ENV = previousNodeEnv;
-    if (previousDeliveryMode === undefined) delete environment.INTAKE_DELIVERY_MODE;
-    else environment.INTAKE_DELIVERY_MODE = previousDeliveryMode;
     if (previousPepper === undefined) delete environment.INTAKE_CREDENTIAL_PEPPER;
     else environment.INTAKE_CREDENTIAL_PEPPER = previousPepper;
   }
 });
 
-test("patient intake validation requires OTP, consent, verbatim reason, and bounded optional lists", () => {
-  assert.equal(verifyPatientIntakeOtpSchema.safeParse({ otp: "123456" }).success, true);
-  assert.equal(verifyPatientIntakeOtpSchema.safeParse({ otp: "12345a" }).success, false);
+test("patient intake validation requires consent, verbatim reason, and bounded optional lists", () => {
 
   const valid = submitPatientIntakeSchema.safeParse({
     consentAccepted: true,

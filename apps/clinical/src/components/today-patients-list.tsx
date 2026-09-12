@@ -93,7 +93,6 @@ export function TodayPatientsList({
   const [intakePreview, setIntakePreview] = useState<{
     patientName: string;
     intakeUrl: string;
-    otp: string;
   } | null>(null);
   const [intakeNotice, setIntakeNotice] = useState<string | null>(null);
   const filteredItems = useMemo(() => {
@@ -141,7 +140,7 @@ export function TodayPatientsList({
         deliveryStatus?: "sent" | "preview" | "pending";
         recipient?: string;
         message?: string;
-        preview?: { intakeUrl: string; otp: string };
+        preview?: { intakeUrl: string };
       } | null;
       if (!response.ok) throw new Error(body?.error || "Could not send the intake link. Please try again.");
       if (body?.deliveryStatus === "preview" && body.preview) {
@@ -194,7 +193,6 @@ export function TodayPatientsList({
             <span>Live delivery sends the link to the configured patient email. This preview is development-only.</span>
           </div>
           <label>Secure link<input readOnly value={intakePreview.intakeUrl} /></label>
-          <label>OTP<input readOnly value={intakePreview.otp} /></label>
           <button type="button" className={styles.secondaryButton} onClick={() => setIntakePreview(null)}>Close</button>
         </div>
       ) : null}

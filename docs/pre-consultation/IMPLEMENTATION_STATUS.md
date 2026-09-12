@@ -15,7 +15,7 @@ Baseline commit reviewed: `bbf2a07`
 | 1 | Patient identity + appointment/Encounter foundation | Complete | AC-P01, AC-P03, AC-P04, AC-E01, AC-E02 | Clinic-scoped identity foundation, appointments, atomic Encounter creation, separate operational state, RLS, APIs, and tests implemented. |
 | 2 | Lightweight registration + duplicate patient protection | Complete | AC-P01–P05 | Staged identity-first registration, duplicate warning/override, and audited non-destructive merge implemented. |
 | 3 | Admin Today/Queue | Complete | AC-R01–R02, AC-E03 | Appointment-driven queue with atomic, role-aware transitions and no doctor-only clinical interpretation. |
-| 4 | OTP patient intake + consent | Complete | AC-I01–I07, AC-R01, AC-R04 | Manual intake-link send/resend is available; AC-I06 prohibits automatic time-based intake reminders in Pre-Consultation MVP. |
+| 4 | Secure-link patient intake + consent | Complete | AC-I01–I07, AC-R01, AC-R04 | Manual intake-link send/resend is available; the link is the sole patient access credential and AC-I06 prohibits automatic time-based intake reminders in Pre-Consultation MVP. |
 | 5 | Document ingestion foundation | Complete | AC-D01–D02, D07 | Exact-hash duplicate flag foundation included; extraction and Needs Review remain Phase 6. |
 | 6 | Document processing + Needs Review | Complete | AC-D04–D06, AC-A01; AC-D03 detection | Structured trend exclusion remains Phase 7. |
 | 6.5 | Role workspaces, dashboards, and Clinic Desk automation | Complete | AC-W01–W19; AC-I08–I09; AC-A06 | Workspace boundary, role landings, dashboards, Clinic Desk, Priority, queue/walk-ins, and assisted intake with immutable additive provenance implemented. |

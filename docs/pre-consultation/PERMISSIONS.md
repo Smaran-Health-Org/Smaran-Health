@@ -30,7 +30,7 @@ Must not access doctor-only Clinical Workspace routes by typing a URL or followi
 
 ### Patient intake user
 
-May access only the OTP-scoped patient intake context intended for them. Patient intake is not a staff workspace.
+May access only the secure-link-scoped patient intake context intended for them. Patient intake is not a staff workspace.
 
 ## 3. Doctor permissions
 
@@ -113,7 +113,7 @@ After a patient statement is submitted, reception may add a correction/clarifica
 
 ## 7. Patient intake user
 
-Patient via secure OTP session may only access the specific intake/encounter intended for them and may:
+Patient via secure intake link may only access the specific intake/encounter intended for them and may:
 
 - Provide consent.
 - View/correct permitted demographics.

@@ -86,7 +86,7 @@ export async function POST(
       expiresAt: issued.expiresAt,
       recipient: maskEmail(recipient),
       ...(delivery.status === "preview"
-        ? { preview: { intakeUrl: url, otp: credentials.otp } }
+        ? { preview: { intakeUrl: url } }
         : {}),
     }, { status: 201 });
   } catch (error) {
