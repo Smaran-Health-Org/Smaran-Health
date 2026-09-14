@@ -4,7 +4,7 @@ These decisions are approved from the Scheduler refinement. Do not silently reve
 
 ## Roles and booking
 
-- **S-D001** Doctor and authorized admin/reception staff can create, reschedule and cancel appointments.
+- **S-D001** Doctor and authorized Admin/Receptionist (`admin`) can create, reschedule and cancel appointments. In the current repository, the Scheduler operational role is existing `admin`; product wording `Admin/Receptionist` refers to that same role. Do not add a new `reception` profile enum, and do not grant Scheduler permissions to the existing `assistant` role from this contract.
 - **S-D002** Staff booking flow is intentionally simple: Patient → Doctor → Date → Time. Smaran creates/associates the Encounter automatically.
 - **S-D003** Staff identifies/creates the patient first, then assigns scheduling details.
 - **S-D004** New-patient creation may remain inside the booking modal and must reuse duplicate-patient protection.
@@ -14,7 +14,7 @@ These decisions are approved from the Scheduler refinement. Do not silently reve
 
 - **S-D006** Each doctor has a recurring weekly working schedule with multiple sessions per day supported.
 - **S-D007** The recurring weekly pattern continues until explicitly changed.
-- **S-D008** Doctor and authorized admin/reception can create, edit and delete working schedules and availability exceptions.
+- **S-D008** Doctor and authorized Admin/Receptionist (`admin`) can create, edit and delete working schedules and availability exceptions, subject to server-side role authorization. Product Admin/Receptionist maps to repository `admin`; the existing `assistant` role is not granted Scheduler access by this contract.
 - **S-D009** Exceptions include leave, blocked time and special working availability/day.
 - **S-D010** Exception reason/note is staff-visible; patients only see Unavailable.
 - **S-D011** If a schedule/exception change affects existing appointments, Smaran shows the number affected before save.
@@ -27,7 +27,7 @@ These decisions are approved from the Scheduler refinement. Do not silently reve
 - **S-D015** Staff may choose any start minute regardless of the configured interval.
 - **S-D016** Staff may override duration for a specific appointment.
 - **S-D017** Patients cannot manually choose arbitrary duration.
-- **S-D018** Appointment type is lightweight/optional in MVP; doctor may configure labels such as New Consultation and Follow-up with default durations.
+- **S-D018** Appointment type is lightweight/optional and doctor-scoped in MVP; a doctor may configure labels such as New Consultation and Follow-up with default durations.
 
 ## Conflicts and overrides
 
@@ -69,9 +69,9 @@ These decisions are approved from the Scheduler refinement. Do not silently reve
 
 ## Patient self-booking and portal
 
-- **S-D048** Patient self-booking is clinic-configurable On/Off.
+- **S-D048** Patient self-booking is clinic-configurable On/Off and defaults **Off** until explicitly enabled by the clinic.
 - **S-D049** Patient self-booking flow is OTP → Doctor → Date → clean available times → Confirm → Appointment + Encounter created.
-- **S-D050** Patient-facing start times follow the doctor's configured scheduling interval.
+- **S-D050** Patient-facing start times follow the doctor's effective scheduling interval.
 - **S-D051** Staff remains free to book arbitrary minute starts.
 - **S-D052** Patient self-booking window is 30 days ahead for MVP.
 - **S-D053** Patient minimum booking notice is 0 minutes for MVP.
@@ -100,3 +100,19 @@ These decisions are approved from the Scheduler refinement. Do not silently reve
 - **S-D070** Scheduler MVP patient communication is explicit/manual. Send Patient Link and optional manual Notify Patient actions may be exposed, but automated reschedule/cancellation/reminder messaging is deferred.
 - **S-D071** Appointment-linked reminder automation, including an incomplete-intake reminder such as a 30-minute-before-appointment reminder, belongs to Scheduler communications but is deferred until after Scheduler MVP. Pre-consultation does not own or implement this automation.
 - **S-D072** Billing/payments, external calendar sync, Month view, recurring series, token system, predictive waits, automated bulk rescheduling and advanced service catalogs are out of scope.
+
+## S0 refinement closure — defaults, inheritance and legacy data
+
+- **S-D073** Clinic scheduler settings own the MVP defaults: scheduling interval **5 minutes** and default appointment duration **5 minutes**.
+- **S-D074** A doctor may override scheduling interval and default duration. A nullable doctor override means inherit the clinic value; settings are resolved server-side.
+- **S-D075** Valid appointment duration is **5–60 minutes inclusive**. Duration does not need to be a multiple of five.
+- **S-D076** `appointments.duration_minutes` is the resolved duration for that booked visit. Resolution order is: explicit appointment override → selected appointment-type default → doctor default override → clinic default. Once stored, later setting/type changes do not rewrite the appointment duration.
+- **S-D077** Historical appointments must not receive an invented duration during migration. Completed, cancelled and no-show legacy appointments may remain duration-unknown. A future active legacy appointment with unknown duration must create an open scheduling-attention issue and require explicit staff remediation.
+- **S-D078** Patient-facing clean availability must fail conservatively around unresolved future active appointments whose duration is unknown rather than silently assuming a duration.
+- **S-D079** Appointment types are doctor-scoped. Types referenced by appointment history are deactivated/inactivated rather than hard-deleted.
+- **S-D080** On doctor reassignment, preserve the appointment's resolved `duration_minutes`; clear the doctor-scoped `appointment_type_id` unless staff deliberately selects a valid type for the target doctor. Preserve history of the change.
+- **S-D081** Recurring working sessions for the same doctor/day must not overlap. Multiple non-overlapping sessions remain supported.
+- **S-D082** Recurring weekly working hours are local wall-clock weekday/time rules; concrete leave/block/special-working exceptions are dated intervals. Exception reasons remain staff-only.
+- **S-D083** Scheduling-attention is a first-class issue/history model rather than a mutable boolean on Appointment. Resolving an issue must preserve its history.
+- **S-D084** Appointment scheduling events and internal audit logs are distinct: appointment events support safe scheduling history; raw audit metadata and override rationale remain internal.
+- **S-D085** Do not add a hard database overlap constraint that would make approved staff overlaps impossible. Normal race/conflict prevention and deliberate override authorization belong to the authoritative scheduling transaction in later phases.
