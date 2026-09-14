@@ -159,8 +159,8 @@ and [repository permissions](https://docs.github.com/en/rest/collaborators/colla
 4. Run `approve-refinement` with only Work Item ID and canonical comment URL.
    Successful verification creates one local STATE-only commit, without pushing.
 
-The verifier requires candidate commit existence, remote feature branch and open
-same-repository PR head equal to that candidate, correct PR target/feature branch,
+Initial `verifyPendingRefinementCandidate` requires local HEAD, remote feature
+branch and open same-repository PR head to equal candidate C, correct PR target/feature branch,
 exact published pending STATE and Brief bytes, and matching recorded Brief hash.
 It verifies base/source commits, base→source→candidate ancestry, source→current
 trusted target ancestry, and source bytes at pinned commits. Sources must remain
@@ -179,11 +179,34 @@ Different evidence rejects. Removal of authorization/permissions, edited/deleted
 evidence, changed Brief, unavailable GitHub or invalidated history blocks future
 advancement. There is no force, offline or skip-verification override.
 
-V1 deliberately requires the recorded candidate to remain the published branch/PR
-head during verification, including a no-op. Moving/pushing the branch beyond that
-candidate invalidates this publication check. A later planning/publication design
-must explicitly define preservation/re-verification across newer PR heads; this
-task does not relax that check or implement planning.
+C is the immutable approved pending candidate (`approval.artifact_commit`). A is
+its direct approval-state child: only this Work Item's STATE changes, and its
+parsed contents must exactly equal the deterministic refinement approval transition
+from C. Publishing A advances the remote branch and PR head beyond C; evidence
+continues to bind C, never A.
+
+Recorded `verifyRefinementApproval` uses ancestry and frozen-input checks rather
+than candidate head equality. Supply a trusted local snapshot in the context. It
+checks C's exact pending STATE and Brief bytes locally and on GitHub, the recorded
+Brief hash and original evidence body, and the actual linear C→A→later STATE-only
+Git history. A must remain on that line. Each later STATE must be schema-valid,
+consistent, increase revision, and preserve Work Item identity, schema version,
+repository/source provenance, Brief metadata and the original refinement gate.
+Only the same Work Item STATE path may change; even a changed-then-restored Brief
+blocks advancement. This is an extensible preservation check, not authorization
+of future pipeline transitions or implementation of planning.
+
+Local A with remote/PR still at C is allowed: C and its evidence are published,
+and A is independently checked locally. Published A or a later valid STATE-only
+B also verifies. Remote and PR tips must descend from C on the inspected local
+line; if remote history is newer than local HEAD, synchronize the local branch
+before verification. No automatic fetch or push occurs in the command.
+Force-push/rebase severing C, unrelated retained C objects, changed approved Brief,
+or an invalid approval-state transition blocks advancement.
+
+V1 still requires the remote Work Item branch to exist and its associated PR to
+remain open with the correct repository/head branch/target relationship. Merged
+PRs and deleted branches are unsupported. No live approver is configured.
 
 ## Local Git transaction and safety
 

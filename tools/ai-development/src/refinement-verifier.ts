@@ -1,3 +1,5 @@
+import { approvalHistory, candidateFile, inspectCandidate, type CandidateSnapshot } from "./approval-git.js";
+import { approvedState } from "./approval-state.js";
 import { isDeepStrictEqual } from "node:util";
 import type { ValidateFunction } from "ajv";
 import type { Bootstrap } from "./bootstrap.js";
@@ -15,6 +17,7 @@ export interface TrustedContext {
   // Validators supplied by reviewed launcher code, never candidate STATE/schema.
   configValidator: ValidateFunction<PipelineConfig>;
   stateValidator: ValidateFunction<WorkItemState>;
+  local?: CandidateSnapshot;
   candidate: string;
   candidateStateBytes: Buffer;
   briefBytes: Buffer;
@@ -42,7 +45,13 @@ async function ancestor(github: GitHubTransport, base: string, head: string): Pr
 /** Fresh read-only verification. Records are never authentication. No caller boolean
  * or candidate policy grants authority. Both failure categories block advancement.
  */
-export async function verifyRefinementApproval(state: WorkItemState, ctx: TrustedContext): Promise<VerificationResult> {
+export function verifyPendingRefinementCandidate(state: WorkItemState, ctx: TrustedContext): Promise<VerificationResult> {
+  return verifyEvidence(state, ctx, "pending");
+}
+export function verifyRefinementApproval(state: WorkItemState, ctx: TrustedContext): Promise<VerificationResult> {
+  return verifyEvidence(state, ctx, "recorded");
+}
+async function verifyEvidence(state: WorkItemState, ctx: TrustedContext, mode: "pending" | "recorded"): Promise<VerificationResult> {
   try {
     requireCondition(ctx.stateValidator(state) && !stateConsistencyIssues(state).length, "STATE_INVALID");
     const { repository, targetBranch } = ctx.bootstrap;
@@ -52,6 +61,7 @@ export async function verifyRefinementApproval(state: WorkItemState, ctx: Truste
     const recorded = state.gates.refinement.approval;
     requireCondition(!recorded || (recorded.evidence.kind === "github_comment" && recorded.evidence.url === location.url
       && recorded.artifact_commit === ctx.candidate), "DIFFERENT_EVIDENCE");
+    requireCondition(mode === "pending" ? !recorded && state.state === "refinement_pending" : !!recorded, "VERIFIER_MODE_INVALID");
     // Resolve target once, then fetch policy bytes at this immutable commit.
     const repo = object(await ctx.github.repository());
     requireCondition(repo.full_name === repository, "REPOSITORY_MISMATCH");
@@ -95,15 +105,50 @@ export async function verifyRefinementApproval(state: WorkItemState, ctx: Truste
     exactCommit(await ctx.github.commit(base), base);
     exactCommit(await ctx.github.commit(source), source);
     const remote = object(await ctx.github.branch(branch));
-    requireCondition(remote.name === branch && object(remote.commit).sha === ctx.candidate, "REMOTE_BRANCH_MISMATCH");
+    requireCondition(remote.name === branch && (mode === "recorded" || object(remote.commit).sha === ctx.candidate), "REMOTE_BRANCH_MISMATCH");
     const pr = object(await ctx.github.pull(location.pr));
     const prBase = object(pr.base); const prHead = object(pr.head);
     requireCondition(stableId(pr.number) === location.pr && pr.state === "open"
       && pr.html_url === `https://github.com/${repository}/pull/${location.pr}`
       && object(prBase.repo).full_name === repository && object(prHead.repo).full_name === repository
-      && prBase.ref === targetBranch && prHead.ref === branch && prHead.sha === ctx.candidate, "PR_MISMATCH");
+      && prBase.ref === targetBranch && prHead.ref === branch && (mode === "recorded" || prHead.sha === ctx.candidate), "PR_MISMATCH");
     requireCondition((await ctx.github.file(ctx.candidate, `${workItemPath(pending.work_item_id)}/STATE.yml`)).equals(ctx.candidateStateBytes), "PUBLISHED_STATE_MISMATCH");
     requireCondition((await ctx.github.file(ctx.candidate, pending.artifacts.brief.path)).equals(ctx.briefBytes), "PUBLISHED_BRIEF_MISMATCH");
+    if (mode === "pending") {
+      requireCondition(ctx.local && ctx.local.head === ctx.candidate, "LOCAL_HEAD_MISMATCH");
+      const local = await inspectCandidate(ctx.local.root, branch, ctx.candidate);
+      requireCondition((await candidateFile(local, ctx.candidate, `${workItemPath(pending.work_item_id)}/STATE.yml`)).equals(ctx.candidateStateBytes)
+        && (await candidateFile(local, ctx.candidate, pending.artifacts.brief.path)).equals(ctx.briefBytes), "LOCAL_CANDIDATE_MISMATCH");
+    } else {
+      requireCondition(ctx.local && recorded, "LOCAL_HISTORY_REQUIRED");
+      const local = await inspectCandidate(ctx.local.root, branch, ctx.local.head);
+      const tips = [object(remote.commit).sha, prHead.sha];
+      requireCondition(tips.every(tip => typeof tip === "string" && /^[a-f0-9]{40}$/.test(tip)), "GITHUB_MALFORMED_RESPONSE");
+      for (const tip of tips as string[]) await ancestor(ctx.github, ctx.candidate, tip);
+      const statePath = `${workItemPath(pending.work_item_id)}/STATE.yml`;
+      requireCondition((await candidateFile(local, ctx.candidate, statePath)).equals(ctx.candidateStateBytes)
+        && (await candidateFile(local, ctx.candidate, pending.artifacts.brief.path)).equals(ctx.briefBytes), "LOCAL_CANDIDATE_MISMATCH");
+      const history = await approvalHistory(local, ctx.candidate, statePath, tips as string[]);
+      const transition = parseRestrictedYaml(history[0]!.stateBytes);
+      requireCondition(ctx.stateValidator(transition) && isDeepStrictEqual(transition, approvedState(pending, recorded)), "APPROVAL_STATE_MISMATCH");
+      let revision = pending.revision;
+      for (const entry of history) {
+        const raw = parseRestrictedYaml(entry.stateBytes);
+        requireCondition(ctx.stateValidator(raw) && !stateConsistencyIssues(raw as WorkItemState).length, "STATE_INVALID");
+        const next = raw as WorkItemState;
+        requireCondition(next.revision > revision && next.schema_version === pending.schema_version, "STATE_LINEAGE_INVALID");
+        revision = next.revision;
+        requireCondition(isDeepStrictEqual(next.repository, pending.repository) && isDeepStrictEqual(next.sources, pending.sources)
+          && isDeepStrictEqual(next.artifacts.brief, pending.artifacts.brief) && next.work_item_id === pending.work_item_id
+          && isDeepStrictEqual(next.gates.refinement, state.gates.refinement), "FROZEN_INPUT_CHANGED");
+      }
+      requireCondition(isDeepStrictEqual(parseRestrictedYaml(history.at(-1)!.stateBytes), state), "LOCAL_STATE_CHANGED");
+      for (const tip of tips as string[]) {
+        requireCondition((await ctx.github.file(tip, pending.artifacts.brief.path)).equals(ctx.briefBytes), "PUBLISHED_BRIEF_MISMATCH");
+        requireCondition((await ctx.github.file(tip, statePath)).equals(await candidateFile(local, tip, statePath)), "PUBLISHED_STATE_MISMATCH");
+      }
+      await inspectCandidate(local.root, branch, local.head);
+    }
     await ancestor(ctx.github, base, source);
     await ancestor(ctx.github, source, policyCommit);
     await ancestor(ctx.github, source, ctx.candidate);

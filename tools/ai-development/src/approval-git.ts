@@ -85,11 +85,27 @@ export async function candidateFile(snapshot: CandidateSnapshot, commit: string,
   if (!entry.startsWith("100644 blob ") || entry.split("\t")[1] !== path) throw new InputError("CANDIDATE_FILE_INVALID");
   return git(snapshot.root, ["show", `${commit}:${path}`]);
 }
-export async function approvalParent(snapshot: CandidateSnapshot, candidate: string, statePath: string): Promise<void> {
-  const parents = await text(snapshot.root, ["rev-list", "--parents", "-n", "1", snapshot.head]);
-  if (parents !== `${snapshot.head} ${candidate}`) throw new InputError("APPROVAL_PARENT_MISMATCH");
-  const changed = await text(snapshot.root, ["diff-tree", "--no-commit-id", "--name-only", "-r", candidate, snapshot.head]);
-  if (changed !== statePath) throw new InputError("APPROVAL_COMMIT_SCOPE_INVALID");
+/** Linear STATE-only history, checked against real immutable Git objects. Remote
+ * tips must be on the inspected local line; fetch/synchronize explicitly first. */
+export async function approvalHistory(snapshot: CandidateSnapshot, candidate: string, statePath: string, tips: string[]) {
+  for (const tip of [candidate, ...tips]) {
+    if (!/^[a-f0-9]{40}$/.test(tip)) throw new InputError("INVALID_COMMIT");
+    try {
+      await git(snapshot.root, ["merge-base", "--is-ancestor", tip, snapshot.head]);
+      await git(snapshot.root, ["merge-base", "--is-ancestor", candidate, tip]);
+    } catch { throw new InputError("HISTORY_ANCESTRY_INVALID"); }
+  }
+  const commits = (await text(snapshot.root, ["rev-list", "--reverse", `${candidate}..${snapshot.head}`])).split("\n").filter(Boolean);
+  if (!commits.length) throw new InputError("APPROVAL_PARENT_MISMATCH");
+  let parent = candidate;
+  const history: { commit: string; stateBytes: Buffer }[] = [];
+  for (const commit of commits) {
+    if (await text(snapshot.root, ["rev-list", "--parents", "-n", "1", commit]) !== `${commit} ${parent}`) throw new InputError("APPROVAL_PARENT_MISMATCH");
+    if (await text(snapshot.root, ["diff-tree", "--no-commit-id", "--name-only", "-r", parent, commit]) !== statePath) throw new InputError("APPROVAL_COMMIT_SCOPE_INVALID");
+    history.push({ commit, stateBytes: await candidateFile(snapshot, commit, statePath) });
+    parent = commit;
+  }
+  return history;
 }
 
 /** One STATE-only commit, isolated index, compare-and-swap branch update.

@@ -7,7 +7,7 @@ import { approveRefinement, approvedState } from "../src/commands/approve-refine
 import { commitRefinementApproval, inspectCandidate } from "../src/approval-git.js";
 import { runCli } from "../src/cli.js";
 import { parseRestrictedYaml } from "../src/validation.js";
-import { verifyRefinementApproval } from "../src/refinement-verifier.js";
+import { verifyPendingRefinementCandidate, verifyRefinementApproval } from "../src/refinement-verifier.js";
 import { sha256 } from "../src/hashes.js";
 import type { WorkItemState } from "../src/state.js";
 import { approvalFixture, DATE, fingerprint, testGit, URL } from "./approval-helpers.js";
@@ -120,7 +120,7 @@ test("revision overflow blocks command atomically", async (t) => {
   const before = await fingerprint(f.root, f.statePath);
   await assert.rejects(approveRefinement(f.root, ID, URL, f.transport), /REVISION_OVERFLOW/);
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
-  const verified = await verifyRefinementApproval({ ...f.state, revision: 0 }, f.ctx);
+  const verified = await verifyPendingRefinementCandidate({ ...f.state, revision: 0 }, f.ctx);
   if (verified.status === "verified") assert.throws(() => approvedState(f.state, verified.approval), /REVISION_OVERFLOW/);
 });
 for (const args of [ ["approve-refinement", ID], ["approve-refinement", ID, "--evidence", URL, "--evidence", URL],
@@ -133,7 +133,10 @@ test("approved record historical policy must authorize actor, even if current po
   const f = await approvalFixture(); t.after(f.cleanup);
   await approveRefinement(f.root, ID, URL, f.transport);
   const originalBranch = f.transport.branch; const originalFile = f.transport.file;
-  const current = "c".repeat(40);
+  testGit(f.root, ["switch", "-q", "dev-neelesh"]);
+  testGit(f.root, ["commit", "--allow-empty", "-qm", "synthetic policy advancement"]);
+  const current = testGit(f.root, ["rev-parse", "HEAD"]).toString().trim();
+  testGit(f.root, ["switch", "-q", "codex/test-approval"]);
   f.transport.branch = async name => name === "dev-neelesh" ? { name, commit: { sha: current } } : originalBranch(name);
   f.transport.file = async (sha, path) => {
     if (sha === f.base && path === ".ai-development/pipeline.config.yml") {

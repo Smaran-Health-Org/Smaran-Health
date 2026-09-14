@@ -3,7 +3,7 @@ import test from "node:test";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { stringify } from "yaml";
-import { verifyRefinementApproval } from "../src/refinement-verifier.js";
+import { verifyPendingRefinementCandidate } from "../src/refinement-verifier.js";
 import { InputError } from "../src/paths.js";
 import { approveRefinement } from "../src/commands/approve-refinement.js";
 import { approvalFixture, fingerprint, testGit, URL } from "./approval-helpers.js";
@@ -62,7 +62,7 @@ const failures: Record<string, (f: Fixture) => void> = {
 for (const [label, mutate] of Object.entries(failures)) test(`approval blocks ${label}; pre-commit failure atomicity`, async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup); mutate(f);
   const before = await fingerprint(f.root, f.statePath);
-  const result = await verifyRefinementApproval(f.state, f.ctx);
+  const result = await verifyPendingRefinementCandidate(f.state, f.ctx);
   assert.notEqual(result.status, "verified");
   if (result.status !== "verified") assert.match(result.reason, /^[A-Z][A-Z0-9_]*$/);
   await assert.rejects(approveRefinement(f.root, ID, URL, f.transport));
@@ -70,7 +70,7 @@ for (const [label, mutate] of Object.entries(failures)) test(`approval blocks ${
 });
 for (const permission of ["write", "maintain", "admin"]) test(`explicit allowlist plus ${permission} verifies`, async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup); f.data.permission.permission = permission;
-  const result = await verifyRefinementApproval(f.state, f.ctx);
+  const result = await verifyPendingRefinementCandidate(f.state, f.ctx);
   assert.equal(result.status, "verified");
   if (result.status === "verified") {
     assert.equal(result.approval.actor.id, "github-user:123"); assert.equal(result.approval.verification.policy_commit, f.base);
@@ -78,7 +78,7 @@ for (const permission of ["write", "maintain", "admin"]) test(`explicit allowlis
 });
 test("case insensitive configured login authorization", async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup); f.policy.approvals.refinement.authorized_github_users[0]!.login = "EXAMPLEHUMAN";
-  assert.equal((await verifyRefinementApproval(f.state, f.ctx)).status, "verified");
+  assert.equal((await verifyPendingRefinementCandidate(f.state, f.ctx)).status, "verified");
 });
 test("candidate allowlist injection cannot enable empty target policy", async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup); f.policy.approvals.refinement.authorized_github_users = [];
@@ -92,7 +92,7 @@ test("candidate allowlist injection cannot enable empty target policy", async (t
   const before = await fingerprint(f.root, f.statePath);
   await assert.rejects(approveRefinement(f.root, ID, URL, f.transport), /APPROVAL_DISABLED/);
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
-  assert.deepEqual(await verifyRefinementApproval(f.state, f.ctx), { status: "invalid", reason: "APPROVAL_DISABLED" });
+  assert.deepEqual(await verifyPendingRefinementCandidate(f.state, f.ctx), { status: "invalid", reason: "APPROVAL_DISABLED" });
 });
 for (const [label, mutate] of Object.entries({
   "candidate Brief recorded hash mismatch": (f: Fixture) => { f.state.artifacts.brief.sha256 = "d".repeat(64); },
@@ -104,10 +104,10 @@ for (const [label, mutate] of Object.entries({
   f.ctx.candidateStateBytes = Buffer.from(stringify(f.state));
   const original = f.transport.file;
   f.transport.file = async (sha, path) => path.endsWith("STATE.yml") ? f.ctx.candidateStateBytes : original(sha, path);
-  assert.notEqual((await verifyRefinementApproval(f.state, f.ctx)).status, "verified");
+  assert.notEqual((await verifyPendingRefinementCandidate(f.state, f.ctx)).status, "verified");
 });
 test("unverifiable responses produce sanitized category; invalid evidence produces invalid", async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup);
   f.transport.permission = async () => { throw new Error("token private-secret headers"); };
-  assert.deepEqual(await verifyRefinementApproval(f.state, f.ctx), { status: "unverifiable", reason: "GITHUB_UNAVAILABLE" });
+  assert.deepEqual(await verifyPendingRefinementCandidate(f.state, f.ctx), { status: "unverifiable", reason: "GITHUB_UNAVAILABLE" });
 });

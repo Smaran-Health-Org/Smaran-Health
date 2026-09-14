@@ -1,27 +1,17 @@
 import { fileURLToPath } from "node:url";
-import { isDeepStrictEqual } from "node:util";
 import { stringify } from "yaml";
 import { BOOTSTRAP } from "../bootstrap.js";
 import { findRepositoryRoot, type PipelineConfig } from "../config.js";
 import { parseEvidenceUrl } from "../approval-evidence.js";
-import { approvalParent, candidateFile, commitRefinementApproval, inspectCandidate } from "../approval-git.js";
+import { candidateFile, commitRefinementApproval, inspectCandidate } from "../approval-git.js";
 import { GhTransport, type GitHubTransport } from "../github.js";
 import { InputError, assertArtifactPath, readPipelineBytes, workItemPath } from "../paths.js";
-import { verifyRefinementApproval } from "../refinement-verifier.js";
-import { assertTransition, stateConsistencyIssues, type Approval, type WorkItemState } from "../state.js";
+import { verifyPendingRefinementCandidate, verifyRefinementApproval } from "../refinement-verifier.js";
+import { assertTransition, stateConsistencyIssues, type WorkItemState } from "../state.js";
 import { loadSchemaValidator, MAX_ARTIFACT_BYTES, MAX_YAML_BYTES, parseRestrictedYaml } from "../validation.js";
 
-/** Deterministic mutation derived only after successful independent verification. */
-export function approvedState(pending: WorkItemState, approval: Approval): WorkItemState {
-  if (pending.state !== "refinement_pending" || pending.gates.refinement.status !== "pending"
-    || pending.gates.refinement.approval || pending.gates.plan.status !== "pending") throw new InputError("TRANSITION_INVALID");
-  if (!Number.isSafeInteger(pending.revision) || pending.revision >= Number.MAX_SAFE_INTEGER) throw new InputError("REVISION_OVERFLOW");
-  const next = structuredClone(pending);
-  next.state = "refinement_approved"; next.revision++;
-  next.gates.refinement = { status: "approved", approval };
-  next.last_transition = { from: "refinement_pending", to: "refinement_approved", at: approval.at, actor: "smaran:approve-refinement/v1" };
-  return next;
-}
+export { approvedState } from "../approval-state.js";
+import { approvedState } from "../approval-state.js";
 
 /** Transport injection is a library test/trusted-launcher seam, never a CLI flag. */
 export async function approveRefinement(root: string, id: string, evidenceUrl: string, transport?: GitHubTransport): Promise<string> {
@@ -48,13 +38,10 @@ export async function approveRefinement(root: string, id: string, evidenceUrl: s
   const candidateStateBytes = await candidateFile(snapshot, candidate, path);
   if (!(await candidateFile(snapshot, candidate, state.artifacts.brief.path)).equals(briefBytes)) throw new InputError("LOCAL_BRIEF_CHANGED");
   if (!recorded && !candidateStateBytes.equals(bytes)) throw new InputError("LOCAL_STATE_CHANGED");
-  if (recorded) {
-    await approvalParent(snapshot, candidate, path);
-    const pending = parseRestrictedYaml(candidateStateBytes);
-    if (!stateValidator(pending) || !isDeepStrictEqual(approvedState(pending as WorkItemState, recorded), state)) throw new InputError("APPROVAL_STATE_MISMATCH");
-  }
-  const result = await verifyRefinementApproval(state, { bootstrap: BOOTSTRAP, github: transport ?? new GhTransport(BOOTSTRAP.repository),
-    stateValidator, configValidator, candidate, candidateStateBytes, briefBytes, evidenceUrl });
+  const context = { bootstrap: BOOTSTRAP, github: transport ?? new GhTransport(BOOTSTRAP.repository),
+    stateValidator, configValidator, candidate, candidateStateBytes, briefBytes, evidenceUrl, local: snapshot };
+  const result = recorded ? await verifyRefinementApproval(state, context)
+    : await verifyPendingRefinementCandidate(state, context);
   if (result.status !== "verified") throw new InputError(`${result.status.toUpperCase()}: ${result.reason}`);
   await inspectCandidate(root, snapshot.branch, snapshot.head);
   if (recorded) return `${id}: approval freshly verified; no-op (no new commit).`;

@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { stringify } from "yaml";
+import { inspectCandidate } from "../src/approval-git.js";
 import { approvalStatement } from "../src/approval-evidence.js";
 import { BOOTSTRAP } from "../src/bootstrap.js";
 import { sha256 } from "../src/hashes.js";
@@ -41,6 +42,7 @@ export async function approvalFixture() {
   const repo: { full_name: string } = { full_name: BOOTSTRAP.repository };
   const user = { type: "User", login: "ExampleHuman", id: 123 };
   const data = {
+    remote: candidate,
     repo,
     pr: { number: 1, state: "open", html_url: `https://github.com/${BOOTSTRAP.repository}/pull/1`,
       base: { ref: "dev-neelesh", repo }, head: { ref: "codex/test-approval", sha: candidate, repo } },
@@ -52,16 +54,20 @@ export async function approvalFixture() {
   };
   const transport: GitHubTransport = {
     repository: async () => data.repo,
-    branch: async (name) => ({ name, commit: { sha: name === "dev-neelesh" ? base : candidate } }),
+    branch: async (name) => ({ name, commit: { sha: name === "dev-neelesh" ? base : data.remote } }),
     pull: async () => data.pr, comment: async () => data.comment, commentIntegrity: async () => data.graph,
-    commit: async (sha) => ({ sha }), permission: async () => data.permission,
-    ancestry: async (base) => ({ base_commit: { sha: base }, merge_base_commit: { sha: base }, status: "ahead" }),
+    commit: async (sha) => { testGit(f.root, ["cat-file", "-e", `${sha}^{commit}`]); return { sha }; }, permission: async () => data.permission,
+    ancestry: async (base, head) => {
+      const merge = testGit(f.root, ["merge-base", base, head]).toString().trim();
+      return { base_commit: { sha: base }, merge_base_commit: { sha: merge }, status: base === head ? "identical" : merge === base ? "ahead" : "diverged" };
+    },
     file: async (sha, path) => {
       if (path === ".ai-development/pipeline.config.yml") return policyBytes();
       return testGit(f.root, ["show", `${sha}:${path}`]);
     },
   };
   const ctx: TrustedContext = { bootstrap: BOOTSTRAP, github: transport, candidate, candidateStateBytes: stateBytes, briefBytes, evidenceUrl: URL,
+    local: await inspectCandidate(f.root, "codex/test-approval"),
     configValidator: createSchemaValidator<PipelineConfig>(await schema("config")), stateValidator: createSchemaValidator<WorkItemState>(await schema("state")) };
   return { ...f, base, candidate, stateBytes, policy, data, transport, ctx };
 }
