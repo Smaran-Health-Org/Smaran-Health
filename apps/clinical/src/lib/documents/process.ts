@@ -130,23 +130,18 @@ export async function processClaimedMedicalDocument(
 ): Promise<void> {
   let bytes: Uint8Array;
   try { bytes = await downloadDocumentOriginal(claim.storage_path); }
-  catch { await recordFailure(claim.extraction_id, "source_unavailable").catch(() => undefined); throw new DocumentProcessingError("source_unavailable"); }
+  catch { throw new DocumentProcessingError("source_unavailable"); }
   let actualMime: ReturnType<typeof validateDocumentBytes>;
   try {
     actualMime = validateDocumentBytes(bytes);
     if (actualMime !== claim.mime_type) throw new DocumentFileError("type");
   } catch (error) {
     const code = error instanceof DocumentFileError ? "unsupported_source" : "source_unavailable";
-    await recordFailure(claim.extraction_id, code).catch(() => undefined);
     throw new DocumentProcessingError(code);
   }
   let evaluated: ReturnType<typeof evaluateDocumentExtraction>;
   try { evaluated = evaluateDocumentExtraction(await adapter.process({ bytes, mimeType: actualMime })); }
-  catch (error) {
-    const code = providerFailureCode(error);
-    await recordFailure(claim.extraction_id, code).catch(() => undefined);
-    throw new DocumentProcessingError(code);
-  }
+  catch (error) { throw new DocumentProcessingError(providerFailureCode(error)); }
   const service = createServiceRoleClient();
   const reasons = Array.from(new Set(evaluated.needsReviewReasons.map((reason) => reason === "evidence_mismatch" ? "uncertain_content" : reason)));
   const { error } = await service.rpc("complete_document_processing", {
@@ -156,5 +151,5 @@ export async function processClaimedMedicalDocument(
     p_needs_review_reasons: reasons, p_document_identity_hash: evaluated.documentIdentityHash,
     p_normalized_observations: evaluated.normalizedObservations,
   });
-  if (error) { await recordFailure(claim.extraction_id, "processing_interrupted").catch(() => undefined); throw new DocumentProcessingError("processing_interrupted"); }
+  if (error) throw new DocumentProcessingError("processing_interrupted");
 }

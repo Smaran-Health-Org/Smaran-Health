@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(23);
+SELECT plan(50);
 
 SELECT has_table('public', 'document_processing_work', 'durable document processing work is persisted');
 
@@ -38,28 +38,44 @@ UPDATE public.document_processing_work SET next_attempt_at = now() + interval '1
 
 SET LOCAL ROLE anon;
 SELECT throws_ok($$ SELECT * FROM public.document_processing_work $$, '42501', NULL, 'anonymous callers cannot inspect durable work');
+SELECT throws_ok($$ INSERT INTO public.document_processing_work (clinic_id, document_id) VALUES ('d6600000-0000-4000-8000-000000000001', 'd6650000-0000-4000-8000-000000000001') $$, '42501', NULL, 'anonymous callers cannot insert durable work');
+SELECT throws_ok($$ UPDATE public.document_processing_work SET status = 'completed' $$, '42501', NULL, 'anonymous callers cannot update durable work');
+SELECT throws_ok($$ DELETE FROM public.document_processing_work $$, '42501', NULL, 'anonymous callers cannot delete durable work');
+SELECT throws_ok($$ SELECT public.finish_document_processing_work(gen_random_uuid(), gen_random_uuid()) $$, '42501', NULL, 'anonymous callers cannot finish durable work');
+SELECT throws_ok($$ SELECT public.fail_document_processing_work(gen_random_uuid(), gen_random_uuid(), 'provider_timeout') $$, '42501', NULL, 'anonymous callers cannot fail durable work');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'd6610000-0000-4000-8000-000000000001', true);
 SELECT throws_ok($$ SELECT * FROM public.document_processing_work $$, '42501', NULL, 'ordinary authenticated users cannot inspect durable work');
+SELECT throws_ok($$ INSERT INTO public.document_processing_work (clinic_id, document_id) VALUES ('d6600000-0000-4000-8000-000000000001', 'd6650000-0000-4000-8000-000000000001') $$, '42501', NULL, 'ordinary authenticated users cannot insert durable work');
+SELECT throws_ok($$ UPDATE public.document_processing_work SET status = 'completed' $$, '42501', NULL, 'ordinary authenticated users cannot update durable work');
+SELECT throws_ok($$ DELETE FROM public.document_processing_work $$, '42501', NULL, 'ordinary authenticated users cannot delete durable work');
+SELECT throws_ok($$ SELECT public.finish_document_processing_work(gen_random_uuid(), gen_random_uuid()) $$, '42501', NULL, 'authenticated non-service actors cannot finish durable work');
+SELECT throws_ok($$ SELECT public.fail_document_processing_work(gen_random_uuid(), gen_random_uuid(), 'provider_timeout') $$, '42501', NULL, 'authenticated non-service actors cannot fail durable work');
 SELECT throws_ok($$ SELECT * FROM public.claim_document_processing_work('schema/v1', 'pipeline/v1', 'test', 'model/v1') $$, '42501', NULL, 'ordinary authenticated users cannot claim service work');
 SELECT throws_ok($$ SELECT public.retry_document_processing_work('d6650000-0000-4000-8000-000000000002') $$, 'P0002', NULL, 'one clinic cannot retry another clinic work item');
 
 SET LOCAL ROLE service_role;
 SELECT set_config('request.jwt.claim.role', 'service_role', true);
-SELECT set_config('app.durable_work_id', work_id::text, true), set_config('app.durable_extraction_id', extraction_id::text, true)
+SELECT throws_ok($$ INSERT INTO public.document_processing_work (clinic_id, document_id) VALUES ('d6600000-0000-4000-8000-000000000001', 'd6650000-0000-4000-8000-000000000001') $$, '23505', NULL, 'unique document key denies accidental duplicate durable enqueue');
+SELECT set_config('app.durable_work_id', work_id::text, true), set_config('app.initial_work_id', work_id::text, true), set_config('app.durable_extraction_id', extraction_id::text, true)
 FROM public.claim_document_processing_work('schema/v1', 'pipeline/v1', 'test', 'model/v1');
 SELECT is((SELECT document_id FROM public.document_processing_work WHERE id = current_setting('app.durable_work_id')::uuid), 'd6650000-0000-4000-8000-000000000001'::uuid, 'service claim is bound to the intended document');
 SELECT is((SELECT clinic_id FROM public.document_processing_work WHERE id = current_setting('app.durable_work_id')::uuid), 'd6600000-0000-4000-8000-000000000001'::uuid, 'service claim remains bound to the intended clinic');
 SELECT is((SELECT requested_by_profile_id FROM public.document_extractions WHERE id = current_setting('app.durable_extraction_id')::uuid), NULL::uuid, 'system claim records no human requester');
 SELECT is((SELECT status::text FROM public.document_processing_work WHERE id = current_setting('app.durable_work_id')::uuid), 'processing', 'claim moves work into processing');
-SELECT lives_ok($$ SELECT public.fail_document_processing_work(current_setting('app.durable_work_id')::uuid, 'provider_timeout') $$, 'service worker can mark a claim retryable failed');
+SELECT is((SELECT active_extraction_id FROM public.document_processing_work WHERE id = current_setting('app.durable_work_id')::uuid), current_setting('app.durable_extraction_id')::uuid, 'work records its current immutable extraction attempt');
+SELECT lives_ok($$ SELECT public.fail_document_processing_work(current_setting('app.durable_work_id')::uuid, current_setting('app.durable_extraction_id')::uuid, 'provider_timeout') $$, 'service worker can mark a claim retryable failed');
 SELECT is((SELECT status::text FROM public.document_processing_work WHERE id = current_setting('app.durable_work_id')::uuid), 'retryable_failed', 'failed claim enters retryable failed state');
+SELECT is((SELECT status::text FROM public.document_extractions WHERE id = current_setting('app.durable_extraction_id')::uuid), 'technical_failure', 'failed durable attempt remains historical technical failure');
+SELECT is((SELECT failure_reason_code FROM public.document_extractions WHERE id = current_setting('app.durable_extraction_id')::uuid), 'provider_timeout', 'failed durable attempt preserves the actual failure reason');
+SELECT ok((SELECT completed_at IS NOT NULL FROM public.document_extractions WHERE id = current_setting('app.durable_extraction_id')::uuid), 'failed durable attempt preserves its completion time');
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'd6610000-0000-4000-8000-000000000001', true);
 SELECT lives_ok($$ SELECT public.retry_document_processing_work('d6650000-0000-4000-8000-000000000001') $$, 'authorized clinic user can explicitly retry own clinic work');
 SET LOCAL ROLE postgres;
 SELECT is((SELECT status::text FROM public.document_processing_work WHERE document_id = 'd6650000-0000-4000-8000-000000000001'), 'pending', 'authorized retry restores the work to pending');
+SELECT is((SELECT count(*) FROM public.document_processing_work WHERE document_id = 'd6650000-0000-4000-8000-000000000001'), 1::bigint, 'authorized retry reuses the one durable work item rather than enqueuing a duplicate');
 
 SET LOCAL ROLE service_role;
 SELECT set_config('request.jwt.claim.role', 'service_role', true);
@@ -67,13 +83,40 @@ SELECT set_config('app.durable_work_id', work_id::text, true), set_config('app.d
 FROM public.claim_document_processing_work('schema/v1', 'pipeline/v1', 'test', 'model/v1');
 SELECT is((SELECT document_id FROM public.document_processing_work WHERE id = current_setting('app.durable_work_id')::uuid), 'd6650000-0000-4000-8000-000000000001'::uuid, 'retry reclaim cannot cross document scope');
 SELECT lives_ok($$ SELECT public.complete_document_processing(current_setting('app.durable_extraction_id')::uuid, 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL) $$, 'approved system transition permits a null system actor extraction');
-SELECT lives_ok($$ SELECT public.finish_document_processing_work(current_setting('app.durable_work_id')::uuid) $$, 'service worker can finish a claimed item');
+SELECT lives_ok($$ SELECT public.finish_document_processing_work(current_setting('app.durable_work_id')::uuid, current_setting('app.durable_extraction_id')::uuid) $$, 'service worker can finish a claimed item');
 SELECT is((SELECT status::text FROM public.document_processing_work WHERE id = current_setting('app.durable_work_id')::uuid), 'completed', 'finish moves claimed work to completed');
 
 SET LOCAL ROLE postgres;
 SELECT throws_ok($$ UPDATE public.document_extractions SET raw_extraction_json = '{"tampered":true}'::jsonb WHERE id = current_setting('app.durable_extraction_id')::uuid $$, '42501', 'Document extraction history is immutable', 'arbitrary extraction mutation remains denied');
+SELECT throws_ok($$ UPDATE public.document_extractions SET pipeline_version = 'tampered/v1' WHERE id = current_setting('app.durable_extraction_id')::uuid $$, '42501', 'Document extraction history is immutable', 'initial extraction identity and version remain immutable');
 SELECT set_config('app.document_processing_authorized', 'true', true);
 SELECT throws_ok($$ UPDATE public.documents SET storage_path = 'tampered.pdf' WHERE id = 'd6650000-0000-4000-8000-000000000001' $$, '42501', NULL, 'processing authorization cannot mutate immutable document source evidence');
+
+-- A second worker cannot claim an already-owned item. Once its lease expires,
+-- reclaim creates a distinct current attempt and makes the old finalizer inert.
+UPDATE public.document_processing_work SET next_attempt_at = now() WHERE document_id = 'd6650000-0000-4000-8000-000000000002';
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claim.role', 'service_role', true);
+SELECT set_config('app.stale_work_id', work_id::text, true), set_config('app.stale_extraction_id', extraction_id::text, true)
+FROM public.claim_document_processing_work('schema/v1', 'pipeline/v1', 'test', 'model/v1');
+SELECT is((SELECT active_extraction_id FROM public.document_processing_work WHERE id = current_setting('app.stale_work_id')::uuid), current_setting('app.stale_extraction_id')::uuid, 'first competing worker is the deterministic active owner');
+SELECT is((SELECT count(*) FROM public.claim_document_processing_work('schema/v1', 'pipeline/v1', 'test', 'model/v1')), 0::bigint, 'second competing worker cannot claim an active work item');
+SET LOCAL ROLE postgres;
+UPDATE public.document_processing_work
+SET processing_started_at = now() - interval '16 minutes'
+WHERE id = current_setting('app.stale_work_id')::uuid;
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claim.role', 'service_role', true);
+SELECT set_config('app.reclaimed_extraction_id', extraction_id::text, true)
+FROM public.claim_document_processing_work('schema/v1', 'pipeline/v1', 'test', 'model/v1');
+SELECT isnt(current_setting('app.reclaimed_extraction_id')::uuid, current_setting('app.stale_extraction_id')::uuid, 'lease reclaim creates a new immutable attempt identity');
+SELECT is((SELECT status::text FROM public.document_extractions WHERE id = current_setting('app.stale_extraction_id')::uuid), 'technical_failure', 'lease reclaim preserves the expired attempt as historical failure');
+SELECT is((SELECT active_extraction_id FROM public.document_processing_work WHERE id = current_setting('app.stale_work_id')::uuid), current_setting('app.reclaimed_extraction_id')::uuid, 'lease reclaim installs the new current owner');
+SELECT is((SELECT status::text FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000002'), 'processing', 'lease reclaim preserves the source document processing state');
+SELECT is(public.finish_document_processing_work(current_setting('app.stale_work_id')::uuid, current_setting('app.stale_extraction_id')::uuid), false, 'stale worker cannot finish reclaimed work');
+SELECT is(public.fail_document_processing_work(current_setting('app.stale_work_id')::uuid, current_setting('app.stale_extraction_id')::uuid, 'provider_timeout'), false, 'stale worker cannot fail reclaimed work');
+SELECT is((SELECT status::text FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000002'), 'processing', 'stale worker cannot reset reclaimed document state');
+SELECT throws_ok($$ UPDATE public.document_extractions SET schema_version = 'tampered/v1' WHERE id = current_setting('app.reclaimed_extraction_id')::uuid $$, '42501', 'Document extraction history is immutable', 'stale workers cannot overwrite the current extraction identity or version');
 
 SELECT * FROM finish();
 ROLLBACK;

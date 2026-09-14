@@ -45,6 +45,31 @@ After each implementation phase, append:
 
 Do not mark a phase Complete solely because UI exists; relevant database, authorization, error states, and acceptance criteria must also be satisfied.
 
+### Pre-S1 reconciliation — durable retry P1 repairs
+
+- Status: Complete / code-complete on `reconcile/preconsult-uat-into-dev-neelesh`; not committed by Codex.
+- Work completed:
+  - Bound durable-work finish and fail operations to the immutable extraction attempt currently recorded on the work row. A reclaimed or retried worker cannot finalize, fail, or reset a newer owner.
+  - Preserved failed durable attempts as immutable `technical_failure` extraction history with failure code, completion time, and a system-originated audit event. Authorized retry reuses the one work row and creates a new operational attempt.
+  - Added the narrowly scoped 0070 backfill for only the historical `retryable_failed` + source/attempt-still-processing shape, preserving clinic/document/source identity while returning those rows to the existing authorized retry path.
+  - Fixed lease-expiry reclaim without widening source mutability: a reclaim retires the old active extraction and does not issue a no-op source-document `processing` update that collides with the immutable-source guard.
+- Acceptance criteria preserved/hardened:
+  - `AC-D01`, `AC-D04`–`AC-D06`, and `AC-A01`–`AC-A06` for immutable source evidence, explicit operational state, retry-safe processing, provenance, and unconfirmed AI output.
+- Files changed:
+  - `apps/clinical/supabase/migrations/0070_document_pipeline_retry_recovery_hardening.sql`
+  - `apps/clinical/supabase/tests/0066_document_pipeline_durable_work.test.sql`
+  - `apps/clinical/src/lib/documents/pipeline.ts`
+  - `apps/clinical/src/lib/documents/process.ts`
+- Validation:
+  - Applied migration `0070_document_pipeline_retry_recovery_hardening.sql` to the existing local Supabase database without resetting data.
+  - Targeted durable-pipeline pgTAP regression passed, 50/50 assertions.
+  - Targeted durable-pipeline TypeScript regression passed, 6/6 tests; `npx tsc --noEmit` and targeted ESLint passed.
+  - `npx supabase db lint --local --level warning` could not run because host usage-limit enforcement rejected the approved command before execution.
+- Security/privacy/clinical safety:
+  - Durable work remains inaccessible for anonymous and ordinary authenticated actors; only the service role may claim/finalize/fail it. Clinic/document ownership and immutable source metadata remain unchanged. No patient/clinical content is added to logs or audit metadata.
+- Product question:
+  - The implementation denies an established verified intake browser session after its source link expires or is revoked, but the approved planning documents do not explicitly state whether that is the intended product contract. No new behavior or speculative test was added.
+
 ### Phase 1 — Patient identity + appointment/Encounter foundation
 
 - Status: Complete
