@@ -24,8 +24,9 @@ human action. Owner, collaborator, authenticated `gh` user and operator status d
 not grant approval. Humans must deliberately configure explicit login + numeric
 stable ID policy; live effective write/maintain/admin permission is also required.
 
-Use only `status <ID>`, `validate <ID>`, and
-`approve-refinement <ID> --evidence <github-pr-comment-url>`.
+Use ordinary `status <ID>` and `validate <ID>` for local reads. Ordinary
+`approve-refinement` mutation is disabled. Only the separate trusted approval
+runner may operationally create the STATE approval commit.
 Status/validate are read-only/offline and distinguish recorded state from external
 approval validity. Schema metadata is not authentication. No force/offline/hash,
 commit or approver override exists.
@@ -49,7 +50,11 @@ decision: APPROVE
 I approve this exact Brief for planning only.
 ```
 
-4. Run `approve-refinement` with canonical
+4. Launch the built trusted runner from a detached immutable reviewed launcher,
+   with explicit candidate root + expected current HEAD + expected launcher SHA,
+   Work Item ID and canonical evidence URL. Use the exact invocation contract in
+   [README.md](README.md#dedicated-trusted-approval-runner--aitrust-001-foundation).
+   The canonical URL is
    `https://github.com/<owner>/<repo>/pull/<number>#issuecomment-<id>`.
    Only LF/CRLF and one optional final newline are permitted; no prose, fences,
    blockquotes or trailing spaces. Body is bounded to 2048 UTF-8 bytes and hashed
@@ -66,15 +71,32 @@ I approve this exact Brief for planning only.
 Identical approved evidence is freshly reverified and becomes a no-op if valid;
 different evidence fails. Deleted/edited/minimized evidence, permission or allowlist
 removal, changed artifacts and invalid history block future advancement. Recorded
-STATE remains historical and is never automatically rewritten. V1 also requires
-the original candidate to remain the published branch/PR head: a later publication
-workflow must explicitly address newer heads before planning can rely on it.
+STATE remains historical and is never automatically rewritten. AIRV1-001 permits
+published A and later valid STATE-only history while evidence
+continues to bind original candidate C. Expected current HEAD is independently
+bound by the trusted runner. Later advancement must freshly reverify through the
+trusted execution path; STATE approval metadata is a record, not authentication.
 
-See [README.md](README.md) for V2 contracts, strict parser/URL rules, trusted launcher
-limitation, publication checks and the local transaction's post-ref crash recovery
-boundary. Runtime locks/checks are not a malicious-writer sandbox. AI2A-002 remains
-unresolved except for the root-match pre-mutation mitigation. Recovery transitions,
+The verifier requires `SMARAN_AI_DEV_VERIFIER_TOKEN`, a separate technical read
+credential, securely injected as environment data. It must never use the authorized
+human's token/session. Empty private gh config and explicit GH_TOKEN exclude stored
+human fallback. Human credentials MUST remain inaccessible to agents. Launcher,
+runtime/build output and dependencies MUST be inaccessible to candidate writers.
+Select the full launcher commit externally from reviewed provenance; a moving
+branch name is insufficient. Install locked dependencies/build from that commit
+without credentials, using controlled Node/npm/Git/gh executables. Never load
+candidate modules, schemas, npm scripts or dependencies for trusted verification.
+Launch built JS with no runtime flags from a sanitized external environment;
+in-process checks cannot retroactively defeat preloaded code. These OS/operator
+requirements are not proved by repository checks.
+
+See [README.md](README.md) for the trust diagram, enforceable launcher checks,
+explicit invocation contract, V2 rules, publication checks and post-ref crash
+recovery boundary. AITRUST-001 is a remediation foundation, not fully resolved
+until external prerequisites are established. Runtime locks/checks are not a
+malicious-writer sandbox. AI2A-002 remains unresolved except for module-derived
+launcher identity and candidate Git-root equality. Recovery transitions,
 branch protection, planning and strong end-to-end enforcement are future tasks.
 
-Next task: independent security review of this exact implementation, before any
+Next task: fresh independent security review before push/CI/merge and before any
 approver identity is configured. Live approval remains disabled.

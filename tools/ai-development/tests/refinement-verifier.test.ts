@@ -65,7 +65,7 @@ for (const [label, mutate] of Object.entries(failures)) test(`approval blocks ${
   const result = await verifyPendingRefinementCandidate(f.state, f.ctx);
   assert.notEqual(result.status, "verified");
   if (result.status !== "verified") assert.match(result.reason, /^[A-Z][A-Z0-9_]*$/);
-  await assert.rejects(approveRefinement(f.root, ID, URL, f.transport));
+  await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }));
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
 });
 for (const permission of ["write", "maintain", "admin"]) test(`explicit allowlist plus ${permission} verifies`, async (t) => {
@@ -90,7 +90,7 @@ test("candidate allowlist injection cannot enable empty target policy", async (t
   testGit(f.root, ["commit", "-qm", "synthetic candidate policy injection"]);
   f.ctx.candidate = testGit(f.root, ["rev-parse", "HEAD"]).toString().trim();
   const before = await fingerprint(f.root, f.statePath);
-  await assert.rejects(approveRefinement(f.root, ID, URL, f.transport), /APPROVAL_DISABLED/);
+  await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }), /APPROVAL_DISABLED/);
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
   assert.deepEqual(await verifyPendingRefinementCandidate(f.state, f.ctx), { status: "invalid", reason: "APPROVAL_DISABLED" });
 });

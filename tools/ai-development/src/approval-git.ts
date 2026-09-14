@@ -7,7 +7,7 @@ import { InputError, existingPipelinePath, workItemPath } from "./paths.js";
 
 // Private subprocess primitive; no shell, no hooks or fsmonitor, no ambient GIT_*.
 function gitEnvironment(index?: string): NodeJS.ProcessEnv {
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(GIT_|GH_|GITHUB_|SMARAN_AI_DEV_VERIFIER_TOKEN$)/.test(key)));
   Object.assign(env, { GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_NO_REPLACE_OBJECTS: "1" });
   if (index) env.GIT_INDEX_FILE = index;
   return env;
@@ -54,13 +54,21 @@ async function text(root: string, args: string[], input?: Buffer, index?: string
   return (await git(root, args, input, index)).toString("utf8").trim();
 }
 export interface CandidateSnapshot { root: string; branch: string; head: string; indexPath: string; indexBytes: Buffer }
-export async function inspectCandidate(root: string, branch: string, expectedHead?: string): Promise<CandidateSnapshot> {
+async function actualWorktreeRoot(root: string): Promise<string> {
   const physical = await realpath(root);
   if (await realpath(await text(root, ["rev-parse", "--show-toplevel"])) !== physical) throw new InputError("ROOT_MISMATCH");
+  return physical;
+}
+export async function inspectCandidate(root: string, branch: string, expectedHead?: string): Promise<CandidateSnapshot> {
+  const physical = await actualWorktreeRoot(root);
   const attached = await text(root, ["symbolic-ref", "--quiet", "HEAD"]);
   if (attached !== `refs/heads/${branch}`) throw new InputError("BRANCH_MISMATCH");
   const head = await text(root, ["rev-parse", "--verify", "HEAD"]);
   if (!/^[a-f0-9]{40}$/.test(head) || (expectedHead && head !== expectedHead)) throw new InputError("HEAD_CHANGED");
+  return { root: physical, branch, head, ...await inspectWorktreeSafety(root) };
+}
+/** Shared safety checks run before Git status can execute configured filters. */
+async function inspectWorktreeSafety(root: string) {
   for (const operation of ["MERGE_HEAD", "rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD", "REVERT_HEAD", "sequencer"]) {
     const path = await text(root, ["rev-parse", "--path-format=absolute", "--git-path", operation]);
     try { await lstat(path); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") continue; throw new InputError("LOCAL_GIT_FAILURE"); }
@@ -73,10 +81,28 @@ export async function inspectCandidate(root: string, branch: string, expectedHea
   if ((await git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"])).length) throw new InputError("WORKTREE_NOT_CLEAN");
   // Assume-unchanged / skip-worktree must not conceal modified tracked content.
   if ((await git(root, ["ls-files", "-v", "-z"])).toString("utf8").split("\0").some((entry) => entry && !entry.startsWith("H "))) throw new InputError("UNSUPPORTED_INDEX_FLAGS");
-  const indexPath = await text(root, ["rev-parse", "--path-format=absolute", "--git-path", "index"]);
+  // --git-path can canonicalize the final index symlink. Inspect the literal
+  // default index entry under the actual Git directory instead.
+  const indexPath = join(await text(root, ["rev-parse", "--absolute-git-dir"]), "index");
   const info = await lstat(indexPath);
   if (!info.isFile() || info.isSymbolicLink()) throw new InputError("UNSAFE_INDEX");
-  return { root: physical, branch, head, indexPath, indexBytes: await readFile(indexPath) };
+  return { indexPath, indexBytes: await readFile(indexPath) };
+}
+/** Git root selected from the physical executing module, never a pipeline marker. */
+export async function executingRepositoryRoot(modulePath: string): Promise<string> {
+  const module = await realpath(modulePath);
+  const root = await realpath(await text(dirname(module), ["rev-parse", "--show-toplevel"]));
+  if (await realpath(await text(root, ["rev-parse", "--show-toplevel"])) !== root) throw new InputError("ROOT_MISMATCH");
+  return root;
+}
+export async function inspectTrustedLauncher(modulePath: string, candidateRoot: string, expectedHead: string): Promise<string> {
+  if (!/^[a-f0-9]{40}$/.test(expectedHead)) throw new InputError("INVALID_LAUNCHER_COMMIT");
+  const root = await executingRepositoryRoot(modulePath);
+  if (root === await actualWorktreeRoot(candidateRoot)) throw new InputError("LAUNCHER_CANDIDATE_SAME_ROOT");
+  if (await text(root, ["rev-parse", "--verify", "HEAD"]) !== expectedHead) throw new InputError("LAUNCHER_HEAD_MISMATCH");
+  if (await text(root, ["rev-parse", "--symbolic-full-name", "HEAD"]) !== "HEAD") throw new InputError("LAUNCHER_NOT_DETACHED");
+  await inspectWorktreeSafety(root);
+  return root;
 }
 export async function candidateFile(snapshot: CandidateSnapshot, commit: string, path: string): Promise<Buffer> {
   if (!/^[a-f0-9]{40}$/.test(commit)) throw new InputError("INVALID_COMMIT");
