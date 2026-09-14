@@ -3,6 +3,7 @@ import { lstat } from "node:fs/promises";
 import { InputError, readPipelineBytes } from "./paths.js";
 import { loadSchemaValidator, MAX_YAML_BYTES, parseRestrictedYaml, schemaIssues } from "./validation.js";
 import type { WorkflowState } from "./state.js";
+import { branchNameIssues } from "./branches.js";
 
 export interface PipelineConfig {
   schema_version: "ai-development-config/v1";
@@ -35,6 +36,8 @@ export async function loadConfig(repoRoot: string): Promise<PipelineConfig> {
   const issues = schemaIssues(validate, raw);
   if (issues.length) throw new InputError(`Invalid pipeline configuration: ${issues.join(" ")}`);
   const config = raw as PipelineConfig;
+  const branchIssues = branchNameIssues({ target_branch: config.target_branch });
+  if (branchIssues.length) throw new InputError(`Invalid pipeline configuration: ${branchIssues.join(" ")}`);
   // A configuration may tighten hard limits, never expand them.
   parseRestrictedYaml(bytes, config.policy.max_yaml_bytes, config.policy.max_depth);
   return config;

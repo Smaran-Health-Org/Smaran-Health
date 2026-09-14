@@ -1,3 +1,5 @@
+import { branchNameIssues } from "./branches.js";
+
 export const STATES = ["refinement_pending", "refinement_approved", "planning", "plan_ready", "plan_approved"] as const;
 export type WorkflowState = typeof STATES[number];
 export type GateStatus = "pending" | "approved" | "invalidated";
@@ -52,7 +54,10 @@ export function assertTransition(from: unknown, to: unknown, checks: TransitionC
 }
 
 export function stateConsistencyIssues(state: WorkItemState): string[] {
-  const issues: string[] = [];
+  const issues = branchNameIssues({
+    "repository.target_branch": state.repository.target_branch,
+    "repository.feature_branch": state.repository.feature_branch,
+  });
   const index = STATES.indexOf(state.state);
   if (index < 0) return ["Unsupported workflow state."];
   const refinementExpected = index === 0 ? "pending" : "approved";
