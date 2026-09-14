@@ -7,7 +7,7 @@ revision: 0
 repository:
   identifier: DrSmaranAI/Smaran-Health
   target_branch: dev-neelesh
-  feature_branch: codex/sch-s1-core-scheduling-data-model-v2
+  feature_branch: codex/sch-s1-refinement-approval-v3
   base_commit: 1c9be27b79edf997559b9d9140f7cf095ea19295
   source_commit: 1c9be27b79edf997559b9d9140f7cf095ea19295
 sources:
