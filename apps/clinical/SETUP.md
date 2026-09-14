@@ -28,6 +28,7 @@ When it finishes it prints the local keys. Put them in `.env.local`
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key from supabase start>
 SUPABASE_SERVICE_ROLE_KEY=<service_role key from supabase start>
+SMARAN_LOCAL_SEED=1 # explicit opt-in: seed only the local synthetic database
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
 APP_URL=http://localhost:3000
 INTAKE_CREDENTIAL_PEPPER=<random 32+ character secret>
@@ -57,8 +58,7 @@ npm run dev               # → http://localhost:3000
 Log in with the seeded doctor:
 
 ```
-doctor1@pilot.test / pilot123!
-doctor2@pilot.test / pilot123!
+Use the local synthetic fixture credentials configured by your development environment; the seed command never prints passwords.
 ```
 
 ## 3. What works locally (end-to-end)
@@ -92,7 +92,7 @@ npx vercel deploy --prod --yes --token <vercel-token> \
 | Problem | Fix |
 | --- | --- |
 | `supabase start` hangs / docker not found | Start Docker Desktop, wait for "Engine running", retry |
-| Login says wrong password | `npm run db:seed` again (recreates doctors) |
+| Login says wrong password | Re-run `npm run db:seed` with `SMARAN_LOCAL_SEED=1` after confirming this is your local synthetic database |
 | Tables missing | `npm run db:reset` or run `supabase/cloud-bootstrap.sql` in Studio |
 | Mic doesn't start | localhost is a secure context — allow the mic permission prompt |
 | AI draft 500s | confirm `DEEPSEEK_API_KEY` is set in `.env.local` |
@@ -107,7 +107,7 @@ npx vercel deploy --prod --yes --token <vercel-token> \
 
 ## 7. Intake-link email delivery (Resend)
 
-Local development defaults to `INTAKE_DELIVERY_MODE=preview`: clicking **Send link** creates the normal secure link and OTP but displays them only to the authenticated clinic user. It never calls Resend. Every non-production intake session uses the UAT code `123456`, including controlled local `live` email testing; production always issues a random code.
+Local development defaults to `INTAKE_DELIVERY_MODE=preview`: clicking **Send link** creates the normal high-entropy secure intake link but displays it only to the authenticated clinic user. It never calls Resend. Patients do not enter a separate OTP.
 
 To send a real UAT email, create a [Resend account](https://resend.com), verify a sending domain, then create a server-side API key. Add the following only to your deployment secret store or a local `.env.local` used for controlled UAT:
 
@@ -118,8 +118,8 @@ RESEND_FROM_EMAIL=intake@your-verified-domain.example
 RESEND_FROM_NAME=Smaran Health
 ```
 
-Restart the application after changing environment variables. Use a synthetic/test patient with a valid email address, open **Clinic Desk → Patients**, add the email in **Patient details**, then return to Today and select **Send link**. The email contains only the secure intake URL and basic clinic/request language; it never contains the OTP or clinical information. The queue will show **Intake sent** after Resend accepts the request. A provider acceptance is not treated as proof that the message was delivered or that the patient opened the link.
+Restart the application after changing environment variables. Use a synthetic/test patient with a valid email address, open **Clinic Desk → Patients**, add the email in **Patient details**, then return to Today and select **Send link**. The email contains the secure intake URL and basic clinic/request language. The link is scoped to its intended appointment, expiry-bound, and revocable. The queue will show **Intake sent** after Resend accepts the request. A provider acceptance is not treated as proof that the message was delivered or that the patient opened the link.
 
-For a failed send, correct the patient email or Resend sender/domain configuration and select **Resend intake**. The existing secure-session retry rules create a new active link only after the failed attempt is invalidated. Inspect safe provider/status metadata in the protected `intake_access_sessions` record and Resend's dashboard; do not log or copy raw intake URLs or OTPs into support channels.
+For a failed send, correct the patient email or Resend sender/domain configuration and select **Resend intake**. The existing secure-session retry rules create a new active link only after the failed attempt is invalidated. Inspect safe provider/status metadata in the protected `intake_access_sessions` record and Resend's dashboard; raw intake URLs are sensitive credentials and must not be casually copied or shared.
 
 Resend webhook events are intentionally not enabled in this change. When delivery-event reporting is required, add a signature-verified endpoint using Resend's `webhooks.verify` API and map provider events onto the persisted transport metadata. Intake opening must continue to be driven by Smaran's own public intake route, not email-open tracking.
