@@ -11,7 +11,7 @@ import type { Patient } from "@/types";
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
 const PATIENT_COLUMNS =
-  "id, clinicId:clinic_id, fullName:full_name, normalizedName:normalized_name, age, dateOfBirth:date_of_birth, gender, phone, normalizedPhone:normalized_phone, address, medicalRecordNumber:medical_record_number, weightKg:weight_kg, heightCm:height_cm, bloodPressure:blood_pressure, bloodGroup:blood_group, hasDiabetes:has_diabetes, mergedIntoPatientId:merged_into_patient_id, mergedAt:merged_at, mergedBy:merged_by, createdAt:created_at, updatedAt:updated_at";
+  "id, clinicId:clinic_id, fullName:full_name, normalizedName:normalized_name, age, dateOfBirth:date_of_birth, gender, phone, normalizedPhone:normalized_phone, email, normalizedEmail:normalized_email, address, medicalRecordNumber:medical_record_number, weightKg:weight_kg, heightCm:height_cm, bloodPressure:blood_pressure, bloodGroup:blood_group, hasDiabetes:has_diabetes, mergedIntoPatientId:merged_into_patient_id, mergedAt:merged_at, mergedBy:merged_by, createdAt:created_at, updatedAt:updated_at";
 
 export type DuplicatePatientCandidate = Pick<
   Patient,
@@ -136,6 +136,7 @@ export async function createPatient(
     dateOfBirth?: string | null;
     gender?: string | null;
     phone?: string | null;
+    email?: string | null;
     address?: string | null;
     medicalRecordNumber?: string | null;
     weightKg?: number | null;
@@ -158,6 +159,8 @@ export async function createPatient(
       gender: input.gender,
       phone: input.phone,
       normalized_phone: normalizePatientPhone(input.phone),
+      email: input.email,
+      normalized_email: input.email?.trim().toLowerCase() || null,
       address: input.address,
       medical_record_number: input.medicalRecordNumber,
       weight_kg: input.weightKg,
@@ -181,6 +184,7 @@ export async function updatePatient(
     dateOfBirth: string | null;
     gender: string | null;
     phone: string | null;
+    email: string | null;
     address: string | null;
     medicalRecordNumber: string | null;
     weightKg: number | null;
@@ -203,6 +207,10 @@ export async function updatePatient(
   if (input.phone !== undefined) {
     row.phone = input.phone;
     row.normalized_phone = normalizePatientPhone(input.phone);
+  }
+  if (input.email !== undefined) {
+    row.email = input.email?.trim().toLowerCase() || null;
+    row.normalized_email = input.email?.trim().toLowerCase() || null;
   }
   if (input.address !== undefined) row.address = input.address;
   if (input.medicalRecordNumber !== undefined) row.medical_record_number = input.medicalRecordNumber;

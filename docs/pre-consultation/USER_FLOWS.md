@@ -8,7 +8,7 @@
 4. If no strong match exists, admin enters only essential demographics: name, phone, DOB/age, sex, appointment time. Existing richer fields remain optional.
 5. Smaran creates the patient and consultation/Encounter; appointment is linked.
 6. Authorized staff may send the secure intake link.
-7. Patient opens link -> OTP -> consent -> reason for visit -> optional conditions/medicines/allergies -> uploads documents -> submit.
+7. Patient opens secure link -> consent -> reason for visit -> optional conditions/medicines/allergies -> uploads documents -> submit.
 8. Each document processes independently; queue reflects Processing / Processed / Needs Review.
 9. Pre-consult brief regenerates as useful information arrives.
 10. Admin marks patient Arrived at clinic.
@@ -29,7 +29,7 @@
 Support both paths:
 
 ### Patient self-service
-Admin creates/finds patient and encounter, then shows/sends QR/link. Patient completes OTP intake on their phone.
+Admin creates/finds patient and encounter, then shows/sends QR/link. Patient opens the secure intake link on their phone.
 
 ### Reception-assisted
 Admin creates/finds patient, edits demographics if needed, scans/uploads physical reports and prescriptions, and marks arrived. Patient intake may remain incomplete. Consultation is never blocked.

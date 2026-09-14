@@ -386,6 +386,8 @@ export function ConsultationWorkflow({
   const [micLevel, setMicLevel] = useState(0);
   const [micLowLevel, setMicLowLevel] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
+  const [audioCaptureError, setAudioCaptureError] = useState<string | null>(null);
+  const [liveTranscriptAvailable, setLiveTranscriptAvailable] = useState(false);
   const [draftSaved, setDraftSaved] = useState(false);
   const [saving, setSaving] = useState<"draft" | "approve" | "reject" | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -406,6 +408,13 @@ export function ConsultationWorkflow({
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const recordingIdRef = useRef<string | null>(null);
+  const chunkSequenceRef = useRef(0);
+  const uploadedChunksRef = useRef(0);
+  const chunkUploadChainRef = useRef<Promise<void>>(Promise.resolve());
+  const chunkUploadFailedRef = useRef(false);
+  const interruptionPersistenceRef = useRef<Promise<void> | null>(null);
+  const interruptionPersistenceFailedRef = useRef(false);
   const finalTranscriptRef = useRef("");
   const interimTranscriptRef = useRef("");
   const recordingActiveRef = useRef(false);
@@ -516,7 +525,8 @@ export function ConsultationWorkflow({
         try {
           recognitionRef.current.start();
         } catch {
-          // Already running or not yet ended — the onend handler will restart.
+          setLiveTranscriptAvailable(false);
+          setTranscriptError("Live transcription is temporarily unavailable. Audio recording is still being saved securely for recovery.");
         }
       }
     }
@@ -572,6 +582,58 @@ export function ConsultationWorkflow({
       return saved.length > 0;
     } catch {
       return false;
+    }
+  }
+
+  async function uploadRecordingChunk(recordingId: string, sequence: number, chunk: Blob) {
+    const form = new FormData();
+    form.set("sequence", String(sequence));
+    form.set("chunk", chunk, `chunk-${sequence}.webm`);
+    const response = await fetch(`/api/consultations/${consultationId}/recording/${recordingId}/chunks`, { method: "POST", body: form });
+    if (!response.ok) throw new Error("audio_chunk_upload_failed");
+    uploadedChunksRef.current = Math.max(uploadedChunksRef.current, sequence + 1);
+  }
+
+  function reportRecordingState(status: "recording" | "paused") {
+    const recordingId = recordingIdRef.current;
+    if (!recordingId) return;
+    void fetch(`/api/consultations/${consultationId}/recording`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "state", recordingId, status }) });
+  }
+
+  async function persistRecordingInterruption() {
+    const recordingId = recordingIdRef.current;
+    if (!recordingId) return;
+    if (interruptionPersistenceRef.current) {
+      return interruptionPersistenceRef.current;
+    }
+    const persistence = (async () => {
+      const response = await fetch(`/api/consultations/${consultationId}/recording`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "state", recordingId, status: "interrupted" }),
+      });
+      if (!response.ok) throw new Error("recording_interruption_persistence_failed");
+    })();
+    interruptionPersistenceRef.current = persistence;
+    try {
+      await persistence;
+    } finally {
+      interruptionPersistenceRef.current = null;
+    }
+  }
+
+  async function handleRecordingInterruption(message: string, micMessage?: string) {
+    stopMicCapture();
+    try {
+      await persistRecordingInterruption();
+      setAudioCaptureError(message);
+      if (micMessage) setMicError(micMessage);
+      setState("recording_interrupted");
+    } catch {
+      interruptionPersistenceFailedRef.current = true;
+      setAudioCaptureError("Audio capture stopped, but its interrupted state could not be saved. Retry only after the save succeeds.");
+      setError("Recording stopped, but the secure interruption state could not be persisted. Check your connection and retry before starting another recording.");
+      setState("failed");
     }
   }
 
@@ -769,11 +831,10 @@ export function ConsultationWorkflow({
   // lost from memory and the doctor can decide what to do next.
   function handleUnexpectedTrackEnd() {
     if (!recordingActiveRef.current) return; // Our own stop().
-    stopMicCapture();
-    setMicError(
-      "The microphone stopped unexpectedly — it may have been disconnected or taken by another app. The recording stopped safely."
+    void handleRecordingInterruption(
+      "The microphone stopped unexpectedly — the recording has stopped.",
+      "The microphone stopped unexpectedly — it may have been disconnected or taken by another app."
     );
-    setState("recording_interrupted");
   }
 
   // Pre-flight mic check: acquire the stream, show a live level meter, then
@@ -801,12 +862,18 @@ export function ConsultationWorkflow({
     setState("consent");
   }
 
-  async function startMicCapture(previewStream?: MediaStream): Promise<boolean> {
+  async function startMicCapture(recordingId: string, previewStream?: MediaStream): Promise<boolean> {
     finalTranscriptRef.current = "";
     interimTranscriptRef.current = "";
     setTranscript("");
     setInterimTranscript("");
     chunksRef.current = [];
+    recordingIdRef.current = recordingId;
+    chunkSequenceRef.current = 0;
+    uploadedChunksRef.current = 0;
+    chunkUploadFailedRef.current = false;
+    interruptionPersistenceFailedRef.current = false;
+    chunkUploadChainRef.current = Promise.resolve();
     try {
       // Reuse the stream acquired during the mic check when it is still live;
       // otherwise acquire a fresh one.
@@ -832,9 +899,21 @@ export function ConsultationWorkflow({
 
       const recorder = new MediaRecorder(stream);
       recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) chunksRef.current.push(event.data);
+        if (!event.data || event.data.size === 0 || !recordingIdRef.current || chunkUploadFailedRef.current || !recordingActiveRef.current) return;
+        const sequence = chunkSequenceRef.current++;
+        chunksRef.current.push(event.data);
+        chunkUploadChainRef.current = chunkUploadChainRef.current
+          .then(() => {
+            if (chunkUploadFailedRef.current) return;
+            return uploadRecordingChunk(recordingIdRef.current!, sequence, event.data);
+          })
+          .catch(async () => {
+            if (chunkUploadFailedRef.current) return;
+            chunkUploadFailedRef.current = true;
+            await handleRecordingInterruption("Audio could not be saved securely. Recording has stopped; use the recoverable portion or write a manual note.");
+          });
       };
-      recorder.start();
+      recorder.start(10_000);
       mediaRecorderRef.current = recorder;
 
       // Mark recording active before starting recognition, so the onend
@@ -848,6 +927,7 @@ export function ConsultationWorkflow({
         recognition.interimResults = true;
         recognition.lang = "en-IN";
         recognition.onresult = (event) => {
+          setLiveTranscriptAvailable(true);
           let interim = "";
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const result = event.results[i];
@@ -884,6 +964,7 @@ export function ConsultationWorkflow({
               "Live transcription stopped unexpectedly. Audio is still recording — type the summary manually after stopping."
             );
           }
+          setLiveTranscriptAvailable(false);
         };
         recognition.onend = () => {
           // The Web Speech API stops after silence; keep listening while active.
@@ -891,13 +972,16 @@ export function ConsultationWorkflow({
             try {
               recognition.start();
             } catch {
-              // Ignore — a new start will be attempted on resume.
+              setLiveTranscriptAvailable(false);
+              setTranscriptError("Live transcription is temporarily unavailable. Audio recording is still being saved securely for recovery.");
             }
           }
         };
         recognition.start();
+        setLiveTranscriptAvailable(true);
         recognitionRef.current = recognition;
       } else {
+        setLiveTranscriptAvailable(false);
         setTranscriptError(
           "Live transcription isn't supported in this browser (try Chrome or Edge). Audio is still recording — you can type the summary manually after stopping."
         );
@@ -907,6 +991,19 @@ export function ConsultationWorkflow({
       recordingActiveRef.current = false;
       return false;
     }
+  }
+
+  async function stopRecorderAndFlush(): Promise<boolean> {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      await new Promise<void>((resolve) => {
+        const previous = recorder.onstop;
+        recorder.onstop = (event) => { previous?.call(recorder, event); resolve(); };
+        try { recorder.stop(); } catch { resolve(); }
+      });
+    }
+    await chunkUploadChainRef.current;
+    return !chunkUploadFailedRef.current;
   }
 
   function stopMicCapture(): string {
@@ -946,23 +1043,32 @@ export function ConsultationWorkflow({
     setMicError(null);
     setMicErrorKind(null);
     setTranscriptError(null);
+    // Persist consent before creating the durable recording session. A UI
+    // "Recording" state is never entered until both operations succeed.
+    try {
+      await patchConsultation({ consentAcquired: true, consentVersion: "v0.1", status: "recording" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not record consent");
+      return;
+    }
+    let recordingId: string;
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/recording`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", format: "audio/webm" }) });
+      const body = await response.json().catch(() => null) as { recording?: { id?: string } } | null;
+      if (!response.ok || !body?.recording?.id) throw new Error("Could not create secure recording");
+      recordingId = body.recording.id;
+    } catch (err) {
+      await patchConsultation({ status: "draft" }).catch(() => undefined);
+      setError(err instanceof Error ? err.message : "Could not create secure recording");
+      return;
+    }
     // Reuse the stream from the mic check when possible (no double
     // permission prompt, no re-acquisition race). The level meter keeps
     // running so the recording rail shows a live audio level.
-    const micOk = await startMicCapture(streamRef.current ?? undefined);
+    const micOk = await startMicCapture(recordingId, streamRef.current ?? undefined);
     if (!micOk) {
+      await handleRecordingInterruption("Audio capture could not start securely. The recording session was stopped.");
       return; // startMicCapture already set a mapped mic error.
-    }
-    try {
-      await patchConsultation({
-        consentAcquired: true,
-        consentVersion: "v0.1",
-        status: "recording",
-      });
-    } catch (err) {
-      stopMicCapture();
-      setError(err instanceof Error ? err.message : "Could not start recording");
-      return;
     }
     setElapsedSeconds(0);
     setPaused(false);
@@ -977,6 +1083,7 @@ export function ConsultationWorkflow({
     const next = !isRecordingPaused;
     setPaused(next);
     if (next) {
+      reportRecordingState("paused");
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         mediaRecorderRef.current.pause();
       }
@@ -988,6 +1095,7 @@ export function ConsultationWorkflow({
         }
       }
     } else {
+      reportRecordingState("recording");
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
         mediaRecorderRef.current.resume();
       }
@@ -1008,55 +1116,39 @@ export function ConsultationWorkflow({
       setError(null);
       setTranscriptError(null);
 
-      const finalTranscript = stopMicCapture() || transcript.trim();
-      setTranscript(finalTranscript);
+      // MediaRecorder emits its last dataavailable asynchronously after stop.
+      // Wait for that event and its ordered upload chain before declaring this
+      // recording final. Browser live text is preview-only and is never used
+      // to create an authoritative transcript or AI draft.
+      const recordingId = recordingIdRef.current;
+      const uploaded = await stopRecorderAndFlush();
+      const previewTranscript = stopMicCapture() || transcript.trim();
+      setTranscript(previewTranscript);
       setInterimTranscript("");
-
-      // No speech was captured (silent recording, or a browser without the
-      // Web Speech API). Route straight to a manual note without ever showing
-      // the fake "recording received / transcript prepared" steps.
-      if (!finalTranscript.trim()) {
-        await patchConsultation({
-          status: "draft",
-          endedAt: new Date().toISOString(),
-        }).catch(() => {
-          // Non-fatal; the doctor still lands in the manual editor.
-        });
-        setError(
-          "No speech was captured during the recording, so a draft could not be prepared. Write the note manually instead."
-        );
-        setManualPath(true);
-        setState("manual_review");
+      if (!recordingId || !uploaded) {
+        if (!interruptionPersistenceFailedRef.current) {
+          setState("recording_interrupted");
+          setError("Audio capture could not be finalized safely. The recoverable recording is retained; write the note manually until transcription is available.");
+        }
         return;
       }
-
-      // We have real transcript text in hand — mark it received and persist it
-      // before advancing any further.
+      const finalize = await fetch(`/api/consultations/${consultationId}/recording`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "finalize", recordingId, expectedChunks: uploadedChunksRef.current, durationSeconds: elapsedSeconds }),
+      });
+      if (!finalize.ok) {
+        setState("recording_interrupted");
+        setError("Audio capture could not be finalized safely. The recoverable recording is retained; write the note manually.");
+        return;
+      }
+      // A provider-neutral durable transcription worker is intentionally not
+      // substituted with browser text. Until an approved provider is
+      // configured, route to the existing manual-note path.
       setProcessingStage(1);
-      setState("processing");
-
-      const saved = await persistTranscript(finalTranscript);
-      if (!saved) {
-        setProcessingStage(0);
-        setState("failed");
-        setError(
-          "The transcript could not be saved, so a draft could not be prepared. Retry safely, or write the note manually."
-        );
-        return;
-      }
-      setProcessingStage(2);
-
-      try {
-        await patchConsultation({ status: "processing", endedAt: new Date().toISOString() });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not start processing");
-        setProcessingStage(0);
-        setState("failed");
-        return;
-      }
-
-      // The AI layer starts right away; the doctor sees live progress below.
-      await generateDraft();
+      setManualPath(true);
+      setState("manual_review");
+      setError("Recording was saved securely. Authoritative transcription is pending approved provider configuration, so no AI draft was generated.");
     } finally {
       stopBusyRef.current = false;
     }
@@ -1128,9 +1220,12 @@ export function ConsultationWorkflow({
     setTranscript("");
     setInterimTranscript("");
     try {
-      await patchConsultation({ status: "draft" });
+      await persistRecordingInterruption();
     } catch {
-      // Non-fatal; the doctor is still leaving the recording state.
+      interruptionPersistenceFailedRef.current = true;
+      setError("Recording stopped, but the secure interruption state could not be persisted. Check your connection and retry before starting another recording.");
+      setState("failed");
+      return;
     }
     setState("recording_interrupted");
   }
@@ -1146,9 +1241,12 @@ export function ConsultationWorkflow({
     setRecordingWarningDismissed(false);
     autoStoppedRef.current = false;
     try {
-      await patchConsultation({ status: "draft" });
+      await persistRecordingInterruption();
     } catch {
-      // Non-fatal; the mic check still proceeds.
+      interruptionPersistenceFailedRef.current = true;
+      setError("Recording stopped, but the secure interruption state could not be persisted. Check your connection and retry before starting another recording.");
+      setState("failed");
+      return;
     }
     await beginMicTest();
   }
@@ -1507,7 +1605,7 @@ export function ConsultationWorkflow({
                 <span>
                   <Icon name="mic" /> Live transcript
                 </span>
-                <small>{isRecordingPaused ? "Paused" : transcript ? "Listening" : "Listening for speech…"}</small>
+                <small>{isRecordingPaused ? "Paused" : liveTranscriptAvailable ? "Audio capture healthy · live preview available" : "Audio capture healthy · live preview unavailable"}</small>
               </div>
               <div className={styles.liveTranscriptBody}>
                 {isRecordingPaused && (
@@ -1536,6 +1634,13 @@ export function ConsultationWorkflow({
                 <button type="button" onClick={() => setTranscriptError(null)}>
                   Dismiss
                 </button>
+              </div>
+            )}
+
+            {audioCaptureError && (
+              <div className={styles.errorBanner} role="alert">
+                <strong>Audio capture stopped</strong>
+                <span>{audioCaptureError}</span>
               </div>
             )}
 
@@ -1576,7 +1681,7 @@ export function ConsultationWorkflow({
                   <Icon name={isRecordingPaused ? "mic" : "micOff"} />
                   {isRecordingPaused ? "Resume recording" : "Pause recording"}
                 </button>
-                <button type="button" className={styles.stopButton} onClick={stopAndProcess}>
+                <button type="button" className={styles.stopButton} disabled={stopBusyRef.current || Boolean(audioCaptureError)} onClick={stopAndProcess}>
                   <Icon name="stop" /> Stop and process
                 </button>
               </span>
@@ -1585,8 +1690,8 @@ export function ConsultationWorkflow({
               Discard recording
             </button>
             <p className={styles.recordingConsentNote}>
-              Consent recorded for audio and clinical processing · Patient sharing not granted ·
-              Keep this tab open and the screen on for continuous capture.
+              Consent recorded for audio and clinical processing · Audio is uploaded privately in recoverable chunks ·
+              Patient sharing not granted.
             </p>
           </div>
         )}

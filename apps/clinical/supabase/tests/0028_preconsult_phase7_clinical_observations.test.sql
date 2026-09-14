@@ -57,7 +57,8 @@ SELECT throws_ok($$ SELECT public.complete_document_processing(
   'lab_report', 0.95, 0.93, ARRAY[]::text[], repeat('a', 64), '[]'::jsonb
 ) $$, '42501', NULL, 'browser roles cannot finalize normalized provider output');
 
-SET LOCAL ROLE service_role;
+-- Exercise the retained internal implementation as its trusted owner.
+SET LOCAL ROLE postgres;
 SELECT lives_ok($$ SELECT public.complete_document_processing(
   (SELECT id FROM public.document_extractions WHERE document_id = '88000000-0000-4000-8000-000000000001'),
   'succeeded', '{"normalizedObservations":[]}'::jsonb,
@@ -92,7 +93,8 @@ SELECT lives_ok($$ SELECT * FROM public.begin_document_processing(
   '88000000-0000-4000-8000-000000000002', 'smaran-document-extraction/v2.0.0', 'preconsult-document-pipeline/v2.0.0', 'test', 'model/v2'
 ) $$, 'likely duplicate source may process without deleting evidence');
 
-SET LOCAL ROLE service_role;
+-- Exercise the retained internal implementation as its trusted owner.
+SET LOCAL ROLE postgres;
 SELECT lives_ok($$ SELECT public.complete_document_processing(
   (SELECT id FROM public.document_extractions WHERE document_id = '88000000-0000-4000-8000-000000000002'),
   'succeeded', '{"normalizedObservations":[]}'::jsonb,
@@ -109,7 +111,8 @@ SELECT lives_ok($$ SELECT * FROM public.begin_document_processing(
   '88000000-0000-4000-8000-000000000001', 'smaran-document-extraction/v2.0.0', 'preconsult-document-pipeline/v2.0.0', 'test', 'model/v2'
 ) $$, 'source can be reprocessed as a new immutable attempt');
 
-SET LOCAL ROLE service_role;
+-- Exercise the retained internal implementation as its trusted owner.
+SET LOCAL ROLE postgres;
 SELECT lives_ok($$ SELECT public.complete_document_processing(
   (SELECT id FROM public.document_extractions WHERE document_id = '88000000-0000-4000-8000-000000000001' AND status = 'processing'),
   'succeeded', '{"normalizedObservations":[]}'::jsonb,
@@ -145,7 +148,8 @@ SELECT set_config('request.jwt.claim.sub', '28000000-0000-4000-8000-000000000002
 SELECT lives_ok($$ SELECT * FROM public.begin_document_processing(
   '88000000-0000-4000-8000-000000000002', 'smaran-document-extraction/v2.0.0', 'preconsult-document-pipeline/v2.0.0', 'test', 'model/v2'
 ) $$, 'likely duplicate can be reprocessed after patient merge');
-SET LOCAL ROLE service_role;
+-- Exercise the retained internal implementation as its trusted owner.
+SET LOCAL ROLE postgres;
 SELECT lives_ok($$ SELECT public.complete_document_processing(
   (SELECT id FROM public.document_extractions WHERE document_id = '88000000-0000-4000-8000-000000000002' AND status = 'processing'),
   'succeeded', '{"normalizedObservations":[]}'::jsonb,
@@ -162,7 +166,8 @@ SELECT set_config('request.jwt.claim.sub', '28000000-0000-4000-8000-000000000003
 SELECT lives_ok($$ SELECT * FROM public.begin_document_processing(
   '88000000-0000-4000-8000-000000000003', 'smaran-document-extraction/v2.0.0', 'preconsult-document-pipeline/v2.0.0', 'test', 'model/v2'
 ) $$, 'other-clinic doctor can claim their own consented document');
-SET LOCAL ROLE service_role;
+-- Exercise the retained internal implementation as its trusted owner.
+SET LOCAL ROLE postgres;
 SELECT lives_ok($$ SELECT public.complete_document_processing(
   (SELECT id FROM public.document_extractions WHERE document_id = '88000000-0000-4000-8000-000000000003'),
   'succeeded', '{"normalizedObservations":[]}'::jsonb,

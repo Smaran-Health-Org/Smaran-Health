@@ -2,7 +2,7 @@
 
 Do not silently reverse these decisions during implementation. If the existing code creates a conflict, surface it in planning/review.
 
-- **D-001** MVP patient experience is secure web link/OTP, not a patient mobile app.
+- **D-001** MVP patient experience is a secure web link, not a patient mobile app.
 - **D-002** Patient creation/onboarding uses a hybrid model: receptionist can create the lightweight record; patient can complete intake/upload remotely.
 - **D-003** MVP is optimized for individual doctors, while architecture should avoid blocking future multi-doctor clinics.
 - **D-004** Clinic maintains its own patient database; no automatic cross-clinic global patient record in MVP.
@@ -17,7 +17,7 @@ Do not silently reverse these decisions during implementation. If the existing c
 - **D-013** Patient enters reason for visit in free text; exact patient wording remains available.
 - **D-014** Patient may optionally enter existing conditions, current medicines, and allergies.
 - **D-015** Explicit consent is required for intake/document processing/storage.
-- **D-016** Intake access requires OTP verification.
+- **D-016** Intake access uses a high-entropy, expiry-bound, revocable link scoped to one appointment; no separate OTP is required for MVP.
 - **D-017** Patient may correct permitted demographics; modifications are auditable.
 - **D-018** Admin/receptionist may scan/upload reports and prescriptions and view original files/images.
 - **D-019** Admin/receptionist sees operational document/readiness status but not the doctor-facing AI pre-consult clinical summary and cannot modify it.
@@ -41,7 +41,7 @@ Do not silently reverse these decisions during implementation. If the existing c
 - **D-037** Doctor and admin/receptionist use separate role-specific workspaces and navigation after authentication. Doctor lands in the clinical Doctor Workspace; admin/assistant lands in the Clinic Desk/Admin Workspace.
 - **D-038** Admin/receptionist must not be able to reach doctor-only clinical routes merely by entering the URL. Workspace separation must be enforced server-side through authorization, not only hidden navigation.
 - **D-039** A doctor may also perform permitted clinic-desk/admin operations so Smaran remains usable by a solo doctor without a receptionist.
-- **D-040** Patient intake is a third isolated experience accessed through secure OTP-scoped intake routes and is not a normal clinic-staff login or workspace.
+- **D-040** Patient intake is a third isolated experience accessed through secure link-scoped intake routes and is not a normal clinic-staff login or workspace.
 - **D-041** Clinic identity and workspace identity are distinct UI concepts. Account/workspace UI should show the active clinic separately from the active workspace.
 - **D-042** A doctor with permission may switch between Clinical and Admin workspaces without signing out; admin/receptionist/assistant sees only Admin. Switching workspace preserves clinic context and authenticated identity.
 - **D-043** Doctor Dashboard is a day-management surface, not a clinical-alert surface. Its MVP KPIs are Patients Today, Waiting Now, Priority, and Completed; patient-specific clinical flags/discrepancies belong after opening the patient review.

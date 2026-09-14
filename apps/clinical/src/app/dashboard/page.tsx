@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
@@ -42,7 +41,6 @@ export default async function DashboardPage() {
             </h1>
             <p>Your day at a glance.</p>
           </div>
-          <Link href="/desk" className={styles.secondaryButton}>Open Clinic Desk</Link>
         </div>
 
         <div className={styles.doctorKpiGrid} aria-label="Today summary">

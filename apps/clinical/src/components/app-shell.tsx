@@ -57,9 +57,9 @@ export function AppShell({
     router.refresh();
   }
 
-  const isPatients = pathname.startsWith("/patients");
+  const isPatients = pathname.startsWith("/patients") || pathname.startsWith("/desk/patients");
   const isDashboard = pathname === "/dashboard";
-  const isDesk = pathname === "/desk" || pathname.startsWith("/desk/");
+  const isDeskHome = pathname === "/desk";
   const homeHref = workspace === "desk" ? "/desk" : "/dashboard";
   const workspaceLabel = workspace === "desk" ? "Clinic Desk" : "Clinical";
 
@@ -83,6 +83,8 @@ export function AppShell({
               <Link
                 href="/dashboard"
                 className={isDashboard ? styles.activeNav : undefined}
+                aria-label="Today"
+                title="Today"
               >
                 <Icon name="home" />
                 <span>Today</span>
@@ -90,6 +92,8 @@ export function AppShell({
               <Link
                 href="/patients"
                 className={isPatients ? styles.activeNav : undefined}
+                aria-label="Patients"
+                title="Patients"
               >
                 <Icon name="users" />
                 <span>Patients</span>
@@ -98,11 +102,16 @@ export function AppShell({
             </>
           ) : (
             <>
-              <Link href="/desk" className={isDesk ? styles.activeNav : undefined}>
+              <Link href="/desk" className={isDeskHome ? styles.activeNav : undefined} aria-label="Today" title="Today">
                 <Icon name="home" />
                 <span>Today</span>
               </Link>
-              <span className={styles.disabledNav} aria-disabled="true">
+              <Link href="/desk/patients" className={isPatients ? styles.activeNav : undefined} aria-label="Patients" title="Patients">
+                <Icon name="users" />
+                <span>Patients</span>
+                <small>{patientCount}</small>
+              </Link>
+              <span className={styles.disabledNav} aria-disabled="true" aria-label="Scheduler, planned for later" title="Scheduler (planned)">
                 <Icon name="calendar" />
                 <span>Scheduler</span>
                 <small>Later</small>
@@ -138,8 +147,8 @@ export function AppShell({
                 <small>Workspace</small>
                 {role === "doctor" ? (
                   <div>
-                    <Link data-active={workspace === "clinical"} href="/dashboard">Clinical</Link>
-                    <Link data-active={workspace === "desk"} href="/desk">Clinic Desk</Link>
+                    <Link data-active={workspace === "clinical"} href="/dashboard">Doctor</Link>
+                    <Link data-active={workspace === "desk"} href="/desk">Receptionist</Link>
                   </div>
                 ) : (
                   <strong>Clinic Desk</strong>

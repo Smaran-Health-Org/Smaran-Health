@@ -24,6 +24,8 @@ const calendarDateSchema = z
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
   }, "Date is invalid");
 
+const patientEmailSchema = z.string().trim().toLowerCase().email("Enter a valid email address").max(320);
+
 // ── Patient ─────────────────────────────────────────────────────────────────
 
 export const createPatientSchema = z.object({
@@ -32,6 +34,7 @@ export const createPatientSchema = z.object({
   dateOfBirth: isoDateSchema.optional().nullable(),
   gender: z.string().max(50).optional().nullable(),
   phone: z.string().max(20).optional().nullable(),
+  email: patientEmailSchema.optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   medicalRecordNumber: z.string().max(100).optional().nullable(),
   weightKg: z.number().positive().max(500).optional().nullable(),

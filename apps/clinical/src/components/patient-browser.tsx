@@ -12,7 +12,13 @@ function initials(name: string): string {
     .join("");
 }
 
-export function PatientBrowser({ patients }: { patients: Patient[] }) {
+export function PatientBrowser({
+  patients,
+  patientHref = (patientId) => `/patients/${patientId}`,
+}: {
+  patients: Patient[];
+  patientHref?: (patientId: string) => string;
+}) {
   return (
     <div className={styles.pageContent}>
       <div className={styles.pageHeading}>
@@ -33,7 +39,7 @@ export function PatientBrowser({ patients }: { patients: Patient[] }) {
             {patients.map((patient) => (
                 <Link
                   key={patient.id}
-                  href={`/patients/${patient.id}`}
+                  href={patientHref(patient.id)}
                   className={styles.patientRow}
                 >
                   <span className={styles.avatar}>{initials(patient.fullName)}</span>

@@ -42,7 +42,7 @@ CREATE TEMP TABLE phase4_issued_access (
 SELECT lives_ok(
   $$ INSERT INTO phase4_issued_access SELECT * FROM public.issue_patient_intake_access(
     '53000000-0000-4000-8000-000000000001',
-    repeat('a', 64), repeat('b', 64),
+    repeat('a', 64), repeat('a', 64),
     now() + interval '24 hours', now() + interval '10 minutes'
   ) $$,
   'assistant may issue intake access for a clinic appointment'
@@ -69,7 +69,7 @@ SELECT set_config('request.jwt.claim.sub', '23000000-0000-4000-8000-000000000002
 SELECT throws_ok(
   $$ SELECT * FROM public.issue_patient_intake_access(
     '53000000-0000-4000-8000-000000000001',
-    repeat('2', 64), repeat('3', 64),
+    repeat('2', 64), repeat('2', 64),
     now() + interval '24 hours', now() + interval '10 minutes'
   ) $$,
   '22023',
@@ -100,7 +100,8 @@ SELECT is(
 );
 SET LOCAL ROLE postgres;
 UPDATE public.intake_access_sessions
-SET otp_expires_at = now() - interval '1 minute'
+SET expires_at = now() - interval '1 minute',
+    otp_expires_at = now() - interval '2 minutes'
 WHERE token_hash = repeat('a', 64);
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '23000000-0000-4000-8000-000000000002', true);
@@ -109,11 +110,12 @@ SELECT is(
     ARRAY['43000000-0000-4000-8000-000000000001'::uuid]
   )),
   'expired',
-  'operational reader stops reporting sent after OTP expiry'
+  'operational reader stops reporting sent after secure-link expiry'
 );
 SET LOCAL ROLE postgres;
 UPDATE public.intake_access_sessions
-SET otp_expires_at = now() + interval '10 minutes'
+SET expires_at = now() + interval '24 hours',
+    otp_expires_at = now() + interval '10 minutes'
 WHERE token_hash = repeat('a', 64);
 
 SET LOCAL ROLE anon;
@@ -132,34 +134,34 @@ SELECT is(
 );
 SELECT is(
   public.verify_patient_intake_otp(repeat('a', 64), repeat('c', 64), repeat('d', 64)),
-  'invalid_otp',
-  'incorrect OTP is rejected without exposing intake context'
+  'invalid',
+  'an invalid direct-link credential is rejected without exposing intake context'
 );
 SET LOCAL ROLE postgres;
 SELECT is(
   (SELECT failed_attempts FROM public.intake_access_sessions WHERE token_hash = repeat('a', 64)),
-  1,
-  'incorrect OTP increments the bounded attempt counter'
+  0,
+  'invalid direct-link credentials do not create an OTP-style attempt counter'
 );
 SET LOCAL ROLE anon;
 SELECT set_config('request.jwt.claim.sub', '', true);
 SELECT is(
-  public.verify_patient_intake_otp(repeat('a', 64), repeat('b', 64), repeat('d', 64)),
+  public.verify_patient_intake_otp(repeat('a', 64), repeat('a', 64), repeat('d', 64)),
   'verified',
-  'correct OTP establishes the scoped browser session'
+  'a valid direct link establishes the scoped browser session'
 );
 SET LOCAL ROLE postgres;
 SELECT is(
   (SELECT status::text FROM public.patient_intakes WHERE consultation_id = '43000000-0000-4000-8000-000000000001'),
   'in_progress',
-  'OTP verification marks intake in progress'
+  'direct-link verification marks intake in progress'
 );
 SET LOCAL ROLE anon;
 SELECT set_config('request.jwt.claim.sub', '', true);
 SELECT is(
   (SELECT count(*) FROM public.get_patient_intake_context(repeat('a', 64), repeat('d', 64))),
   1::bigint,
-  'verified session may read exactly its intake context'
+  'verified direct-link session may read exactly its intake context'
 );
 SELECT throws_ok(
   $$ SELECT public.submit_patient_intake(
@@ -231,7 +233,7 @@ SELECT is(
 SELECT is(
   (SELECT phone FROM public.patients WHERE id = '33000000-0000-4000-8000-000000000001'),
   '+91 99999 91234',
-  'registered OTP mobile cannot be changed through intake'
+  'registered mobile cannot be changed through intake'
 );
 SELECT is(
   (SELECT count(*) FROM public.audit_logs WHERE metadata::text LIKE '%Follow-up in patient words%'),
@@ -239,9 +241,9 @@ SELECT is(
   'audit metadata excludes verbatim clinical intake content'
 );
 SELECT is(
-  public.verify_patient_intake_otp(repeat('a', 64), repeat('b', 64), repeat('e', 64)),
+  public.verify_patient_intake_otp(repeat('a', 64), repeat('a', 64), repeat('e', 64)),
   'invalid',
-  'completed intake access cannot be reused for another browser session'
+  'completed direct link cannot be reused for another browser session'
 );
 
 SET LOCAL ROLE authenticated;

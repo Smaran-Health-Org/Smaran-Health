@@ -22,6 +22,7 @@ import {
   MAX_DOCUMENT_UPLOAD_REQUEST_BYTES,
   readBoundedDocumentBody,
 } from "../lib/documents/bounded-body";
+import { completeDocumentRegistration } from "../lib/documents/ingest-workflow";
 
 const consultationId = "45000000-0000-4000-8000-000000000001";
 const documentId = "85000000-0000-4000-8000-000000000001";
@@ -228,4 +229,37 @@ test("document view audit is a separate post-signing RPC for staff and patients"
       },
     },
   ]);
+});
+
+test("a failed document upload can retry with the same immutable registration command", async () => {
+  const registration = {
+    registrationCommandId: documentId,
+    storagePath: `clinic/patient/${documentId}/original.pdf`,
+    contentHash: "d".repeat(64),
+    mimeType: "application/pdf",
+    fileSize: 100,
+    originalFilename: "retry.pdf",
+    documentType: "other" as const,
+    documentDatePrecision: "unknown" as const,
+  };
+  const first = await completeDocumentRegistration({
+    registration, bytes: new Uint8Array([1]),
+    store: async () => { throw new Error("temporary storage failure"); },
+    register: async () => { throw new Error("not reached"); },
+    lookupRegistered: async () => null,
+    verifyExisting: async () => false,
+  });
+  assert.deepEqual(first, { kind: "storage_failure" });
+
+  const document = {
+    id: documentId, originalFilename: "retry.pdf", documentType: "other" as const,
+    documentDate: null, documentDateSource: "unknown" as const, documentDatePrecision: "unknown" as const,
+    status: "uploaded" as const, duplicateOfDocumentId: null, createdAt: "2026-09-01T00:00:00.000Z",
+    latestExtractionStatus: null, latestFailureReasonCode: null,
+  };
+  const retry = await completeDocumentRegistration({
+    registration, bytes: new Uint8Array([1]), store: async () => undefined,
+    register: async () => document, lookupRegistered: async () => null, verifyExisting: async () => false,
+  });
+  assert.deepEqual(retry, { kind: "registered", document });
 });

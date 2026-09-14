@@ -7,7 +7,24 @@ import { createAdminClient } from "../lib/supabase/admin";
 // Seed script — uses service_role key, bypasses RLS intentionally.
 // Run: npx tsx src/db/seed.ts
 
+export function assertSafeLocalSeedTarget(url = process.env.NEXT_PUBLIC_SUPABASE_URL, allowLocalSeed = process.env.SMARAN_LOCAL_SEED) {
+  if (allowLocalSeed !== "1") {
+    throw new Error("Refusing to seed: set SMARAN_LOCAL_SEED=1 for an explicit local synthetic-data seed.");
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url ?? "");
+  } catch {
+    throw new Error("Refusing to seed: NEXT_PUBLIC_SUPABASE_URL must be a local Supabase URL.");
+  }
+  if (!['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)) {
+    throw new Error("Refusing to seed: synthetic accounts may only be created against localhost.");
+  }
+}
+
 async function seed() {
+  assertSafeLocalSeedTarget();
   const supabase = createAdminClient();
 
   console.log("🌱 Seeding database…\n");
@@ -26,24 +43,31 @@ async function seed() {
   }
   console.log(`✓ Clinic: ${clinic.name} (${clinic.id})`);
 
-  // ── 2. Create doctors ─────────────────────────────────────────────────────
+  // ── 2. Create clinic staff ────────────────────────────────────────────────
 
-  const doctors = [
-    { email: "doctor1@pilot.test", password: "pilot123!", fullName: "Dr. Meera Patil" },
-    { email: "doctor2@pilot.test", password: "pilot123!", fullName: "Dr. Rajesh Kumar" },
+  const staff: Array<{
+    email: string;
+    password: string;
+    fullName: string;
+    role: "doctor" | "admin";
+  }> = [
+    { email: "doctor1@pilot.test", password: "pilot123!", fullName: "Dr. Meera Patil", role: "doctor" },
+    { email: "doctor2@pilot.test", password: "pilot123!", fullName: "Dr. Rajesh Kumar", role: "doctor" },
+    { email: "doctor@test.com", password: "test@123", fullName: "Test Doctor", role: "doctor" },
+    { email: "admin@test.com", password: "test@123", fullName: "Test Admin", role: "admin" },
   ];
 
-  for (const doc of doctors) {
+  for (const member of staff) {
     // Create auth user
     const { data: authUser, error: authErr } = await supabase.auth.admin.createUser({
-      email: doc.email,
-      password: doc.password,
+      email: member.email,
+      password: member.password,
       email_confirm: true,
-      user_metadata: { full_name: doc.fullName },
+      user_metadata: { full_name: member.fullName },
     });
 
     if (authErr) {
-      console.error(`Failed to create auth user ${doc.email}:`, authErr.message);
+      console.error(`Failed to create auth user ${member.email}:`, authErr.message);
       continue;
     }
 
@@ -52,11 +76,11 @@ async function seed() {
     // Update profile to use our clinic
     const { error: profileErr } = await supabase
       .from("profiles")
-      .update({ clinic_id: clinic.id })
+      .update({ clinic_id: clinic.id, role: member.role })
       .eq("id", authUser.user.id);
 
     if (profileErr) {
-      console.error(`Failed to update profile for ${doc.email}:`, profileErr.message);
+      console.error(`Failed to update profile for ${member.email}:`, profileErr.message);
     }
 
     // Update membership too
@@ -65,10 +89,10 @@ async function seed() {
       .upsert({ clinic_id: clinic.id, profile_id: authUser.user.id });
 
     if (memErr) {
-      console.error(`Failed to update membership for ${doc.email}:`, memErr.message);
+      console.error(`Failed to update membership for ${member.email}:`, memErr.message);
     }
 
-    console.log(`✓ Doctor: ${doc.fullName} (${doc.email} / ${doc.password})`);
+    console.log(`✓ ${member.role === "admin" ? "Admin" : "Doctor"}: ${member.fullName} (${member.email})`);
   }
 
   // ── 3. Create patients ────────────────────────────────────────────────────
@@ -181,13 +205,12 @@ async function seed() {
   }
 
   console.log("\n✅ Seed complete!");
-  console.log("\n📋 Login credentials:");
-  console.log("   doctor1@pilot.test / pilot123!");
-  console.log("   doctor2@pilot.test / pilot123!");
-  console.log("\n   Run: npm run dev  →  http://localhost:3000\n");
+  console.log("\nSynthetic local seed complete. Run: npm run dev  →  http://localhost:3000\n");
 }
 
-seed().catch((err) => {
-  console.error("Seed failed:", err);
-  process.exit(1);
-});
+if (process.argv[1]?.endsWith("seed.ts")) {
+  seed().catch((err) => {
+    console.error("Seed failed:", err instanceof Error ? err.message : "unknown error");
+    process.exit(1);
+  });
+}
