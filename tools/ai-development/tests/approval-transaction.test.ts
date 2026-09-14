@@ -21,7 +21,7 @@ const child = spawn(${JSON.stringify(gitPath)}, args, { stdio:"inherit", env:pro
 child.on("exit", code => process.exit(code ?? 1));
 `, { mode: 0o755 });
   const previous = process.env.PATH; process.env.PATH = `${wrapperRoot}:${previous}`;
-  try { await assert.rejects(approveRefinement(f.root, ID, URL, f.transport)); }
+  try { await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport })); }
   finally { process.env.PATH = previous; }
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
   const index = execFileSync(gitPath, ["-C", f.root, "rev-parse", "--path-format=absolute", "--git-path", "index"], { encoding: "utf8" }).trim();
@@ -46,7 +46,7 @@ if (args.includes("update-ref")) {
 } else { const child = spawn(${JSON.stringify(gitPath)}, args, {stdio:"inherit"}); child.on("exit", code => process.exit(code ?? 1)); }
 `, { mode: 0o755 });
   const previous = process.env.PATH; process.env.PATH = `${wrapperRoot}:${previous}`;
-  try { await assert.rejects(approveRefinement(f.root, ID, URL, f.transport), /LOCAL_REF_TRANSACTION_FAILED/); }
+  try { await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }), /LOCAL_REF_TRANSACTION_FAILED/); }
   finally { process.env.PATH = previous; }
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
 });
@@ -65,7 +65,7 @@ if (args.includes("update-ref")) execFileSync(${JSON.stringify(gitPath)}, ["-C",
 const child = spawn(${JSON.stringify(gitPath)}, args, {stdio:"inherit"}); child.on("exit", code => process.exit(code ?? 1));
 `, { mode: 0o755 });
   const previous = process.env.PATH; process.env.PATH = `${wrapperRoot}:${previous}`;
-  try { await assert.rejects(approveRefinement(f.root, ID, URL, f.transport), /LOCAL_REF_TRANSACTION_FAILED/); }
+  try { await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }), /LOCAL_REF_TRANSACTION_FAILED/); }
   finally { process.env.PATH = previous; }
   const after = await fingerprint(f.root, f.statePath);
   assert.equal(after.head.trim(), racedCommit); assert.deepEqual(after.state, before.state); assert.deepEqual(after.index, before.index); assert.equal(after.status, "");

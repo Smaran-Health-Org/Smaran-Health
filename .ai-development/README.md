@@ -14,10 +14,11 @@ Node 22.13+ and npm are required; Node 22 remains the GitHub CI baseline.
 npm --prefix tools/ai-development ci
 npm --prefix tools/ai-development run smaran -- status TEST-001
 npm --prefix tools/ai-development run smaran -- validate TEST-001
-npm --prefix tools/ai-development run smaran -- approve-refinement TEST-001 --evidence https://github.com/DrSmaranAI/Smaran-Health/pull/1#issuecomment-2
 ```
 
-Identifiers and URLs above are examples. These are the only supported commands.
+Identifiers above are examples. These are the ordinary read-only commands.
+Ordinary `approve-refinement` dispatch is disabled and directs operators to the
+separate trusted entrypoint; candidate-local execution cannot establish trust.
 Extra arguments, duplicate evidence flags and override flags fail. Exit codes:
 0 success (including a freshly verified no-op), 1 validation/verification failure,
 2 usage failure. No automatic push, merge, PR operation, evidence creation or
@@ -99,13 +100,101 @@ identity, and records that commit. Candidate policy cannot authorize its candida
 Validators come from the executing reviewed tool, not the candidate worktree
 supplied to the command. Normal offline validation still uses local contracts.
 
-This does **not** prove arbitrary feature-branch verifier/bootstrap code is trusted.
-Live enforcement additionally requires reviewed verifier code, protected/trusted
-target policy, a trusted launcher/baseline execution mechanism and credential
-separation. `dev-neelesh` protection and trust-root policy remain unresolved
-operational requirements. The reusable verifier takes an explicit trusted context
-so a future trusted launcher can be added without redesign. No branch-protection
-solution or general repository bypass prevention is claimed.
+## Dedicated trusted approval runner — AITRUST-001 foundation
+
+The sole supported operational approval mutation route is the separate built
+`tools/ai-development/dist/src/trusted-approval.js` entrypoint. Invoke it with a
+controlled Node 22.13+ executable, with no Node flags, from a sanitized external
+supervisor/environment. The supervisor must inject `SMARAN_AI_DEV_VERIFIER_TOKEN`
+into the process environment securely, without placing its value in arguments,
+command output, logs or shell history. The token is a separate **technical read
+credential**, not the approver's account/token/session. Its GitHub permissions
+must permit only the verification reads (including permission queries) required
+by `GhTransport`; this code issues REST GETs and a fixed read-only GraphQL query.
+Missing/non-printable/empty credentials fail before verification, even with an
+ambient human session. `gh` receives only this explicit token as `GH_TOKEN`, with
+other `GH_*`/`GITHUB_*` authentication inputs removed and a fresh empty private
+`GH_CONFIG_DIR` for each request. Invalid tokens fail; stored human auth is not a
+fallback. Git subprocesses do not receive the verifier token or gh credentials.
+
+```sh
+/controlled/bin/node /trusted/launcher/tools/ai-development/dist/src/trusted-approval.js TEST-001 \
+  --evidence https://github.com/DrSmaranAI/Smaran-Health/pull/1#issuecomment-2 \
+  --candidate-root /untrusted/candidate \
+  --candidate-head <full-lowercase-current-candidate-head> \
+  --launcher-commit <full-lowercase-reviewed-launcher-commit>
+```
+
+All five values are explicit and required in exactly this order. No override,
+transport or credential CLI flag exists. Exit codes are 0 success/fresh no-op,
+1 failure (fixed diagnostics, no arbitrary error values), 2 strict usage failure.
+The expected launcher SHA must be externally selected from reviewed provenance;
+a moving branch name alone is not a trust anchor. It must contain this runner.
+This mechanism does not select or self-approve its own reviewed trust anchor.
+
+```text
+trusted immutable launcher/runtime
+        |
+        | candidate root + expected HEAD passed as data
+        v
+untrusted candidate checkout
+        |
+        v
+immutable GitHub policy/evidence verification
+        |
+        v
+STATE-only local approval commit
+```
+
+The physical executing module's Git worktree supplies launcher identity, independent
+of nearest `.ai-development` markers and the candidate working directory. Launcher
+HEAD must exactly match the full lowercase 40-character expected SHA, be detached,
+clean, free of Git operations, filters and unsafe/hidden index state. Launcher and
+candidate must have distinct realpath roots. State/config schemas are read only
+from that checked launcher root. Candidate verifier/module/package/schema copies
+are data and are never imported or selected. Ordinary offline validation retains
+its existing local contracts behavior.
+
+The expected candidate HEAD participates in the approval's own Git inspection,
+not just a runner pre-check. Pending approval requires inspected HEAD = externally
+expected HEAD = evidence candidate C. Recorded verification instead binds the
+expected **current** HEAD (A or later permitted STATE-only history), preserving
+the originally approved C. Launcher safety is rechecked after evidence reads;
+existing final candidate checks, index/ref locks and CAS protect the transaction.
+Later advancement must freshly reverify through trusted execution; STATE metadata
+is a record, not authentication. Planning/advancement is not implemented here.
+
+### Remaining mandatory external operating requirements
+
+* Human approver credentials/session MUST remain inaccessible to agents. GitHub
+  attribution alone cannot establish that a human acted.
+* The trusted launcher, runtime, build output and dependencies MUST be inaccessible
+  to candidate/agent writers during approval, including launcher Git metadata and
+  any shared Git common directory. Use a separate isolated clone or protect shared
+  metadata independently; a linked worktree alone does not isolate it. Roots being
+  distinct do not establish filesystem permissions or prevent malicious writers.
+* Create a detached worktree at the externally reviewed immutable commit. Install
+  locked dependencies and build from that launcher commit/lockfile with **no human
+  or verifier credentials present**, using controlled Node/npm/dependency/Git/`gh`
+  executables. Never use candidate `node_modules`, package manifests, npm scripts,
+  module-loader configuration or candidate-relative executable/PATH entries.
+* Launch built JS from an externally sanitized environment with controlled absolute
+  executable paths/PATH and isolated HOME. No preloads/loader flags, `NODE_OPTIONS`,
+  `NODE_PATH`, `TSX_*`, `LD_*`, `DYLD_*` or npm Node-options inputs are permitted.
+  The entrypoint rejects these remaining observable inputs and all Node runtime
+  flags, but an in-process refusal cannot undo code already executed by a preload.
+* A clean source checkout does not authenticate ignored dependencies/build output,
+  executable binaries, OS integrity or permissions. The trusted operator/supervisor
+  must establish these separately and keep the candidate stable during approval.
+* Protected trusted target policy and `dev-neelesh` trust/protection remain external
+  requirements. The empty committed allowlist still disables live approval.
+
+AITRUST-001 is **not fully resolved** by repository code: this supplies the trusted
+runner mechanism/remediation foundation and enforceable invocation/identity/contract,
+HEAD-binding and credential boundaries. Operational setup and a fresh independent
+security review are required before push/CI/merge or enabling live approvers.
+AI2A-002 remains open outside the module-derived launcher and actual candidate
+Git-root equality boundary. No OS sandbox or general bypass prevention is claimed.
 
 ## Exact evidence
 
@@ -121,8 +210,10 @@ decision: APPROVE
 I approve this exact Brief for planning only.
 ```
 
-All expected values are derived from candidate STATE, HEAD and exact Brief bytes.
-The operator cannot supply an expected actor, commit or hash. Parsing requires full
+Evidence values still bind immutable candidate C and exact Brief bytes. The trusted
+runner additionally requires the externally expected current candidate HEAD; it
+never supplies an expected actor or overrides the evidence candidate/hash. Parsing
+requires full
 body equality, exact order/sentence, no fences, quotes, extra prose, duplicate
 fields or trailing spaces. LF/CRLF and one optional final newline are permitted;
 lone CR and bodies over 2048 UTF-8 bytes fail. Permitted newline normalization is
@@ -156,7 +247,8 @@ and [repository permissions](https://docs.github.com/en/rest/collaborators/colla
    against the configured target. The tool does neither action automatically.
 3. In a separated human session, an explicitly authorized human posts the complete
    statement binding that exact candidate commit and Brief hash.
-4. Run `approve-refinement` with only Work Item ID and canonical comment URL.
+4. Use the isolated trusted runner described above, supplying Work Item ID, canonical comment
+   URL, candidate root, expected current candidate HEAD and reviewed launcher SHA.
    Successful verification creates one local STATE-only commit, without pushing.
 
 Initial `verifyPendingRefinementCandidate` requires local HEAD, remote feature
@@ -232,8 +324,8 @@ branch/HEAD locks during final safety checks, excluding ordinary checkout. After
 Git refs, index and worktree cannot be one filesystem-atomic transaction: a crash
 or OS failure after ref advancement can require manual reconciliation and is
 reported as `COMMIT_CREATED_RECONCILIATION_REQUIRED`. No broad rollback attempts
-undo concurrent writers. Run in an isolated stable trusted checkout; locks are not
-an OS sandbox against malicious concurrent filesystem writers.
+undo concurrent writers. Use an isolated stable candidate checkout with the
+separate trusted launcher; locks are not an OS sandbox against malicious concurrent filesystem writers.
 
 ## Existing safety and CI
 
@@ -256,6 +348,6 @@ npm --prefix tools/ai-development run build
 git diff --check
 ```
 
-Build output is `dist/src/cli.js`; generated output/dependencies remain ignored.
-Local newer Node validation does not claim Node 22 CI has run. Independent security
-review of this exact implementation is required before configuring any approver.
+Build outputs include `dist/src/cli.js` and `dist/src/trusted-approval.js`; generated
+output/dependencies remain ignored. Local Node 22 validation does not claim CI ran.
+Independent security review of this exact implementation is required before configuring any approver.

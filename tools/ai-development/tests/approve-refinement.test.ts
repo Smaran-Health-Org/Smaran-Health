@@ -16,7 +16,7 @@ import { ID } from "./helpers.js";
 test("successful transition creates one STATE-only commit; exact evidence freshly verifies no-op", async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup);
   const briefBefore = await readFile(join(f.directory, "BRIEF.md"));
-  const output = await approveRefinement(f.root, ID, URL, f.transport);
+  const output = await approveRefinement(f.root, ID, URL, { transport: f.transport });
   assert.match(output, /not pushed/);
   const head = testGit(f.root, ["rev-parse", "HEAD"]).toString().trim();
   assert.notEqual(head, f.candidate);
@@ -35,9 +35,9 @@ test("successful transition creates one STATE-only commit; exact evidence freshl
   const beforeNoop = await fingerprint(f.root, f.statePath);
   let calls = 0; const original = f.transport.permission;
   f.transport.permission = async login => { calls++; return original(login); };
-  assert.match(await approveRefinement(f.root, ID, URL, f.transport), /no-op/);
+  assert.match(await approveRefinement(f.root, ID, URL, { transport: f.transport }), /no-op/);
   assert.equal(calls, 1); assert.deepEqual(await fingerprint(f.root, f.statePath), beforeNoop);
-  await assert.rejects(approveRefinement(f.root, ID, URL.replace("issuecomment-2", "issuecomment-3"), f.transport), /DIFFERENT_EVIDENCE/);
+  await assert.rejects(approveRefinement(f.root, ID, URL.replace("issuecomment-2", "issuecomment-3"), { transport: f.transport }), /DIFFERENT_EVIDENCE/);
   assert.deepEqual(await fingerprint(f.root, f.statePath), beforeNoop);
 });
 
@@ -51,9 +51,9 @@ for (const [label, invalidate] of Object.entries({
   "published Brief changed": (f: any) => { const original = f.transport.file; f.transport.file = async (sha: string, path: string) => path.endsWith("BRIEF.md") ? Buffer.from("changed") : original(sha, path); },
 })) test(`approved evidence re-verification blocks ${label}; never rewrites history`, async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup);
-  await approveRefinement(f.root, ID, URL, f.transport); invalidate(f);
+  await approveRefinement(f.root, ID, URL, { transport: f.transport }); invalidate(f);
   const before = await fingerprint(f.root, f.statePath);
-  await assert.rejects(approveRefinement(f.root, ID, URL, f.transport));
+  await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }));
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
 });
 for (const [label, change] of Object.entries({
@@ -66,7 +66,7 @@ for (const [label, change] of Object.entries({
 })) test(`local safety rejects ${label}; preserves HEAD/STATE/index`, async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup); await change(f);
   const before = await fingerprint(f.root, f.statePath);
-  await assert.rejects(approveRefinement(f.root, ID, URL, f.transport));
+  await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }));
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
 });
 for (const operation of ["MERGE_HEAD", "rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD", "REVERT_HEAD", "sequencer"]) test(`local safety rejects ${operation}`, async (t) => {
@@ -74,7 +74,7 @@ for (const operation of ["MERGE_HEAD", "rebase-merge", "rebase-apply", "CHERRY_P
   const path = testGit(f.root, ["rev-parse", "--path-format=absolute", "--git-path", operation]).toString().trim();
   if (operation.includes("HEAD")) await writeFile(path, f.base + "\n"); else await mkdir(path);
   const before = await fingerprint(f.root, f.statePath);
-  await assert.rejects(approveRefinement(f.root, ID, URL, f.transport), /GIT_OPERATION_IN_PROGRESS/);
+  await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }), /GIT_OPERATION_IN_PROGRESS/);
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
 });
 test("root mismatch fails before mutation", async (t) => {
@@ -87,7 +87,7 @@ test("concurrent HEAD movement during external verification blocks commit", asyn
   const f = await approvalFixture(); t.after(f.cleanup);
   let raced: Awaited<ReturnType<typeof fingerprint>>;
   f.transport.permission = async () => { testGit(f.root, ["commit", "--allow-empty", "-qm", "synthetic concurrent writer"]); raced = await fingerprint(f.root, f.statePath); return f.data.permission; };
-  await assert.rejects(approveRefinement(f.root, ID, URL, f.transport), /HEAD_CHANGED/);
+  await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }), /HEAD_CHANGED/);
   assert.deepEqual(await fingerprint(f.root, f.statePath), raced!);
 });
 test("transaction expected HEAD compare rejects race; state/index remain untouched", async (t) => {
@@ -103,7 +103,7 @@ test("index lock contention fails atomically", async (t) => {
   const snapshot = await inspectCandidate(f.root, f.state.repository.feature_branch!);
   await writeFile(snapshot.indexPath + ".lock", "synthetic other writer");
   const before = await fingerprint(f.root, f.statePath);
-  await assert.rejects(approveRefinement(f.root, ID, URL, f.transport));
+  await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }));
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
   assert.equal(await readFile(snapshot.indexPath + ".lock", "utf8"), "synthetic other writer");
 });
@@ -111,14 +111,14 @@ test("untrusted Git hooks are never run", async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup);
   const hookDir = join(f.root, ".git/hooks");
   for (const hook of ["pre-commit", "prepare-commit-msg", "commit-msg", "post-commit", "reference-transaction"]) await writeFile(join(hookDir, hook), "#!/bin/sh\nexit 93\n", { mode: 0o755 });
-  await approveRefinement(f.root, ID, URL, f.transport);
+  await approveRefinement(f.root, ID, URL, { transport: f.transport });
   assert.equal(testGit(f.root, ["status", "--porcelain"]).length, 0);
 });
 test("revision overflow blocks command atomically", async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup);
   f.state.revision = Number.MAX_SAFE_INTEGER; await f.save(); testGit(f.root, ["add", "--", ".ai-development"]); testGit(f.root, ["commit", "-qm", "synthetic maximum revision"]);
   const before = await fingerprint(f.root, f.statePath);
-  await assert.rejects(approveRefinement(f.root, ID, URL, f.transport), /REVISION_OVERFLOW/);
+  await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }), /REVISION_OVERFLOW/);
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
   const verified = await verifyPendingRefinementCandidate({ ...f.state, revision: 0 }, f.ctx);
   if (verified.status === "verified") assert.throws(() => approvedState(f.state, verified.approval), /REVISION_OVERFLOW/);
@@ -131,7 +131,7 @@ for (const args of [ ["approve-refinement", ID], ["approve-refinement", ID, "--e
 
 test("approved record historical policy must authorize actor, even if current policy does", async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup);
-  await approveRefinement(f.root, ID, URL, f.transport);
+  await approveRefinement(f.root, ID, URL, { transport: f.transport });
   const originalBranch = f.transport.branch; const originalFile = f.transport.file;
   testGit(f.root, ["switch", "-q", "dev-neelesh"]);
   testGit(f.root, ["commit", "--allow-empty", "-qm", "synthetic policy advancement"]);
@@ -146,12 +146,12 @@ test("approved record historical policy must authorize actor, even if current po
     return originalFile(sha, path);
   };
   const before = await fingerprint(f.root, f.statePath);
-  await assert.rejects(approveRefinement(f.root, ID, URL, f.transport), /HISTORICAL_POLICY_UNAUTHORIZED/);
+  await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }), /HISTORICAL_POLICY_UNAUTHORIZED/);
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
 });
 test("approved record unsupported review evidence never authenticates refinement", async (t) => {
   const f = await approvalFixture(); t.after(f.cleanup);
-  await approveRefinement(f.root, ID, URL, f.transport);
+  await approveRefinement(f.root, ID, URL, { transport: f.transport });
   const state = parseRestrictedYaml(await readFile(f.statePath)) as WorkItemState;
   state.gates.refinement.approval!.evidence.kind = "github_review";
   assert.deepEqual(await verifyRefinementApproval(state, f.ctx), { status: "invalid", reason: "DIFFERENT_EVIDENCE" });
@@ -161,6 +161,6 @@ test("repository-configured external Git filters are rejected before status can 
   const f = await approvalFixture(); t.after(f.cleanup);
   testGit(f.root, ["config", "filter.synthetic.clean", "untrusted-command-that-must-not-run"]);
   const before = await fingerprint(f.root, f.statePath);
-  await assert.rejects(approveRefinement(f.root, ID, URL, f.transport), /UNSUPPORTED_GIT_FILTERS/);
+  await assert.rejects(approveRefinement(f.root, ID, URL, { transport: f.transport }), /UNSUPPORTED_GIT_FILTERS/);
   assert.deepEqual(await fingerprint(f.root, f.statePath), before);
 });

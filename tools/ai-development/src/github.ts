@@ -1,4 +1,7 @@
 import { execFile } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { isValidGitBranchName } from "./branches.js";
 import { assertRelativePath, InputError } from "./paths.js";
 
@@ -22,22 +25,36 @@ const QUERY = `query($id:ID!){node(id:$id){__typename ... on IssueComment{id dat
 /** gh receives arrays only. REST GET and a fixed GraphQL query over POST are read-only.
  * Never prints stderr, headers, tokens, response bodies or arbitrary API URLs.
  */
+export function requireVerifierToken(token: string | undefined): string {
+  if (!token || !/^[!-~]{1,4096}$/.test(token)) throw new InputError("EXPLICIT_VERIFIER_CREDENTIAL_REQUIRED");
+  return token;
+}
 export class GhTransport implements GitHubTransport {
   private readonly prefix: string;
-  constructor(repository: string) {
+  private readonly verifierToken: string;
+  constructor(repository: string, options: { verifierToken?: string }) {
     if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(repository) || repository.length > 160) throw new InputError("INVALID_REPOSITORY");
+    this.verifierToken = requireVerifierToken(options.verifierToken);
     this.prefix = `repos/${repository}`;
   }
   private async api(endpoint: string, fields: string[] = []): Promise<unknown> {
     const args = ["api", "--hostname", "github.com", "--method", endpoint === "graphql" ? "POST" : "GET", "-H", "Accept: application/vnd.github+json", "-H", "X-GitHub-Api-Version: 2022-11-28", endpoint, ...fields];
-    const output = await new Promise<string>((resolve, reject) => {
-      execFile("gh", args, { shell: false, timeout: 20_000, maxBuffer: 4_194_304, encoding: "utf8",
-        env: { ...process.env, GH_HOST: "github.com", GH_DEBUG: "", DEBUG: "" } }, (error, stdout) => {
-        if (error) reject(new InputError("GITHUB_UNAVAILABLE")); else resolve(stdout);
+    // Empty private gh config excludes stored human sessions. Token precedence is
+    // explicit; ambient authentication/debug/preload inputs never reach gh.
+    const configDir = await mkdtemp(join(tmpdir(), "smaran-verifier-gh-"));
+    try {
+      const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+        !/^(GH_|GITHUB_|SMARAN_AI_DEV_VERIFIER_TOKEN$|NODE_OPTIONS$|NODE_PATH$|LD_|DYLD_)/.test(key)));
+      Object.assign(env, { GH_TOKEN: this.verifierToken, GH_CONFIG_DIR: configDir, GH_HOST: "github.com", GH_DEBUG: "", DEBUG: "" });
+      const output = await new Promise<string>((resolve, reject) => {
+        execFile("gh", args, { shell: false, timeout: 20_000, maxBuffer: 4_194_304, encoding: "utf8", cwd: configDir, env }, (error, stdout) => {
+          if (error) reject(new InputError("GITHUB_UNAVAILABLE")); else resolve(stdout);
+        });
       });
-    });
-    try { return JSON.parse(output) as unknown; } catch { throw new InputError("GITHUB_MALFORMED_RESPONSE"); }
+      try { return JSON.parse(output) as unknown; } catch { throw new InputError("GITHUB_MALFORMED_RESPONSE"); }
+    } finally { await rm(configDir, { recursive: true, force: true }); }
   }
+
   repository(): Promise<unknown> { return this.api(this.prefix); }
   branch(name: string): Promise<unknown> {
     if (!isValidGitBranchName(name) || name.length > 128) throw new InputError("INVALID_BRANCH");
