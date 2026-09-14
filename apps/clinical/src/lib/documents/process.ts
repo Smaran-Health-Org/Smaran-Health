@@ -127,7 +127,7 @@ export async function processMedicalDocument(
 export async function processClaimedMedicalDocument(
   claim: ClaimedDocumentProcessing,
   adapter: DocumentProcessingAdapter
-): Promise<void> {
+): Promise<boolean> {
   let bytes: Uint8Array;
   try { bytes = await downloadDocumentOriginal(claim.storage_path); }
   catch { throw new DocumentProcessingError("source_unavailable"); }
@@ -144,12 +144,15 @@ export async function processClaimedMedicalDocument(
   catch (error) { throw new DocumentProcessingError(providerFailureCode(error)); }
   const service = createServiceRoleClient();
   const reasons = Array.from(new Set(evaluated.needsReviewReasons.map((reason) => reason === "evidence_mismatch" ? "uncertain_content" : reason)));
-  const { error } = await service.rpc("complete_document_processing", {
-    p_extraction_id: claim.extraction_id, p_status: evaluated.status,
+  const { data, error } = await service.rpc("complete_document_processing_work", {
+    p_work_id: claim.work_id, p_extraction_id: claim.extraction_id, p_status: evaluated.status,
     p_raw_extraction_json: evaluated.payload, p_classification_type: evaluated.documentType,
     p_classification_confidence: evaluated.classificationConfidence, p_overall_confidence: evaluated.overallConfidence,
     p_needs_review_reasons: reasons, p_document_identity_hash: evaluated.documentIdentityHash,
     p_normalized_observations: evaluated.normalizedObservations,
   });
   if (error) throw new DocumentProcessingError("processing_interrupted");
+  // A lease-reclaimed worker is deliberately inert. Its provider output must
+  // never be retried against, or converted into a failure for, the new owner.
+  return data !== null;
 }

@@ -27,12 +27,11 @@ export async function drainDocumentPipeline(limit = 8): Promise<void> {
     const row = (Array.isArray(data) ? data[0] : data) as ClaimedDocumentProcessing | null;
     if (!row) break;
     try {
-      await processClaimedMedicalDocument(row, configuredDocumentProcessingAdapter());
-      const { data: finished, error: finishError } = await service.rpc("finish_document_processing_work", {
-        p_work_id: row.work_id,
-        p_extraction_id: row.extraction_id,
-      });
-      if (finishError || !finished) throw new Error("document_pipeline_finish_failed");
+      const completed = await processClaimedMedicalDocument(row, configuredDocumentProcessingAdapter());
+      if (!completed) {
+        console.info("document_pipeline_completion_stale", { documentId: row.document_id });
+        continue;
+      }
       console.info("document_pipeline_completed", { documentId: row.document_id, status: "completed" });
     } catch (error) {
       const code = error instanceof Error && "code" in error ? String(error.code) : "provider_unavailable";

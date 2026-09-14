@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(50);
+SELECT plan(79);
 
 SELECT has_table('public', 'document_processing_work', 'durable document processing work is persisted');
 
@@ -28,13 +28,14 @@ INSERT INTO public.consents (clinic_id, patient_id, origin_patient_id, consultat
 INSERT INTO public.documents (id, clinic_id, patient_id, origin_patient_id, consultation_id, patient_intake_id, uploaded_by_profile_id, uploaded_via, storage_path, content_hash, mime_type, file_size, original_filename, document_type) VALUES
   ('d6650000-0000-4000-8000-000000000001', 'd6600000-0000-4000-8000-000000000001', 'd6620000-0000-4000-8000-000000000001', 'd6620000-0000-4000-8000-000000000001', 'd6630000-0000-4000-8000-000000000001', 'd6640000-0000-4000-8000-000000000001', NULL, 'patient', 'd6600000-0000-4000-8000-000000000001/d6620000-0000-4000-8000-000000000001/a.pdf', repeat('a', 64), 'application/pdf', 100, 'a.pdf', 'lab_report'),
   ('d6650000-0000-4000-8000-000000000002', 'd6600000-0000-4000-8000-000000000002', 'd6620000-0000-4000-8000-000000000002', 'd6620000-0000-4000-8000-000000000002', 'd6630000-0000-4000-8000-000000000002', 'd6640000-0000-4000-8000-000000000002', NULL, 'patient', 'd6600000-0000-4000-8000-000000000002/d6620000-0000-4000-8000-000000000002/b.pdf', repeat('b', 64), 'application/pdf', 100, 'b.pdf', 'lab_report'),
-  ('d6650000-0000-4000-8000-000000000003', 'd6600000-0000-4000-8000-000000000001', 'd6620000-0000-4000-8000-000000000003', 'd6620000-0000-4000-8000-000000000003', 'd6630000-0000-4000-8000-000000000003', NULL, 'd6610000-0000-4000-8000-000000000001', 'admin', 'd6600000-0000-4000-8000-000000000001/d6620000-0000-4000-8000-000000000003/staff.pdf', repeat('c', 64), 'application/pdf', 100, 'staff.pdf', 'lab_report');
+  ('d6650000-0000-4000-8000-000000000003', 'd6600000-0000-4000-8000-000000000001', 'd6620000-0000-4000-8000-000000000003', 'd6620000-0000-4000-8000-000000000003', 'd6630000-0000-4000-8000-000000000003', NULL, 'd6610000-0000-4000-8000-000000000001', 'admin', 'd6600000-0000-4000-8000-000000000001/d6620000-0000-4000-8000-000000000003/staff.pdf', repeat('c', 64), 'application/pdf', 100, 'staff.pdf', 'lab_report'),
+  ('d6650000-0000-4000-8000-000000000004', 'd6600000-0000-4000-8000-000000000001', 'd6620000-0000-4000-8000-000000000001', 'd6620000-0000-4000-8000-000000000001', 'd6630000-0000-4000-8000-000000000001', 'd6640000-0000-4000-8000-000000000001', NULL, 'patient', 'd6600000-0000-4000-8000-000000000001/d6620000-0000-4000-8000-000000000001/historical.pdf', repeat('d', 64), 'application/pdf', 100, 'historical.pdf', 'lab_report');
 
 SELECT is((SELECT count(*) FROM public.document_processing_work WHERE document_id = 'd6650000-0000-4000-8000-000000000001'), 1::bigint, 'consented eligible upload enqueues exactly one work item');
 SELECT is((SELECT count(*) FROM public.document_processing_work WHERE document_id = 'd6650000-0000-4000-8000-000000000003'), 0::bigint, 'unconsented staff upload does not enqueue durable processing work');
 SELECT is((SELECT clinic_id FROM public.document_processing_work WHERE document_id = 'd6650000-0000-4000-8000-000000000001'), 'd6600000-0000-4000-8000-000000000001'::uuid, 'queued work remains bound to its document clinic');
 SELECT is((SELECT clinic_id FROM public.document_processing_work WHERE document_id = 'd6650000-0000-4000-8000-000000000002'), 'd6600000-0000-4000-8000-000000000002'::uuid, 'each queued document retains its own clinic scope');
-UPDATE public.document_processing_work SET next_attempt_at = now() + interval '1 hour' WHERE document_id = 'd6650000-0000-4000-8000-000000000002';
+UPDATE public.document_processing_work SET next_attempt_at = now() + interval '1 hour' WHERE document_id IN ('d6650000-0000-4000-8000-000000000002', 'd6650000-0000-4000-8000-000000000004');
 
 SET LOCAL ROLE anon;
 SELECT throws_ok($$ SELECT * FROM public.document_processing_work $$, '42501', NULL, 'anonymous callers cannot inspect durable work');
@@ -43,6 +44,7 @@ SELECT throws_ok($$ UPDATE public.document_processing_work SET status = 'complet
 SELECT throws_ok($$ DELETE FROM public.document_processing_work $$, '42501', NULL, 'anonymous callers cannot delete durable work');
 SELECT throws_ok($$ SELECT public.finish_document_processing_work(gen_random_uuid(), gen_random_uuid()) $$, '42501', NULL, 'anonymous callers cannot finish durable work');
 SELECT throws_ok($$ SELECT public.fail_document_processing_work(gen_random_uuid(), gen_random_uuid(), 'provider_timeout') $$, '42501', NULL, 'anonymous callers cannot fail durable work');
+SELECT throws_ok($$ SELECT public.complete_document_processing_work(gen_random_uuid(), gen_random_uuid(), 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL, '[]'::jsonb) $$, '42501', NULL, 'anonymous callers cannot atomically complete durable work');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'd6610000-0000-4000-8000-000000000001', true);
 SELECT throws_ok($$ SELECT * FROM public.document_processing_work $$, '42501', NULL, 'ordinary authenticated users cannot inspect durable work');
@@ -51,6 +53,7 @@ SELECT throws_ok($$ UPDATE public.document_processing_work SET status = 'complet
 SELECT throws_ok($$ DELETE FROM public.document_processing_work $$, '42501', NULL, 'ordinary authenticated users cannot delete durable work');
 SELECT throws_ok($$ SELECT public.finish_document_processing_work(gen_random_uuid(), gen_random_uuid()) $$, '42501', NULL, 'authenticated non-service actors cannot finish durable work');
 SELECT throws_ok($$ SELECT public.fail_document_processing_work(gen_random_uuid(), gen_random_uuid(), 'provider_timeout') $$, '42501', NULL, 'authenticated non-service actors cannot fail durable work');
+SELECT throws_ok($$ SELECT public.complete_document_processing_work(gen_random_uuid(), gen_random_uuid(), 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL, '[]'::jsonb) $$, '42501', NULL, 'authenticated non-service actors cannot atomically complete durable work');
 SELECT throws_ok($$ SELECT * FROM public.claim_document_processing_work('schema/v1', 'pipeline/v1', 'test', 'model/v1') $$, '42501', NULL, 'ordinary authenticated users cannot claim service work');
 SELECT throws_ok($$ SELECT public.retry_document_processing_work('d6650000-0000-4000-8000-000000000002') $$, 'P0002', NULL, 'one clinic cannot retry another clinic work item');
 
@@ -117,6 +120,92 @@ SELECT is(public.finish_document_processing_work(current_setting('app.stale_work
 SELECT is(public.fail_document_processing_work(current_setting('app.stale_work_id')::uuid, current_setting('app.stale_extraction_id')::uuid, 'provider_timeout'), false, 'stale worker cannot fail reclaimed work');
 SELECT is((SELECT status::text FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000002'), 'processing', 'stale worker cannot reset reclaimed document state');
 SELECT throws_ok($$ UPDATE public.document_extractions SET schema_version = 'tampered/v1' WHERE id = current_setting('app.reclaimed_extraction_id')::uuid $$, '42501', 'Document extraction history is immutable', 'stale workers cannot overwrite the current extraction identity or version');
+
+-- Stale provider output with valid normalized observations must be a single
+-- no-op: it cannot commit a partial observation/reconciliation/audit result.
+SELECT is(
+  (public.complete_document_processing_work(
+    current_setting('app.stale_work_id')::uuid,
+    current_setting('app.stale_extraction_id')::uuid,
+    'succeeded', '{"pages":[{"pageNumber":1,"text":"Synthetic medication"}]}'::jsonb,
+    'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL,
+    '[{"itemIndex":0,"observationType":"medication","normalizedKey":"synthetic-medication","displayName":"Synthetic medication","normalizedValue":{"valueText":"Synthetic medication"},"effectiveDate":null,"effectiveDateText":null,"effectiveDatePrecision":"unknown","effectiveDateSource":"unknown","pageNumber":1,"evidenceText":"Synthetic medication","confidence":0.9}]'::jsonb
+  )).id IS NULL,
+  true,
+  'stale durable completion with normalized observations is rejected atomically'
+);
+SET LOCAL ROLE postgres;
+SELECT is((SELECT count(*) FROM public.clinical_observations WHERE source_extraction_id = current_setting('app.stale_extraction_id')::uuid), 0::bigint, 'stale completion inserts zero normalized observations');
+SELECT is((SELECT count(*) FROM public.clinical_state_reconciliation_work WHERE source_observation_id IN (SELECT id FROM public.clinical_observations WHERE source_extraction_id = current_setting('app.stale_extraction_id')::uuid)), 0::bigint, 'stale completion enqueues zero reconciliation work');
+SELECT is((SELECT count(*) FROM public.audit_logs WHERE resource_id = current_setting('app.stale_extraction_id')::uuid AND action IN ('clinical_observations_normalized', 'document_processed', 'document_marked_needs_review')), 0::bigint, 'stale completion writes zero completion audit effects');
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claim.role', 'service_role', true);
+SELECT lives_ok($$ SELECT public.complete_document_processing_work(
+  current_setting('app.stale_work_id')::uuid,
+  current_setting('app.reclaimed_extraction_id')::uuid,
+  'succeeded', '{"pages":[{"pageNumber":1,"text":"Synthetic medication"}]}'::jsonb,
+  'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL,
+  '[{"itemIndex":0,"observationType":"medication","normalizedKey":"synthetic-medication","displayName":"Synthetic medication","normalizedValue":{"valueText":"Synthetic medication"},"effectiveDate":null,"effectiveDateText":null,"effectiveDatePrecision":"unknown","effectiveDateSource":"unknown","pageNumber":1,"evidenceText":"Synthetic medication","confidence":0.9}]'::jsonb
+) $$, 'the authoritative reclaimed worker completes normally with observations');
+SET LOCAL ROLE postgres;
+SELECT is((SELECT status::text FROM public.document_processing_work WHERE id = current_setting('app.stale_work_id')::uuid), 'completed', 'atomic completion finishes the authoritative work row');
+SELECT is((SELECT status::text FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000002'), 'processed', 'authoritative completion finalizes the document');
+SELECT is((SELECT count(*) FROM public.clinical_observations WHERE source_extraction_id = current_setting('app.reclaimed_extraction_id')::uuid), 1::bigint, 'authoritative completion inserts observations once');
+SELECT is((SELECT count(*) FROM public.clinical_state_reconciliation_work WHERE source_observation_id IN (SELECT id FROM public.clinical_observations WHERE source_extraction_id = current_setting('app.reclaimed_extraction_id')::uuid)), 1::bigint, 'authoritative completion enqueues reconciliation work once');
+
+-- This is the precise 0069 residue: a system-owned processing extraction
+-- remains after work failed and the source returned to Uploaded.
+SET LOCAL ROLE postgres;
+UPDATE public.document_processing_work
+SET status = 'retryable_failed', attempt_count = 1, next_attempt_at = 'infinity',
+    processing_started_at = NULL, active_extraction_id = NULL,
+    failure_code = 'provider_timeout', updated_at = now()
+WHERE document_id = 'd6650000-0000-4000-8000-000000000004';
+INSERT INTO public.document_extractions (
+  id, clinic_id, document_id, requested_by_profile_id, attempt_number,
+  schema_version, pipeline_version, provider, model_version
+) VALUES (
+  'd6660000-0000-4000-8000-000000000004',
+  'd6600000-0000-4000-8000-000000000001',
+  'd6650000-0000-4000-8000-000000000004', NULL, 1,
+  'schema/v1', 'pipeline/v1', 'test', 'model/v1'
+);
+SELECT is((SELECT status::text FROM public.document_processing_work WHERE document_id = 'd6650000-0000-4000-8000-000000000004'), 'retryable_failed', 'historical 0069 work state is constructed');
+SELECT is((SELECT status::text FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000004'), 'uploaded', 'historical 0069 source state is constructed');
+SELECT is((SELECT status::text FROM public.document_extractions WHERE id = 'd6660000-0000-4000-8000-000000000004'), 'processing', 'historical 0069 extraction residue is constructed');
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'd6610000-0000-4000-8000-000000000001', true);
+SELECT lives_ok($$ SELECT public.retry_document_processing_work('d6650000-0000-4000-8000-000000000004') $$, 'historical 0069 work enters the supported retry flow');
+SET LOCAL ROLE postgres;
+SELECT is((SELECT status::text FROM public.document_processing_work WHERE document_id = 'd6650000-0000-4000-8000-000000000004'), 'pending', 'historical retry moves work to pending');
+SELECT is((SELECT failure_code FROM public.document_processing_work WHERE document_id = 'd6650000-0000-4000-8000-000000000004'), 'provider_timeout', 'retry retains historical failure provenance until claim retirement');
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claim.role', 'service_role', true);
+SELECT set_config('app.historical_work_id', work_id::text, true), set_config('app.historical_retry_extraction_id', extraction_id::text, true)
+FROM public.claim_document_processing_work('schema/v1', 'pipeline/v1', 'test', 'model/v1');
+SELECT isnt(current_setting('app.historical_retry_extraction_id')::uuid, 'd6660000-0000-4000-8000-000000000004'::uuid, 'historical retry creates a distinct immutable attempt');
+SELECT is((SELECT status::text FROM public.document_extractions WHERE id = 'd6660000-0000-4000-8000-000000000004'), 'technical_failure', 'historical processing extraction is retired before the retry claim');
+SELECT is((SELECT failure_reason_code FROM public.document_extractions WHERE id = 'd6660000-0000-4000-8000-000000000004'), 'provider_timeout', 'historical extraction retains its actual failure reason');
+SELECT ok((SELECT completed_at IS NOT NULL FROM public.document_extractions WHERE id = 'd6660000-0000-4000-8000-000000000004'), 'historical extraction records when it stopped being authoritative');
+SELECT is((SELECT active_extraction_id FROM public.document_processing_work WHERE id = current_setting('app.historical_work_id')::uuid), current_setting('app.historical_retry_extraction_id')::uuid, 'retry attempt becomes the sole current owner');
+SELECT is((SELECT count(*) FROM public.document_extractions WHERE document_id = 'd6650000-0000-4000-8000-000000000004' AND status = 'processing'), 1::bigint, 'only the retry attempt remains processing');
+SELECT is((SELECT storage_path FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000004'), 'd6600000-0000-4000-8000-000000000001/d6620000-0000-4000-8000-000000000001/historical.pdf', 'historical repair preserves immutable source identity');
+SELECT is(
+  (public.complete_document_processing_work(
+    current_setting('app.historical_work_id')::uuid,
+    'd6660000-0000-4000-8000-000000000004'::uuid,
+    'succeeded', '{"pages":[{"pageNumber":1,"text":"Synthetic medication"}]}'::jsonb,
+    'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL,
+    '[{"itemIndex":0,"observationType":"medication","normalizedKey":"synthetic-medication","displayName":"Synthetic medication","normalizedValue":{"valueText":"Synthetic medication"},"effectiveDate":null,"effectiveDateText":null,"effectiveDatePrecision":"unknown","effectiveDateSource":"unknown","pageNumber":1,"evidenceText":"Synthetic medication","confidence":0.9}]'::jsonb
+  )).id IS NULL,
+  true,
+  'retired historical attempt cannot complete the retry work'
+);
+SELECT is(public.fail_document_processing_work(current_setting('app.historical_work_id')::uuid, 'd6660000-0000-4000-8000-000000000004'::uuid, 'provider_timeout'), false, 'retired historical attempt cannot fail the retry work');
+SET LOCAL ROLE postgres;
+SELECT is((SELECT count(*) FROM public.clinical_observations WHERE source_extraction_id = 'd6660000-0000-4000-8000-000000000004'), 0::bigint, 'retired historical attempt cannot insert observations');
+SELECT is((SELECT count(*) FROM public.clinical_state_reconciliation_work WHERE source_observation_id IN (SELECT id FROM public.clinical_observations WHERE source_extraction_id = 'd6660000-0000-4000-8000-000000000004')), 0::bigint, 'retired historical attempt cannot enqueue reconciliation work');
+SELECT is((SELECT status::text FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000004'), 'processing', 'retired historical attempt cannot mutate the retry document state');
 
 SELECT * FROM finish();
 ROLLBACK;
