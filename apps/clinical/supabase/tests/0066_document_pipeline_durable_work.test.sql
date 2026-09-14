@@ -1,8 +1,23 @@
 BEGIN;
 
-SELECT plan(79);
+SELECT plan(111);
 
 SELECT has_table('public', 'document_processing_work', 'durable document processing work is persisted');
+
+-- Only the trusted owner may invoke the retained completion implementations.
+SELECT ok(NOT has_function_privilege('public', 'public.complete_document_processing(uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text)', 'EXECUTE'), 'public cannot directly execute legacy extraction completion');
+SELECT ok(NOT has_function_privilege('public', 'public.complete_document_processing(uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text,jsonb)', 'EXECUTE'), 'public cannot directly execute legacy normalized completion');
+SELECT ok(NOT has_function_privilege('anon', 'public.complete_document_processing(uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text)', 'EXECUTE'), 'anon cannot directly execute legacy extraction completion');
+SELECT ok(NOT has_function_privilege('anon', 'public.complete_document_processing(uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text,jsonb)', 'EXECUTE'), 'anon cannot directly execute legacy normalized completion');
+SELECT ok(NOT has_function_privilege('authenticated', 'public.complete_document_processing(uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text)', 'EXECUTE'), 'authenticated cannot directly execute legacy extraction completion');
+SELECT ok(NOT has_function_privilege('authenticated', 'public.complete_document_processing(uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text,jsonb)', 'EXECUTE'), 'authenticated cannot directly execute legacy normalized completion');
+SELECT ok(NOT has_function_privilege('service_role', 'public.complete_document_processing(uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text)', 'EXECUTE'), 'service_role cannot directly execute legacy extraction completion');
+SELECT ok(NOT has_function_privilege('service_role', 'public.complete_document_processing(uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text,jsonb)', 'EXECUTE'), 'service_role cannot directly execute legacy normalized completion');
+SELECT ok(has_function_privilege('service_role', 'public.complete_document_processing_work(uuid,uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text,jsonb)', 'EXECUTE'), 'service role retains atomic wrapper execution');
+SELECT ok((SELECT prosecdef AND proconfig @> ARRAY['search_path=""'] FROM pg_proc WHERE oid = 'public.complete_document_processing_work(uuid,uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text,jsonb)'::regprocedure), 'atomic wrapper retains SECURITY DEFINER and empty search_path');
+SELECT ok((SELECT pg_get_userbyid(proowner) = 'postgres' FROM pg_proc WHERE oid = 'public.complete_document_processing_work(uuid,uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text,jsonb)'::regprocedure), 'atomic wrapper retains trusted postgres ownership');
+SELECT ok((SELECT has_function_privilege(proowner, 'public.complete_document_processing(uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text)', 'EXECUTE') FROM pg_proc WHERE oid = 'public.complete_document_processing_work(uuid,uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text,jsonb)'::regprocedure), 'wrapper owner retains internal legacy extraction completion execution');
+SELECT ok((SELECT has_function_privilege(proowner, 'public.complete_document_processing(uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text,jsonb)', 'EXECUTE') FROM pg_proc WHERE oid = 'public.complete_document_processing_work(uuid,uuid,public.document_extraction_status,jsonb,public.medical_document_type,double precision,double precision,text[],text,jsonb)'::regprocedure), 'wrapper owner retains internal legacy normalized completion execution');
 
 INSERT INTO public.clinics (id, name) VALUES
   ('d6600000-0000-4000-8000-000000000001', 'Durable Work Clinic A'),
@@ -45,6 +60,8 @@ SELECT throws_ok($$ DELETE FROM public.document_processing_work $$, '42501', NUL
 SELECT throws_ok($$ SELECT public.finish_document_processing_work(gen_random_uuid(), gen_random_uuid()) $$, '42501', NULL, 'anonymous callers cannot finish durable work');
 SELECT throws_ok($$ SELECT public.fail_document_processing_work(gen_random_uuid(), gen_random_uuid(), 'provider_timeout') $$, '42501', NULL, 'anonymous callers cannot fail durable work');
 SELECT throws_ok($$ SELECT public.complete_document_processing_work(gen_random_uuid(), gen_random_uuid(), 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL, '[]'::jsonb) $$, '42501', NULL, 'anonymous callers cannot atomically complete durable work');
+SELECT throws_ok($$ SELECT public.complete_document_processing(gen_random_uuid(), 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL) $$, '42501', NULL, 'anonymous caller cannot execute legacy extraction completion');
+SELECT throws_ok($$ SELECT public.complete_document_processing(gen_random_uuid(), 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL, '[]'::jsonb) $$, '42501', NULL, 'anonymous caller cannot execute legacy normalized completion');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'd6610000-0000-4000-8000-000000000001', true);
 SELECT throws_ok($$ SELECT * FROM public.document_processing_work $$, '42501', NULL, 'ordinary authenticated users cannot inspect durable work');
@@ -54,6 +71,8 @@ SELECT throws_ok($$ DELETE FROM public.document_processing_work $$, '42501', NUL
 SELECT throws_ok($$ SELECT public.finish_document_processing_work(gen_random_uuid(), gen_random_uuid()) $$, '42501', NULL, 'authenticated non-service actors cannot finish durable work');
 SELECT throws_ok($$ SELECT public.fail_document_processing_work(gen_random_uuid(), gen_random_uuid(), 'provider_timeout') $$, '42501', NULL, 'authenticated non-service actors cannot fail durable work');
 SELECT throws_ok($$ SELECT public.complete_document_processing_work(gen_random_uuid(), gen_random_uuid(), 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL, '[]'::jsonb) $$, '42501', NULL, 'authenticated non-service actors cannot atomically complete durable work');
+SELECT throws_ok($$ SELECT public.complete_document_processing(gen_random_uuid(), 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL) $$, '42501', NULL, 'authenticated caller cannot execute legacy extraction completion');
+SELECT throws_ok($$ SELECT public.complete_document_processing(gen_random_uuid(), 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL, '[]'::jsonb) $$, '42501', NULL, 'authenticated caller cannot execute legacy normalized completion');
 SELECT throws_ok($$ SELECT * FROM public.claim_document_processing_work('schema/v1', 'pipeline/v1', 'test', 'model/v1') $$, '42501', NULL, 'ordinary authenticated users cannot claim service work');
 SELECT throws_ok($$ SELECT public.retry_document_processing_work('d6650000-0000-4000-8000-000000000002') $$, 'P0002', NULL, 'one clinic cannot retry another clinic work item');
 
@@ -85,9 +104,9 @@ SELECT set_config('request.jwt.claim.role', 'service_role', true);
 SELECT set_config('app.durable_work_id', work_id::text, true), set_config('app.durable_extraction_id', extraction_id::text, true)
 FROM public.claim_document_processing_work('schema/v1', 'pipeline/v1', 'test', 'model/v1');
 SELECT is((SELECT document_id FROM public.document_processing_work WHERE id = current_setting('app.durable_work_id')::uuid), 'd6650000-0000-4000-8000-000000000001'::uuid, 'retry reclaim cannot cross document scope');
-SELECT lives_ok($$ SELECT public.complete_document_processing(current_setting('app.durable_extraction_id')::uuid, 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL) $$, 'approved system transition permits a null system actor extraction');
-SELECT lives_ok($$ SELECT public.finish_document_processing_work(current_setting('app.durable_work_id')::uuid, current_setting('app.durable_extraction_id')::uuid) $$, 'service worker can finish a claimed item');
-SELECT is((SELECT status::text FROM public.document_processing_work WHERE id = current_setting('app.durable_work_id')::uuid), 'completed', 'finish moves claimed work to completed');
+SELECT lives_ok($$ SELECT public.complete_document_processing_work(current_setting('app.durable_work_id')::uuid, current_setting('app.durable_extraction_id')::uuid, 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL, '[]'::jsonb) $$, 'atomic wrapper internally completes a null system actor extraction');
+SELECT is(public.finish_document_processing_work(current_setting('app.durable_work_id')::uuid, current_setting('app.durable_extraction_id')::uuid), false, 'atomic wrapper already completed work without a separate finish');
+SELECT is((SELECT status::text FROM public.document_processing_work WHERE id = current_setting('app.durable_work_id')::uuid), 'completed', 'atomic wrapper moves claimed work to completed');
 
 SET LOCAL ROLE postgres;
 SELECT throws_ok($$ UPDATE public.document_extractions SET raw_extraction_json = '{"tampered":true}'::jsonb WHERE id = current_setting('app.durable_extraction_id')::uuid $$, '42501', 'Document extraction history is immutable', 'arbitrary extraction mutation remains denied');
@@ -121,6 +140,15 @@ SELECT is(public.fail_document_processing_work(current_setting('app.stale_work_i
 SELECT is((SELECT status::text FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000002'), 'processing', 'stale worker cannot reset reclaimed document state');
 SELECT throws_ok($$ UPDATE public.document_extractions SET schema_version = 'tampered/v1' WHERE id = current_setting('app.reclaimed_extraction_id')::uuid $$, '42501', 'Document extraction history is immutable', 'stale workers cannot overwrite the current extraction identity or version');
 
+-- Old deployed workers must fail before any clinical effects.
+SELECT throws_ok($$ SELECT public.complete_document_processing(
+  current_setting('app.stale_extraction_id')::uuid, 'succeeded', '{"pages":[{"pageNumber":1,"text":"Synthetic medication"}]}'::jsonb,
+  'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL, '[{"itemIndex":0,"observationType":"medication","normalizedKey":"synthetic-medication","displayName":"Synthetic medication","normalizedValue":{"valueText":"Synthetic medication"},"effectiveDate":null,"effectiveDateText":null,"effectiveDatePrecision":"unknown","effectiveDateSource":"unknown","pageNumber":1,"evidenceText":"Synthetic medication","confidence":0.9}]'::jsonb
+) $$, '42501', 'permission denied for function complete_document_processing', 'lease-reclaimed worker cannot directly normalize provider output');
+SELECT throws_ok($$ SELECT public.complete_document_processing(
+  current_setting('app.stale_extraction_id')::uuid, 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL
+) $$, '42501', 'permission denied for function complete_document_processing', 'lease-reclaimed worker cannot directly finalize its extraction');
+
 -- Stale provider output with valid normalized observations must be a single
 -- no-op: it cannot commit a partial observation/reconciliation/audit result.
 SELECT is(
@@ -137,7 +165,14 @@ SELECT is(
 SET LOCAL ROLE postgres;
 SELECT is((SELECT count(*) FROM public.clinical_observations WHERE source_extraction_id = current_setting('app.stale_extraction_id')::uuid), 0::bigint, 'stale completion inserts zero normalized observations');
 SELECT is((SELECT count(*) FROM public.clinical_state_reconciliation_work WHERE source_observation_id IN (SELECT id FROM public.clinical_observations WHERE source_extraction_id = current_setting('app.stale_extraction_id')::uuid)), 0::bigint, 'stale completion enqueues zero reconciliation work');
-SELECT is((SELECT count(*) FROM public.audit_logs WHERE resource_id = current_setting('app.stale_extraction_id')::uuid AND action IN ('clinical_observations_normalized', 'document_processed', 'document_marked_needs_review')), 0::bigint, 'stale completion writes zero completion audit effects');
+SELECT is((SELECT count(*) FROM public.audit_logs WHERE
+  (action = 'clinical_observations_normalized' AND resource_id = current_setting('app.stale_extraction_id')::uuid)
+  OR (action IN ('document_processed', 'document_marked_needs_review') AND metadata->>'extraction_id' = current_setting('app.stale_extraction_id'))
+), 0::bigint, 'stale completion writes zero normalization or document completion audit effects');
+SELECT is((SELECT status::text FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000002'), 'processing', 'denied stale output leaves document processing state unchanged');
+SELECT is((SELECT status::text FROM public.document_extractions WHERE id = current_setting('app.stale_extraction_id')::uuid), 'technical_failure', 'denied stale output leaves old extraction terminal');
+SELECT is((SELECT active_extraction_id FROM public.document_processing_work WHERE id = current_setting('app.stale_work_id')::uuid), current_setting('app.reclaimed_extraction_id')::uuid, 'denied stale output leaves B current');
+SELECT is((SELECT status::text FROM public.document_processing_work WHERE id = current_setting('app.stale_work_id')::uuid), 'processing', 'denied stale output does not finish work');
 SET LOCAL ROLE service_role;
 SELECT set_config('request.jwt.claim.role', 'service_role', true);
 SELECT lives_ok($$ SELECT public.complete_document_processing_work(
@@ -152,6 +187,8 @@ SELECT is((SELECT status::text FROM public.document_processing_work WHERE id = c
 SELECT is((SELECT status::text FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000002'), 'processed', 'authoritative completion finalizes the document');
 SELECT is((SELECT count(*) FROM public.clinical_observations WHERE source_extraction_id = current_setting('app.reclaimed_extraction_id')::uuid), 1::bigint, 'authoritative completion inserts observations once');
 SELECT is((SELECT count(*) FROM public.clinical_state_reconciliation_work WHERE source_observation_id IN (SELECT id FROM public.clinical_observations WHERE source_extraction_id = current_setting('app.reclaimed_extraction_id')::uuid)), 1::bigint, 'authoritative completion enqueues reconciliation work once');
+SELECT is((SELECT count(*) FROM public.audit_logs WHERE action = 'document_processed' AND metadata->>'extraction_id' = current_setting('app.reclaimed_extraction_id')), 1::bigint, 'authoritative wrapper emits its document completion audit once');
+SELECT is((SELECT count(*) FROM public.audit_logs WHERE action = 'clinical_observations_normalized' AND resource_id = current_setting('app.reclaimed_extraction_id')::uuid), 1::bigint, 'authoritative wrapper emits its normalization audit once');
 
 -- This is the precise 0069 residue: a system-owned processing extraction
 -- remains after work failed and the source returned to Uploaded.
@@ -190,6 +227,15 @@ SELECT ok((SELECT completed_at IS NOT NULL FROM public.document_extractions WHER
 SELECT is((SELECT active_extraction_id FROM public.document_processing_work WHERE id = current_setting('app.historical_work_id')::uuid), current_setting('app.historical_retry_extraction_id')::uuid, 'retry attempt becomes the sole current owner');
 SELECT is((SELECT count(*) FROM public.document_extractions WHERE document_id = 'd6650000-0000-4000-8000-000000000004' AND status = 'processing'), 1::bigint, 'only the retry attempt remains processing');
 SELECT is((SELECT storage_path FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000004'), 'd6600000-0000-4000-8000-000000000001/d6620000-0000-4000-8000-000000000001/historical.pdf', 'historical repair preserves immutable source identity');
+-- Old deployed workers must fail before any clinical effects.
+SELECT throws_ok($$ SELECT public.complete_document_processing(
+  'd6660000-0000-4000-8000-000000000004'::uuid, 'succeeded', '{"pages":[{"pageNumber":1,"text":"Synthetic medication"}]}'::jsonb,
+  'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL, '[{"itemIndex":0,"observationType":"medication","normalizedKey":"synthetic-medication","displayName":"Synthetic medication","normalizedValue":{"valueText":"Synthetic medication"},"effectiveDate":null,"effectiveDateText":null,"effectiveDatePrecision":"unknown","effectiveDateSource":"unknown","pageNumber":1,"evidenceText":"Synthetic medication","confidence":0.9}]'::jsonb
+) $$, '42501', 'permission denied for function complete_document_processing', 'retired historical worker cannot directly normalize provider output');
+SELECT throws_ok($$ SELECT public.complete_document_processing(
+  'd6660000-0000-4000-8000-000000000004'::uuid, 'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL
+) $$, '42501', 'permission denied for function complete_document_processing', 'retired historical worker cannot directly finalize its extraction');
+
 SELECT is(
   (public.complete_document_processing_work(
     current_setting('app.historical_work_id')::uuid,
@@ -206,6 +252,22 @@ SET LOCAL ROLE postgres;
 SELECT is((SELECT count(*) FROM public.clinical_observations WHERE source_extraction_id = 'd6660000-0000-4000-8000-000000000004'), 0::bigint, 'retired historical attempt cannot insert observations');
 SELECT is((SELECT count(*) FROM public.clinical_state_reconciliation_work WHERE source_observation_id IN (SELECT id FROM public.clinical_observations WHERE source_extraction_id = 'd6660000-0000-4000-8000-000000000004')), 0::bigint, 'retired historical attempt cannot enqueue reconciliation work');
 SELECT is((SELECT status::text FROM public.documents WHERE id = 'd6650000-0000-4000-8000-000000000004'), 'processing', 'retired historical attempt cannot mutate the retry document state');
+SELECT is((SELECT count(*) FROM public.audit_logs WHERE
+  (action = 'clinical_observations_normalized' AND resource_id = 'd6660000-0000-4000-8000-000000000004')
+  OR (action IN ('document_processed', 'document_marked_needs_review') AND metadata->>'extraction_id' = 'd6660000-0000-4000-8000-000000000004')
+), 0::bigint, 'retired historical attempt emits zero successful completion audit effects');
+SELECT is((SELECT active_extraction_id FROM public.document_processing_work WHERE id = current_setting('app.historical_work_id')::uuid), current_setting('app.historical_retry_extraction_id')::uuid, 'legacy denial leaves historical retry B current');
+SELECT ok((SELECT status = 'technical_failure' AND failure_reason_code = 'provider_timeout' AND attempt_number = 1
+  AND schema_version = 'schema/v1' AND pipeline_version = 'pipeline/v1' AND completed_at IS NOT NULL
+  AND document_id = 'd6650000-0000-4000-8000-000000000004' AND clinic_id = 'd6600000-0000-4000-8000-000000000001'
+  FROM public.document_extractions WHERE id = 'd6660000-0000-4000-8000-000000000004'), 'A failure provenance survives denied legacy completion');
+SET LOCAL ROLE service_role;
+SELECT lives_ok($$ SELECT public.complete_document_processing_work(
+  current_setting('app.historical_work_id')::uuid, current_setting('app.historical_retry_extraction_id')::uuid,
+  'succeeded', '{}'::jsonb, 'lab_report', 0.9, 0.9, ARRAY[]::text[], NULL, '[]'::jsonb
+) $$, 'historical retry B completes through the supported wrapper');
+SET LOCAL ROLE postgres;
+SELECT is((SELECT status::text FROM public.document_processing_work WHERE id = current_setting('app.historical_work_id')::uuid), 'completed', 'historical retry B finishes durable work');
 
 SELECT * FROM finish();
 ROLLBACK;

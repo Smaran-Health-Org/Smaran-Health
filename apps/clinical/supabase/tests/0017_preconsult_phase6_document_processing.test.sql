@@ -115,7 +115,8 @@ SELECT throws_ok(
   'authenticated browser roles cannot finalize provider output directly'
 );
 
-SET LOCAL ROLE service_role;
+-- Exercise the retained internal implementation as its trusted owner.
+SET LOCAL ROLE postgres;
 SELECT lives_ok(
   $$ SELECT public.complete_document_processing(
     (SELECT id FROM public.document_extractions WHERE document_id = '86000000-0000-4000-8000-000000000001'),
@@ -226,7 +227,8 @@ SELECT lives_ok(
   'technical failure may be retried as a new immutable attempt'
 );
 
-SET LOCAL ROLE service_role;
+-- Exercise the retained internal implementation as its trusted owner.
+SET LOCAL ROLE postgres;
 SELECT lives_ok(
   $$ SELECT public.complete_document_processing(
     (SELECT id FROM public.document_extractions
@@ -281,7 +283,8 @@ SELECT lives_ok(
   'second consented source may process independently'
 );
 
-SET LOCAL ROLE service_role;
+-- Exercise the retained internal implementation as its trusted owner.
+SET LOCAL ROLE postgres;
 SELECT lives_ok(
   $$ SELECT public.complete_document_processing(
     (SELECT id FROM public.document_extractions WHERE document_id = '86000000-0000-4000-8000-000000000002'),

@@ -57,6 +57,8 @@ test("worker drains extraction, reconciliation, and brief generation without a P
   assert.match(worker, /processClaimedMedicalDocument/);
   assert.match(worker, /document_pipeline_completion_stale/);
   assert.match(processor, /complete_document_processing_work/);
+  assert.doesNotMatch(processor, /\.rpc\("complete_document_processing"/);
+  assert.doesNotMatch(processor, /export async function processMedicalDocument\(/);
   assert.doesNotMatch(worker, /finish_document_processing_work/);
   assert.match(worker, /drainClinicalStateReconciliation/);
   assert.match(worker, /drainPreconsultBriefGeneration/);

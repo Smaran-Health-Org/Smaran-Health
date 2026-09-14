@@ -47,7 +47,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 
 ### Pre-S1 reconciliation — durable retry P1 repairs
 
-- Status: **Code-complete and validation-green; ready for final durable-retry P1 closure review.** The prior `0070` repair was not a complete P1 closure: it did not atomically bind normalized-observation persistence to the active durable attempt and did not repair the uploaded-source historical `0069` residue.
+- Status: **Code-complete and validation-green; ready for final durable-retry P1 closure review. Not merged; Scheduler remains S0 complete / S1 not started.** The prior `0070` repair was not a complete P1 closure: it did not atomically bind normalized-observation persistence to the active durable attempt and did not repair the uploaded-source historical `0069` residue. The `0071` wrapper fixed that path, but its retained legacy completion grants still allowed direct stale normalized-output writes; `0072` closes that remaining entry point.
 - Work completed:
   - Bound durable-work finish and fail operations to the immutable extraction attempt currently recorded on the work row. A reclaimed or retried worker cannot finalize, fail, or reset a newer owner.
   - Preserved failed durable attempts as immutable `technical_failure` extraction history with failure code, completion time, and a system-originated audit event. Authorized retry reuses the one work row and creates a new operational attempt.
@@ -55,14 +55,20 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Fixed lease-expiry reclaim without widening source mutability: a reclaim retires the old active extraction and does not issue a no-op source-document `processing` update that collides with the immutable-source guard.
   - `0071` makes the durable completion path a single service-only transaction: it locks and validates the current work/extraction ownership before any extraction/document finalization, immutable observation insert, reconciliation trigger, audit effect, or work completion can occur. A stale worker receives an inert no-op.
   - `0071` also repairs only the exact system-owned `0069` residue (`retryable_failed`, no active attempt, Uploaded source, latest system attempt still processing, retained durable failure code) and preserves that attempt as `technical_failure` history. The retry path retains the old work failure code until the locked claim retires the predecessor and creates the distinct replacement attempt.
+  - `0072` revokes direct EXECUTE from PUBLIC, anon, authenticated, and service_role for exactly the two historical `complete_document_processing` signatures (with and without normalized observations). Their implementations remain callable internally by the atomic wrapper's trusted `postgres` owner. Wrapper ownership, SECURITY DEFINER, empty search_path, qualified access, and its service-only grant remain unchanged. Old deployed callers intentionally receive permission denied.
+  - Caller inventory: current production `processClaimedMedicalDocument`/`drainDocumentPipeline` already uses `complete_document_processing_work`; unused superseded `processMedicalDocument` was removed. Test-only legacy calls in Phase 6/7 now exercise the retained internal implementation as `postgres`; Phase 9's fixture already does so. Durable service regressions now use the wrapper for successful completion and explicitly deny direct legacy completion. Migration/internal dependencies remain the Phase 7 implementation calling Phase 6 and the `0071` wrapper calling Phase 7; neither implementation is removed or duplicated.
 - Acceptance criteria preserved/hardened:
   - `AC-D01`, `AC-D04`–`AC-D06`, and `AC-A01`–`AC-A06` for immutable source evidence, explicit operational state, retry-safe processing, provenance, and unconfirmed AI output.
 - Files changed:
   - `apps/clinical/supabase/migrations/0070_document_pipeline_retry_recovery_hardening.sql`
   - `apps/clinical/supabase/migrations/0071_document_pipeline_attempt_atomicity_fix.sql`
+  - `apps/clinical/supabase/migrations/0072_document_pipeline_completion_rpc_lockdown.sql`
   - `apps/clinical/supabase/tests/0066_document_pipeline_durable_work.test.sql`
+  - `apps/clinical/supabase/tests/0017_preconsult_phase6_document_processing.test.sql`
+  - `apps/clinical/supabase/tests/0028_preconsult_phase7_clinical_observations.test.sql`
   - `apps/clinical/src/lib/documents/pipeline.ts`
   - `apps/clinical/src/lib/documents/process.ts`
+  - `apps/clinical/src/tests/document-pipeline-durable-work.test.ts`
 - Validation:
   - Applied migration `0070_document_pipeline_retry_recovery_hardening.sql` to the existing local Supabase database without resetting data.
   - Earlier `0070` targeted durable-pipeline pgTAP result was 50/50 assertions; `0071` expands this with stale normalized-observation atomicity and historical `0069` retry/provenance regressions.
@@ -72,6 +78,9 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Final local validation passed: full pgTAP 664/664 assertions across 28 files; full TypeScript suite 115/115 tests; `npx tsc --noEmit`; `npm run lint`; and `git diff --check`.
   - `npx supabase db lint --local --level warning` did execute successfully with exit code 0 and one existing unused-parameter warning.
   - `npm run build` remains blocked by the known host port-binding restriction in Turbopack; documented fallback `npx next build --webpack` passed.
+  - `0072` validation: the expanded durable regression reproduces the bypass before lockdown (12 expected failing assertions on `0071`) and passes 111/111 after lockdown. It proves direct legacy calls fail for lease-reclaimed and historical retired attempts, zero stale observation/reconciliation/audit effects, preserved A failure provenance, B ownership, and successful wrapper completion. The audit check now covers document-resource completion events as well as extraction-resource normalization events.
+  - All 28 database pgTAP files passed 696/696 via a temporary Node/pg runner against local Supabase. Each file ran in a rolled-back transaction with pgTAP and `0072` applied twice, validating upgrade application and repeat execution without persistent database changes. Catalog checks confirmed all three completion functions are `postgres` owned, SECURITY DEFINER, with empty search_path; service_role does not inherit the owner. `0072` has not been persistently applied, and no clean replay through `0072` was run.
+  - Current `0072` TypeScript validation: targeted 6/6 (`node --import tsx --test src/tests/document-pipeline-durable-work.test.ts`), full `npm run test` 115/115, `tsc --noEmit`, targeted ESLint for the changed processor/test, and `git diff --check` passed. Full lint, schema lint, and production build were not rerun for this grant-only migration/dead-caller removal; the results above belong to the earlier `0071` validation.
 - Security/privacy/clinical safety:
   - Durable work remains inaccessible for anonymous and ordinary authenticated actors; only the service role may claim/finalize/fail it. Clinic/document ownership and immutable source metadata remain unchanged. No patient/clinical content is added to logs or audit metadata.
 - Product question:
