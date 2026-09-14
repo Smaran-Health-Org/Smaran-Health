@@ -69,10 +69,10 @@ Work:
 
 ## Phase 4 — Secure patient intake
 
-Goal: no-app, OTP protected intake.
+Goal: no-app, secure link-protected intake.
 
 Work:
-- intake session/token/OTP service.
+- high-entropy, expiry-bound, revocable intake-link service.
 - consent version capture.
 - patient-safe route isolated from authenticated clinic UI.
 - reason for visit verbatim.

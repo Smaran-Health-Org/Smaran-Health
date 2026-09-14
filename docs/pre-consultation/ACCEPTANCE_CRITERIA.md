@@ -26,7 +26,7 @@ These criteria are behavioral contracts. Codex should map each implemented phase
 
 **AC-I01** Intake MUST be usable without creating a patient account or installing an app.
 
-**AC-I02** Opening intake MUST require OTP verification tied to the registered/contact mobile context.
+**AC-I02** Opening intake MUST require a high-entropy, expiry-bound, revocable link scoped to the intended appointment. No separate OTP is required in the MVP.
 
 **AC-I03** Explicit consent MUST be captured before processing/storing submitted medical intake/documents according to the approved consent version.
 

@@ -214,6 +214,8 @@ export const patients = pgTable(
     gender: text("gender"),
     phone: text("phone"),
     normalizedPhone: text("normalized_phone"),
+    email: text("email"),
+    normalizedEmail: text("normalized_email"),
     address: text("address"),
     medicalRecordNumber: text("medical_record_number"),
     weightKg: real("weight_kg"),
@@ -236,6 +238,10 @@ export const patients = pgTable(
     index("patients_clinic_normalized_phone_idx").on(
       table.clinicId,
       table.normalizedPhone
+    ),
+    index("patients_clinic_normalized_email_idx").on(
+      table.clinicId,
+      table.normalizedEmail
     ),
     index("patients_clinic_normalized_name_idx").on(
       table.clinicId,
@@ -445,6 +451,15 @@ export const intakeAccessSessions = pgTable(
     otpHash: text("otp_hash").notNull(),
     verifiedSessionHash: text("verified_session_hash"),
     deliveryStatus: intakeDeliveryStatusEnum("delivery_status").notNull().default("pending"),
+    deliveryChannel: text("delivery_channel"),
+    deliveryProvider: text("delivery_provider"),
+    deliveryProviderStatus: text("delivery_provider_status"),
+    deliveryRecipient: text("delivery_recipient"),
+    providerMessageId: text("provider_message_id"),
+    deliveryAttemptedAt: timestamp("delivery_attempted_at", { withTimezone: true }),
+    deliverySentAt: timestamp("delivery_sent_at", { withTimezone: true }),
+    deliveryFailedAt: timestamp("delivery_failed_at", { withTimezone: true }),
+    deliveryFailureCode: text("delivery_failure_code"),
     failedAttempts: integer("failed_attempts").notNull().default(0),
     maxAttempts: integer("max_attempts").notNull().default(5),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -723,8 +738,23 @@ export const audioFiles = pgTable("audio_files", {
   storagePath: text("storage_path").notNull(),
   durationSeconds: integer("duration_seconds"),
   format: text("format"),
+  recordingStatus: text("recording_status").$type<"created" | "recording" | "paused" | "finalizing" | "finalized" | "interrupted">().notNull().default("created"),
+  transcriptionStatus: text("transcription_status").$type<"pending" | "processing" | "completed" | "retryable_failed">().notNull().default("pending"),
+  transcriptionFailureCode: text("transcription_failure_code"),
+  finalizedAt: timestamp("finalized_at", { withTimezone: true }),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const audioRecordingChunks = pgTable("audio_recording_chunks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  audioFileId: uuid("audio_file_id").references(() => audioFiles.id, { onDelete: "cascade" }).notNull(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  sequenceNumber: integer("sequence_number").notNull(),
+  storagePath: text("storage_path").notNull().unique(),
+  contentHash: text("content_hash").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [uniqueIndex("audio_recording_chunks_audio_sequence_idx").on(table.audioFileId, table.sequenceNumber)]);
 
 export const transcripts = pgTable("transcripts", {
   id: uuid("id").defaultRandom().primaryKey(),

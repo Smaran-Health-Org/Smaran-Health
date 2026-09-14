@@ -3,7 +3,16 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 type ServerClient = Awaited<ReturnType<typeof createServerClient>>;
 
 export type PatientIntakeStatus = "not_started" | "in_progress" | "submitted";
-export type IntakeDeliveryStatus = "sent" | "preview" | "failed";
+export type IntakeDeliveryStatus = "pending" | "sent" | "preview" | "failed";
+
+export type IntakeDeliveryRecord = {
+  status: IntakeDeliveryStatus;
+  channel: "email" | "whatsapp" | "sms";
+  provider: string;
+  recipient: string;
+  providerMessageId?: string;
+  failureCode?: string;
+};
 
 export type IssuedIntakeAccess = {
   accessSessionId: string;
@@ -124,6 +133,31 @@ export async function markPatientIntakeDelivery(
 ): Promise<void> {
   const supabase = await createServerClient();
   return markPatientIntakeDeliveryWithClient(supabase, accessSessionId, status);
+}
+
+export async function recordPatientIntakeDeliveryWithClient(
+  supabase: ServerClient,
+  accessSessionId: string,
+  delivery: IntakeDeliveryRecord
+): Promise<void> {
+  const { error } = await supabase.rpc("record_patient_intake_delivery", {
+    p_access_session_id: accessSessionId,
+    p_delivery_status: delivery.status,
+    p_delivery_channel: delivery.channel,
+    p_delivery_provider: delivery.provider,
+    p_delivery_recipient: delivery.recipient,
+    p_provider_message_id: delivery.providerMessageId ?? null,
+    p_failure_code: delivery.failureCode ?? null,
+  });
+  if (error) mapRpcError(error);
+}
+
+export async function recordPatientIntakeDelivery(
+  accessSessionId: string,
+  delivery: IntakeDeliveryRecord
+): Promise<void> {
+  const supabase = await createServerClient();
+  return recordPatientIntakeDeliveryWithClient(supabase, accessSessionId, delivery);
 }
 
 export async function verifyPatientIntakeOtpWithClient(

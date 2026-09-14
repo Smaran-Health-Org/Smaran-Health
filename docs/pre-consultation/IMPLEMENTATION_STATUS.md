@@ -15,7 +15,7 @@ Baseline commit reviewed: `bbf2a07`
 | 1 | Patient identity + appointment/Encounter foundation | Complete | AC-P01, AC-P03, AC-P04, AC-E01, AC-E02 | Clinic-scoped identity foundation, appointments, atomic Encounter creation, separate operational state, RLS, APIs, and tests implemented. |
 | 2 | Lightweight registration + duplicate patient protection | Complete | AC-P01–P05 | Staged identity-first registration, duplicate warning/override, and audited non-destructive merge implemented. |
 | 3 | Admin Today/Queue | Complete | AC-R01–R02, AC-E03 | Appointment-driven queue with atomic, role-aware transitions and no doctor-only clinical interpretation. |
-| 4 | OTP patient intake + consent | Complete | AC-I01–I07, AC-R01, AC-R04 | Manual intake-link send/resend is available; AC-I06 prohibits automatic time-based intake reminders in Pre-Consultation MVP. |
+| 4 | Secure-link patient intake + consent | Complete | AC-I01–I07, AC-R01, AC-R04 | Manual intake-link send/resend is available; the link is the sole patient access credential and AC-I06 prohibits automatic time-based intake reminders in Pre-Consultation MVP. |
 | 5 | Document ingestion foundation | Complete | AC-D01–D02, D07 | Exact-hash duplicate flag foundation included; extraction and Needs Review remain Phase 6. |
 | 6 | Document processing + Needs Review | Complete | AC-D04–D06, AC-A01; AC-D03 detection | Structured trend exclusion remains Phase 7. |
 | 6.5 | Role workspaces, dashboards, and Clinic Desk automation | Complete | AC-W01–W19; AC-I08–I09; AC-A06 | Workspace boundary, role landings, dashboards, Clinic Desk, Priority, queue/walk-ins, and assisted intake with immutable additive provenance implemented. |
@@ -50,6 +50,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 - Status: Complete
 - Commit/PR: Working tree on `dev-neelesh`; not committed by Codex.
 - Work completed:
+  - UAT pipeline remediation: accepted patient document registration now atomically creates durable, clinic-scoped processing work. A protected scheduled worker claims it idempotently, preserves immutable originals, persists provider/result failures as retryable technical-failure codes, then drains the existing reconciliation and brief-generation work. The staff control is recovery-only; normal patient uploads do not require a Process click. Doctor pre-consult UI distinguishes waiting intake, document processing, brief preparation, partial/ready, and retryable failure, with bounded refresh only while asynchronous work is active.
   - Added nullable DOB and conservative normalized phone/name matching signals while retaining raw identity values and legacy age.
   - Added non-destructive future-merge provenance fields. They are deliberately write-locked until Phase 2 supplies an authorized, audited merge transaction.
   - Added clinic-scoped appointments linked one-to-one to the existing consultation/Encounter implementation.
@@ -308,7 +309,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - `npx next build --webpack` — pass; public intake and staff delivery routes compiled.
   - `npm run build` — Turbopack could not bind its helper-process port in this execution environment, including after an escalated retry; the supported webpack production build passed.
 - Security/privacy review:
-  - Token, OTP, and verified-browser credentials are random and stored only as HMAC-SHA-256 digests using a required server-side pepper.
+  - Production token, OTP, and verified-browser credentials are random and stored only as HMAC-SHA-256 digests using a required server-side pepper; non-production uses the fixed UAT OTP `123456` while retaining random link and browser credentials, including when controlled UAT uses live email delivery.
   - Production rejects preview delivery and fails closed unless the server-only delivery webhook and credential are configured.
   - OTP attempt limits, expiry, resend cooldown, session invalidation, private HttpOnly cookie, no-store responses, no-referrer metadata, and no-index metadata reduce link/session exposure.
   - Public RPCs reveal no clinic-wide or cross-encounter records; direct anonymous table access is revoked. Cross-clinic issuance is rejected in database tests.
@@ -881,6 +882,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - Made document authorization read-only. Staff and patient routes now create the private 60-second signed link first and only then record `document_viewed` with `signed_url_issued` provenance. A Storage signing failure can no longer produce a false-positive view audit.
   - Added `no-store` and `no-referrer` headers to the staff signed-document redirect, matching the patient route.
 - Acceptance criteria preserved/hardened:
+  - `AC-D01`, `AC-D04`–`AC-D06`, `AC-A01`–`AC-A06`, `AC-C01`–`AC-C07`, `AC-B01`, `AC-B04`–`AC-B06`, and `AC-E03` for the durable document-to-brief chain.
   - `AC-D01`, `AC-D02`, `AC-D07`, `AC-R04`, and the audit requirements in `PERMISSIONS.md`.
 - Files changed:
   - `src/lib/clinic-date.ts`
@@ -910,6 +912,8 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
 
 - Status: **Complete / code-complete at `f4a8e7e7fcdb69b5022dc0c811b2d328647606ee`.** Phase 12 implementation, remediation, final local validation, commit/push, and final senior closure are complete, with no remaining P0/P1/P2 code findings. No applicable clinical-app CI workflow exists for this commit; clinical CI is unavailable/not applicable, not green, and is recorded as a separate process/infrastructure follow-up. Pre-Consultation MVP pilot readiness remains **BLOCKED/PENDING** external deployment and governance gates. No Phase 13 or reminder automation is introduced.
 - Work completed:
+  - UAT remediation: walk-ins now retain the existing atomic check-in/idempotency path and show a post-success choice to send the optional intake link through the provider-neutral invitation route or continue to Clinic Desk. The send action is unavailable with a clear explanation when no valid email channel exists.
+  - UAT remediation: patient documents now belong to the verified draft intake session before final submission, after explicit document-storage consent. The single final `Submit details` action is the only transition to `submitted`; retrying it returns the original intake without duplicate audit/consent writes. Uploaded originals remain immutable, clinic/patient/consultation scoped, and accessible only to their verified session.
   - Removed the authenticated `storage.objects` SELECT policy for `medical-documents`. Registered originals remain in the private bucket and are available only through the existing server-authorized, 60-second signed-link flow.
   - Preserved staff and OTP-scoped patient authorization RPCs, cross-clinic denial, source immutability, and post-signing-only `document_viewed` provenance.
   - Replaced raw provider/database error logging in the generic best-effort audit helper with the fixed `audit_log_write_failed` event identifier. The helper remains nonblocking; required transactional audit behavior is unchanged.
@@ -928,8 +932,9 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - P12-D P1-03 remains closed with accepted persisted production-contract integration evidence: real queue starts cover submitted intake/brief, no intake, unavailable brief, and unresolved preparation; snapshots capture persisted brief A and remain pinned after persisted brief B becomes current.
   - Fixed a P2 direct Start Consultation UX defect: failed requests now show a neutral, accessible retry message rather than silently clearing the loading state; provider/database details remain hidden and duplicate clicks remain disabled while pending.
   - Hardened Review Changes stale/ambiguous recovery: the UI now announces a safe refresh-required state, prevents a stale re-apply, and offers an explicit refresh action. Generic failures no longer display uncontrolled transport/provider text.
+  - Post-closure UAT communications follow-up: retained manual staff-triggered intake links and the existing hashed-token/OTP flow, then added an optional normalized patient email, a provider-neutral intake-invitation notification service, and a server-only Resend email provider. Preview mode remains local-only; explicit live mode sends the existing secure URL without an OTP or clinical content. Provider acceptance, recipient, safe failure code, and message ID are recorded as transport metadata separate from intake completion.
 - Acceptance criteria preserved/hardened:
-  - `AC-D01`, `AC-D02`, `AC-R04`, `AC-B06`, and the source-access/audit requirements in `PERMISSIONS.md`; Phase 11's immutable consultation-start brief snapshot behavior remains unchanged.
+  - `AC-D01`, `AC-D02`, `AC-R04`, `AC-B06`, `AC-I01`, `AC-I02`, `AC-I06`, and the source-access/audit requirements in `PERMISSIONS.md`; Phase 11's immutable consultation-start brief snapshot behavior remains unchanged.
 - Files changed:
   - `apps/clinical/supabase/migrations/0050_preconsult_phase12_private_storage_hardening.sql`
   - `apps/clinical/supabase/tests/0050_preconsult_phase12_private_storage_hardening.test.sql`
@@ -990,6 +995,7 @@ Do not mark a phase Complete solely because UI exists; relevant database, author
   - P12-D final closure findings: targeted Phase 5 document and Phase 12 remediation TypeScript regressions passed (15/15); Phase 5/reconciliation/scoped-lookup pgTAP passed (62/62); multi-client concurrency passed (2/2); and Direct Start plus persisted production-contract pgTAP passed (19/19, including 0053 at 11/11). Targeted ESLint, `npx tsc --noEmit`, and `git diff --check` passed.
   - P12-D final UUID-oracle remediation: tenant-scoped registration-identity pgTAP passed (22/22); combined Phase 5/0055/0056/0057 document pgTAP passed (84/84); targeted Phase 5 and remediation TypeScript tests passed (15/15); multi-client concurrency passed (2/2); and Direct Start plus persisted production-contract pgTAP passed (19/19, including 0053 at 11/11). Targeted ESLint, `npx tsc --noEmit`, and `git diff --check` passed.
   - Final local validation: complete application TypeScript suite passed (99/99); clean-from-zero disposable Supabase migration replay through `0057` passed; complete pgTAP suite on that clean database passed (542/542 across 23 files); Phase 8/9/10/12 dedicated concurrency suites passed (1/1, 1/1, 5/5, and 2/2); `npx tsc --noEmit` and full ESLint passed; and the Next.js Webpack production build passed. The default Turbopack build was blocked by the host's port-binding restriction during CSS processing, while the supported Webpack production-build fallback completed successfully.
+  - UAT communications follow-up: focused notification/intake TypeScript tests passed (9/9); complete application TypeScript suite passed (102/102); focused email-delivery pgTAP passed (11/11); full ESLint and `npx tsc --noEmit` passed; and the Next.js Webpack production build passed. The unrelated pre-existing full pgTAP fixture failures for document `registration_command_id` remain outside this change; the new email regression passed in that run.
   - Final independent Sol High senior closure reviewed `f4a8e7e7fcdb69b5022dc0c811b2d328647606ee` and approved Phase 12 code closure with no P0/P1/P2 findings.
 - Security/privacy/clinical safety:
   - Browser JWTs no longer receive direct source-object reads; signed URLs remain short-lived and generated only after scoped authorization. No service-role credential reaches the browser. Error logs contain no provider body, metadata, filename, patient data, source content, or private URL. Brief-view provenance remains best-effort and cannot delay consultation rendering or alter the immutable start snapshot. The database-backed per-session OTP ceiling remains enforced; shared edge/WAF request-rate control is not configured in this repository and is a pilot deployment gate/founder-infrastructure decision, not a replacement for the OTP ceiling. Malware scanning/quarantine also remains an external pilot deployment/founder decision; current upload hardening is limited to the existing size, bounded-body, type/signature, private-storage, and immutable-evidence controls.

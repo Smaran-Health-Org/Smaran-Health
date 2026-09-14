@@ -198,6 +198,27 @@ export async function getPatientDocumentUploadContext(tokenHash: string, verifie
   return getPatientDocumentUploadContextWithClient(supabase, tokenHash, verifiedSessionHash);
 }
 
+export async function acceptPatientDocumentStorageConsentWithClient(
+  supabase: ServerClient,
+  input: { tokenHash: string; verifiedSessionHash: string; consentVersion: string }
+): Promise<string> {
+  const { data, error } = await supabase.rpc("accept_patient_document_storage_consent", {
+    p_token_hash: input.tokenHash,
+    p_verified_session_hash: input.verifiedSessionHash,
+    p_consent_version: input.consentVersion,
+  });
+  if (error) mapRpcError(error);
+  if (typeof data !== "string") throw new DocumentAccessError("unavailable");
+  return data;
+}
+
+export async function acceptPatientDocumentStorageConsent(
+  input: Parameters<typeof acceptPatientDocumentStorageConsentWithClient>[1]
+) {
+  const supabase = await createServerClient();
+  return acceptPatientDocumentStorageConsentWithClient(supabase, input);
+}
+
 function registrationArgs(input: RegisterDocumentInput) {
   return {
     p_id: input.registrationCommandId,
@@ -343,6 +364,12 @@ export async function beginDocumentProcessing(
 ) {
   const supabase = await createServerClient();
   return beginDocumentProcessingWithClient(supabase, input);
+}
+
+export async function retryDocumentProcessing(documentId: string): Promise<void> {
+  const supabase = await createServerClient();
+  const { error } = await supabase.rpc("retry_document_processing_work", { p_document_id: documentId });
+  if (error) mapRpcError(error);
 }
 
 export async function getDoctorLatestDocumentExtraction(

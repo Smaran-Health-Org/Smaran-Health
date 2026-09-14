@@ -21,6 +21,7 @@ import type {
   clinicalStateDeltaEvidence,
   clinicalStateDeltaDispositions,
   audioFiles,
+  audioRecordingChunks,
   transcripts,
   clinicalNotes,
   patientTimelineEvents,
@@ -51,6 +52,7 @@ export type ClinicalStateDelta = InferSelectModel<typeof clinicalStateDeltas>;
 export type ClinicalStateDeltaEvidence = InferSelectModel<typeof clinicalStateDeltaEvidence>;
 export type ClinicalStateDeltaDisposition = InferSelectModel<typeof clinicalStateDeltaDispositions>;
 export type AudioFile = InferSelectModel<typeof audioFiles>;
+export type AudioRecordingChunk = InferSelectModel<typeof audioRecordingChunks>;
 export type Transcript = InferSelectModel<typeof transcripts>;
 export type ClinicalNote = InferSelectModel<typeof clinicalNotes>;
 export type PatientTimelineEvent = InferSelectModel<typeof patientTimelineEvents>;

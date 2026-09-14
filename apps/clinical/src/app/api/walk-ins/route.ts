@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
+import { getPatient } from "@/lib/db/patients";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createWalkInSchema } from "@/lib/validation";
 import { badRequest, conflict, internalError, unauthorized } from "@/lib/api/error-handler";
@@ -24,5 +25,7 @@ export async function POST(request: NextRequest) {
   }
   const appointment = (data as Array<{ id: string; consultation_id: string }> | null)?.[0];
   if (!appointment) return internalError("Could not add the walk-in");
-  return NextResponse.json({ appointmentId: appointment.id, consultationId: appointment.consultation_id }, { status: 201 });
+  const patient = await getPatient(parsed.data.patientId, session.clinicId);
+  const canSendIntakeLink = Boolean(patient?.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patient.email));
+  return NextResponse.json({ appointmentId: appointment.id, consultationId: appointment.consultation_id, canSendIntakeLink }, { status: 201 });
 }
