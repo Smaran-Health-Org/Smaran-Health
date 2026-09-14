@@ -1,0 +1,379 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "ai-development-state/v1"
+    },
+    "work_item_id": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+    },
+    "domain": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "refinement_pending",
+        "refinement_approved",
+        "planning",
+        "plan_ready",
+        "plan_approved"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identifier": {
+          "type": "string",
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$"
+        },
+        "target_branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "feature_branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "base_commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        }
+      },
+      "required": [
+        "identifier",
+        "target_branch"
+      ]
+    },
+    "sources": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+          },
+          "selector": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "heading",
+                  "acceptance_criterion"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ]
+          },
+          "commit": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "brief": {
+          "$ref": "#/$defs/artifact"
+        },
+        "context": {
+          "$ref": "#/$defs/artifact"
+        },
+        "plan": {
+          "$ref": "#/$defs/artifact"
+        }
+      },
+      "required": [
+        "brief"
+      ]
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refinement": {
+          "$ref": "#/$defs/gate"
+        },
+        "plan": {
+          "$ref": "#/$defs/gate"
+        }
+      },
+      "required": [
+        "refinement",
+        "plan"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*$"
+        },
+        "input_commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        }
+      },
+      "required": [
+        "run_id",
+        "input_commit"
+      ]
+    },
+    "last_transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "string",
+          "enum": [
+            "refinement_pending",
+            "refinement_approved",
+            "planning",
+            "plan_ready",
+            "plan_approved"
+          ]
+        },
+        "to": {
+          "type": "string",
+          "enum": [
+            "refinement_pending",
+            "refinement_approved",
+            "planning",
+            "plan_ready",
+            "plan_approved"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "at",
+        "actor"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "work_item_id",
+    "title",
+    "state",
+    "revision",
+    "repository",
+    "sources",
+    "artifacts",
+    "gates"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Smaran AI development state v1 (Stage 2A)",
+  "$defs": {
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "human"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "artifact_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "artifact_commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "github_comment",
+                "github_review"
+              ]
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 512,
+              "pattern": "^https://github\\.com/"
+            },
+            "id": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[0-9]+$"
+            }
+          },
+          "required": [
+            "kind",
+            "url",
+            "id"
+          ]
+        }
+      },
+      "required": [
+        "actor",
+        "at",
+        "artifact_sha256",
+        "artifact_commit",
+        "evidence"
+      ]
+    },
+    "gate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "const": "pending"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "const": "approved"
+            },
+            "approval": {
+              "$ref": "#/$defs/approval"
+            }
+          },
+          "required": [
+            "status",
+            "approval"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "const": "invalidated"
+            },
+            "invalidation_reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+            },
+            "approval": {
+              "$ref": "#/$defs/approval"
+            }
+          },
+          "required": [
+            "status",
+            "invalidation_reason"
+          ]
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  }
+}

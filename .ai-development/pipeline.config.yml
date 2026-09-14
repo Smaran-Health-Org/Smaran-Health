@@ -1,0 +1,16 @@
+# Stage 2A: deterministic contracts only. No agent, credentials or automation.
+schema_version: ai-development-config/v1
+repository: DrSmaranAI/Smaran-Health
+artifact_root: .ai-development
+work_item_root: .ai-development/work-items
+target_branch: dev-neelesh
+supported_states:
+  - refinement_pending
+  - refinement_approved
+  - planning
+  - plan_ready
+  - plan_approved
+policy:
+  max_yaml_bytes: 65536
+  max_artifact_bytes: 1048576
+  max_depth: 32
