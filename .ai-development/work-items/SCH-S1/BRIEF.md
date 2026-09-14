@@ -94,7 +94,7 @@ This Work Item creation task does not include schema implementation, database mi
 
 ## 8. Authoritative sources
 
-All source references are pinned to commit `1c9be27b79edf997559b9d9140f7cf095ea19295` in `DrSmaranAI/Smaran-Health`, target/base branch `dev-neelesh`.
+All source references are pinned to commit `9968053052b3b4d8e944c0b88f784b0683338fa3` in `DrSmaranAI/Smaran-Health`, target/base branch `dev-neelesh`.
 
 - `docs/scheduler/README.md`: “Product philosophy”, “Existing code that must be extended, not replaced”, and “Core invariants”.
 - `docs/scheduler/IMPLEMENTATION_PLAN.md`: “Phase S1 — Core scheduling data model”, including its Goal, Work, Acceptance criteria, Required tests, and Non-goals subsections.
