@@ -1,146 +1,238 @@
-# Smaran Health AI development pipeline — Stages 2A–2B
+# Smaran Health AI development pipeline
 
-The pipeline will coordinate bounded development Work Items. GitHub and versioned
-repository artifacts remain the persistent source of truth. The deterministic
-orchestrator owns transitions; AI agents may produce candidates but may never
-approve their own output or advance state.
+This independent TypeScript tool owns deterministic workflow transitions. Models
+may produce candidates but must never approve their own output. Human Refinement
+Approval V1 is implemented with **live approval disabled**: the committed explicit
+approver list is empty. No live Work Items or product acceptance criteria are
+implemented here. Scheduler, planning and later execution remain outside scope.
 
-Stage 2A implements only local, read-only `status` and `validate`, strict contracts,
-path safety, exact-byte hashes and a pure future-transition guard. No agents,
-planning/approval commands, live Work Items or Scheduler implementation exist.
-Approved Scheduler documentation remains authoritative for later Scheduler work.
-Applicable `AGENTS.md` context and safety rules remain in force.
+## Install and supported commands
 
-## Install and commands
-
-Use Node 22.13+ and npm. From the repository:
+Node 22.13+ and npm are required; Node 22 remains the GitHub CI baseline.
 
 ```sh
 npm --prefix tools/ai-development ci
 npm --prefix tools/ai-development run smaran -- status TEST-001
 npm --prefix tools/ai-development run smaran -- validate TEST-001
+npm --prefix tools/ai-development run smaran -- approve-refinement TEST-001 --evidence https://github.com/DrSmaranAI/Smaran-Health/pull/1#issuecomment-2
 ```
 
-`TEST-001` is an example identifier, not an included Work Item. Missing items fail
-with a useful error. There is no global install requirement. Run from the
-repository or its tool package; root discovery walks upwards from the working
-directory. Other commands and extra arguments are rejected.
+Identifiers and URLs above are examples. These are the only supported commands.
+Extra arguments, duplicate evidence flags and override flags fail. Exit codes:
+0 success (including a freshly verified no-op), 1 validation/verification failure,
+2 usage failure. No automatic push, merge, PR operation, evidence creation or
+model invocation exists.
 
-Exit codes: `0` local validation passed, `1` input/validation failure, `2` usage or
-unsupported command. Both commands are read-only and never repair state. Status
-distinguishes recorded state from local consistency, blockers and the next
-conceptual action. A blocker prevents advancement and changes that next action
-to resolving validation failures.
+`status` and `validate` remain read-only and offline. **RECORDED STATE** and
+**EXTERNAL APPROVAL VALIDITY** are distinct: local consistency never authenticates
+approval. Status does not silently contact GitHub. Neither command repairs STATE.
 
-**A passing local validation does not authenticate a human, verify GitHub evidence
-or establish that a recorded commit exists.** Gate approval fields are records,
-not authorization. No Stage 2A command performs a transition. Later commands must
-provide independently verified checks to the transition guard.
+## Contracts and layout
 
-## Structure and contracts
+`.ai-development/` remains the contract/artifact root;
+`tools/ai-development/` remains the independent private tool. Work Items belong in
+`.ai-development/work-items/<ID>/`, with immutable candidate Brief bytes and
+`STATE.yml`. The template is visibly `refinement_pending`, revision 0, both gates
+pending, with no approval metadata or approver seeded.
 
-```text
-tools/ai-development/          independent private npm/TypeScript package
-  src/                        deterministic library and two read-only commands
-  tests/                      temporary synthetic fixtures, no live services
-.ai-development/
-  pipeline.config.yml         repository, fixed roots, states, bounded policy
-  schemas/                    strict JSON Schema 2020-12 contracts
-  templates/                  uninitialized state and reference-based brief
-  work-items/<ID>/             future location; no live items included
-```
+Configuration is `ai-development-config/v2`; STATE is `ai-development-state/v2`.
+Unsupported versions, including v1 and v3, fail closed. V1 records are not verified
+V2 approvals. No merged live Work Items require migration. The unmerged SCH-S1 v1
+branch/commit is outside this implementation and must be migrated or recreated
+separately after tooling merge.
 
-The state version is `ai-development-state/v1`; configuration is
-`ai-development-config/v1`. Unsupported versions/states and unknown properties
-fail closed. State supports identity, repository/commit records, selected source
-references, brief/context/plan artifacts, refinement/plan gate records and minimal
-run/transition provenance. It excludes implementation, CI and review bookkeeping.
-Future additions require explicit contract evolution.
-
-State sequence:
+The existing topology remains:
 
 ```text
 refinement_pending → refinement_approved → planning → plan_ready → plan_approved
 ```
 
-Only adjacent forward edges exist. The pure guard also requires orchestrator
-authority, unchanged inputs and verified refinement approval; ready/approved plans
-require validated planning output, and plan approval requires verified human plan
-approval. These checks are supplied by future trusted callers, not inferred from
-YAML. Recovery/replan/invalidation transitions are not implemented.
+Only the first edge is executable here. The central transition guard still requires
+independently verified approval and unchanged inputs. Schema-valid metadata,
+agent booleans, Git authors and CLI input do not establish authority. The command
+increments the candidate revision exactly once, approves only the refinement gate,
+keeps the plan gate pending, and records the legal transition. Approval actor is
+`github-user:<stable-numeric-id>`; approval and transition timestamps are the
+GitHub comment creation time. Transition actor is the deterministic orchestrator
+`smaran:approve-refinement/v1`, never the local operator.
 
-Approved gate records require a human actor record, timestamp, artifact SHA-256,
-full Git commit SHA and GitHub evidence reference. Pending gates contain none of
-those approval fields; invalidated gates require a reason and may retain prior
-approval records. Gate statuses must agree with the recorded workflow state.
-States after pending require base/source commits, a hashed brief and positive
-revision; planning states require run/input-commit provenance; ready/approved plans
-require hashed context and plan artifacts. Approved gate hashes must match their
-recorded artifacts. Last-transition metadata, when present, cannot skip an edge.
+Approved V2 metadata additionally includes candidate commit, Brief SHA-256,
+canonical comment URL/ID, exact API body SHA-256, evidence update time,
+`refinement-approval/v1` and immutable trusted policy commit. Schema validity alone
+never authenticates these records. The plan evidence schema retains a future review
+concept; there is no plan approval verifier or command.
 
-The brief must exist even while refinement is pending. Every referenced artifact
-must exist; ready/approved plans also require context and plan references. Recorded
-hashes are compared to exact bytes, including whitespace, encodings and newlines.
-No full planning fingerprint is implemented. Source references are syntax-checked
-metadata only; their content/existence/selectors are not resolved in Stage 2A.
+## Explicit approver policy and trust
 
-## Input and filesystem safety
+The committed policy is:
 
-YAML is restricted to one UTF-8 YAML 1.2 core document. Reject malformed input,
-duplicate/non-string keys, directives, explicit/custom tags, anchors, aliases,
-merge keys and non-finite numbers. Syntax-tree checks precede conversion to JS.
-Ajv uses strict mode without coercion, defaults or removing unknown fields.
+```yaml
+approvals:
+  refinement:
+    authorized_github_users: []
+```
 
-Hard limits are 65,536 bytes per YAML/schema file, 1,048,576 bytes per artifact and
-32 nesting levels. Configuration can only tighten YAML/artifact/depth limits.
-Paths are at most 256 characters, use ASCII repository-relative components, and
-reject traversal, absolute paths, backslashes, empty segments and special
-characters. IDs use uppercase letters/digits separated by hyphens, at most 64
-characters. Artifacts are confined to their own Work Item directory, a stricter
-boundary than the pipeline root. All pipeline symlinks are rejected, including
-internal links. File access requires regular files, bounds actual reads and uses
-no-follow opening plus ancestor checks. There are no shell commands built from
-Work Item data.
+**Empty means disabled and authorizes nobody.** Future entries have `login` and a
+positive numeric `id` encoded as a string. At most 32 entries are accepted; logins
+follow GitHub syntax (at most 39 characters), IDs are bounded to 20 digits,
+case-insensitive duplicate logins and duplicate stable IDs fail. Parsing never
+infers permissions. Do not populate this list until independent review and
+credential separation have been completed by humans.
 
-Run against a stable trusted checkout. Filesystem checks are not an OS security
-sandbox against an attacker concurrently replacing ancestor directories; later
-mutating/agent stages need separate isolation and locking. Pipeline contracts and
-configuration themselves remain trusted code that must receive human review.
-Never include secrets, patient/clinical information or private media URLs in state,
-artifacts or generic logs. Diagnostics do not echo YAML snippets or input values.
+GitHub proves account attribution, not whether a human used that account. GitHub
+`User` type is necessary but does not prove humanity. The authenticated `gh`
+identity, repository owner, collaborators, shell operator and Git commit authors
+are never automatically trusted. Live verification requires both login and stable
+numeric ID matching explicit policy, and current effective write/maintain/admin
+permission from GitHub. Permission alone cannot grant approval. Missing or
+inconclusive permissions fail closed.
 
-## Runtime and pipeline CI
+**The pipeline cannot guarantee a human gate if agents can access the authorized
+human's GitHub credentials/session.** Keep human approval credentials and sessions
+separate from agents and the development environment. No credentials, raw HTTP
+headers, tokens or API bodies are logged by this tool.
 
-Node 22 is the canonical CI baseline. The package's existing `engines.node`
-contract (`>=22.13.0`) also permits compatible newer local runtimes, including
-Node 24. `tools/ai-development/package-lock.json` is authoritative for dependencies;
-use `npm ci` for deterministic installation.
+Reviewed `src/bootstrap.ts` pins repository and target identity, rather than using
+feature-branch STATE/config. The verifier resolves the authoritative remote target
+branch once, fetches policy at that immutable commit, validates V2 and bootstrap
+identity, and records that commit. Candidate policy cannot authorize its candidate.
+Validators come from the executing reviewed tool, not the candidate worktree
+supplied to the command. Normal offline validation still uses local contracts.
 
-Stage 2A local validation occurred on Node 24. The dedicated GitHub Actions
-workflow, `.github/workflows/ai-development-ci.yml`, uses Ubuntu and Node 22 with
-npm caching keyed by the tool's lockfile. It runs installation, type checking,
-tests, build and Git whitespace checks, in that order. Pushes on any branch and
-pull requests targeting any branch (including `dev-neelesh`) trigger it when
-the tool, `.ai-development/` or the workflow itself changes.
+This does **not** prove arbitrary feature-branch verifier/bootstrap code is trusted.
+Live enforcement additionally requires reviewed verifier code, protected/trusted
+target policy, a trusted launcher/baseline execution mechanism and credential
+separation. `dev-neelesh` protection and trust-root policy remain unresolved
+operational requirements. The reusable verifier takes an explicit trusted context
+so a future trusted launcher can be added without redesign. No branch-protection
+solution or general repository bypass prevention is claimed.
 
-Whitespace validation covers pipeline paths in the PR diff or pushed range.
-For a new branch or unavailable pre-force-push commit, it checks the entire
-pipeline tree. The workflow has only `contents: read` permission and requires no
-secrets or AI credentials. It performs no model execution, Scheduler implementation,
-deployment, merge or approval, and never commits or pushes.
+## Exact evidence
 
-Creating the workflow does not prove Node 22 compatibility. Only a successful
-GitHub run on Node 22 establishes compatibility for the commit it validates.
+V1 accepts only PR conversation comments (`github_comment`). The complete body is:
 
-## Development validation
+```text
+SMARAN-REFINEMENT-APPROVAL v1
+repository: <owner/repo>
+work-item: <WORK-ITEM-ID>
+candidate-commit: <40-char-lowercase-sha>
+brief-sha256: <64-char-lowercase-sha256>
+decision: APPROVE
+I approve this exact Brief for planning only.
+```
+
+All expected values are derived from candidate STATE, HEAD and exact Brief bytes.
+The operator cannot supply an expected actor, commit or hash. Parsing requires full
+body equality, exact order/sentence, no fences, quotes, extra prose, duplicate
+fields or trailing spaces. LF/CRLF and one optional final newline are permitted;
+lone CR and bodies over 2048 UTF-8 bytes fail. Permitted newline normalization is
+only for parsing: SHA-256 hashes the exact API body bytes.
+
+The only accepted raw URL shape is
+`https://github.com/<configured-owner>/<configured-repo>/pull/<positive-number>#issuecomment-<positive-id>`.
+Numbers are canonical positive decimal, bounded to 15 digits. Credentials, ports
+(including explicit 443), queries, encoded paths, traversal, other hosts and issue,
+commit, inline review, review, reaction or description evidence are rejected.
+URL syntax alone is not evidence authenticity.
+
+REST and GraphQL must agree on comment ID, body, timestamps, author and PR/repository.
+Required integrity metadata includes explicit null `lastEditedAt` and editor,
+zero user-content edits, matching creation/update times, and `isMinimized: false`.
+Missing/deleted comments, restored edits, minimized comments, malformed responses,
+API errors and missing edit-history fields block approval. The transport uses fixed
+validated endpoints, `gh api` argument arrays, `shell: false`, explicit REST GET,
+`github.com`, REST API version 2022-11-28, a 20-second per-call timeout and a 4 MiB
+output limit. GraphQL uses POST for a fixed read-only query, never a mutation.
+Unsafe/non-representable numeric API identities fail closed.
+See [GitHub comment fields](https://docs.github.com/en/graphql/reference/issues#issuecomment)
+and [repository permissions](https://docs.github.com/en/rest/collaborators/collaborators#get-repository-permissions-for-a-user).
+
+## Publication and verification
+
+1. In a clean attached feature branch, create a V2 pending STATE. Record repository,
+   feature/target branches, base/source commits, exact Brief SHA-256, and source
+   references with source commit and exact source-file SHA-256.
+2. Commit the pending candidate. A human publishes this commit and opens a PR
+   against the configured target. The tool does neither action automatically.
+3. In a separated human session, an explicitly authorized human posts the complete
+   statement binding that exact candidate commit and Brief hash.
+4. Run `approve-refinement` with only Work Item ID and canonical comment URL.
+   Successful verification creates one local STATE-only commit, without pushing.
+
+The verifier requires candidate commit existence, remote feature branch and open
+same-repository PR head equal to that candidate, correct PR target/feature branch,
+exact published pending STATE and Brief bytes, and matching recorded Brief hash.
+It verifies base/source commits, base→source→candidate ancestry, source→current
+trusted target ancestry, and source bytes at pinned commits. Sources must remain
+pinned to the recorded source commit. No source/base provenance is rewritten.
+
+The reusable `verifyRefinementApproval(state, trustedContext)` returns `verified`,
+`invalid` or `unverifiable`, with fixed safe reason codes. Both failure categories
+block advancement. Approved records are freshly checked against current trusted
+policy and permissions; their historical policy must also authorize the recorded
+actor and its commit must remain an ancestor of the current target. Exact recorded event/integrity metadata must still match.
+Historical STATE is never automatically invalidated or rewritten.
+
+Pending + valid evidence creates one commit. Approved + identical evidence freshly
+reverifies and returns success/no-op, without another commit/revision increment.
+Different evidence rejects. Removal of authorization/permissions, edited/deleted
+evidence, changed Brief, unavailable GitHub or invalidated history blocks future
+advancement. There is no force, offline or skip-verification override.
+
+V1 deliberately requires the recorded candidate to remain the published branch/PR
+head during verification, including a no-op. Moving/pushing the branch beyond that
+candidate invalidates this publication check. A later planning/publication design
+must explicitly define preservation/re-verification across newer PR heads; this
+task does not relax that check or implement planning.
+
+## Local Git transaction and safety
+
+Before mutation the pipeline root must match the actual Git worktree root (narrow
+AI2A-002 mitigation), HEAD must be attached to the recorded feature branch, and
+tracked worktree/index plus nonignored untracked files must be clean. Merge,
+rebase, cherry-pick, revert and sequencer operations block mutation. Hidden index
+flags and repository-configured external Git filters also block mutation. Candidate STATE/revision/HEAD are snapshotted and checked
+again after verification and before commit. AI2A-002 otherwise remains unresolved.
+
+The narrowly scoped transaction locks the real index, creates an isolated
+index from candidate HEAD, hashes only new STATE bytes, updates only its blob,
+creates a commit with the candidate as sole parent, and compare-and-swaps the exact
+branch ref. It disables all repository hooks, fsmonitor and commit signing, strips
+ambient Git overrides and replacement objects, and never uses broad add/reset or
+checkout. Commit message is `chore(ai-dev): approve refinement for <ID>`; fixed
+orchestrator commit identity does not impersonate the human approval actor.
+
+Every failure before the ref commit point leaves HEAD, STATE and real index bytes
+unchanged (unreachable Git objects may remain). Expected-HEAD and index/state
+checks reject normal races. Branch CAS is atomic. Git prepares the ref transaction and holds its own
+branch/HEAD locks during final safety checks, excluding ordinary checkout. After CAS, prepared STATE and index replace their originals by rename.
+Git refs, index and worktree cannot be one filesystem-atomic transaction: a crash
+or OS failure after ref advancement can require manual reconciliation and is
+reported as `COMMIT_CREATED_RECONCILIATION_REQUIRED`. No broad rollback attempts
+undo concurrent writers. Run in an isolated stable trusted checkout; locks are not
+an OS sandbox against malicious concurrent filesystem writers.
+
+## Existing safety and CI
+
+Strict one-document UTF-8 YAML 1.2 core parsing rejects duplicate/non-string keys,
+directives, tags, anchors, aliases, merge keys and non-finite numbers. Ajv is strict,
+without coercion/defaulting/removal. Existing path confinement and exact-byte
+SHA-256 remain unchanged. Hard YAML/schema/artifact/depth bounds are 65,536 bytes,
+1,048,576 bytes and 32 levels; config may only tighten them. Artifacts remain in
+their Work Item; symlinks, traversal and unsafe paths fail. No patient/clinical
+information, private media URLs or secrets belong in pipeline artifacts or logs.
+
+The Stage 2B GitHub Actions workflow remains unchanged, Node 22, contents:read,
+no secrets, writes, models, deployments or approvals. Normal tests use mocked
+GitHub and temporary synthetic Git repositories; no network is required.
 
 ```sh
 npm --prefix tools/ai-development run typecheck
 npm --prefix tools/ai-development test
 npm --prefix tools/ai-development run build
+git diff --check
 ```
 
-The build emits `dist/src/cli.js` (tests are also compiled for type checking).
-From the repository, `node tools/ai-development/dist/src/cli.js status TEST-001`
-uses the same read-only behavior. Generated output and dependencies are already
-ignored by the root `.gitignore`.
+Build output is `dist/src/cli.js`; generated output/dependencies remain ignored.
+Local newer Node validation does not claim Node 22 CI has run. Independent security
+review of this exact implementation is required before configuring any approver.

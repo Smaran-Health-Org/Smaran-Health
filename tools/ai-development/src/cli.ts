@@ -1,3 +1,4 @@
+import { approveRefinement } from "./commands/approve-refinement.js";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findRepositoryRoot } from "./config.js";
@@ -10,13 +11,17 @@ export async function runCli(args: string[], options: CliOptions = {}): Promise<
   const stdout = options.stdout ?? ((text) => process.stdout.write(`${text}\n`));
   const stderr = options.stderr ?? ((text) => process.stderr.write(`${text}\n`));
   const [command, id] = args;
-  if (command !== "status" && command !== "validate") {
-    stderr("Unsupported command. Available commands: smaran status <work-item>, smaran validate <work-item>.");
+  if (command !== "status" && command !== "validate" && command !== "approve-refinement") {
+    stderr("Unsupported command. Available commands: smaran status <work-item>, smaran validate <work-item>, smaran approve-refinement <work-item> --evidence <github-pr-comment-url>.");
     return 2;
   }
-  if (args.length !== 2 || !id) { stderr(`Usage: smaran ${command} <work-item>`); return 2; }
+  const approval = command === "approve-refinement";
+  if (!id || (approval ? args.length !== 4 || args[2] !== "--evidence" || !args[3] : args.length !== 2)) {
+    stderr(`Usage: smaran ${command} <work-item>${approval ? " --evidence <github-pr-comment-url>" : ""}`); return 2;
+  }
   try {
     const root = options.repoRoot ?? await findRepositoryRoot();
+    if (approval) { stdout(await approveRefinement(root, id, args[3]!)); return 0; }
     const report = await validateWorkItem(root, id);
     if (command === "status") stdout(formatStatus(report));
     else if (report.valid) stdout(`${id}: validation passed (local contracts/artifacts only; approval evidence and Git provenance not verified).`);

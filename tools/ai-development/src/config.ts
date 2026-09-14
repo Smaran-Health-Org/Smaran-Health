@@ -6,7 +6,8 @@ import type { WorkflowState } from "./state.js";
 import { branchNameIssues } from "./branches.js";
 
 export interface PipelineConfig {
-  schema_version: "ai-development-config/v1";
+  schema_version: "ai-development-config/v2";
+  approvals: { refinement: { authorized_github_users: { login: string; id: string }[] } };
   repository: string;
   artifact_root: ".ai-development";
   work_item_root: ".ai-development/work-items";
@@ -36,9 +37,19 @@ export async function loadConfig(repoRoot: string): Promise<PipelineConfig> {
   const issues = schemaIssues(validate, raw);
   if (issues.length) throw new InputError(`Invalid pipeline configuration: ${issues.join(" ")}`);
   const config = raw as PipelineConfig;
+  assertApproverPolicy(config);
   const branchIssues = branchNameIssues({ target_branch: config.target_branch });
   if (branchIssues.length) throw new InputError(`Invalid pipeline configuration: ${branchIssues.join(" ")}`);
   // A configuration may tighten hard limits, never expand them.
   parseRestrictedYaml(bytes, config.policy.max_yaml_bytes, config.policy.max_depth);
   return config;
+}
+
+/** No identity or permission inference: duplicates fail before live verification. */
+export function assertApproverPolicy(config: PipelineConfig): void {
+  const users = config.approvals.refinement.authorized_github_users;
+  if (new Set(users.map((user) => user.login.toLowerCase())).size !== users.length
+    || new Set(users.map((user) => user.id)).size !== users.length) {
+    throw new InputError("Invalid pipeline configuration: duplicate approver login or stable ID.");
+  }
 }

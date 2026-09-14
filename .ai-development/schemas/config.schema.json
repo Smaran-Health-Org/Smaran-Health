@@ -3,7 +3,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "ai-development-config/v1"
+      "const": "ai-development-config/v2"
     },
     "repository": {
       "type": "string",
@@ -56,6 +56,48 @@
         "max_artifact_bytes",
         "max_depth"
       ]
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refinement": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "authorized_github_users": {
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "login": {
+                    "type": "string",
+                    "maxLength": 39,
+                    "pattern": "^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$"
+                  },
+                  "id": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                },
+                "required": [
+                  "login",
+                  "id"
+                ]
+              }
+            }
+          },
+          "required": [
+            "authorized_github_users"
+          ]
+        }
+      },
+      "required": [
+        "refinement"
+      ]
     }
   },
   "required": [
@@ -65,8 +107,9 @@
     "work_item_root",
     "target_branch",
     "supported_states",
-    "policy"
+    "policy",
+    "approvals"
   ],
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Smaran deterministic pipeline configuration v1"
+  "title": "Smaran deterministic pipeline configuration v2"
 }

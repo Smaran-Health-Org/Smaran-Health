@@ -18,7 +18,7 @@ export function formatStatus(report: ValidationReport): string {
     }
   }
   lines.push(`VALIDATION: ${report.valid ? "PASS" : "FAIL"}`,
-    "GATE VALIDITY: local consistency only; human identity, evidence and Git commits are not verified in Stage 2A.");
+    "GATE VALIDITY: local consistency only; human identity, evidence and Git commits are not verified offline. EXTERNAL APPROVAL VALIDITY: not checked.");
   if (report.issues.length) lines.push("BLOCKERS:", ...report.issues.map((issue) => `- ${issue}`));
   lines.push(`Next conceptual action: ${!report.valid ? "resolve validation blockers; no advancement permitted" : state ? nextConceptualAction(state.state) : "resolve missing state"}`);
   return lines.join("\n");

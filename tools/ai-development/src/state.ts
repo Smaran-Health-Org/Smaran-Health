@@ -8,12 +8,13 @@ export interface Approval {
   at: string;
   artifact_sha256: string;
   artifact_commit: string;
-  evidence: { kind: "github_comment" | "github_review"; url: string; id: string };
+  evidence: { kind: "github_comment" | "github_review"; url: string; id: string; body_sha256: string; updated_at: string };
+  verification: { version: "refinement-approval/v1"; policy_commit: string };
 }
 export interface Gate { status: GateStatus; approval?: Approval; invalidation_reason?: string }
 export interface Artifact { path: string; sha256?: string }
 export interface WorkItemState {
-  schema_version: "ai-development-state/v1";
+  schema_version: "ai-development-state/v2";
   work_item_id: string;
   title: string;
   domain?: string;
@@ -93,7 +94,7 @@ export function stateConsistencyIssues(state: WorkItemState): string[] {
 
 export function nextConceptualAction(state: WorkflowState): string {
   return {
-    refinement_pending: "human refinement approval (not implemented)",
+    refinement_pending: "human refinement approval (explicit trusted policy; disabled when empty)",
     refinement_approved: "planning (not implemented)",
     planning: "complete and validate planning output (not implemented)",
     plan_ready: "human plan approval (not implemented)",

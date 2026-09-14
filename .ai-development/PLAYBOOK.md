@@ -1,38 +1,80 @@
-# Intended development playbook
+# AI development playbook
 
-Stage 2A local contract/artifact validation and status reporting, plus Stage 2B
-deterministic pipeline CI configuration, are available.
-The sequence below defines intended human and system boundaries, not executable
-instructions for future commands.
+Human Refinement Approval V1 tooling exists, **disabled by default**. The repository
+allowlist is empty: no real Work Item can be approved. Models never approve their
+output. SCH-S1 remains outside this tooling branch; its original v1 STATE is not
+migrated, approved, published or implemented here.
 
-| Step | Intended boundary | Availability |
+| Step | Boundary | Availability |
 | --- | --- | --- |
-| Product/refinement | Approved sources and bounded brief; explicit human refinement approval | NOT IMPLEMENTED; pending template only |
-| Planning | Fresh isolated context; no product edits; candidate plan | NOT IMPLEMENTED |
-| Human plan approval | Approve exact artifact hash/input provenance and commit | NOT IMPLEMENTED |
-| Implementation | Fresh context; only approved plan scope | NOT IMPLEMENTED |
-| GitHub CI | Required results for the exact commit under review | Pipeline validation workflow configured; gate evidence verification NOT IMPLEMENTED |
-| Independent senior review | Fresh context; fixed bounded diff; no product edits | NOT IMPLEMENTED |
-| Human findings approval | Only explicitly approved findings become fix scope | NOT IMPLEMENTED |
-| Fixes | Fresh context; approved findings only; targeted regression checks | NOT IMPLEMENTED |
-| Closure review | Verify fixes and evidence against pinned commits | NOT IMPLEMENTED |
-| Human merge | Human authorization and current provenance/gates | NOT IMPLEMENTED |
+| Refinement | Exact published pending candidate and Brief, independent external human evidence | V1 tooling; live authorization DISABLED |
+| Planning | Bounded context and candidate plan | NOT IMPLEMENTED |
+| Human plan approval | Exact plan/provenance and verified external evidence | NOT IMPLEMENTED |
+| Implementation | Approved plan scope | NOT IMPLEMENTED |
+| GitHub CI | Validation on exact reviewed commit, Node 22 | Stage 2B configured; no human gate authorization |
+| Independent review, fixes, closure | Separately bounded authorized work | NOT IMPLEMENTED |
+| Human merge | Explicit authorization and current provenance | NOT IMPLEMENTED |
 
-GitHub/repository evidence remains authoritative. Models cannot approve output,
-change gates or merge. Source docs are referenced rather than duplicated; approved
-Scheduler decisions and applicable `AGENTS.md` rules remain authoritative.
+Before any live approver is configured, independently review verifier code and
+contracts, resolve target protection/trust-root policy and trusted baseline
+execution, and separate human credentials/sessions from agents.
+**The pipeline cannot guarantee a human gate if agents can access the authorized
+human's GitHub credentials/session.** GitHub's account attribution does not prove
+human action. Owner, collaborator, authenticated `gh` user and operator status do
+not grant approval. Humans must deliberately configure explicit login + numeric
+stable ID policy; live effective write/maintain/admin permission is also required.
 
-Stage 2A provides `status` and `validate` only. They may inspect records of future
-planning states but cannot establish approval authenticity or Git provenance.
-Unknown states, skipped gates, missing required artifacts, unsafe paths and changed
-recorded hashes fail local validation. Validation never mutates state.
+Use only `status <ID>`, `validate <ID>`, and
+`approve-refinement <ID> --evidence <github-pr-comment-url>`.
+Status/validate are read-only/offline and distinguish recorded state from external
+approval validity. Schema metadata is not authentication. No force/offline/hash,
+commit or approver override exists.
 
-Uninitialized templates use `refinement_pending` and pending gates. Do not seed
-approvals or treat this scaffolding as a live Scheduler Work Item. No SCH-S1 item
-or product code is included.
+Future publication sequence (requires enabled reviewed target policy):
 
-Recovery, retries, replan and approval invalidation handling are future work.
-Until designed and reviewed, no recovery transition is available. GitHub-side
-protection and exact evidence verification must be resolved before claiming that
-human gates are enforced across all repository operations. A local CLI cannot
-prevent users with repository permissions from bypassing its process.
+1. Create and commit a V2 pending candidate on the recorded clean attached feature
+   branch. Bind exact Brief bytes and pinned source/base provenance in STATE.
+2. A human publishes the candidate and opens an open PR against the configured
+   target, with branch and PR head exactly equal to that candidate.
+3. A separated authorized human posts a PR conversation comment with this complete
+   exact statement (replace placeholders using candidate-derived values):
+
+```text
+SMARAN-REFINEMENT-APPROVAL v1
+repository: <owner/repo>
+work-item: <WORK-ITEM-ID>
+candidate-commit: <40-char-lowercase-sha>
+brief-sha256: <64-char-lowercase-sha256>
+decision: APPROVE
+I approve this exact Brief for planning only.
+```
+
+4. Run `approve-refinement` with canonical
+   `https://github.com/<owner>/<repo>/pull/<number>#issuecomment-<id>`.
+   Only LF/CRLF and one optional final newline are permitted; no prose, fences,
+   blockquotes or trailing spaces. Body is bounded to 2048 UTF-8 bytes and hashed
+   exactly as returned by the API. Other evidence types are unsupported.
+5. Verification independently checks current immutable target-branch policy,
+   actor/permission, REST/GraphQL edit history and minimization, PR/candidate,
+   exact pending STATE/Brief bytes, source hashes and ancestry. Missing metadata
+   or GitHub failures block approval. Candidate policy edits cannot authorize it.
+6. A valid pending event creates one local STATE-only commit, candidate as parent,
+   revision +1, refinement approved, plan pending. Approval identity/time comes
+   from GitHub; deterministic transition actor is `smaran:approve-refinement/v1`.
+   The command never pushes, creates evidence/PRs, merges or starts planning.
+
+Identical approved evidence is freshly reverified and becomes a no-op if valid;
+different evidence fails. Deleted/edited/minimized evidence, permission or allowlist
+removal, changed artifacts and invalid history block future advancement. Recorded
+STATE remains historical and is never automatically rewritten. V1 also requires
+the original candidate to remain the published branch/PR head: a later publication
+workflow must explicitly address newer heads before planning can rely on it.
+
+See [README.md](README.md) for V2 contracts, strict parser/URL rules, trusted launcher
+limitation, publication checks and the local transaction's post-ref crash recovery
+boundary. Runtime locks/checks are not a malicious-writer sandbox. AI2A-002 remains
+unresolved except for the root-match pre-mutation mitigation. Recovery transitions,
+branch protection, planning and strong end-to-end enforcement are future tasks.
+
+Next task: independent security review of this exact implementation, before any
+approver identity is configured. Live approval remains disabled.

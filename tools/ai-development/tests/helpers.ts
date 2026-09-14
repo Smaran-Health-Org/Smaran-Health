@@ -13,14 +13,15 @@ export const briefBytes = Buffer.from("# Synthetic pipeline fixture\nNo patient 
 const commit = "a".repeat(40);
 
 function approval(hash: string): Approval {
-  return { actor: { kind: "human", id: "synthetic-human" }, at: "2026-09-14T00:00:00Z", artifact_sha256: hash, artifact_commit: commit,
-    evidence: { kind: "github_comment", id: "1", url: "https://github.com/example/synthetic/issues/1#issuecomment-1" } };
+  return { actor: { kind: "human", id: "github-user:123" }, at: "2026-09-14T00:00:00Z", artifact_sha256: hash, artifact_commit: commit,
+    verification: { version: "refinement-approval/v1", policy_commit: commit },
+    evidence: { body_sha256: "b".repeat(64), updated_at: "2026-09-14T00:00:00Z", kind: "github_comment", id: "1", url: "https://github.com/example/synthetic/issues/1#issuecomment-1" } };
 }
 
 export function syntheticState(state: WorkflowState = "refinement_pending"): WorkItemState {
   const directory = `.ai-development/work-items/${ID}`;
   const value: WorkItemState = {
-    schema_version: "ai-development-state/v1", work_item_id: ID, title: "Synthetic test fixture", state,
+    schema_version: "ai-development-state/v2", work_item_id: ID, title: "Synthetic test fixture", state,
     revision: state === "refinement_pending" ? 0 : 1,
     repository: { identifier: "DrSmaranAI/Smaran-Health", target_branch: "dev-neelesh" }, sources: [],
     artifacts: { brief: { path: `${directory}/BRIEF.md` } }, gates: { refinement: { status: "pending" }, plan: { status: "pending" } },

@@ -15,7 +15,7 @@ test("status reports recorded state, local validation limits and the correct con
     assert.equal(await runCli(["status", ID], { repoRoot: f.root, stdout: (text) => { output += text; } }), 0);
     assert.match(output, new RegExp(`RECORDED STATE: ${state}`));
     assert.ok(output.includes(`Next conceptual action: ${action}`));
-    assert.match(output, /not verified in Stage 2A/);
+    assert.match(output, /not verified offline/);
     assert.match(output, /VALIDATION: PASS/);
   }
 });
@@ -47,7 +47,7 @@ test("missing Work Item and invalid synthetic YAML return nonzero exits without 
   }
 });
 
-test("only two commands are exposed, with strict positional arguments", async () => {
+test("read-only commands retain strict positional arguments", async () => {
   for (const args of [[], ["plan", ID], ["approve-plan", ID], ["implement", ID], ["status"], ["status", ID, "--json"]]) {
     let error = "";
     assert.equal(await runCli(args, { stderr: (text) => { error += text; } }), 2);
