@@ -3,7 +3,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "ai-development-state/v1"
+      "const": "ai-development-state/v2"
     },
     "work_item_id": {
       "type": "string",
@@ -226,7 +226,7 @@
     "gates"
   ],
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Smaran AI development state v1 (Stage 2A)",
+  "title": "Smaran AI development state v2",
   "$defs": {
     "approval": {
       "type": "object",
@@ -243,7 +243,7 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 64,
-              "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+              "pattern": "^github-user:[1-9][0-9]{0,19}$"
             }
           },
           "required": [
@@ -282,13 +282,40 @@
             "id": {
               "type": "string",
               "maxLength": 32,
-              "pattern": "^[0-9]+$"
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "body_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "updated_at": {
+              "type": "string",
+              "format": "date-time"
             }
           },
           "required": [
             "kind",
             "url",
-            "id"
+            "id",
+            "body_sha256",
+            "updated_at"
+          ]
+        },
+        "verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "version": {
+              "const": "refinement-approval/v1"
+            },
+            "policy_commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            }
+          },
+          "required": [
+            "version",
+            "policy_commit"
           ]
         }
       },
@@ -297,7 +324,8 @@
         "at",
         "artifact_sha256",
         "artifact_commit",
-        "evidence"
+        "evidence",
+        "verification"
       ]
     },
     "gate": {
