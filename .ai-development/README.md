@@ -1,4 +1,4 @@
-# Smaran Health AI development pipeline — Stage 2A
+# Smaran Health AI development pipeline — Stages 2A–2B
 
 The pipeline will coordinate bounded development Work Items. GitHub and versioned
 repository artifacts remain the persistent source of truth. The deterministic
@@ -13,7 +13,7 @@ Applicable `AGENTS.md` context and safety rules remain in force.
 
 ## Install and commands
 
-Use Node 22.13+ (Node 22 LTS recommended) and npm. From the repository:
+Use Node 22.13+ and npm. From the repository:
 
 ```sh
 npm --prefix tools/ai-development ci
@@ -108,6 +108,29 @@ mutating/agent stages need separate isolation and locking. Pipeline contracts an
 configuration themselves remain trusted code that must receive human review.
 Never include secrets, patient/clinical information or private media URLs in state,
 artifacts or generic logs. Diagnostics do not echo YAML snippets or input values.
+
+## Runtime and pipeline CI
+
+Node 22 is the canonical CI baseline. The package's existing `engines.node`
+contract (`>=22.13.0`) also permits compatible newer local runtimes, including
+Node 24. `tools/ai-development/package-lock.json` is authoritative for dependencies;
+use `npm ci` for deterministic installation.
+
+Stage 2A local validation occurred on Node 24. The dedicated GitHub Actions
+workflow, `.github/workflows/ai-development-ci.yml`, uses Ubuntu and Node 22 with
+npm caching keyed by the tool's lockfile. It runs installation, type checking,
+tests, build and Git whitespace checks, in that order. Pushes on any branch and
+pull requests targeting any branch (including `dev-neelesh`) trigger it when
+the tool, `.ai-development/` or the workflow itself changes.
+
+Whitespace validation covers pipeline paths in the PR diff or pushed range.
+For a new branch or unavailable pre-force-push commit, it checks the entire
+pipeline tree. The workflow has only `contents: read` permission and requires no
+secrets or AI credentials. It performs no model execution, Scheduler implementation,
+deployment, merge or approval, and never commits or pushes.
+
+Creating the workflow does not prove Node 22 compatibility. Only a successful
+GitHub run on Node 22 establishes compatibility for the commit it validates.
 
 ## Development validation
 

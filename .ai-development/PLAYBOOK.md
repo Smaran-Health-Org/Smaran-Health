@@ -1,6 +1,7 @@
 # Intended development playbook
 
-Only Stage 2A local contract/artifact validation and status reporting are available.
+Stage 2A local contract/artifact validation and status reporting, plus Stage 2B
+deterministic pipeline CI configuration, are available.
 The sequence below defines intended human and system boundaries, not executable
 instructions for future commands.
 
@@ -10,7 +11,7 @@ instructions for future commands.
 | Planning | Fresh isolated context; no product edits; candidate plan | NOT IMPLEMENTED |
 | Human plan approval | Approve exact artifact hash/input provenance and commit | NOT IMPLEMENTED |
 | Implementation | Fresh context; only approved plan scope | NOT IMPLEMENTED |
-| GitHub CI | Required results for the exact commit under review | NOT IMPLEMENTED |
+| GitHub CI | Required results for the exact commit under review | Pipeline validation workflow configured; gate evidence verification NOT IMPLEMENTED |
 | Independent senior review | Fresh context; fixed bounded diff; no product edits | NOT IMPLEMENTED |
 | Human findings approval | Only explicitly approved findings become fix scope | NOT IMPLEMENTED |
 | Fixes | Fresh context; approved findings only; targeted regression checks | NOT IMPLEMENTED |
