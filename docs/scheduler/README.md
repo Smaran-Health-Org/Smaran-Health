@@ -41,7 +41,7 @@ The current branch already has:
 - Clinic Desk, walk-ins, check-in and waiting queue;
 - OTP patient intake and consent;
 - document upload/processing;
-- role-aware doctor/admin workspaces;
+- role-aware doctor/admin/assistant workspaces;
 - audit infrastructure.
 
 Scheduler must extend these foundations. Do not create parallel patient, appointment, Encounter, intake, document, or Queue subsystems.
@@ -54,7 +54,7 @@ Scheduler must extend these foundations. Do not create parallel patient, appoint
 - **Scheduling interval** = patient-facing/generated start-time grid.
 - **Appointment duration** = time occupied by an appointment. The appointment stores the resolved duration as a scheduling fact; settings/types only provide defaults.
 - **Exception** = leave, blocked time, or special working availability.
-- **Staff** = authorized scheduling user. In the current repository, product wording `Admin/Receptionist` maps to the existing `admin` role; do not add a new `reception` profile enum. The existing `assistant` role does not receive Scheduler permissions from this product contract.
+- **Operational staff** = existing `admin` and `assistant` roles acting in Clinic Desk/Scheduler operational workflows. Product wording **Admin/Receptionist** maps to this operational capability set. Do not add a new `reception`/`receptionist` enum. Operational permissions never grant doctor-only clinical interpretation or confirmation authority.
 - **Patient Portal** = OTP-authenticated patient-facing entry point for permitted scheduling, profile, intake, documents and appointment history.
 - **Scheduling attention issue** = an operational remediation record attached to an appointment while the appointment itself may remain scheduled.
 
@@ -70,13 +70,23 @@ Scheduler must extend these foundations. Do not create parallel patient, appoint
 - Patient future self-booking cap: **3 active future scheduled appointments**.
 - Changing a clinic/doctor/type default never rewrites the duration of an already-booked appointment.
 
+## Restored refinement guardrails
+
+- Duplicate active appointment-type names are allowed; stable type IDs are authoritative.
+- Date-specific exceptions override recurring weekly hours for the affected date/time.
+- Contradictory overlapping exceptions for the same doctor/time are rejected.
+- A doctor with no configured working hours is unavailable to patients; authorized operational staff may deliberately use the outside-hours override path.
+- Normal availability requires the appointment's full resolved duration to fit inside valid working availability.
+- Schedule/exception changes may create scheduling-attention issues, but an interval-only change does not invalidate an appointment merely because its old start minute no longer aligns to the new interval.
+- Attention issues auto-resolve when the underlying conflict disappears while preserving detection/resolution history.
+
 ## Core invariants
 
 1. Booking an appointment creates/associates the Encounter atomically.
 2. Rescheduling preserves the Encounter, intake, documents and pre-consult context.
 3. Availability is calculated from recurring schedule + exceptions + appointments; do not persist theoretical slots.
 4. Patients can only book clean generated availability and cannot override conflicts.
-5. Authorized staff can use arbitrary start minutes and deliberate overrides after warnings; appointment duration remains bounded to 5–60 minutes.
+5. Authorized doctor/operational staff can use arbitrary start minutes and deliberate overrides after warnings; appointment duration remains bounded to 5–60 minutes.
 6. A race condition is never treated as an override: first successful save wins.
 7. Working-hour/leave changes never silently move or cancel existing appointments.
 8. No-show is a human action; Smaran uses factual `Not arrived yet`/past-time language beforehand.
@@ -87,7 +97,11 @@ Scheduler must extend these foundations. Do not create parallel patient, appoint
 13. MVP patient communication is explicit/manual; do not add automatic intake reminders, appointment reminders, or reschedule/cancellation messaging in S0–S8.
 14. Existing appointments never receive an invented historical duration. Future active legacy appointments with unknown duration are surfaced as scheduling-attention issues for explicit remediation; completed/cancelled/no-show history may remain unknown.
 15. Doctor-scoped appointment types are defaults/labels, not mutable historical truth. Doctor reassignment preserves the effective duration and clears/reselects the type as needed for the target doctor.
-16. Do not enforce a database rule that makes every overlap impossible; later staff override behavior requires overlap policy to be handled by the authoritative scheduling transaction.
+16. Do not enforce a database rule that makes every appointment overlap impossible; later staff override behavior requires overlap policy to be handled by the authoritative scheduling transaction.
+17. Duplicate appointment-type names are valid and must not be used as identity.
+18. Date-specific exceptions govern the affected date/time and contradictory overlapping exceptions are rejected.
+19. Normal patient availability requires configured working hours and full-duration fit; operational staff may only depart from that through explicit override behavior.
+20. Scheduling-attention state follows the underlying conflict and preserves history when auto-resolved.
 
 ## Phase sequence
 
