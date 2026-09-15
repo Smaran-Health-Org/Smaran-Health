@@ -10,7 +10,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S1 COMPLETE — core Scheduler persistence, integrity, canonical creation hardening, legacy-duration attention, and senior-review corrections are verified. S2 availability generation has not started.**
+**PHASE S2 COMPLETE — shared read-only Scheduler availability is calculated from S1 configuration, working hours, exceptions and scheduled occupancy. S3 remains the authoritative mutation, conflict-transaction and concurrency boundary.**
 
 ## Phase tracker
 
@@ -18,7 +18,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 | --- | --- | --- | --- |
 | S0 | Specification guardrails + refinement/architecture synchronization | Complete | Documentation/discoverability |
 | S1 | Core scheduling data model | Complete | AC-SCH-F*, D01–D14, B11–B12, H01–H11, M01, P01, R03–R07 |
-| S2 | Availability engine | Not started | AC-SCH-A01–A11, P05–P08 |
+| S2 | Availability engine | Complete | AC-SCH-A01–A11, P05–P08, F05 |
 | S3 | Atomic lifecycle + conflicts/concurrency | Not started | AC-SCH-B*, L*, P09–P12, R* |
 | S4 | Staff Scheduler calendar + booking modal | Not started | AC-SCH-U*, staff B* |
 | S5 | Schedule/settings + exceptions | Not started | AC-SCH-D*, H09–H11, M02 |
@@ -140,3 +140,19 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 - Known limitations: no availability generation, affected-count calculation, calendar/UI, patient booking, authoritative conflict checks, deliberate overlap/outside-hours overrides, semantic reschedule/reassignment/cancellation/no-show, automated communication, or schedule-change automatic attention detection/resolution. S1 contains only their required persistence/integrity foundations.
 - Product decisions/questions surfaced: None.
 - Recommended next task: **S2 — Availability engine**, without beginning S3 conflict/override transactions or S5 schedule-change affected-count behavior.
+
+### Phase S2 — Availability engine
+
+- Status: Complete.
+- Commit/PR: Not created in this workspace.
+- Work completed: added a deterministic pure availability domain using half-open clean intervals: recurring Asia/Kolkata working sessions plus special-working intervals, minus leave/blocked intervals and scheduled doctor occupancy. It supports interval union/subtraction/containment, contradictory-exception fail-closed behavior, duration-aware full-fit checks, local-midnight patient-grid starts, arbitrary-minute staff candidate evaluation, calendar-date booking-window/notice policy, patient overlap and future-cap eligibility. A server-only repository resolves authenticated clinic/doctor scope, S1 effective settings and duration precedence, validates active doctor-scoped appointment types, loads bounded range data, and returns a deliberately narrow patient projection.
+- Acceptance criteria satisfied: AC-SCH-A01–A11; AC-SCH-P05–P08; AC-SCH-F05.
+- Files changed: `apps/clinical/src/lib/scheduler/availability.ts`; `apps/clinical/src/lib/db/scheduler-availability.ts`; `apps/clinical/src/tests/scheduler-availability.test.ts`; this status ledger.
+- DB migrations: None. S2 reuses S1 Scheduler settings, configuration tables, duration persistence and scheduled doctor/patient partial indexes.
+- Tests/validation actually run: `npx tsx --test src/tests/scheduler-availability.test.ts` (pass, 12 tests); `npx tsc --noEmit` (pass); focused `npx eslint src/lib/scheduler/availability.ts src/lib/db/scheduler-availability.ts src/tests/scheduler-availability.test.ts` (pass). The TypeScript runner required local IPC permission in this environment; no full regression suite was run.
+- Security/privacy review: all repository reads are clinic-scoped and validate target doctors as same-clinic doctors. Appointment-type validation is clinic/doctor/active scoped. Occupancy queries select only timestamps and duration, not staff notes. Exception queries deliberately omit staff notes. The patient projection exposes only timezone, local date, interval, generated starts and safe eligibility/warning/unavailability booleans; it omits exception diagnostics/reasons, issue metadata, occupancy IDs and appointment details. Patient identity is explicitly reserved for a future trusted OTP/session adapter; no public route was created.
+- Concurrency/idempotency review: read-only previews do not create a booking, hold, override, issue, event or duration update. Unknown legacy duration uses an in-memory 60-minute conservative envelope only. S3 retains final transactional conflict checking, first-save-wins race handling and deliberate-override authorization.
+- Regression review against pre-consultation/Queue: no pre-consultation or Queue paths were modified. Full regression was intentionally deferred; focused Scheduler checks passed.
+- Known limitations: no Scheduler UI/route, patient OTP adapter, booking mutation, final save-time conflict transaction, locking, deliberate override, reschedule/cancel/no-show, schedule-change affected-count or communication behavior. The future patient adapter must provide a canonical patient ID from trusted session context before calling the reusable service.
+- Product decisions/questions surfaced: None.
+- Recommended next task: **S3 — atomic appointment lifecycle, final conflict checking and concurrency**, reusing S2 only as preview/input logic without treating it as authoritative save-time validation.
