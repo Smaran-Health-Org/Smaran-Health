@@ -10,14 +10,14 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S0 COMPLETE — approved product refinement and S1 architecture are synchronized, including operational-staff role reconciliation and restored refinement rules. Phase S1 — Core scheduling data model remains Not started. Product implementation has not started.**
+**PHASE S1 COMPLETE — core Scheduler persistence, integrity, canonical creation hardening, legacy-duration attention, and S1 validation are implemented. S2 availability generation has not started.**
 
 ## Phase tracker
 
 | Phase | Scope | Status | Primary acceptance criteria |
 | --- | --- | --- | --- |
 | S0 | Specification guardrails + refinement/architecture synchronization | Complete | Documentation/discoverability |
-| S1 | Core scheduling data model | Not started | AC-SCH-F*, D01–D14, B11–B12, H01–H11, M01, P01, R03–R07 |
+| S1 | Core scheduling data model | Complete | AC-SCH-F*, D01–D14, B11–B12, H01–H11, M01, P01, R03–R07 |
 | S2 | Availability engine | Not started | AC-SCH-A01–A11, P05–P08 |
 | S3 | Atomic lifecycle + conflicts/concurrency | Not started | AC-SCH-B*, L*, P09–P12, R* |
 | S4 | Staff Scheduler calendar + booking modal | Not started | AC-SCH-U*, staff B* |
@@ -124,3 +124,19 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 - Tests run: Documentation-only phase; no application tests required.
 - Known limitations: Product implementation has not begun.
 - Recommended next task: **Terra Medium S1 repository investigation/implementation plan; no product code until that plan is reviewed and approved.**
+
+### Phase S1 — Core scheduling data model
+
+- Status: Complete.
+- Commit/PR: `1855a43` (`feat(scheduler): implement S1 core scheduling data model`).
+- Work completed: added clinic and doctor scheduler defaults/inheritance, recurring working-hour and dated-exception integrity, doctor-scoped appointment types, Appointment duration/type/staff-note/immutable creation-receipt persistence, safe scheduling events and attention issue history, legacy unknown-duration attention creation/remediation, and the canonical Scheduler-aware Appointment + Encounter RPC. The legacy four-argument RPC is a compatibility wrapper; walk-ins now create through the canonical S1 path.
+- Acceptance criteria satisfied: AC-SCH-F01–F06; D01–D06 and D09–D14 persistence/integrity foundations; B11–B12; H01–H09 plus H10–H11 issue-model foundations; M01; P01 configuration default; and R03–R07 applicable S1 schema/authorization boundaries. D07/D08 affected-count-before-save behavior is explicitly deferred to S5, where schedule evaluation semantics exist.
+- Files changed: `apps/clinical/supabase/migrations/0073_scheduler_s1_configuration.sql`, `0074_scheduler_s1_appointment_history.sql`, `0075_scheduler_s1_canonical_creation_hardening.sql`; `apps/clinical/supabase/tests/0073_scheduler_s1.test.sql`; `apps/clinical/src/db/schema.ts`; `apps/clinical/src/lib/db/appointments.ts`; `apps/clinical/src/lib/validation/index.ts`; `apps/clinical/src/types/index.ts`; `apps/clinical/src/tests/preconsult-phase1.test.ts`.
+- DB migrations: `0073_scheduler_s1_configuration.sql`, `0074_scheduler_s1_appointment_history.sql`, `0075_scheduler_s1_canonical_creation_hardening.sql`. The forward migration was applied to the existing local database without a reset; after a trigger-source correction, that corrected function was applied non-destructively to the same validation database before the full pgTAP suite.
+- Tests/validation actually run: `npm run db:migrate` (pass); `npm run test:db` (pass, 29 pgTAP files / 753 tests, including 57 S1 assertions); `npm test` (pass, 115 tests); `npm run lint` (pass); `npx next build --webpack` (pass). The default `npm run build` Turbopack path is blocked by the host's process/IPC restriction before compilation; webpack completed the production TypeScript/build validation. Existing Next warnings about the deprecated middleware convention and Edge Runtime `process.cwd` use are pre-existing/unrelated.
+- Security/privacy review: Scheduler tables use clinic-scoped RLS. Configuration writes are constrained to operational staff or the doctor’s own schedule rows; new event/issue writes are guarded functions only. Canonical creation authenticates `auth.uid()`, checks actor role/clinic and target ownership, uses `SECURITY DEFINER` with a locked search path, revokes `PUBLIC`/`anon` function execution, and revokes authenticated direct Appointment INSERT/DELETE. No clinical interpretation/approval authority was added to admin/assistant roles; staff notes and exception reasons are not copied into scheduling-event payloads or general audit metadata.
+- Concurrency/idempotency review: creation locks the clinic/key advisory identity before receipt lookup. New rows store an immutable normalized original-request JSON receipt and SHA-256 fingerprint; replays compare only that immutable receipt and never re-resolve changed defaults or current Appointment fields. Legacy rows retain a documented conservative fallback with no fabricated receipt/duration. No Appointment-overlap exclusion constraint or availability/conflict transaction was added; those remain S2/S3.
+- Regression review against pre-consultation/Queue: the full existing DB suite passed, including Clinic Desk/Queue, walk-in, intake, document, merge, and pre-consultation tests. The S1 suite verifies walk-in continuity, atomic Appointment→Encounter creation, patient-merge preservation of Appointment-linked issues, and restrictive history foreign keys.
+- Known limitations: no availability generation, affected-count calculation, calendar/UI, patient booking, authoritative conflict checks, deliberate overlap/outside-hours overrides, semantic reschedule/reassignment/cancellation/no-show, automated communication, or schedule-change automatic attention detection/resolution. S1 contains only their required persistence/integrity foundations.
+- Product decisions/questions surfaced: None.
+- Recommended next task: **S2 — Availability engine**, without beginning S3 conflict/override transactions or S5 schedule-change affected-count behavior.
