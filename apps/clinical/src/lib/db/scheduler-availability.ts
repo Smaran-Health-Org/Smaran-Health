@@ -43,11 +43,19 @@ export type StaffAvailabilityRequest = {
   patientId?: string;
 };
 
-export type TrustedPatientAvailabilityRequest = {
+export type PatientAvailabilityRequest = {
   doctorId: string;
   localDate: string;
-  /** This must be supplied by a future trusted OTP/session adapter, never a browser ID. */
-  trustedPatientId: string;
+};
+
+/**
+ * This context may only be constructed by a verified patient-authentication or
+ * patient-session layer. It is not derived from a normal profile/staff session
+ * and must contain the canonical (unmerged) patient identity for the clinic.
+ */
+export type TrustedPatientSchedulerContext = {
+  clinicId: string;
+  canonicalPatientId: string;
 };
 
 type ResolvedAvailability = {
@@ -307,29 +315,14 @@ export async function previewStaffSchedulerCandidate(
 }
 
 /**
- * This is not a patient API. S6's trusted OTP/session adapter can call it once
- * it derives canonical patient identity server-side.
- */
-export async function getTrustedPatientSchedulerAvailability(
-  request: TrustedPatientAvailabilityRequest
-): Promise<PatientAvailabilityProjection> {
-  const session = await getSessionContext();
-  if (!session) throw new SchedulerAvailabilityError("forbidden");
-  return getPatientSchedulerAvailabilityWithTrustedContext(
-    await createServerClient(),
-    { clinicId: session.clinicId, canonicalPatientId: request.trustedPatientId },
-    { doctorId: request.doctorId, localDate: request.localDate }
-  );
-}
-
-/**
- * The caller must derive this context from an authenticated, canonical patient
- * session. It is an adapter seam for S6, not a browser-callable API.
+ * S6's patient-authentication/session adapter may call this only after it
+ * derives both values in TrustedPatientSchedulerContext server-side. This
+ * helper does not authenticate a patient or elevate a caller-supplied ID.
  */
 export async function getPatientSchedulerAvailabilityWithTrustedContext(
   supabase: ServerClient,
-  context: { clinicId: string; canonicalPatientId: string },
-  request: Pick<TrustedPatientAvailabilityRequest, "doctorId" | "localDate">,
+  context: TrustedPatientSchedulerContext,
+  request: PatientAvailabilityRequest,
   asOf = Date.now()
 ): Promise<PatientAvailabilityProjection> {
   const resolved = await resolveAvailability(

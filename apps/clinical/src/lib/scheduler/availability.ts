@@ -64,6 +64,8 @@ export type AvailabilityResult = {
   localDate: string;
   cleanIntervals: Interval[];
   normalAvailabilityIntervals: Interval[];
+  /** Normalized scheduled-doctor occupancy for staff conflict preview only. */
+  doctorOccupancyIntervals: Interval[];
   diagnostics: AvailabilityDiagnostic[];
   configurationInvalid: boolean;
   patientStarts: number[];
@@ -192,7 +194,8 @@ export function patientBookingEligibility(policy: PatientPolicy, localDate: stri
   if (!policy.selfBookingEnabled) {
     return { eligible: false, hasExistingFutureAppointment: false, unavailableReason: "self_booking_disabled" };
   }
-  if (localDate > addLocalDays(localDateForInstant(asOf), policy.bookingWindowDays)) {
+  const currentLocalDate = localDateForInstant(asOf);
+  if (localDate < currentLocalDate || localDate > addLocalDays(currentLocalDate, policy.bookingWindowDays)) {
     return { eligible: false, hasExistingFutureAppointment, unavailableReason: "outside_booking_window" };
   }
   if (policy.futureScheduledCount >= policy.futureBookingCap) {
@@ -245,6 +248,7 @@ export function calculateAvailability(input: AvailabilityInput): AvailabilityRes
       localDate: input.localDate,
       cleanIntervals: [],
       normalAvailabilityIntervals: [],
+      doctorOccupancyIntervals: [],
       diagnostics: ["contradictory_exceptions"],
       configurationInvalid: true,
       patientStarts: [],
@@ -279,6 +283,7 @@ export function calculateAvailability(input: AvailabilityInput): AvailabilityRes
     localDate: input.localDate,
     cleanIntervals,
     normalAvailabilityIntervals,
+    doctorOccupancyIntervals: unionIntervals(doctorOccupancies),
     diagnostics: [],
     configurationInvalid: false,
     patientStarts,
@@ -298,7 +303,9 @@ export function evaluateStaffCandidate(
   const candidate = { start: candidateStart, end: candidateStart + resolvedDurationMinutes * MINUTE_MS };
   const conflicts: CandidateConflict[] = [];
   if (!fitsWithinAny(candidate, result.normalAvailabilityIntervals)) conflicts.push("working_availability");
-  else if (!fitsWithinAny(candidate, result.cleanIntervals)) conflicts.push("doctor_occupancy");
+  if (result.doctorOccupancyIntervals.some((occupancy) => overlaps(candidate, occupancy))) {
+    conflicts.push("doctor_occupancy");
+  }
   if (patientAppointments.some((appointment) => overlaps(candidate, intervalForOccupancy(appointment)))) {
     conflicts.push("patient_occupancy");
   }

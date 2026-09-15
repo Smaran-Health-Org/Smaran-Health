@@ -10,6 +10,7 @@ import {
   unionIntervals,
   type AvailabilityInput,
 } from "../lib/scheduler/availability";
+import * as schedulerAvailabilityService from "../lib/db/scheduler-availability";
 import { resolveEffectiveSchedulerSettings } from "../lib/db/scheduler-availability";
 
 const DAY = "2026-09-14"; // Monday in Asia/Kolkata
@@ -24,6 +25,14 @@ const base = (overrides: Partial<AvailabilityInput> = {}): AvailabilityInput => 
   asOf: at(8),
   ...overrides,
 });
+
+function assertCandidateConflicts(
+  actual: { available: boolean; conflicts: string[] },
+  expected: string[]
+): void {
+  assert.equal(actual.available, expected.length === 0);
+  assert.deepEqual([...actual.conflicts].sort(), [...expected].sort());
+}
 
 test("S2 builds clean intervals from recurring sessions, special work, leave and blocks", () => {
   const result = calculateAvailability(base({
@@ -51,10 +60,10 @@ test("S2 uses half-open full-duration boundaries and duration-aware doctor occup
     workingHours: [{ weekday: 1, startTime: "09:00:00", endTime: "10:00:00" }],
     doctorAppointments: [{ scheduledAt: at(9, 20), durationMinutes: 10 }],
   }));
-  assert.deepEqual(evaluateStaffCandidate(result, at(9, 55), 5), { available: true, conflicts: [] });
-  assert.deepEqual(evaluateStaffCandidate(result, at(9, 56), 5), { available: false, conflicts: ["working_availability"] });
-  assert.deepEqual(evaluateStaffCandidate(result, at(9, 15), 10), { available: false, conflicts: ["doctor_occupancy"] });
-  assert.deepEqual(evaluateStaffCandidate(result, at(9, 30), 5), { available: true, conflicts: [] });
+  assertCandidateConflicts(evaluateStaffCandidate(result, at(9, 55), 5), []);
+  assertCandidateConflicts(evaluateStaffCandidate(result, at(9, 56), 5), ["working_availability"]);
+  assertCandidateConflicts(evaluateStaffCandidate(result, at(9, 15), 10), ["doctor_occupancy"]);
+  assertCandidateConflicts(evaluateStaffCandidate(result, at(9, 30), 5), []);
 });
 
 test("S2 patient grid is local-midnight anchored and does not restart at boundaries", () => {
@@ -66,7 +75,7 @@ test("S2 patient grid is local-midnight anchored and does not restart at boundar
   assert.equal(result.patientStarts[0], at(9, 5));
   assert.ok(result.patientStarts.includes(at(9, 20)));
   assert.ok(!result.patientStarts.includes(at(9, 18)));
-  assert.deepEqual(evaluateStaffCandidate(result, at(9, 3), 5), { available: true, conflicts: [] });
+  assertCandidateConflicts(evaluateStaffCandidate(result, at(9, 3), 5), []);
 });
 
 test("S2 resolves doctor settings and duration in the locked S1 precedence order", () => {
@@ -103,17 +112,21 @@ test("S2 patient overlap is duration-aware across doctors while adjacent appoint
   }));
   assert.ok(!result.patientStarts.includes(at(10, 5)));
   assert.ok(result.patientStarts.includes(at(10, 10)));
-  assert.deepEqual(
+  assertCandidateConflicts(
     evaluateStaffCandidate(result, at(10, 5), 5, [{ scheduledAt: at(10), durationMinutes: 10 }]),
-    { available: false, conflicts: ["patient_occupancy"] }
+    ["patient_occupancy"]
   );
 });
 
 test("S2 applies Asia/Kolkata calendar-date booking window and a single asOf", () => {
   const asOf = at(23, 0, "2026-09-01");
   const policy = { selfBookingEnabled: true, bookingWindowDays: 30, minimumNoticeMinutes: 0, futureBookingCap: 3, futureScheduledCount: 0 };
+  const yesterday = calculateAvailability(base({ localDate: "2026-08-31", asOf, patientPolicy: policy })).patientEligibility;
+  const today = calculateAvailability(base({ localDate: "2026-09-01", asOf, patientPolicy: policy })).patientEligibility;
   assert.equal(calculateAvailability(base({ localDate: "2026-10-01", asOf, patientPolicy: policy })).patientEligibility?.eligible, true);
   assert.equal(calculateAvailability(base({ localDate: "2026-10-02", asOf, patientPolicy: policy })).patientEligibility?.eligible, false);
+  assert.deepEqual(yesterday, { eligible: false, hasExistingFutureAppointment: false, unavailableReason: "outside_booking_window" });
+  assert.equal(today?.eligible, true);
   const nowResult = calculateAvailability(base({ asOf: at(9), patientPolicy: policy }));
   assert.ok(nowResult.patientStarts.includes(at(9)));
   assert.ok(!nowResult.patientStarts.includes(at(8, 55)));
@@ -136,7 +149,7 @@ test("S2 uses a calculation-only 60-minute envelope for unknown legacy duration"
   const unknown = { scheduledAt: at(8, 30), durationMinutes: null };
   assert.deepEqual(intervalForOccupancy(unknown), { start: at(8, 30), end: at(9, 30) });
   const result = calculateAvailability(base({ doctorAppointments: [unknown] }));
-  assert.deepEqual(evaluateStaffCandidate(result, at(9, 15), 5), { available: false, conflicts: ["doctor_occupancy"] });
+  assertCandidateConflicts(evaluateStaffCandidate(result, at(9, 15), 5), ["doctor_occupancy"]);
   assert.equal(unknown.durationMinutes, null);
 });
 
@@ -178,4 +191,47 @@ test("S2 keeps Asia/Kolkata weekday and local-date conversion stable around midn
   assert.equal(localDateForInstant(Date.parse("2026-09-13T18:30:00.000Z")), "2026-09-14");
   assert.equal(localMidnight("2026-09-14"), Date.parse("2026-09-13T18:30:00.000Z"));
   assert.equal(calculateAvailability(base()).cleanIntervals.length, 1);
+});
+
+test("S2 staff conflict preview reports independent working, doctor and patient conflicts", () => {
+  const outsideOnly = calculateAvailability(base());
+  assertCandidateConflicts(evaluateStaffCandidate(outsideOnly, at(8, 55), 5), ["working_availability"]);
+
+  const doctorOnly = calculateAvailability(base({
+    doctorAppointments: [{ scheduledAt: at(9), durationMinutes: 10 }],
+  }));
+  assertCandidateConflicts(evaluateStaffCandidate(doctorOnly, at(9, 5), 5), ["doctor_occupancy"]);
+
+  const outsideAndDoctor = calculateAvailability(base({
+    doctorAppointments: [{ scheduledAt: at(8), durationMinutes: 10 }],
+  }));
+  assertCandidateConflicts(evaluateStaffCandidate(outsideAndDoctor, at(8, 5), 5), [
+    "working_availability",
+    "doctor_occupancy",
+  ]);
+
+  const doctorAndPatient = calculateAvailability(base({
+    doctorAppointments: [{ scheduledAt: at(9), durationMinutes: 10 }],
+  }));
+  assertCandidateConflicts(
+    evaluateStaffCandidate(doctorAndPatient, at(9, 5), 5, [{ scheduledAt: at(9), durationMinutes: 10 }]),
+    ["doctor_occupancy", "patient_occupancy"]
+  );
+
+  const allConflicts = calculateAvailability(base({
+    doctorAppointments: [{ scheduledAt: at(8), durationMinutes: 10 }],
+  }));
+  assertCandidateConflicts(
+    evaluateStaffCandidate(allConflicts, at(8, 5), 5, [{ scheduledAt: at(8), durationMinutes: 10 }]),
+    ["working_availability", "doctor_occupancy", "patient_occupancy"]
+  );
+
+  assertCandidateConflicts(
+    evaluateStaffCandidate(doctorAndPatient, at(9, 10), 5, [{ scheduledAt: at(9), durationMinutes: 10 }]),
+    []
+  );
+});
+
+test("S2 does not expose a profile/staff-session patient identity wrapper", () => {
+  assert.equal("getTrustedPatientSchedulerAvailability" in schedulerAvailabilityService, false);
 });
