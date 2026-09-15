@@ -12,6 +12,11 @@ type AppointmentRow = {
   scheduled_at: string;
   status: Appointment["status"];
   idempotency_key: string | null;
+  duration_minutes: number | null;
+  appointment_type_id: string | null;
+  staff_note: string | null;
+  creation_request: Record<string, unknown> | null;
+  creation_request_fingerprint: string | null;
   checked_in_at: string | null;
   queue_order: number | null;
   created_by: string | null;
@@ -20,7 +25,7 @@ type AppointmentRow = {
 };
 
 const APPOINTMENT_COLUMNS =
-  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, consultationId:consultation_id, scheduledAt:scheduled_at, status, idempotencyKey:idempotency_key, checkedInAt:checked_in_at, queueOrder:queue_order, createdBy:created_by, createdAt:created_at, updatedAt:updated_at";
+  "id, clinicId:clinic_id, patientId:patient_id, doctorId:doctor_id, consultationId:consultation_id, scheduledAt:scheduled_at, status, idempotencyKey:idempotency_key, durationMinutes:duration_minutes, appointmentTypeId:appointment_type_id, staffNote:staff_note, creationRequest:creation_request, creationRequestFingerprint:creation_request_fingerprint, checkedInAt:checked_in_at, queueOrder:queue_order, createdBy:created_by, createdAt:created_at, updatedAt:updated_at";
 
 export class AppointmentConflictError extends Error {
   constructor() {
@@ -46,6 +51,11 @@ function mapAppointmentRow(row: AppointmentRow): Appointment {
     scheduledAt: row.scheduled_at as unknown as Date,
     status: row.status,
     idempotencyKey: row.idempotency_key,
+    durationMinutes: row.duration_minutes,
+    appointmentTypeId: row.appointment_type_id,
+    staffNote: row.staff_note,
+    creationRequest: row.creation_request,
+    creationRequestFingerprint: row.creation_request_fingerprint,
     checkedInAt: row.checked_in_at as unknown as Date | null,
     queueOrder: row.queue_order,
     createdBy: row.created_by,
@@ -68,15 +78,21 @@ export async function createAppointmentWithClient(
     patientId: string;
     doctorId: string;
     scheduledAt: string;
+    appointmentTypeId?: string;
+    staffNote?: string;
+    durationMinutes?: number;
     idempotencyKey?: string;
   }
 ): Promise<Appointment> {
   const { data, error } = await supabase.rpc(
-    "create_appointment_with_consultation",
+    "create_appointment_with_consultation_v2",
     {
       p_patient_id: input.patientId,
       p_doctor_id: input.doctorId,
       p_scheduled_at: input.scheduledAt,
+      p_appointment_type_id: input.appointmentTypeId ?? null,
+      p_staff_note: input.staffNote ?? null,
+      p_duration_minutes: input.durationMinutes ?? null,
       p_idempotency_key: input.idempotencyKey ?? null,
     }
   );
@@ -92,6 +108,9 @@ export async function createAppointment(input: {
   patientId: string;
   doctorId: string;
   scheduledAt: string;
+  appointmentTypeId?: string;
+  staffNote?: string;
+  durationMinutes?: number;
   idempotencyKey?: string;
 }): Promise<Appointment> {
   const supabase = await createServerClient();

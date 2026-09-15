@@ -174,6 +174,9 @@ export const createAppointmentSchema = z.object({
   patientId: z.string().uuid(),
   doctorId: z.string().uuid().optional(),
   scheduledAt: z.string().datetime({ offset: true }),
+  appointmentTypeId: z.string().uuid().optional(),
+  staffNote: z.string().trim().max(2000).optional(),
+  durationMinutes: z.number().int().min(5).max(60).optional(),
   idempotencyKey: z.string().trim().min(1).max(200).optional(),
 });
 

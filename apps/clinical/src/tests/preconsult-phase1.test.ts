@@ -66,6 +66,25 @@ test("appointment validation requires a patient and scheduled timestamp", () => 
   assert.equal(
     createAppointmentSchema.safeParse({
       patientId: PATIENT_ID,
+      doctorId: DOCTOR_ID,
+      scheduledAt: SCHEDULED_AT,
+      durationMinutes: 7,
+    }).success,
+    true
+  );
+  assert.equal(
+    createAppointmentSchema.safeParse({
+      patientId: PATIENT_ID,
+      doctorId: DOCTOR_ID,
+      scheduledAt: SCHEDULED_AT,
+      durationMinutes: 4,
+    }).success,
+    false
+  );
+
+  assert.equal(
+    createAppointmentSchema.safeParse({
+      patientId: PATIENT_ID,
       scheduledAt: "not-a-date",
     }).success,
     false
@@ -86,6 +105,11 @@ test("appointment creation delegates one atomic, idempotent RPC call", async () 
     scheduled_at: SCHEDULED_AT,
     status: "scheduled" as const,
     idempotency_key: "booking-1",
+    duration_minutes: 7,
+    appointment_type_id: null,
+    staff_note: "staff-only scheduling note",
+    creation_request: {},
+    creation_request_fingerprint: "a".repeat(64),
     created_by: DOCTOR_ID,
     created_at: "2026-08-30T10:00:00.000Z",
     updated_at: "2026-08-30T10:00:00.000Z",
@@ -102,18 +126,24 @@ test("appointment creation delegates one atomic, idempotent RPC call", async () 
     patientId: PATIENT_ID,
     doctorId: DOCTOR_ID,
     scheduledAt: SCHEDULED_AT,
+    staffNote: "staff-only scheduling note",
+    durationMinutes: 7,
     idempotencyKey: "booking-1",
   });
 
-  assert.equal(rpcName, "create_appointment_with_consultation");
+  assert.equal(rpcName, "create_appointment_with_consultation_v2");
   assert.deepEqual(rpcArgs, {
     p_patient_id: PATIENT_ID,
     p_doctor_id: DOCTOR_ID,
     p_scheduled_at: SCHEDULED_AT,
+    p_appointment_type_id: null,
+    p_staff_note: "staff-only scheduling note",
+    p_duration_minutes: 7,
     p_idempotency_key: "booking-1",
   });
   assert.equal(appointment.consultationId, CONSULTATION_ID);
   assert.equal(appointment.status, "scheduled");
+  assert.equal(appointment.durationMinutes, 7);
 });
 
 test("cancelled and no-show updates touch appointments only", async () => {

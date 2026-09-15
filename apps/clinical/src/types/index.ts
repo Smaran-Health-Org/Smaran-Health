@@ -7,6 +7,14 @@ import type {
   patientMergeEvents,
   consultations,
   appointments,
+  clinicSchedulerSettings,
+  doctorSchedulerSettings,
+  doctorWorkingHours,
+  doctorAvailabilityExceptions,
+  appointmentTypes,
+  appointmentEvents,
+  appointmentSchedulingIssues,
+  appointmentSchedulingIssueHistory,
   encounterPriorityEvents,
   patientIntakes,
   consents,
@@ -38,6 +46,14 @@ export type Patient = InferSelectModel<typeof patients>;
 export type PatientMergeEvent = InferSelectModel<typeof patientMergeEvents>;
 export type Consultation = InferSelectModel<typeof consultations>;
 export type Appointment = InferSelectModel<typeof appointments>;
+export type ClinicSchedulerSettings = InferSelectModel<typeof clinicSchedulerSettings>;
+export type DoctorSchedulerSettings = InferSelectModel<typeof doctorSchedulerSettings>;
+export type DoctorWorkingHours = InferSelectModel<typeof doctorWorkingHours>;
+export type DoctorAvailabilityException = InferSelectModel<typeof doctorAvailabilityExceptions>;
+export type AppointmentType = InferSelectModel<typeof appointmentTypes>;
+export type AppointmentEvent = InferSelectModel<typeof appointmentEvents>;
+export type AppointmentSchedulingIssue = InferSelectModel<typeof appointmentSchedulingIssues>;
+export type AppointmentSchedulingIssueHistory = InferSelectModel<typeof appointmentSchedulingIssueHistory>;
 export type EncounterPriorityEvent = InferSelectModel<typeof encounterPriorityEvents>;
 export type PatientIntake = InferSelectModel<typeof patientIntakes>;
 export type Consent = InferSelectModel<typeof consents>;
