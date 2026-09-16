@@ -24,6 +24,8 @@ const calendarDateSchema = z
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
   }, "Date is invalid");
 
+const patientEmailSchema = z.string().trim().toLowerCase().email("Enter a valid email address").max(320);
+
 // ── Patient ─────────────────────────────────────────────────────────────────
 
 export const createPatientSchema = z.object({
@@ -32,6 +34,7 @@ export const createPatientSchema = z.object({
   dateOfBirth: isoDateSchema.optional().nullable(),
   gender: z.string().max(50).optional().nullable(),
   phone: z.string().max(20).optional().nullable(),
+  email: patientEmailSchema.optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   medicalRecordNumber: z.string().max(100).optional().nullable(),
   weightKg: z.number().positive().max(500).optional().nullable(),
@@ -129,6 +132,7 @@ export const patientQuerySchema = z.object({
 
 export const createConsultationSchema = z.object({
   patientId: z.string().uuid(),
+  commandId: z.string().uuid(),
 });
 
 export const encounterOperationalStatusSchema = z.enum([
@@ -166,15 +170,41 @@ export const appointmentStatusSchema = z.enum([
   "completed",
 ]);
 
+const schedulerConflictAcknowledgementSchema = z.object({
+  fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
+});
+
 export const createAppointmentSchema = z.object({
   patientId: z.string().uuid(),
   doctorId: z.string().uuid().optional(),
   scheduledAt: z.string().datetime({ offset: true }),
+  appointmentTypeId: z.string().uuid().optional(),
+  staffNote: z.string().trim().max(2000).optional(),
+  durationMinutes: z.number().int().min(5).max(60).optional(),
   idempotencyKey: z.string().trim().min(1).max(200).optional(),
+  conflictAcknowledgements: z.array(schedulerConflictAcknowledgementSchema).max(20).optional(),
+  futureCapAcknowledgement: schedulerConflictAcknowledgementSchema.optional(),
 });
 
 export const updateAppointmentSchema = z.object({
-  status: appointmentStatusSchema,
+  action: z.enum(["reschedule", "reassign", "cancel", "no_show", "rebook"]),
+  patientId: z.string().uuid().optional(),
+  doctorId: z.string().uuid().optional(),
+  scheduledAt: z.string().datetime({ offset: true }).optional(),
+  durationMinutes: z.number().int().min(5).max(60).optional(),
+  appointmentTypeId: z.string().uuid().nullable().optional(),
+  staffNote: z.string().trim().max(2000).optional(),
+  expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
+  idempotencyKey: z.string().trim().min(1).max(200).optional(),
+  conflictAcknowledgements: z.array(schedulerConflictAcknowledgementSchema).max(20).optional(),
+  futureCapAcknowledgement: schedulerConflictAcknowledgementSchema.optional(),
+}).superRefine((value, context) => {
+  if (["reschedule", "rebook"].includes(value.action) && !value.scheduledAt) {
+    context.addIssue({ code: "custom", path: ["scheduledAt"], message: "Scheduled time is required" });
+  }
+  if (value.action === "reassign" && !value.doctorId) {
+    context.addIssue({ code: "custom", path: ["doctorId"], message: "Doctor is required" });
+  }
 });
 
 export const appointmentQueueOperationSchema = z.object({

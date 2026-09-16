@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import {
   DocumentAccessError,
+  acceptPatientDocumentStorageConsent,
   getPatientDocumentUploadContext,
+  getPatientRegisteredDocument,
   listPatientDocuments,
   registerPatientDocument,
 } from "@/lib/db/documents";
@@ -9,6 +11,7 @@ import { DocumentFileError } from "@/lib/documents/file";
 import { DocumentIngestionError, ingestDocument, parseDocumentUpload } from "@/lib/documents/ingest";
 import { verifiedIntakeCredentials } from "@/lib/intake/verified-session";
 import { badRequest, internalError, payloadTooLarge, unauthorized } from "@/lib/api/error-handler";
+import { wakeDocumentPipeline } from "@/lib/documents/pipeline";
 
 export const runtime = "nodejs";
 
@@ -31,7 +34,9 @@ export async function GET(
       credentials.tokenHash,
       credentials.verifiedSessionHash
     );
-    if (!context) return unauthorized("Submit consented intake before uploading documents");
+    // Before the patient chooses to upload there cannot yet be any documents.
+    // Keep the verified draft form quiet instead of presenting a false error.
+    if (!context) return noStoreJson({ documents: [] });
     const documents = await listPatientDocuments(
       credentials.tokenHash,
       credentials.verifiedSessionHash
@@ -50,12 +55,16 @@ export async function POST(
   try {
     const credentials = await verifiedIntakeCredentials(token);
     if (!credentials) return unauthorized("OTP verification is required");
-    const context = await getPatientDocumentUploadContext(
-      credentials.tokenHash,
-      credentials.verifiedSessionHash
-    );
-    if (!context) return unauthorized("Submit consented intake before uploading documents");
     const upload = await parseDocumentUpload(request);
+    if (!upload.documentStorageConsentAccepted) {
+      return badRequest("Please agree to secure document storage before uploading.");
+    }
+    await acceptPatientDocumentStorageConsent({
+      ...credentials,
+      consentVersion: "preconsult-intake-consent/v1.0",
+    });
+    const context = await getPatientDocumentUploadContext(credentials.tokenHash, credentials.verifiedSessionHash);
+    if (!context) return unauthorized("This intake session cannot upload documents");
     const document = await ingestDocument({
       context,
       upload,
@@ -64,7 +73,15 @@ export async function POST(
         credentials.verifiedSessionHash,
         input
       ),
+      lookupRegistered: (input) => getPatientRegisteredDocument(
+        credentials.tokenHash,
+        credentials.verifiedSessionHash,
+        input
+      ),
     });
+    // Registration committed a durable queue row in the same database event.
+    // This wakeup lowers latency but may safely be lost on request termination.
+    after(() => wakeDocumentPipeline());
     return noStoreJson({ document }, { status: 201 });
   } catch (error) {
     if ((error instanceof DocumentFileError && error.kind === "size")

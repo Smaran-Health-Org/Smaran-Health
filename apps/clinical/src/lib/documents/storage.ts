@@ -1,6 +1,9 @@
 import "server-only";
 import { createStorageAdminClient } from "@/lib/supabase/storage-admin";
-import { DOCUMENT_BUCKET, type SupportedDocumentMime } from "./file";
+import { DOCUMENT_BUCKET, documentContentHash, type SupportedDocumentMime } from "./file";
+import { DocumentOriginalAlreadyExistsError } from "./ingest-workflow";
+
+export { DocumentOriginalAlreadyExistsError } from "./ingest-workflow";
 
 export async function storeDocumentOriginal(input: {
   storagePath: string;
@@ -17,13 +20,12 @@ export async function storeDocumentOriginal(input: {
       upsert: false,
     }
   );
-  if (error) throw new Error("Private document upload failed");
-}
-
-/** Removes only an orphan whose database registration failed. Registered source evidence is never removed. */
-export async function removeUnregisteredDocumentOriginal(storagePath: string): Promise<void> {
-  const storage = createStorageAdminClient();
-  await storage.storage.from(DOCUMENT_BUCKET).remove([storagePath]);
+  if (error) {
+    if (Number((error as { status?: number }).status) === 409) {
+      throw new DocumentOriginalAlreadyExistsError();
+    }
+    throw new Error("Private document upload failed");
+  }
 }
 
 export async function createDocumentViewUrl(storagePath: string): Promise<string> {
@@ -41,4 +43,13 @@ export async function downloadDocumentOriginal(storagePath: string): Promise<Uin
   const { data, error } = await storage.storage.from(DOCUMENT_BUCKET).download(storagePath);
   if (error || !data) throw new Error("Could not read document source evidence");
   return new Uint8Array(await data.arrayBuffer());
+}
+
+/** Verifies a collided path without ever replacing the existing original. */
+export async function existingDocumentOriginalMatches(input: {
+  storagePath: string;
+  contentHash: string;
+}): Promise<boolean> {
+  const bytes = await downloadDocumentOriginal(input.storagePath);
+  return documentContentHash(bytes) === input.contentHash;
 }

@@ -1,14 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import {
   DocumentAccessError,
   getStaffDocumentUploadContext,
+  getStaffRegisteredDocument,
   listStaffDocuments,
   registerStaffDocument,
 } from "@/lib/db/documents";
 import { DocumentFileError } from "@/lib/documents/file";
 import { DocumentIngestionError, ingestDocument, parseDocumentUpload } from "@/lib/documents/ingest";
 import { badRequest, internalError, notFound, payloadTooLarge, unauthorized } from "@/lib/api/error-handler";
+import { wakeDocumentPipeline } from "@/lib/documents/pipeline";
 
 export const runtime = "nodejs";
 
@@ -42,7 +44,9 @@ export async function POST(
       context,
       upload,
       register: (input) => registerStaffDocument(id, input),
+      lookupRegistered: (input) => getStaffRegisteredDocument(id, input),
     });
+    after(() => wakeDocumentPipeline());
     return NextResponse.json({ document }, { status: 201 });
   } catch (error) {
     if ((error instanceof DocumentFileError && error.kind === "size")

@@ -127,13 +127,6 @@ const LEVEL_BAR_COUNT = 25;
 const LENGTH_WARN_SECONDS = 15 * 60;
 const LENGTH_HARD_STOP_SECONDS = 30 * 60;
 
-// Sarvam's realtime REST endpoint only accepts audio up to 30 seconds per
-// request, so the whole consultation is captured as ONE continuous
-// MediaRecorder stream and handed to Sarvam's Batch API on stop. This keeps
-// Hindi/Hinglish sentences intact (no segment boundaries to clip them).
-// The recording is uploaded directly to Supabase Storage (presigned URL), so
-// a long file never has to squeeze through a Vercel request-body limit.
-
 type MicErrorKind =
   | "unsupported"
   | "permission"
@@ -202,6 +195,41 @@ function formatClock(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+// ── Speech recognition (Web Speech API) ────────────────────────────────────
+// Chrome/Edge expose this as webkitSpeechRecognition; Safari exposes it directly.
+// It powers live, on-device transcription for the pilot demo. No audio leaves the
+// browser today — only the transcribed text is persisted.
+type SpeechRecognitionResult = {
+  isFinal: boolean;
+  0: { transcript: string };
+};
+
+type SpeechRecognitionResultEvent = {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResult>;
+};
+
+type SpeechRecognitionErrorEvent = { error: string };
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+};
+
+function getSpeechRecognition(): (new () => SpeechRecognitionLike) | null {
+  const win = window as unknown as {
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+  };
+  return win.SpeechRecognition ?? win.webkitSpeechRecognition ?? null;
 }
 
 function initialStateFor(status: string): WorkflowState {
@@ -320,7 +348,7 @@ function RecordingRail({
         <strong>
           <i aria-hidden="true" /> {paused ? "Audio paused" : "Audio clear"}
         </strong>
-        <small>{paused ? "Resume when ready" : "Audio is being recorded and saved"} · Consent protected</small>
+        <small>{paused ? "Resume when ready" : "Transcript syncing"} · Consent protected</small>
       </div>
     </div>
   );
@@ -348,6 +376,7 @@ export function ConsultationWorkflow({
     summary: initialNote?.summary ?? initialTranscript ?? "",
   }));
   const [transcript, setTranscript] = useState<string>(initialTranscript ?? "");
+  const [interimTranscript, setInterimTranscript] = useState("");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
@@ -356,6 +385,9 @@ export function ConsultationWorkflow({
   const [micErrorKind, setMicErrorKind] = useState<MicErrorKind | null>(null);
   const [micLevel, setMicLevel] = useState(0);
   const [micLowLevel, setMicLowLevel] = useState(false);
+  const [transcriptError, setTranscriptError] = useState<string | null>(null);
+  const [audioCaptureError, setAudioCaptureError] = useState<string | null>(null);
+  const [liveTranscriptAvailable, setLiveTranscriptAvailable] = useState(false);
   const [draftSaved, setDraftSaved] = useState(false);
   const [saving, setSaving] = useState<"draft" | "approve" | "reject" | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -363,31 +395,28 @@ export function ConsultationWorkflow({
   // the summary as a fallback draft.
   const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const [recordingWarningDismissed, setRecordingWarningDismissed] = useState(false);
-  // True when the page reloaded mid-transcription: the Batch job is still in
-  // flight and no transcript has been saved yet. The poll effect below picks
-  // it back up; nothing here re-renders synchronously on mount.
-  const isResuming =
-    (initialStatus === "uploading" || initialStatus === "processing") &&
-    !initialTranscript?.trim();
   // Progress shown while the AI layer prepares the draft:
   // 0 = just entered, 1 = recording received, 2 = transcript prepared,
   // 3 = AI generating, 4 = draft ready (review). A reloaded "processing"
-  // consultation has already saved its transcript (stage 2), while a reloaded
-  // "uploading" consultation is still transcribing (stage 1).
+  // consultation has already saved its transcript, so start at stage 2.
   const [processingStage, setProcessingStage] = useState(() =>
-    isResuming ? 1 : initialStatus === "processing" ? 2 : initialStatus === "uploading" ? 1 : 0
+    initialStatus === "processing" || initialStatus === "uploading" ? 2 : 0
   );
-  // True while the Sarvam Batch job is running (the server is transcribing).
-  const [transcribing, setTranscribing] = useState(isResuming);
-  const [transcribeElapsedSeconds, setTranscribeElapsedSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  // Chunks accumulated by the single continuous MediaRecorder for the whole
-  // recording; concatenated into one Blob on stop and uploaded to Sarvam Batch.
-  const recordingChunksRef = useRef<Blob[]>([]);
-  const recordingMimeRef = useRef<string>("audio/webm");
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recordingIdRef = useRef<string | null>(null);
+  const chunkSequenceRef = useRef(0);
+  const uploadedChunksRef = useRef(0);
+  const chunkUploadChainRef = useRef<Promise<void>>(Promise.resolve());
+  const chunkUploadFailedRef = useRef(false);
+  const interruptionPersistenceRef = useRef<Promise<void> | null>(null);
+  const interruptionPersistenceFailedRef = useRef(false);
+  const finalTranscriptRef = useRef("");
+  const interimTranscriptRef = useRef("");
   const recordingActiveRef = useRef(false);
   const pausedRef = useRef(false);
   // Guards against double-submitting the AI generation step.
@@ -402,7 +431,7 @@ export function ConsultationWorkflow({
   // Auto-stop at 30 minutes fires exactly once per recording.
   const autoStoppedRef = useRef(false);
   // Screen Wake Lock keeps the display on during a consultation so the phone
-  // doesn't auto-sleep mid-recording. Best-effort.
+  // doesn't auto-sleep (and kill live transcription) mid-recording. Best-effort.
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   const recordedStep = activeStep[state];
@@ -422,8 +451,6 @@ export function ConsultationWorkflow({
       ? "Manual prescription"
       : workflowStates.find((item) => item.id === state)?.label ?? workflowStates[recordedStep].label;
   // Monotonic progress for the AI pipeline — always moves forward to 100%.
-  // Stage 1 (transcription) is the slowest phase, so the bar creeps forward
-  // in real time while Sarvam transcribes, then the remaining stages continue.
   const progressPercent =
     processingStage >= 4
       ? 100
@@ -432,9 +459,7 @@ export function ConsultationWorkflow({
         : processingStage >= 2
           ? 50
           : processingStage >= 1
-            ? transcribing
-              ? Math.min(49, 26 + Math.floor(transcribeElapsedSeconds / 15))
-              : 25
+            ? 25
             : 8;
   const draftReady = processingStage >= 4;
 
@@ -443,18 +468,6 @@ export function ConsultationWorkflow({
     const timer = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
     return () => clearInterval(timer);
   }, [state, isRecordingPaused]);
-
-  // Elapsed-time readout while the Sarvam Batch job transcribes on the server.
-  // The counter is reset where `transcribing` flips to true (uploadAndTranscribe
-  // / startMicCapture) so this effect only advances it.
-  useEffect(() => {
-    if (!transcribing) return;
-    const timer = setInterval(
-      () => setTranscribeElapsedSeconds((s) => s + 1),
-      1000
-    );
-    return () => clearInterval(timer);
-  }, [transcribing]);
 
   // Recording length safeguard: the 15-minute warning is derived from the
   // timer; the 30-minute auto-stop fires exactly once via a deferred call so
@@ -473,43 +486,18 @@ export function ConsultationWorkflow({
     }
   }, [elapsedSeconds, state]);
 
-  // Resume a Batch transcription that was still running when the page reloaded
-  // (status "uploading"/"processing" and no transcript saved yet). The initial
-  // state is already "processing" + stage 1 + transcribing for this case, so
-  // this effect only polls the server, then either shows the prepared draft or
-  // surfaces the failure for a safe retry.
-  useEffect(() => {
-    if (!isResuming) return;
-
-    let cancelled = false;
-
-    (async () => {
-      const result = await pollTranscription();
-      if (cancelled) return;
-      setTranscribing(false);
-      if (result.ok && result.transcript) {
-        setTranscript(result.transcript);
-        setProcessingStage(2);
-      } else {
-        setError(
-          result.error ??
-            "Transcription could not be resumed. Retry safely, or write the note manually."
-        );
-        setState("failed");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Release the microphone if the doctor navigates away mid-recording.
   useEffect(() => {
     return () => {
       recordingActiveRef.current = false;
       stopLevelMeter();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // Ignore.
+        }
+      }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
         try {
           mediaRecorderRef.current.stop();
@@ -524,14 +512,23 @@ export function ConsultationWorkflow({
     };
   }, []);
 
-  // Browsers throttle background tabs, which can pause MediaRecorder while the
-  // phone is locked. When the doctor returns, re-acquire the wake lock so the
-  // recording keeps going instead of silently dying.
+  // Mobile browsers pause live transcription (Web Speech API) when the tab is
+  // backgrounded or the phone locks. When the doctor returns, re-acquire the
+  // wake lock and restart the recognizer so recording picks up where it left
+  // off instead of silently dying.
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState !== "visible") return;
       if (!recordingActiveRef.current || pausedRef.current) return;
       requestWakeLock();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch {
+          setLiveTranscriptAvailable(false);
+          setTranscriptError("Live transcription is temporarily unavailable. Audio recording is still being saved securely for recovery.");
+        }
+      }
     }
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
@@ -585,6 +582,58 @@ export function ConsultationWorkflow({
       return saved.length > 0;
     } catch {
       return false;
+    }
+  }
+
+  async function uploadRecordingChunk(recordingId: string, sequence: number, chunk: Blob) {
+    const form = new FormData();
+    form.set("sequence", String(sequence));
+    form.set("chunk", chunk, `chunk-${sequence}.webm`);
+    const response = await fetch(`/api/consultations/${consultationId}/recording/${recordingId}/chunks`, { method: "POST", body: form });
+    if (!response.ok) throw new Error("audio_chunk_upload_failed");
+    uploadedChunksRef.current = Math.max(uploadedChunksRef.current, sequence + 1);
+  }
+
+  function reportRecordingState(status: "recording" | "paused") {
+    const recordingId = recordingIdRef.current;
+    if (!recordingId) return;
+    void fetch(`/api/consultations/${consultationId}/recording`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "state", recordingId, status }) });
+  }
+
+  async function persistRecordingInterruption() {
+    const recordingId = recordingIdRef.current;
+    if (!recordingId) return;
+    if (interruptionPersistenceRef.current) {
+      return interruptionPersistenceRef.current;
+    }
+    const persistence = (async () => {
+      const response = await fetch(`/api/consultations/${consultationId}/recording`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "state", recordingId, status: "interrupted" }),
+      });
+      if (!response.ok) throw new Error("recording_interruption_persistence_failed");
+    })();
+    interruptionPersistenceRef.current = persistence;
+    try {
+      await persistence;
+    } finally {
+      interruptionPersistenceRef.current = null;
+    }
+  }
+
+  async function handleRecordingInterruption(message: string, micMessage?: string) {
+    stopMicCapture();
+    try {
+      await persistRecordingInterruption();
+      setAudioCaptureError(message);
+      if (micMessage) setMicError(micMessage);
+      setState("recording_interrupted");
+    } catch {
+      interruptionPersistenceFailedRef.current = true;
+      setAudioCaptureError("Audio capture stopped, but its interrupted state could not be saved. Retry only after the save succeeds.");
+      setError("Recording stopped, but the secure interruption state could not be persisted. Check your connection and retry before starting another recording.");
+      setState("failed");
     }
   }
 
@@ -782,11 +831,10 @@ export function ConsultationWorkflow({
   // lost from memory and the doctor can decide what to do next.
   function handleUnexpectedTrackEnd() {
     if (!recordingActiveRef.current) return; // Our own stop().
-    void stopMicCapture();
-    setMicError(
-      "The microphone stopped unexpectedly — it may have been disconnected or taken by another app. The recording stopped safely."
+    void handleRecordingInterruption(
+      "The microphone stopped unexpectedly — the recording has stopped.",
+      "The microphone stopped unexpectedly — it may have been disconnected or taken by another app."
     );
-    setState("recording_interrupted");
   }
 
   // Pre-flight mic check: acquire the stream, show a live level meter, then
@@ -795,6 +843,7 @@ export function ConsultationWorkflow({
     setError(null);
     setMicError(null);
     setMicErrorKind(null);
+    setTranscriptError(null);
     stopLevelMeter();
     const result = await acquireMicStream();
     if (!result.ok) {
@@ -813,48 +862,18 @@ export function ConsultationWorkflow({
     setState("consent");
   }
 
-  // Starts one continuous MediaRecorder for the whole consultation. A 5-second
-  // timeslice flushes chunks periodically (so a crash loses at most a few
-  // seconds and the browser never holds one huge blob in memory); all chunks
-  // are concatenated into a single file on stop and sent to Sarvam Batch.
-  function startRecorder(stream: MediaStream) {
-    const chunks: Blob[] = [];
-    recordingChunksRef.current = chunks;
-    const recorder = new MediaRecorder(stream, { audioBitsPerSecond: 64_000 });
-    recordingMimeRef.current = recorder.mimeType || "audio/webm";
-    recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) chunks.push(event.data);
-    };
-    recorder.start(5000);
-    mediaRecorderRef.current = recorder;
-  }
-
-  // Finalizes the recorder and resolves with the assembled audio Blob.
-  function stopRecorder(): Promise<Blob> {
-    return new Promise((resolve) => {
-      const recorder = mediaRecorderRef.current;
-      mediaRecorderRef.current = null;
-      const chunks = recordingChunksRef.current;
-      const mimeType = recordingMimeRef.current;
-      const finish = () => resolve(new Blob(chunks, { type: mimeType }));
-      if (!recorder || recorder.state === "inactive") {
-        finish();
-        return;
-      }
-      recorder.onstop = finish;
-      try {
-        recorder.stop();
-      } catch {
-        finish();
-      }
-    });
-  }
-
-  async function startMicCapture(previewStream?: MediaStream): Promise<boolean> {
+  async function startMicCapture(recordingId: string, previewStream?: MediaStream): Promise<boolean> {
+    finalTranscriptRef.current = "";
+    interimTranscriptRef.current = "";
     setTranscript("");
-    recordingChunksRef.current = [];
-    setTranscribing(false);
-    setTranscribeElapsedSeconds(0);
+    setInterimTranscript("");
+    chunksRef.current = [];
+    recordingIdRef.current = recordingId;
+    chunkSequenceRef.current = 0;
+    uploadedChunksRef.current = 0;
+    chunkUploadFailedRef.current = false;
+    interruptionPersistenceFailedRef.current = false;
+    chunkUploadChainRef.current = Promise.resolve();
     try {
       // Reuse the stream acquired during the mic check when it is still live;
       // otherwise acquire a fresh one.
@@ -878,8 +897,95 @@ export function ConsultationWorkflow({
         track.onended = handleUnexpectedTrackEnd;
       });
 
-      startRecorder(stream);
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (event) => {
+        if (!event.data || event.data.size === 0 || !recordingIdRef.current || chunkUploadFailedRef.current || !recordingActiveRef.current) return;
+        const sequence = chunkSequenceRef.current++;
+        chunksRef.current.push(event.data);
+        chunkUploadChainRef.current = chunkUploadChainRef.current
+          .then(() => {
+            if (chunkUploadFailedRef.current) return;
+            return uploadRecordingChunk(recordingIdRef.current!, sequence, event.data);
+          })
+          .catch(async () => {
+            if (chunkUploadFailedRef.current) return;
+            chunkUploadFailedRef.current = true;
+            await handleRecordingInterruption("Audio could not be saved securely. Recording has stopped; use the recoverable portion or write a manual note.");
+          });
+      };
+      recorder.start(10_000);
+      mediaRecorderRef.current = recorder;
+
+      // Mark recording active before starting recognition, so the onend
+      // auto-restart below works even if recognition ends immediately.
       recordingActiveRef.current = true;
+
+      const Recognition = getSpeechRecognition();
+      if (Recognition) {
+        const recognition = new Recognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-IN";
+        recognition.onresult = (event) => {
+          setLiveTranscriptAvailable(true);
+          let interim = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i];
+            if (result.isFinal) {
+              finalTranscriptRef.current += `${result[0].transcript} `;
+              interim = "";
+            } else {
+              interim += result[0].transcript;
+            }
+          }
+          // Keep the latest interim phrase so it survives a stop before the
+          // recognizer flushes its final result.
+          interimTranscriptRef.current = interim;
+          setTranscript(finalTranscriptRef.current);
+          setInterimTranscript(interim);
+        };
+        recognition.onerror = (event) => {
+          // no-speech and aborted are transient and handled by onend restart.
+          if (event.error === "no-speech" || event.error === "aborted") return;
+          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+            setTranscriptError(
+              "Live transcription is blocked in this browser, but audio is still recording. You can type the summary manually after stopping."
+            );
+          } else if (event.error === "audio-capture") {
+            setTranscriptError(
+              "No microphone audio was captured for live transcription. Check the mic isn't in use elsewhere, or type the summary manually."
+            );
+          } else if (event.error === "network") {
+            setTranscriptError(
+              "Live transcription needs an internet connection and could not start. Audio is still recording — type the summary manually after stopping."
+            );
+          } else {
+            setTranscriptError(
+              "Live transcription stopped unexpectedly. Audio is still recording — type the summary manually after stopping."
+            );
+          }
+          setLiveTranscriptAvailable(false);
+        };
+        recognition.onend = () => {
+          // The Web Speech API stops after silence; keep listening while active.
+          if (recordingActiveRef.current && !pausedRef.current) {
+            try {
+              recognition.start();
+            } catch {
+              setLiveTranscriptAvailable(false);
+              setTranscriptError("Live transcription is temporarily unavailable. Audio recording is still being saved securely for recovery.");
+            }
+          }
+        };
+        recognition.start();
+        setLiveTranscriptAvailable(true);
+        recognitionRef.current = recognition;
+      } else {
+        setLiveTranscriptAvailable(false);
+        setTranscriptError(
+          "Live transcription isn't supported in this browser (try Chrome or Edge). Audio is still recording — you can type the summary manually after stopping."
+        );
+      }
       return true;
     } catch {
       recordingActiveRef.current = false;
@@ -887,41 +993,82 @@ export function ConsultationWorkflow({
     }
   }
 
-  // Stops the recorder and releases the microphone. Only audio is captured;
-  // transcription happens server-side (Sarvam Batch) from the assembled Blob.
-  async function stopMicCapture(): Promise<Blob> {
+  async function stopRecorderAndFlush(): Promise<boolean> {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      await new Promise<void>((resolve) => {
+        const previous = recorder.onstop;
+        recorder.onstop = (event) => { previous?.call(recorder, event); resolve(); };
+        try { recorder.stop(); } catch { resolve(); }
+      });
+    }
+    await chunkUploadChainRef.current;
+    return !chunkUploadFailedRef.current;
+  }
+
+  function stopMicCapture(): string {
     recordingActiveRef.current = false;
     releaseWakeLock();
     stopLevelMeter();
-    const blob = await stopRecorder();
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // Ignore.
+      }
+      recognitionRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {
+        // Ignore.
+      }
+    }
+    mediaRecorderRef.current = null;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
-    return blob;
+    const finalText = finalTranscriptRef.current.trim();
+    // The recognizer sometimes never flushed a final result before stop, or
+    // only finalized an earlier phrase — recover the pending interim text so
+    // a real draft can be generated instead of reporting "no transcript".
+    const interimText = interimTranscriptRef.current.trim();
+    return [finalText, interimText].filter(Boolean).join(" ");
   }
 
   async function beginRecording() {
     setError(null);
     setMicError(null);
     setMicErrorKind(null);
+    setTranscriptError(null);
+    // Persist consent before creating the durable recording session. A UI
+    // "Recording" state is never entered until both operations succeed.
+    try {
+      await patchConsultation({ consentAcquired: true, consentVersion: "v0.1", status: "recording" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not record consent");
+      return;
+    }
+    let recordingId: string;
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/recording`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", format: "audio/webm" }) });
+      const body = await response.json().catch(() => null) as { recording?: { id?: string } } | null;
+      if (!response.ok || !body?.recording?.id) throw new Error("Could not create secure recording");
+      recordingId = body.recording.id;
+    } catch (err) {
+      await patchConsultation({ status: "draft" }).catch(() => undefined);
+      setError(err instanceof Error ? err.message : "Could not create secure recording");
+      return;
+    }
     // Reuse the stream from the mic check when possible (no double
     // permission prompt, no re-acquisition race). The level meter keeps
     // running so the recording rail shows a live audio level.
-    const micOk = await startMicCapture(streamRef.current ?? undefined);
+    const micOk = await startMicCapture(recordingId, streamRef.current ?? undefined);
     if (!micOk) {
+      await handleRecordingInterruption("Audio capture could not start securely. The recording session was stopped.");
       return; // startMicCapture already set a mapped mic error.
-    }
-    try {
-      await patchConsultation({
-        consentAcquired: true,
-        consentVersion: "v0.1",
-        status: "recording",
-      });
-    } catch (err) {
-      void stopMicCapture();
-      setError(err instanceof Error ? err.message : "Could not start recording");
-      return;
     }
     setElapsedSeconds(0);
     setPaused(false);
@@ -936,12 +1083,28 @@ export function ConsultationWorkflow({
     const next = !isRecordingPaused;
     setPaused(next);
     if (next) {
+      reportRecordingState("paused");
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         mediaRecorderRef.current.pause();
       }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // Ignore.
+        }
+      }
     } else {
+      reportRecordingState("recording");
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
         mediaRecorderRef.current.resume();
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch {
+          // Ignore.
+        }
       }
     }
   }
@@ -951,204 +1114,43 @@ export function ConsultationWorkflow({
     stopBusyRef.current = true;
     try {
       setError(null);
+      setTranscriptError(null);
 
-      // Stop the recorder and assemble the single continuous audio file.
-      const blob = await stopMicCapture();
-
-      // Nothing was captured at all (silent recording, or a browser without
-      // MediaRecorder support). Route straight to a manual note without ever
-      // showing the "recording received / transcript prepared" steps.
-      if (blob.size === 0) {
-        await patchConsultation({
-          status: "draft",
-          endedAt: new Date().toISOString(),
-        }).catch(() => {
-          // Non-fatal; the doctor still lands in the manual editor.
-        });
-        setError(
-          "No speech was captured during the recording, so a draft could not be prepared. Write the note manually instead."
-        );
-        setManualPath(true);
-        setState("manual_review");
+      // MediaRecorder emits its last dataavailable asynchronously after stop.
+      // Wait for that event and its ordered upload chain before declaring this
+      // recording final. Browser live text is preview-only and is never used
+      // to create an authoritative transcript or AI draft.
+      const recordingId = recordingIdRef.current;
+      const uploaded = await stopRecorderAndFlush();
+      const previewTranscript = stopMicCapture() || transcript.trim();
+      setTranscript(previewTranscript);
+      setInterimTranscript("");
+      if (!recordingId || !uploaded) {
+        if (!interruptionPersistenceFailedRef.current) {
+          setState("recording_interrupted");
+          setError("Audio capture could not be finalized safely. The recoverable recording is retained; write the note manually until transcription is available.");
+        }
         return;
       }
-
-      // We have a capture in hand — mark it received and move to processing.
-      setProcessingStage(1);
-      setState("processing");
-      await patchConsultation({
-        status: "uploading",
-        endedAt: new Date().toISOString(),
-      }).catch(() => {
-        // Non-fatal; the transcript + status are patched again below.
+      const finalize = await fetch(`/api/consultations/${consultationId}/recording`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "finalize", recordingId, expectedChunks: uploadedChunksRef.current, durationSeconds: elapsedSeconds }),
       });
-
-      // Upload the audio and transcribe server-side (Sarvam Batch). There is
-      // no browser fallback — only Sarvam's transcript becomes the draft, so
-      // Hindi and mixed-language speech is transcribed accurately.
-      const result = await uploadAndTranscribe(blob);
-      if (!result.ok || !result.transcript) {
-        setProcessingStage(0);
-        setState("failed");
-        setError(
-          result.error ??
-            "Transcription failed. Retry safely, or write the note manually."
-        );
+      if (!finalize.ok) {
+        setState("recording_interrupted");
+        setError("Audio capture could not be finalized safely. The recoverable recording is retained; write the note manually.");
         return;
       }
-      setTranscript(result.transcript);
-      setProcessingStage(2);
-
-      try {
-        await patchConsultation({ status: "processing" });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not start processing");
-        setProcessingStage(0);
-        setState("failed");
-        return;
-      }
-
-      // The AI layer starts right away; the doctor sees live progress below.
-      await generateDraft();
+      // A provider-neutral durable transcription worker is intentionally not
+      // substituted with browser text. Until an approved provider is
+      // configured, route to the existing manual-note path.
+      setProcessingStage(1);
+      setManualPath(true);
+      setState("manual_review");
+      setError("Recording was saved securely. Authoritative transcription is pending approved provider configuration, so no AI draft was generated.");
     } finally {
       stopBusyRef.current = false;
-    }
-  }
-
-  // Uploads the single recording to Supabase Storage via a presigned URL,
-  // starts the Sarvam Batch job, then polls the server until the transcript
-  // is ready. Returns the transcript or a safe, retryable error.
-  async function uploadAndTranscribe(
-    blob: Blob
-  ): Promise<{ ok: boolean; transcript?: string; error?: string }> {
-    setTranscribing(true);
-    setTranscribeElapsedSeconds(0);
-    const mimeType = blob.type || "audio/webm";
-    try {
-      // 1. Ask the server for a presigned upload URL (direct browser→storage,
-      //    so a long recording never hits Vercel's request-body limit).
-      const urlRes = await fetch(
-        `/api/consultations/${consultationId}/transcribe/upload-url`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mimeType }),
-        }
-      );
-      if (!urlRes.ok) {
-        const body = await urlRes.json().catch(() => null);
-        return {
-          ok: false,
-          error: body?.error ?? "The recording could not be uploaded.",
-        };
-      }
-      const urlData = await urlRes.json();
-      const storagePath: string | undefined = urlData?.storagePath;
-      const signedUrl: string | undefined = urlData?.signedUrl;
-      const contentType: string = urlData?.contentType ?? mimeType;
-      if (!storagePath || !signedUrl) {
-        return { ok: false, error: "The recording could not be uploaded." };
-      }
-
-      // 2. PUT the audio directly to the private bucket.
-      const putRes = await fetch(signedUrl, {
-        method: "PUT",
-        headers: { "Content-Type": contentType },
-        body: blob,
-      });
-      if (!putRes.ok && putRes.status !== 200 && putRes.status !== 201) {
-        return {
-          ok: false,
-          error: "The recording could not be uploaded. Retry safely.",
-        };
-      }
-
-      // 3. Tell the server to start the Batch transcription job.
-      const startRes = await fetch(
-        `/api/consultations/${consultationId}/transcribe`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            storagePath,
-            mimeType: contentType,
-            durationSeconds: elapsedSeconds,
-          }),
-        }
-      );
-      if (!startRes.ok) {
-        const body = await startRes.json().catch(() => null);
-        return {
-          ok: false,
-          error: body?.error ?? "Transcription could not be started.",
-        };
-      }
-
-      // 4. Poll until Sarvam finishes and the server saves the transcript.
-      return await pollTranscription();
-    } catch {
-      return {
-        ok: false,
-        error:
-          "The recording could not be transcribed. Retry safely, or write the note manually.",
-      };
-    } finally {
-      setTranscribing(false);
-    }
-  }
-
-  // Polls the persisted Batch job. The server downloads the transcript on
-  // completion; polling just checks state, so each call is fast and cheap.
-  async function pollTranscription(): Promise<{
-    ok: boolean;
-    transcript?: string;
-    error?: string;
-  }> {
-    const POLL_INTERVAL_MS = 4000;
-    const MAX_POLL_MS = 15 * 60 * 1000; // generous safety cap
-    const startedAt = Date.now();
-
-    while (true) {
-      try {
-        const res = await fetch(
-          `/api/consultations/${consultationId}/transcribe`,
-          { method: "GET" }
-        );
-        if (res.ok) {
-          const data = await res.json().catch(() => null);
-          if (data?.state === "completed") {
-            const raw: unknown = data?.transcript?.rawText;
-            if (typeof raw === "string" && raw.trim()) {
-              return { ok: true, transcript: raw };
-            }
-          }
-          if (data?.state === "failed") {
-            return {
-              ok: false,
-              error:
-                (typeof data?.error === "string" && data.error) ||
-                "Transcription failed on the server.",
-            };
-          }
-          if (data?.state === "idle") {
-            return {
-              ok: false,
-              error: "No transcription job was found. Retry safely.",
-            };
-          }
-        }
-      } catch {
-        // Transient network error — keep polling until the safety cap.
-      }
-
-      if (Date.now() - startedAt > MAX_POLL_MS) {
-        return {
-          ok: false,
-          error:
-            "Transcription is taking too long. Retry safely, or write the note manually.",
-        };
-      }
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
   }
 
@@ -1214,14 +1216,16 @@ export function ConsultationWorkflow({
   }
 
   async function cancelRecording() {
-    await stopMicCapture();
-    recordingChunksRef.current = [];
-    setTranscribing(false);
+    stopMicCapture();
     setTranscript("");
+    setInterimTranscript("");
     try {
-      await patchConsultation({ status: "draft" });
+      await persistRecordingInterruption();
     } catch {
-      // Non-fatal; the doctor is still leaving the recording state.
+      interruptionPersistenceFailedRef.current = true;
+      setError("Recording stopped, but the secure interruption state could not be persisted. Check your connection and retry before starting another recording.");
+      setState("failed");
+      return;
     }
     setState("recording_interrupted");
   }
@@ -1229,18 +1233,20 @@ export function ConsultationWorkflow({
   // "Back" during recording: discard the current capture and return to the
   // pre-flight mic check so the doctor can re-verify input before re-recording.
   async function backToMicTest() {
-    await stopMicCapture();
-    recordingChunksRef.current = [];
-    setTranscribing(false);
+    stopMicCapture();
     setTranscript("");
+    setInterimTranscript("");
     setElapsedSeconds(0);
     setPaused(false);
     setRecordingWarningDismissed(false);
     autoStoppedRef.current = false;
     try {
-      await patchConsultation({ status: "draft" });
+      await persistRecordingInterruption();
     } catch {
-      // Non-fatal; the mic check still proceeds.
+      interruptionPersistenceFailedRef.current = true;
+      setError("Recording stopped, but the secure interruption state could not be persisted. Check your connection and retry before starting another recording.");
+      setState("failed");
+      return;
     }
     await beginMicTest();
   }
@@ -1594,12 +1600,12 @@ export function ConsultationWorkflow({
             <h2>{isRecordingPaused ? "Recording paused" : "Consultation in progress"}</h2>
             <RecordingRail paused={isRecordingPaused} seconds={elapsedSeconds} level={micLevel} />
 
-            <div className={styles.liveTranscript} aria-live="polite" role="status">
+            <div className={styles.liveTranscript} aria-live="polite">
               <div className={styles.liveTranscriptHead}>
                 <span>
-                  <Icon name="mic" /> Recording audio
+                  <Icon name="mic" /> Live transcript
                 </span>
-                <small>{isRecordingPaused ? "Paused" : "Recording…"}</small>
+                <small>{isRecordingPaused ? "Paused" : liveTranscriptAvailable ? "Audio capture healthy · live preview available" : "Audio capture healthy · live preview unavailable"}</small>
               </div>
               <div className={styles.liveTranscriptBody}>
                 {isRecordingPaused && (
@@ -1608,19 +1614,35 @@ export function ConsultationWorkflow({
                     <span>Paused — audio is not being captured</span>
                   </div>
                 )}
-                <p className={styles.liveTranscriptEmpty}>
-                  {isRecordingPaused ? (
-                    "Recording is paused — resume to keep capturing audio."
-                  ) : (
-                    <>
-                      <strong>Recording in progress.</strong> Audio is being captured and saved
-                      securely. There is no live transcript — your Hindi and mixed-language
-                      transcript is prepared on the server after you stop.
-                    </>
-                  )}
-                </p>
+                {transcript || interimTranscript ? (
+                  <p>
+                    {transcript}
+                    {interimTranscript && <span className={styles.interim}>{interimTranscript}</span>}
+                  </p>
+                ) : (
+                  <p className={styles.liveTranscriptEmpty}>
+                    Speak naturally — your words will appear here in real time.
+                  </p>
+                )}
               </div>
             </div>
+
+            {transcriptError && (
+              <div className={styles.errorBanner} role="alert">
+                <strong>Transcription note</strong>
+                <span>{transcriptError}</span>
+                <button type="button" onClick={() => setTranscriptError(null)}>
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {audioCaptureError && (
+              <div className={styles.errorBanner} role="alert">
+                <strong>Audio capture stopped</strong>
+                <span>{audioCaptureError}</span>
+              </div>
+            )}
 
             {micError && (
               <div className={styles.errorBanner} role="alert">
@@ -1659,7 +1681,7 @@ export function ConsultationWorkflow({
                   <Icon name={isRecordingPaused ? "mic" : "micOff"} />
                   {isRecordingPaused ? "Resume recording" : "Pause recording"}
                 </button>
-                <button type="button" className={styles.stopButton} onClick={stopAndProcess}>
+                <button type="button" className={styles.stopButton} disabled={stopBusyRef.current || Boolean(audioCaptureError)} onClick={stopAndProcess}>
                   <Icon name="stop" /> Stop and process
                 </button>
               </span>
@@ -1668,8 +1690,8 @@ export function ConsultationWorkflow({
               Discard recording
             </button>
             <p className={styles.recordingConsentNote}>
-              Consent recorded for audio and clinical processing · Patient sharing not granted ·
-              Keep this tab open and the screen on for continuous capture.
+              Consent recorded for audio and clinical processing · Audio is uploaded privately in recoverable chunks ·
+              Patient sharing not granted.
             </p>
           </div>
         )}
@@ -1707,69 +1729,38 @@ export function ConsultationWorkflow({
             <div className={styles.processingIcon} aria-hidden="true">
               {draftReady ? "✓" : "•••"}
             </div>
-            <p className={styles.eyebrow}>
-              {draftReady
-                ? "Complete"
-                : transcribing
-                  ? "Transcribing the audio"
-                  : "Preparing the draft"}
-            </p>
+            <p className={styles.eyebrow}>{draftReady ? "Complete" : "Preparing the draft"}</p>
             <h2>
               {draftReady
                 ? "Draft ready"
                 : generating
                   ? "Generating the draft"
-                  : transcribing
-                    ? "Transcribing the recording"
-                    : "Preparing a draft for review"}
+                  : "Preparing a draft for review"}
             </h2>
             <p className={styles.lead}>
-              {transcribing
-                ? "Recording → AI transcription → structured extraction. Nothing is approved or added to memory yet."
-                : "Transcript → structured extraction → draft note. Nothing is approved or added to memory yet."}
+              Transcript → structured extraction → draft note. Nothing is approved or added to
+              memory yet.
             </p>
 
             <div
               className={styles.progressRail}
               role="progressbar"
-              aria-label="AI draft preparation progress"
+              aria-label="AI draft generation progress"
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={progressPercent}
             >
               <span
                 className={`${styles.progressFill} ${
-                  draftReady
-                    ? styles.progressDone
-                    : generating || transcribing
-                      ? styles.progressActive
-                      : ""
+                  draftReady ? styles.progressDone : generating ? styles.progressActive : ""
                 }`}
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-            <p className={styles.progressReadout} aria-hidden="true">
-              {progressPercent}%
-            </p>
 
             <div className={styles.processingSteps}>
               <span className={processingStage >= 1 ? styles.stepDone : undefined}>
                 {processingStage >= 1 ? "✓ Recording received" : "Recording received"}
-              </span>
-              <span
-                className={
-                  transcribing
-                    ? styles.stepActive
-                    : processingStage >= 2
-                      ? styles.stepDone
-                      : undefined
-                }
-              >
-                {transcribing
-                  ? "• Transcribing audio"
-                  : processingStage >= 2
-                    ? "✓ Transcribing audio"
-                    : "Transcribing audio"}
               </span>
               <span className={processingStage >= 2 ? styles.stepDone : undefined}>
                 {processingStage >= 2 ? "✓ Transcript prepared" : "Transcript prepared"}
@@ -1794,13 +1785,6 @@ export function ConsultationWorkflow({
               </span>
             </div>
 
-            {/* Live processing log — one line per pipeline stage. */}
-            {transcribing && (
-              <p className={styles.generatingHint} role="status">
-                Transcribing the recording on the server —{" "}
-                {formatClock(transcribeElapsedSeconds)} elapsed ({progressPercent}%)…
-              </p>
-            )}
             {generating && (
               <p className={styles.generatingHint} role="status">
                 Drafting the clinical note — this usually takes a few seconds.
@@ -1812,7 +1796,7 @@ export function ConsultationWorkflow({
               </p>
             )}
 
-            {!generating && !draftReady && !transcribing && (
+            {!generating && !draftReady && (
               <div className={styles.actions}>
                 <button type="button" className={styles.secondaryButton} onClick={simulateFailure}>
                   Simulate failure
@@ -1852,7 +1836,7 @@ export function ConsultationWorkflow({
             {!isManualReview && transcript.trim() && (
               <details className={styles.transcriptPreview}>
                 <summary>
-                  AI transcript <small>Reference only · not part of the note</small>
+                  Live transcript <small>Reference only · not part of the note</small>
                 </summary>
                 <div>
                   <p>{transcript}</p>

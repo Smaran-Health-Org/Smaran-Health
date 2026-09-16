@@ -1,9 +1,8 @@
-import { createHmac, randomBytes, randomInt } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 export const INTAKE_CONSENT_VERSION = "preconsult-intake-consent/v1.0";
 export const INTAKE_SESSION_COOKIE = "smaran_intake_session";
 export const INTAKE_LINK_TTL_MS = 24 * 60 * 60 * 1000;
-export const INTAKE_OTP_TTL_MS = 10 * 60 * 1000;
 
 function intakePepper(): string {
   const value = process.env.INTAKE_CREDENTIAL_PEPPER?.trim();
@@ -19,14 +18,16 @@ export function hashIntakeCredential(value: string, pepper = intakePepper()): st
 
 export function createIntakeCredentials(now = new Date()) {
   const accessToken = randomBytes(32).toString("base64url");
-  const otp = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const tokenHash = hashIntakeCredential(accessToken);
+  const expiresAt = new Date(now.getTime() + INTAKE_LINK_TTL_MS).toISOString();
   return {
     accessToken,
-    otp,
-    tokenHash: hashIntakeCredential(accessToken),
-    otpHash: hashIntakeCredential(otp),
-    expiresAt: new Date(now.getTime() + INTAKE_LINK_TTL_MS).toISOString(),
-    otpExpiresAt: new Date(now.getTime() + INTAKE_OTP_TTL_MS).toISOString(),
+    tokenHash,
+    // The existing access-session schema retains these legacy columns for
+    // historical records. The link itself is now the only credential.
+    otpHash: tokenHash,
+    expiresAt,
+    otpExpiresAt: new Date(now.getTime() + 10 * 60 * 1000).toISOString(),
   };
 }
 

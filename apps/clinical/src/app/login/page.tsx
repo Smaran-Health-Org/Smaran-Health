@@ -12,10 +12,10 @@ function LoginForm() {
     && !requestedRedirect.includes("\\")
     ? requestedRedirect
     : "/";
-  const expired = searchParams.get("expired") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -52,12 +52,6 @@ function LoginForm() {
         <h1 className="text-xl font-semibold text-stone-900 mb-1">Smaran Health</h1>
         <p className="text-sm text-stone-500 mb-6">Sign in to your clinic account</p>
 
-        {expired && (
-          <div className="mb-4 rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-            Your session has expired for security. Please sign in again.
-          </div>
-        )}
-
         {error && (
           <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
             {error}
@@ -85,16 +79,27 @@ function LoginForm() {
             <label htmlFor="password" className="block text-sm font-medium text-stone-700 mb-1">
               Password
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-md border border-stone-300 px-3 py-2 pr-16 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 px-3 text-xs font-medium text-stone-500 hover:text-stone-800 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500 rounded-r-md"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </div>
 
           <button

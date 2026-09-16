@@ -2,15 +2,16 @@ import { notFound, redirect } from "next/navigation";
 import { after } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import { getConsultation } from "@/lib/db/consultations";
-import { getPatient, countPatients } from "@/lib/db/patients";
+import { getPatient, getPatients } from "@/lib/db/patients";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatientTimeline } from "@/lib/db/timeline";
 import { getClinicalNoteByConsultation } from "@/lib/db/clinical-notes";
 import { getTranscriptByConsultation } from "@/lib/db/transcripts";
 import { getFollowUpMemory } from "@/lib/db/follow-up-memory";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   getPreconsultBriefAtConsultationStart,
-  recordPreconsultBriefView,
+  recordPreconsultBriefViewWithClient,
 } from "@/lib/preconsult/brief";
 import {
   ConsultationWorkflow,
@@ -32,38 +33,35 @@ export default async function ConsultationPage({
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) notFound();
 
-  // Resolve everything else concurrently — the previously-sequential
-  // getPatient plus a wasteful `getPatients({ pageSize: 1 })` (only for its
-  // `.total`) are now folded in, using a cheap `countPatients` instead.
-  const [
-    patient,
-    clinicName,
-    timeline,
-    note,
-    transcript,
-    patientCount,
-    memory,
-    preconsultContext,
-  ] = await Promise.all([
-    getPatient(consultation.patientId, session.clinicId),
+  const patient = await getPatient(consultation.patientId, session.clinicId);
+  if (!patient) notFound();
+
+  const [clinicName, timeline, note, transcript, patientList, memory, preconsultContext] = await Promise.all([
     getClinicName(session.clinicId),
-    getPatientTimeline(consultation.patientId, session.clinicId),
+    getPatientTimeline(patient.id, session.clinicId),
     getClinicalNoteByConsultation(id, session.clinicId),
     getTranscriptByConsultation(id, session.clinicId),
-    countPatients(session.clinicId),
-    getFollowUpMemory(consultation.patientId, session.clinicId),
+    getPatients(session.clinicId, { pageSize: 1 }),
+    getFollowUpMemory(patient.id, session.clinicId),
     getPreconsultBriefAtConsultationStart({
       consultationId: consultation.id,
       clinicId: session.clinicId,
       patientId: consultation.patientId,
     }),
   ]);
-  if (!patient) notFound();
 
   if (preconsultContext.status === "brief_available") {
     // Viewing provenance is useful but must never delay or block a consultation.
-    after(() => recordPreconsultBriefView(consultation.id, preconsultContext.briefVersionId).catch(() => undefined));
+    // Capture cookie-backed auth during rendering: Next.js Server Components
+    // cannot create request clients from an after() callback.
+    const briefViewClient = await createServerClient();
+    after(() => recordPreconsultBriefViewWithClient(
+      briefViewClient,
+      consultation.id,
+      preconsultContext.briefVersionId
+    ).catch(() => undefined));
   }
+
   const workflowPatient: WorkflowPatient = {
     id: patient.id,
     fullName: patient.fullName ?? "",
@@ -90,7 +88,7 @@ export default async function ConsultationPage({
       patient={workflowPatient}
       doctorName={session.fullName}
       clinicName={clinicName}
-      patientCount={patientCount}
+      patientCount={patientList.total}
       timeline={workflowTimeline}
       initialNote={initialNote}
       initialStatus={consultation.status}

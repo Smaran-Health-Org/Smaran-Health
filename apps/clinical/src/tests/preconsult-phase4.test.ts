@@ -4,12 +4,19 @@ import {
   getPatientIntakeContextWithClient,
   issuePatientIntakeAccessWithClient,
   markPatientIntakeDeliveryWithClient,
+  recordPatientIntakeDeliveryWithClient,
   submitPatientIntakeWithClient,
   verifyPatientIntakeOtpWithClient,
 } from "../lib/db/patient-intake";
-import { deliverIntakeAccess, IntakeDeliveryError } from "../lib/intake/delivery";
-import { hashIntakeCredential, isPlausibleAccessToken } from "../lib/intake/security";
-import { submitPatientIntakeSchema, verifyPatientIntakeOtpSchema } from "../lib/validation";
+import {
+  createNotificationService,
+  createResendEmailProvider,
+  renderPatientIntakeInvitationEmail,
+  type EmailNotificationProvider,
+  NotificationDeliveryError,
+} from "../lib/notifications/intake-invitation";
+import { createIntakeCredentials, hashIntakeCredential, isPlausibleAccessToken } from "../lib/intake/security";
+import { createPatientSchema, submitPatientIntakeSchema } from "../lib/validation";
 
 const appointmentId = "51000000-0000-4000-8000-000000000001";
 const accessSessionId = "61000000-0000-4000-8000-000000000001";
@@ -26,9 +33,22 @@ test("intake credentials use deterministic HMAC digests without retaining raw va
   assert.equal(isPlausibleAccessToken("short"), false);
 });
 
-test("patient intake validation requires OTP, consent, verbatim reason, and bounded optional lists", () => {
-  assert.equal(verifyPatientIntakeOtpSchema.safeParse({ otp: "123456" }).success, true);
-  assert.equal(verifyPatientIntakeOtpSchema.safeParse({ otp: "12345a" }).success, false);
+test("intake credentials make the high-entropy link the only MVP access credential", () => {
+  const environment = process.env as Record<string, string | undefined>;
+  const previousPepper = process.env.INTAKE_CREDENTIAL_PEPPER;
+  try {
+    environment.INTAKE_CREDENTIAL_PEPPER = "phase-four-test-pepper-that-is-at-least-32-characters";
+    const credentials = createIntakeCredentials(new Date("2026-09-12T00:00:00.000Z"));
+    assert.match(credentials.accessToken, /^[A-Za-z0-9_-]{40,60}$/);
+    assert.equal(credentials.otpHash, credentials.tokenHash);
+    assert.equal(credentials.expiresAt, "2026-09-13T00:00:00.000Z");
+  } finally {
+    if (previousPepper === undefined) delete environment.INTAKE_CREDENTIAL_PEPPER;
+    else environment.INTAKE_CREDENTIAL_PEPPER = previousPepper;
+  }
+});
+
+test("patient intake validation requires consent, verbatim reason, and bounded optional lists", () => {
 
   const valid = submitPatientIntakeSchema.safeParse({
     consentAccepted: true,
@@ -57,77 +77,99 @@ test("patient intake validation requires OTP, consent, verbatim reason, and boun
   }).success, false);
 });
 
-test("webhook delivery uses a stable idempotency key", async (t) => {
-  const originalMode = process.env.INTAKE_DELIVERY_MODE;
-  const originalUrl = process.env.INTAKE_DELIVERY_WEBHOOK_URL;
-  const originalToken = process.env.INTAKE_DELIVERY_WEBHOOK_TOKEN;
-  const originalFetch = globalThis.fetch;
-  t.after(() => {
-    if (originalMode === undefined) delete process.env.INTAKE_DELIVERY_MODE;
-    else process.env.INTAKE_DELIVERY_MODE = originalMode;
-    if (originalUrl === undefined) delete process.env.INTAKE_DELIVERY_WEBHOOK_URL;
-    else process.env.INTAKE_DELIVERY_WEBHOOK_URL = originalUrl;
-    if (originalToken === undefined) delete process.env.INTAKE_DELIVERY_WEBHOOK_TOKEN;
-    else process.env.INTAKE_DELIVERY_WEBHOOK_TOKEN = originalToken;
-    globalThis.fetch = originalFetch;
-  });
-
-  process.env.INTAKE_DELIVERY_MODE = "webhook";
-  process.env.INTAKE_DELIVERY_WEBHOOK_URL = "https://delivery.example.invalid/intake";
-  process.env.INTAKE_DELIVERY_WEBHOOK_TOKEN = "test-token";
-  let request: RequestInit | undefined;
-  globalThis.fetch = async (_input, init) => {
-    request = init;
-    return new Response(null, { status: 202 });
-  };
-
-  const result = await deliverIntakeAccess({
-    phone: "+919999999999",
-    url: "https://app.example.invalid/intake/token",
-    otp: "123456",
-    idempotencyKey: accessSessionId,
-  });
-
-  assert.equal(result.status, "sent");
-  assert.equal((request?.headers as Record<string, string>)["Idempotency-Key"], accessSessionId);
-  assert.equal(JSON.parse(String(request?.body)).idempotency_key, accessSessionId);
+test("patient email is optional generally but is normalized and validated when supplied", () => {
+  const email = createPatientSchema.parse({ fullName: "Synthetic Patient", email: " Patient@Example.Test " }).email;
+  assert.equal(email, "patient@example.test");
+  assert.equal(createPatientSchema.safeParse({ fullName: "Synthetic Patient", email: "not-an-email" }).success, false);
+  assert.equal(createPatientSchema.safeParse({ fullName: "Synthetic Patient" }).success, true);
 });
 
-test("webhook delivery distinguishes provider rejection from an ambiguous network result", async (t) => {
-  const originalMode = process.env.INTAKE_DELIVERY_MODE;
-  const originalUrl = process.env.INTAKE_DELIVERY_WEBHOOK_URL;
-  const originalToken = process.env.INTAKE_DELIVERY_WEBHOOK_TOKEN;
-  const originalFetch = globalThis.fetch;
-  t.after(() => {
-    if (originalMode === undefined) delete process.env.INTAKE_DELIVERY_MODE;
-    else process.env.INTAKE_DELIVERY_MODE = originalMode;
-    if (originalUrl === undefined) delete process.env.INTAKE_DELIVERY_WEBHOOK_URL;
-    else process.env.INTAKE_DELIVERY_WEBHOOK_URL = originalUrl;
-    if (originalToken === undefined) delete process.env.INTAKE_DELIVERY_WEBHOOK_TOKEN;
-    else process.env.INTAKE_DELIVERY_WEBHOOK_TOKEN = originalToken;
-    globalThis.fetch = originalFetch;
-  });
+const notification = {
+  type: "patient_intake_invitation" as const,
+  channel: "email" as const,
+  recipient: "patient@example.test",
+  variables: {
+    patientFirstName: "Asha",
+    clinicName: "Synthetic Clinic",
+    intakeUrl: "https://app.example.test/intake/secure-token",
+  },
+  metadata: { clinicId: "clinic-id", patientId: "patient-id", accessSessionId },
+};
 
-  process.env.INTAKE_DELIVERY_MODE = "webhook";
-  process.env.INTAKE_DELIVERY_WEBHOOK_URL = "https://delivery.example.invalid/intake";
-  process.env.INTAKE_DELIVERY_WEBHOOK_TOKEN = "test-token";
-  const input = {
-    phone: "+919999999999",
-    url: "https://app.example.invalid/intake/token",
-    otp: "123456",
-    idempotencyKey: accessSessionId,
+test("notification service previews without calling an email provider", async () => {
+  let calls = 0;
+  const provider: EmailNotificationProvider = {
+    name: "resend",
+    async send() { calls += 1; return { providerMessageId: "unused" }; },
   };
+  const result = await createNotificationService({ mode: "preview", emailProvider: provider }).send(notification);
+  assert.deepEqual(result, { status: "preview", provider: "preview" });
+  assert.equal(calls, 0);
+});
 
-  globalThis.fetch = async () => new Response(null, { status: 400 });
+test("notification service routes live intake invitations through the email provider once", async () => {
+  const sent: Array<{ recipient: string; subject: string; html: string; text: string; idempotencyKey: string }> = [];
+  const provider: EmailNotificationProvider = {
+    name: "resend",
+    async send(message) { sent.push(message); return { providerMessageId: "resend-message-id" }; },
+  };
+  const result = await createNotificationService({ mode: "live", emailProvider: provider }).send(notification);
+  assert.deepEqual(result, { status: "sent", provider: "resend", providerMessageId: "resend-message-id" });
+  assert.equal(sent[0]?.recipient, notification.recipient);
+  assert.equal(sent[0]?.idempotencyKey, accessSessionId);
+  assert.match(sent[0]?.html ?? "", /https:\/\/app\.example\.test\/intake\/secure-token/);
+  assert.doesNotMatch(sent[0]?.html ?? "", /123456/);
+  assert.doesNotMatch(sent[0]?.text ?? "", /diagnosis|prescription|medical history/i);
+});
+
+test("Resend provider sends the configured recipient and preserves the idempotency key", async () => {
+  let captured: unknown;
+  let requestOptions: unknown;
+  const provider = createResendEmailProvider({
+    apiKey: "re_test",
+    fromEmail: "intake@example.test",
+    fromName: "Smaran Health",
+    client: {
+      emails: {
+        async send(payload: unknown, options: unknown) {
+          captured = payload;
+          requestOptions = options;
+          return { data: { id: "provider-email-id" }, error: null, headers: null };
+        },
+      },
+    } as never,
+  });
+  const result = await provider.send({
+    recipient: notification.recipient,
+    ...renderPatientIntakeInvitationEmail(notification.variables),
+    idempotencyKey: accessSessionId,
+  });
+  assert.equal(result.providerMessageId, "provider-email-id");
+  assert.deepEqual((captured as { to: string[] }).to, [notification.recipient]);
+  assert.deepEqual(requestOptions, { idempotencyKey: accessSessionId });
+});
+
+test("invalid recipient, provider rejection, and an ambiguous provider failure remain safe", async () => {
+  const service = createNotificationService({ mode: "live" });
   await assert.rejects(
-    deliverIntakeAccess(input),
-    (error: unknown) => error instanceof IntakeDeliveryError && error.kind === "rejected"
+    service.send({ ...notification, recipient: "not-an-email" }),
+    (error: unknown) => error instanceof NotificationDeliveryError && error.kind === "invalid_recipient"
   );
-
-  globalThis.fetch = async () => { throw new TypeError("network unavailable"); };
+  const rejectedProvider: EmailNotificationProvider = {
+    name: "resend",
+    async send() { throw new NotificationDeliveryError("rejected", "resend_rejected"); },
+  };
   await assert.rejects(
-    deliverIntakeAccess(input),
-    (error: unknown) => error instanceof IntakeDeliveryError && error.kind === "ambiguous"
+    createNotificationService({ mode: "live", emailProvider: rejectedProvider }).send(notification),
+    (error: unknown) => error instanceof NotificationDeliveryError && error.kind === "rejected"
+  );
+  const ambiguousProvider: EmailNotificationProvider = {
+    name: "resend",
+    async send() { throw new NotificationDeliveryError("ambiguous", "resend_network_error"); },
+  };
+  await assert.rejects(
+    createNotificationService({ mode: "live", emailProvider: ambiguousProvider }).send(notification),
+    (error: unknown) => error instanceof NotificationDeliveryError && error.kind === "ambiguous"
   );
 });
 
@@ -199,6 +241,13 @@ test("delivery, OTP verification, context, and submission use narrow RPC boundar
   } as unknown as Parameters<typeof verifyPatientIntakeOtpWithClient>[0];
 
   await markPatientIntakeDeliveryWithClient(client, accessSessionId, "preview");
+  await recordPatientIntakeDeliveryWithClient(client, accessSessionId, {
+    status: "sent",
+    channel: "email",
+    provider: "resend",
+    recipient: "patient@example.test",
+    providerMessageId: "resend-message-id",
+  });
   assert.equal(await verifyPatientIntakeOtpWithClient(client, {
     tokenHash: "a".repeat(64),
     otpHash: "b".repeat(64),
@@ -220,6 +269,7 @@ test("delivery, OTP verification, context, and submission use narrow RPC boundar
 
   assert.deepEqual(calls.map((call) => call.name), [
     "mark_patient_intake_delivery",
+    "record_patient_intake_delivery",
     "verify_patient_intake_otp",
     "get_patient_intake_context",
     "submit_patient_intake",

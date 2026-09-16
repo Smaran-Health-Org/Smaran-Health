@@ -5,7 +5,7 @@ import type { PatientIntakeContext } from "@/lib/db/patient-intake";
 import { DocumentManager } from "@/components/document-manager";
 import styles from "@/components/clinical.module.css";
 
-type IntakeStep = "loading" | "verify" | "form" | "submitted";
+type IntakeStep = "loading" | "error" | "form" | "submitted";
 
 function appointmentLabel(value: string): string {
   const date = new Date(value);
@@ -34,7 +34,6 @@ export function PatientIntakeForm({ token }: { token: string }) {
   const endpoint = `/api/intake/${encodeURIComponent(token)}`;
   const [step, setStep] = useState<IntakeStep>("loading");
   const [context, setContext] = useState<PatientIntakeContext | null>(null);
-  const [otp, setOtp] = useState("");
   const [fullName, setFullName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [gender, setGender] = useState("");
@@ -64,7 +63,8 @@ export function PatientIntakeForm({ token }: { token: string }) {
       .then(async (response) => {
         if (!active) return;
         if (!response.ok) {
-          setStep("verify");
+          setError(await responseMessage(response, "This intake link is invalid or expired."));
+          setStep("error");
           return;
         }
         const body = await response.json() as { context: PatientIntakeContext };
@@ -73,31 +73,11 @@ export function PatientIntakeForm({ token }: { token: string }) {
       .catch(() => {
         if (active) {
           setError("We could not open the intake form. Please try again.");
-          setStep("verify");
+          setStep("error");
         }
       });
     return () => { active = false; };
   }, [endpoint]);
-
-  async function verifyOtp(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    setPending(true);
-    try {
-      const response = await fetch(`${endpoint}/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otp }),
-      });
-      if (!response.ok) throw new Error(await responseMessage(response, "The code could not be verified."));
-      const body = await response.json() as { context: PatientIntakeContext };
-      applyContext(body.context);
-    } catch (verificationError) {
-      setError(verificationError instanceof Error ? verificationError.message : "The code could not be verified.");
-    } finally {
-      setPending(false);
-    }
-  }
 
   async function submitIntake(event: FormEvent) {
     event.preventDefault();
@@ -148,34 +128,12 @@ export function PatientIntakeForm({ token }: { token: string }) {
           </div>
         ) : null}
 
-        {step === "verify" ? (
-          <form className={styles.intakeForm} onSubmit={verifyOtp}>
-            <header className={styles.intakeHeader}>
-              <p className={styles.eyebrow}>Mobile verification</p>
-              <h1>Enter the 6-digit code</h1>
-              <p>Use the code sent with your intake link. No account or app is required.</p>
-            </header>
-            <label className={styles.intakeField}>
-              <span>Verification code</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                value={otp}
-                onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="000000"
-                required
-                autoFocus
-              />
-            </label>
-            {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
-            <button className={styles.intakePrimaryButton} type="submit" disabled={pending || otp.length !== 6}>
-              {pending ? "Verifying…" : "Verify and continue"}
-            </button>
+        {step === "error" ? (
+          <div className={styles.intakeState} role="alert">
+            <h1>This intake link can&apos;t be opened</h1>
+            <p>{error || "Please ask the clinic to send a new intake link."}</p>
             <p className={styles.intakePrivacyNote}>This link only opens this appointment&apos;s intake form.</p>
-          </form>
+          </div>
         ) : null}
 
         {step === "form" && context ? (
@@ -185,6 +143,9 @@ export function PatientIntakeForm({ token }: { token: string }) {
               <h1>Help your doctor prepare</h1>
               <p>{appointmentLabel(context.scheduledAt)} · mobile {context.maskedPhone}</p>
               <div className={styles.intakeNonBlocking}>Optional details can help, but this form never blocks your consultation.</div>
+              <ol className={styles.intakeProgress} aria-label="Intake progress">
+                <li>Details</li><li>Visit</li><li>Optional health details</li><li>Documents</li><li>Review</li>
+              </ol>
             </header>
 
             <fieldset className={styles.intakeFieldset}>
@@ -234,6 +195,12 @@ export function PatientIntakeForm({ token }: { token: string }) {
               </label>
             </fieldset>
 
+            <fieldset className={styles.intakeFieldset}>
+              <legend>Documents <small>Optional</small></legend>
+              <p>Add reports, prescriptions, or photos now if you have them. You can continue without documents.</p>
+              <DocumentManager mode="patient" token={token} />
+            </fieldset>
+
             <label className={styles.intakeConsent}>
               <input
                 type="checkbox"
@@ -249,7 +216,7 @@ export function PatientIntakeForm({ token }: { token: string }) {
 
             {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
             <button className={styles.intakePrimaryButton} type="submit" disabled={pending || !consentAccepted || !reason.trim()}>
-              {pending ? "Submitting securely…" : "Submit intake"}
+              {pending ? "Submitting securely…" : "Submit details"}
             </button>
             <p className={styles.intakePrivacyNote}>Your optional medical details are shared as unconfirmed patient-reported information. Your doctor remains in control.</p>
           </form>
@@ -264,7 +231,6 @@ export function PatientIntakeForm({ token }: { token: string }) {
               <p>Your intake has been shared with the clinic for this appointment.</p>
               <div className={styles.intakeNonBlocking}>Documents are optional and never block your consultation.</div>
             </div>
-            <DocumentManager mode="patient" token={token} />
           </div>
         ) : null}
       </section>

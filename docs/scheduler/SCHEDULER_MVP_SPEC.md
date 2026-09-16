@@ -1,963 +1,251 @@
 # Smaran Scheduler — MVP Technical Specification
 
-Target repository: `DrSmaranAI/Smaran-Health`
-
-Target branch baseline: `dev-neelesh`
-
-Status: **Approved product-refinement specification**
-
+Target repository: `DrSmaranAI/Smaran-Health`  
+Target branch: `dev-neelesh`  
+Status: **Approved product refinement; S1 architecture synchronized; product implementation not started**  
 Timezone: `Asia/Kolkata`
 
-This document is the authoritative implementation contract for Smaran Scheduler MVP. It should be read together with `DECISIONS.md`, the requested phase in `IMPLEMENTATION_PLAN.md`, and only the relevant acceptance criteria.
+This is the authoritative Scheduler MVP implementation contract together with `DECISIONS.md`, the requested phase in `IMPLEMENTATION_PLAN.md`, and its mapped acceptance criteria.
 
----
+## 1. System boundary
 
-# 1. Purpose
+Scheduler manages the **planned time of a clinical visit**. It extends the existing Patient, `appointments`, `consultations`/Encounter, intake, documents, pre-consultation, Clinic Desk, walk-in, check-in and Queue architecture. Do not create parallel patient, visit, Encounter, intake, document or Queue subsystems.
 
-Smaran Scheduler manages the **planned time of a clinical visit**.
+The canonical Appointment → Encounter relationship remains one-to-one. Appointment creation must continue to atomically create/associate the Encounter with the same clinic, patient and doctor. `scheduled_at` remains the canonical start time and `consultation_id` remains the Encounter link. Rescheduling preserves the same Appointment/Encounter and patient preparation.
 
-It must integrate with, rather than replace, the existing:
+The existing atomic appointment-creation RPC/service is the write path to evolve. S1 must not introduce a second scheduling write path.
 
-- Patient identity system;
-- Appointment model;
-- Encounter/`consultations` model;
-- Patient intake;
-- Document upload/processing;
-- Pre-consultation workflow;
-- Clinic Desk;
-- Walk-ins;
-- Check-in and waiting queue.
+## 2. Roles and authorization
 
-Scheduler is responsible for:
+Scheduler users are:
 
-**Doctor schedule → availability → booking → appointment management → patient preparation**
+- `doctor`;
+- **operational staff**: existing `admin` and `assistant` roles.
 
-Clinic Desk/Queue remains responsible for:
+Product wording **Admin/Receptionist** maps to the operational-staff capability set. Do not add a `reception`/`receptionist` profile enum.
 
-**arrival → check-in → waiting order → consultation execution**
+Operational Scheduler permissions cover permitted Clinic Desk/Scheduler work such as booking, rescheduling, cancellation, schedule/settings management, exception management, deliberate operational overrides, and patient preparation actions. They must not grant `admin` or `assistant` doctor-only clinical interpretation, delta review, confirmed-state mutation, clinical-note approval, or other doctor-only authority.
 
-Scheduler must not automatically reorganize the day because a doctor is running late.
+RLS is the tenant boundary; server-side services/RPCs must also enforce actor role, clinic and target-resource authorization. Patient access is separate, OTP-authenticated, clinic-scoped and patient-scoped.
 
----
+## 3. Booking model and effective duration
 
-# 2. Product principle
-
-> The schedule recommends structure; the clinic retains controlled flexibility.
-
-Patients receive strict clean availability. Authorized staff receive warnings, deliberate overrides and auditability.
-
-A warning is not an override. An override must be a conscious action.
-
-A race condition is never treated as an override.
-
-Patient communication is human-triggered in Scheduler MVP. Appointment-linked reminder/notification automation is a post-MVP Scheduler concern.
-
----
-
-# 3. Existing architecture to preserve
-
-The existing Appointment → Encounter foundation is canonical.
-
-Creating an appointment must continue to atomically:
-
-1. create the Appointment;
-2. create/associate the `consultations`/Encounter;
-3. use the same clinic;
-4. use the selected patient;
-5. use the selected doctor.
-
-Do not create a parallel scheduler-only visit object.
-
-Do not rename `consultations` as part of Scheduler.
-
-Rescheduling normally preserves the same Appointment/Encounter context.
-
----
-
-# 4. Roles
-
-Authorized doctor and admin/reception users may:
-
-- create appointments;
-- reschedule;
-- cancel;
-- mark no-show;
-- rebook;
-- configure doctor availability;
-- configure working hours and exceptions;
-- perform approved scheduling overrides;
-- search appointment history.
-
-Scheduling access must not expose doctor-only clinical brief, delta review or confirmed-state controls.
-
-Patient access is a separate OTP-authenticated, patient-scoped experience.
-
----
-
-# 5. Staff booking model
-
-Normal staff booking should remain simple:
+Normal staff booking remains:
 
 **Patient → Doctor → Date → Start time**
 
-The system resolves effective duration and creates the Encounter automatically.
+Optional inputs are appointment type, manual duration override and staff-only scheduling note.
 
-Optional scheduling inputs:
+For every new appointment, effective duration resolves in this order:
 
-- appointment type;
-- manual duration override;
-- staff-only scheduling note.
+1. explicit appointment duration override;
+2. selected doctor-scoped appointment-type default;
+3. doctor default-duration override;
+4. clinic default duration.
 
-Appointment status, intake status and document status are not free-edit booking fields.
+Persist the resolved value on `appointments.duration_minutes`. It is the scheduling fact for that visit. Changing clinic, doctor or appointment-type defaults later must not rewrite an existing appointment's duration.
 
----
+Valid duration is **5–60 minutes inclusive** and does not need to be divisible by five. Staff may choose arbitrary minute start times. Patient-generated starts must align to the effective scheduling interval.
 
-# 6. Scheduling interval vs duration
+Derive end time from `scheduled_at + duration_minutes`; do not add an independently editable end timestamp.
 
-These are independent settings.
+## 4. Scheduler defaults and inheritance
 
-## Scheduling interval
+Clinic Scheduler settings are explicit data with MVP defaults:
 
-Controls patient-facing generated starts and visual calendar grid.
+- timezone behavior: `Asia/Kolkata`;
+- scheduling interval: **5 minutes**;
+- default appointment duration: **5 minutes**;
+- allow patient self-booking: **Off**;
+- patient booking window: **30 days**;
+- patient minimum notice: **0 minutes**;
+- patient future self-booking cap: **3 active future scheduled appointments**.
 
-Example: 10-minute interval → 10:00, 10:10, 10:20.
+Doctor Scheduler settings may contain nullable scheduling-interval and default-duration overrides. `NULL` means inherit the clinic value. Effective settings are resolved server-side.
 
-## Appointment duration
+Existing clinics receive explicit settings rows during S1 migration; new clinics receive the same defaults through normal creation/bootstrap behavior rather than scattered application constants.
 
-Controls how long availability is consumed.
+## 5. Appointment persistence
 
-Example: a 20-minute appointment starting 10:00 occupies 10:00–10:20.
+Extend existing `appointments` with:
 
-A 10:10 candidate is therefore unavailable even though it lies on the start-time grid.
+- nullable `duration_minutes` during migration;
+- nullable `appointment_type_id`;
+- nullable staff-only `staff_note`.
 
-Staff may choose arbitrary minute starts such as 10:03 or 10:07.
+New appointments created after S1 scheduling persistence is active must store an explicit 5–60 minute duration. Legacy rows may remain `NULL` only under the legacy-data contract below.
 
-Patients may not.
+Appointment type, when present, must belong to the same clinic and assigned doctor.
 
-Do not persist theoretical slot rows. Persist appointments and calculate availability dynamically.
+## 6. Appointment types
 
----
+Appointment types are lightweight and **doctor-scoped**. Examples include New Consultation and Follow-up. Each may provide a default duration; types may share durations.
 
-# 7. Appointment types
+Duplicate active appointment-type labels are explicitly allowed. Stable appointment-type IDs are authoritative identity; label/name must not be used as a unique key or historical identity.
 
-Appointment type is lightweight in MVP.
+A type is a label/default, not mutable historical truth. A used type must be deactivated/inactivated rather than hard-deleted in a way that breaks history.
 
-Doctors may configure labels such as:
+When changing Doctor A → Doctor B, preserve the Appointment/Encounter and the resolved appointment duration. Clear Doctor A's `appointment_type_id` unless staff deliberately selects a valid Doctor B type. Record the change in scheduling history.
 
-- New Consultation;
-- Follow-up.
+Do not build billing/service-catalog behavior.
 
-Each type may carry a default duration. Types may share the same duration.
+## 7. Recurring working hours
 
-Do not build a complex service/procedure/billing catalog.
+Each doctor has a weekly recurring pattern. Multiple non-overlapping sessions per weekday are supported. Sessions for the same doctor/day must not overlap and `start_time < end_time`.
 
----
+Store recurring hours as local wall-clock weekday/time rules. Do not persist theoretical slot rows. Avoid a single overnight cross-day row in MVP; represent local-day segments explicitly if needed.
 
-# 8. Recurring doctor schedule
+A doctor with no configured working hours has no normal patient availability. Patient self-booking must return no bookable times for that doctor until working hours or applicable special-working availability exists.
 
-Each doctor has a reusable weekly pattern.
+## 8. Availability exceptions
 
-Multiple sessions per day are allowed, e.g. Monday 10:00–13:00 and 16:00–21:00.
+Use one exception model for:
 
-The pattern repeats automatically every week until explicitly changed.
+- leave;
+- blocked time;
+- special-working availability.
 
-Doctor and authorized admin/reception can maintain it.
+Exceptions are concrete dated start/end timezone-aware intervals and may contain staff-only reason/note. Patients see only resulting availability, never the internal reason.
 
----
+A date-specific exception overrides the recurring weekly schedule for the affected doctor/date/time. Do not create hidden precedence between contradictory exception rows: overlapping contradictory exceptions for the same doctor/time must be rejected at the scheduling configuration boundary.
 
-# 9. Availability exceptions
+Before saving a schedule/exception change that affects existing appointments, show the affected count. Saving never automatically moves, cancels or changes lifecycle status of those appointments; create scheduling-attention issues where review is required.
 
-Use one coherent exception model supporting:
-
-- Leave;
-- Blocked Time;
-- Special Working Day / special working availability.
-
-Exceptions may include staff-visible reason/note.
-
-Patients see only Unavailable.
-
-If a new/changed schedule or exception affects existing appointments, show the affected appointment count before save.
-
-Existing appointments must never be automatically moved or cancelled.
-
-If staff proceeds, preserve appointments and surface them for review/rescheduling.
-
----
-
-# 10. Availability precedence
+## 9. Availability model
 
 Conceptually:
 
-**Recurring working hours + special working availability − leave/block − active appointments**
+**Recurring working hours + special-working availability − leave/block − active appointments**
 
-Patient availability must also remove times that overlap that patient's other active appointments.
+Date-specific exceptions govern the affected date/time over recurring weekly hours.
 
-Duration must be considered across the full interval, not only start-time equality.
+Patient availability additionally excludes the patient's overlapping active appointments across doctors. Candidate starts must fit the entire resolved duration inside valid working availability. A candidate start is not normally valid if the appointment would end outside the working/special-working interval, even when its start minute itself is inside the interval.
 
----
+Availability is computed dynamically; permanent theoretical slot rows are prohibited.
 
-# 11. Patient availability generation
+A doctor with no configured working hours is unavailable to patients. Authorized operational staff may later deliberately book outside configured hours only through the explicit outside-hours override flow.
 
-For patient self-booking:
+Patient self-booking has no override path. Staff may deliberately override approved conflicts after warning. A race condition is never an override.
 
-1. resolve clinic and doctor;
-2. resolve date;
-3. enforce 30-day booking window;
-4. resolve recurring working sessions;
-5. apply special-working availability;
-6. subtract leave/block;
-7. resolve effective appointment duration;
-8. generate candidate starts on scheduling interval;
-9. remove starts whose full duration does not fit valid availability;
-10. remove doctor appointment overlaps;
-11. remove patient appointment overlaps;
-12. remove starts in the past;
-13. return clean starts only.
+## 10. Legacy duration migration
 
-MVP minimum notice is 0 minutes.
+S1 migration is additive and must run on existing data without reset.
 
----
+Never invent duration for legacy appointments lacking trustworthy source evidence.
 
-# 12. Staff availability and conflicts
+- completed, cancelled and no-show legacy appointments may remain duration-unknown and readable;
+- every future active legacy appointment with unknown duration receives an open `unknown_duration` scheduling-attention issue;
+- remediation explicitly writes a valid duration and resolves the issue while preserving issue history;
+- patient-facing clean availability must later behave conservatively around unresolved future active unknown-duration appointments rather than assume a duration.
 
-Staff sees availability/conflicts but may deliberately override approved restrictions.
+Do not auto-move, cancel or rewrite appointment status during migration.
 
-Possible conflict states:
+## 11. Scheduling-attention model
 
-- Available;
-- Doctor appointment overlap;
-- Patient appointment overlap;
-- Doctor blocked/leave;
-- Outside configured working hours.
+Scheduling attention is a first-class Appointment-linked issue/history model, not a boolean on Appointment. An Appointment may remain `scheduled` while an issue is open.
 
-Existing doctor appointment: warning, override allowed.
+S1 introduces `unknown_duration`; later phases may reuse the model for appointments that no longer conform after schedule/exception changes.
 
-Existing patient appointment: warning, override allowed.
+Issue lifecycle rules:
 
-Leave/block/outside working hours: stronger warning, explicit override allowed.
+- detection creates an open issue when the underlying conflict exists;
+- if the underlying conflict disappears, the issue automatically resolves;
+- resolution preserves detected/resolved timestamps, type and provenance/history rather than deleting the record;
+- if the same class of conflict recurs after resolution, create a new occurrence rather than erasing/reopening history where practical;
+- a scheduling-interval change alone must not create or preserve an issue solely because an existing appointment's historical start minute no longer aligns to the new interval.
 
-Patient self-booking: no override path.
+Prefer referencing canonical `appointment_id` rather than redundantly storing mutable patient ownership when Appointment identity is sufficient. This preserves patient-merge behavior.
 
-All meaningful staff overrides must be auditable.
+## 12. Appointment events vs audit logs
 
----
+`appointment_events` provide scheduling-domain history and later patient-safe timeline projection. Internal `audit_logs` remain the security/operational provenance mechanism.
 
-# 13. Concurrency
+Patient-safe events must never contain staff-only notes, exception reasons, override rationale, phone numbers or clinical content. S1 need not manufacture a complete event stream for historical appointments.
 
-Two users may see the same time as available.
+## 13. Patient self-booking
 
-Normal behavior is **first successful save wins**.
+Self-booking defaults **Off**. When enabled, the patient flow is:
 
-If Staff A saves first, Staff B's stale ordinary save must fail with a conflict such as:
+**OTP → Doctor → Date → clean available time → Confirm**
 
-> This time was just booked. Please select another time.
+Server-side rules include 30-day window, 0-minute notice, effective interval alignment, full duration fit, no doctor overlap, no patient overlap, at most three active future scheduled appointments, and no override capability. A fourth self-booking is blocked; below the cap, an existing future appointment triggers a warning but may continue.
 
-Staff B must not silently receive an override.
+A doctor with no valid working/special-working availability returns no patient-facing times.
 
-If Staff B subsequently reviews the real conflict and deliberately chooses an approved override, that is a separate conscious action.
+Selecting a time creates no temporary hold. Final confirmation performs authoritative validation; first successful confirmation wins.
 
-Authoritative conflict checking must occur inside the same transaction as booking/rescheduling. UI preview is not sufficient.
+Patient reschedule/cancel remains deferred.
 
----
+## 14. Staff conflicts and overrides
 
-# 14. Appointment persistence additions
+Doctor and operational staff (`admin` and `assistant`) receive warnings for doctor overlap and patient overlap, and stronger warning for leave/block/outside-hours booking. Approved conflicts require deliberate explicit override intent and are auditable.
 
-Preserve the existing `appointments` table and add scheduling capability.
+Outside-hours staff booking is permitted only through that deliberate override path; ordinary availability must never silently normalize it as valid.
 
-Recommended additions:
+Do **not** add a database exclusion constraint that makes every appointment overlap impossible. Such a constraint would destroy the approved deliberate-override path. S3 must distinguish ordinary stale races from consciously authorized overrides inside the authoritative scheduling transaction.
 
-- `duration_minutes`;
-- nullable `appointment_type_id`;
-- nullable `staff_note`.
+## 15. Concurrency boundary
 
-Keep `scheduled_at` as canonical start time.
+S1 prepares persistence/indexes and preserves the canonical atomic creation transaction. S3 owns the final concurrency-safe availability/conflict/override transaction.
 
-Keep `consultation_id` as one-to-one Encounter association.
+Behavioral requirement: two simultaneous ordinary conflicting bookings cannot both succeed. First successful save wins; the stale ordinary save fails. A later explicit override is a separate action.
 
-Normally derive end time from `scheduled_at + duration_minutes` instead of storing an independently editable end timestamp.
+## 16. S1 creation-transaction evolution
 
-Historical appointments require a safe migration/backfill strategy.
+During S1, evolve the existing atomic Appointment + Encounter creation path only enough to persist the new scheduling facts while keeping backward-compatible callers where practical:
 
----
+- accept/resolve duration, optional type and optional staff note;
+- validate duration bounds and doctor/type ownership;
+- resolve defaults through appointment → type → doctor → clinic;
+- persist resolved duration;
+- extend idempotency equivalence to newly semantically meaningful inputs.
 
-# 15. Recommended new scheduling models
+Do not implement S3 availability/override concurrency behavior in S1.
 
-Names can follow repository conventions, but the behavior should map to:
+## 17. Patient merge
 
-## Clinic scheduler settings
+Existing patient merge preserves Appointment and Encounter IDs while re-homing patient ownership. Scheduler history/attention should therefore link to Appointment when possible. Tests must prove merge keeps those records associated without data loss or duplicate patient ownership rewrites.
 
-- clinic;
-- allow patient self-booking;
-- booking window days = 30;
-- patient minimum notice minutes = 0.
+## 18. Calendar and lifecycle MVP behavior
 
-## Doctor scheduler settings
+MVP calendar provides Day and Week views; Day supports multi-doctor scheduling. Month and drag-and-drop are deferred. Appointment blocks reflect actual duration.
 
-- clinic;
-- doctor;
-- scheduling interval minutes;
-- default duration minutes;
-- active/bookable scheduling state where needed.
+Reschedule preserves Appointment/Encounter/preparation. Cancellation preserves history and frees availability. No-show is human-only; before that, use factual states such as Not arrived yet / Past scheduled time. Doctor delay does not shift later scheduled appointments or reorder Queue. Walk-ins/Clinic Desk/Queue remain separate operational systems.
 
-## Doctor working hours
+Schedule or exception changes may make future appointments inconsistent with current availability and create attention issues after affected-appointment preview. A scheduling-interval-only change is not such an inconsistency by itself.
 
-- clinic;
-- doctor;
-- weekday;
-- local start time;
-- local end time.
+## 19. Patient preparation and communications
 
-Multiple rows per weekday are allowed.
+Existing intake, OTP, consent, documents and pre-consultation flows must be reused. Staff retains explicit Send Patient Link. Patient-visible history is a safe projection.
 
-## Availability exceptions
+Scheduler MVP has **no automatic appointment-linked communications**: no automatic intake reminder, appointment reminder, reschedule message or cancellation message. Those require a post-MVP Scheduler communications phase.
 
-- clinic;
-- doctor;
-- type (`blocked`, `leave`, `special_working`);
-- start/end;
-- staff-visible reason;
-- creator;
-- timestamps.
+## 20. Security boundaries
 
-## Appointment types
+Every new Scheduler table is clinic scoped with RLS. Patient contexts must not receive raw access to staff notes, internal exception reasons, scheduling-attention internals, raw audit metadata or override rationale. Invalid cross-clinic doctor/patient/type relationships must fail at the trust boundary/database layer.
 
-- clinic;
-- doctor;
-- label;
-- default duration;
-- active/sort metadata where useful.
+`admin` and `assistant` operational permissions must remain bounded away from doctor-only clinical interpretation and confirmation surfaces.
 
-## Appointment events
+## 21. S1 migration sequence
 
-Domain history for scheduling lifecycle and patient-safe timeline projection.
+S1 should, in order:
 
-## Scheduling attention/issues
+1. add Scheduler settings/configuration/type/event/attention persistence with RLS;
+2. seed explicit clinic Scheduler defaults;
+3. add nullable Appointment scheduling columns;
+4. preserve unknown legacy duration where evidence is absent;
+5. create `unknown_duration` issues for future active legacy appointments;
+6. evolve canonical appointment creation so every new appointment stores a valid duration;
+7. update Drizzle schema/types/read projections;
+8. add indexes needed for later doctor/patient time-range queries;
+9. verify patient merge and existing Clinic Desk/Queue/intake/document/pre-consultation behavior.
 
-Used when later availability changes make already-booked appointments inconsistent with current availability. Appointment may remain Scheduled while carrying an open scheduling issue.
+## 22. Explicit non-goals
 
-No reminder/notification job table is required for Scheduler MVP.
+Scheduler MVP does not include patient reschedule/cancel, recurring appointment series, Month view, external calendar sync, automatic doctor-delay shifting, Queue tokens, predictive waits, bulk auto-rescheduling, temporary slot holds, schedule-copy templates, billing/payments, advanced service catalog, complex timezone UI, AI urgency/priority, automatic no-show classification, or automatic patient messaging/reminders.
 
----
+S1 specifically does not implement availability generation, calendar UI, patient booking UI, semantic reschedule/cancel/no-show, final overlap concurrency guard or deliberate conflict override transaction.
 
-# 16. Staff calendar UX
+## 23. Definition of Done direction
 
-MVP provides Day and Week views.
-
-Month view is deferred.
-
-Day view supports multiple doctors and doctor filtering.
-
-Week view may focus on one doctor.
-
-Appointment blocks reflect actual start and duration.
-
-Doctor scheduling interval informs the visible grid but does not constrain staff input.
-
----
-
-# 17. Booking/edit modal
-
-Use a popup/modal rather than a persistent scheduling side panel.
-
-Clicking free calendar area opens booking with doctor/date/time prefilled where practical.
-
-Clicking an existing appointment opens scheduling details/actions.
-
-Core booking data:
-
-- patient;
-- doctor;
-- date;
-- start time;
-- effective duration;
-- optional appointment type;
-- optional staff scheduling note.
-
-Existing appointment modal may show read-only readiness indicators such as intake/document state, but these are not editable scheduling fields.
-
-Core actions:
-
-- Send Patient Link;
-- Reschedule;
-- Cancel;
-- Mark No-show;
-- Rebook where applicable;
-- View Encounter;
-- Check In where compatible with existing day-of flow.
-
-Drag-and-drop rescheduling is not required in MVP.
-
----
-
-# 18. New-patient flow
-
-Within booking:
-
-**Search → no suitable patient → Create New Patient → Name + Phone → existing duplicate check → Create → Continue booking**
-
-Do not create parallel duplicate logic.
-
-Useful calls to action:
-
-- Add Patient;
-- Add Patient & Send Link;
-- Book Appointment;
-- Book & Send Link.
-
----
-
-# 19. Rescheduling
-
-Rescheduling should be simple:
-
-**Change date/time → validate → save**
-
-Staff may also change duration or doctor.
-
-Rescheduling must preserve:
-
-- Appointment identity;
-- Encounter identity;
-- patient;
-- intake;
-- documents;
-- extracted/derived pre-consult context;
-- audit history.
-
-Do not create a new Encounter for an ordinary reschedule.
-
----
-
-# 20. Doctor change
-
-Moving an appointment from Doctor A to Doctor B must:
-
-- validate Doctor B scheduling state;
-- update Appointment doctor;
-- update associated Encounter doctor consistently;
-- preserve Encounter ID;
-- preserve patient preparation;
-- record the change in history.
-
-Use one transaction.
-
----
-
-# 21. Cancellation
-
-Cancellation never deletes history.
-
-Cancelled appointment stops consuming future availability immediately.
-
-Submitted patient medical information remains preserved.
-
-Optional convenience action:
-
-**Cancel & create replacement appointment**
-
-A true reschedule should normally use reschedule rather than cancel/recreate.
-
----
-
-# 22. No-show and late arrival
-
-Smaran never automatically marks no-show.
-
-Before a human decision, use factual UI such as:
-
-- Not arrived yet;
-- Past scheduled time.
-
-Staff/doctor may manually Mark No-show.
-
-If the patient later arrives, staff may Rebook Today/select another available time while preserving the original missed history and submitted data.
-
----
-
-# 23. Doctor running late and Queue isolation
-
-Doctor delay does not alter scheduled times.
-
-Do not automatically:
-
-- shift later appointments;
-- reorder waiting patients;
-- calculate tokens;
-- predict waiting time.
-
-Queue/token refinement is separate.
-
-Walk-ins continue to use existing Clinic Desk/Queue behavior or can be assigned a scheduled time by staff where appropriate.
-
----
-
-# 24. Recurring patient appointments
-
-Recurring appointment-series automation is out of scope.
-
-Staff manually schedules future follow-ups.
-
----
-
-# 25. Multi-doctor scheduling
-
-Multi-doctor support is part of MVP architecture.
-
-Day view may show multiple doctor columns.
-
-Patient self-booking selects doctor before availability.
-
-Do not design persistence assuming one doctor per clinic.
-
----
-
-# 26. Patient self-booking controls
-
-Clinic has **Allow patient self-booking On/Off**.
-
-When Off, patients can still use permitted portal functions but cannot create appointments.
-
-Patient booking window: 30 days.
-
-Minimum notice: 0 minutes.
-
-Patient future appointment cap: 3 active future `scheduled` appointments.
-
-Cancelled/completed/no-show/historical appointments do not count.
-
-After one future appointment exists, a later self-booking shows a warning asking whether another appointment is required.
-
-Fourth active future self-booking is blocked.
-
-Staff may exceed the cap after warning.
-
----
-
-# 27. Patient overlapping appointments
-
-Patient self-booking cannot create overlapping appointments, even across different doctors.
-
-Staff receives a warning and may deliberately override.
-
----
-
-# 28. Patient booking race
-
-Selecting a patient-facing slot does not hold it.
-
-Final confirmation performs authoritative validation.
-
-First confirmation wins. A later confirmation receives a safe stale-availability error and selects another time.
-
-Temporary slot holds are out of scope for MVP.
-
----
-
-# 29. Unified Patient Portal
-
-Use one OTP-authenticated patient entry architecture for permitted:
-
-- Book Appointment;
-- Upcoming Appointments;
-- Previous Appointments;
-- Complete Details;
-- Intake/preparation;
-- Upload Documents.
-
-Previous appointment history can be stacked/collapsed rather than dominating the page.
-
-Patient rescheduling/cancellation remains disabled in this MVP.
-
----
-
-# 30. Evolution from current intake
-
-The current patient intake is Encounter/token scoped.
-
-Do not merely rename it to Patient Portal.
-
-Introduce a patient-scoped, clinic-scoped authenticated portal/session layer that can authorize the patient's permitted information and then reuse existing intake/document flows in the appropriate Encounter context.
-
-Existing links should remain functional during migration or be deliberately migrated without breaking active flows.
-
----
-
-# 31. OTP and patient identity
-
-Portal access requires OTP tied to the registered/contact mobile context.
-
-Patient session must be clinic scoped and patient scoped.
-
-Patient APIs must not trust arbitrary caller-supplied patient IDs.
-
-Shared phone/duplicate scenarios must follow existing clinic-scoped patient identity rules rather than assuming phone is globally unique.
-
----
-
-# 32. Send Patient Link and communications
-
-Staff has an explicit Send Patient Link action.
-
-Useful surfaces:
-
-- Add Patient;
-- booking modal;
-- booking success;
-- existing appointment modal.
-
-Automatic send after every booking is not required.
-
-Scheduler MVP does not automatically send appointment-linked patient reminders or notifications. This includes:
-
-- incomplete-intake reminders, including a possible 30-minute-before-appointment reminder;
-- automatic reschedule notifications;
-- automatic cancellation notifications;
-- generic appointment reminder campaigns.
-
-Manual Send Patient Link remains available. Reschedule/cancel surfaces may expose an explicit human-triggered Notify Patient action where provider plumbing exists.
-
-Ownership of future appointment-linked automation belongs to Scheduler communications, not pre-consultation. It is deferred until after Scheduler MVP and requires a separate product/architecture phase before implementation.
-
----
-
-# 33. Patient post-booking experience
-
-After self-booking:
-
-- show appointment confirmation with doctor/date/time;
-- remain in same authenticated portal;
-- offer Complete Details;
-- offer Upload Documents.
-
-Do not require another OTP merely because an Encounter was just created.
-
----
-
-# 34. Patient reschedule/cancel
-
-Deferred from Scheduler MVP.
-
-Only authorized staff can reschedule/cancel for now.
-
-Architecture should not make later patient self-management impossible.
-
----
-
-# 35. Patient-visible history vs internal audit
-
-Patient sees a safe timeline such as:
-
-- booked;
-- rescheduled;
-- doctor changed;
-- cancelled;
-- no-show;
-- rebooked;
-- completed.
-
-Patients must not see raw internal audit JSON, staff-only notes, internal exception reasons or override rationale.
-
-Internal staff history retains actor, role, timestamp, old/new values and override provenance where relevant.
-
----
-
-# 36. Appointment event model
-
-Introduce scheduling-domain event history, e.g. `appointment_events`.
-
-Potential event types:
-
-- created;
-- rescheduled;
-- cancelled;
-- no_show_marked;
-- rebooked;
-- doctor_changed;
-- duration_changed;
-- appointment_type_changed;
-- doctor_conflict_overridden;
-- patient_conflict_overridden;
-- working_hours_overridden;
-- availability_block_overridden;
-- patient_link_sent.
-
-Continue using general audit logs where appropriate for security/audit coverage.
-
-Do not place patient names, phone numbers or clinical content in generic audit metadata.
-
-Automated reminder/notification delivery events are not part of the MVP event contract.
-
----
-
-# 37. Internal scheduling note
-
-Appointments may have one optional staff-only scheduling note.
-
-It is operational, not clinical.
-
-It must not be shown to patients or automatically treated as clinical truth by AI/pre-consultation systems.
-
----
-
-# 38. Doctor deactivation
-
-Doctors with appointment/Encounter history should not be hard-deleted.
-
-Deactivation/bookability off should prevent new bookings and preserve history.
-
-If future appointments exist, show the number affected and require staff review/reassignment.
-
-Copy schedule between doctors is deferred.
-
----
-
-# 39. Appointment status
-
-Appointment status remains action/system driven:
-
-- Scheduled;
-- Cancelled;
-- No-show;
-- Completed.
-
-Do not expose arbitrary status selection in booking.
-
-Encounter operational state remains separate from Appointment lifecycle state.
-
----
-
-# 40. Timezone
-
-MVP uses `Asia/Kolkata`.
-
-Display staff and patient scheduling times in India local time.
-
-Persist timezone-aware timestamps.
-
-Recurring weekly hours may be stored as local weekday/time rules and resolved into absolute intervals for real dates.
-
-No timezone-selection UI in MVP.
-
----
-
-# 41. Appointment search
-
-Staff can search by patient name or phone and see upcoming/past appointments.
-
-Search is clinic scoped.
-
----
-
-# 42. API capabilities
-
-Exact route names may follow repository conventions, but required capabilities include:
-
-- staff calendar read;
-- availability read;
-- recurring schedule read/update;
-- exception create/update/delete;
-- affected-appointment preview count;
-- extended appointment create;
-- semantic reschedule;
-- cancellation;
-- mark no-show;
-- rebook;
-- send patient link;
-- optional explicit/manual notify patient action if approved for the surface;
-- patient-safe availability;
-- patient self-booking.
-
-Structured conflict responses should distinguish doctor overlap, patient overlap, blocked/outside-hours, stale availability and patient future-appointment cap.
-
-No background reminder scheduler, cron-triggered notification worker, or automatic messaging API is required for Scheduler MVP.
-
----
-
-# 43. Atomic scheduling service
-
-Authoritative booking/rescheduling transaction validates:
-
-- authenticated clinic;
-- patient belongs to clinic;
-- doctor belongs/is bookable in clinic;
-- duration/type validity;
-- doctor overlap;
-- patient overlap;
-- working hours;
-- leave/block;
-- patient-specific limits when patient initiated;
-- explicit staff override authorization;
-- idempotency/concurrency.
-
-New appointment + Encounter remains atomic.
-
-Doctor reassignment updates Appointment + Encounter atomically.
-
-Appointment mutation + scheduling event should be atomic where practical.
-
----
-
-# 44. Concurrency requirement
-
-Use a robust PostgreSQL transaction/locking strategy sufficient to guarantee:
-
-**Two simultaneous ordinary booking transactions for the same conflicting free time cannot both succeed.**
-
-Engineering may choose advisory locks, serializable behavior or another repository-appropriate pattern, but the behavioral test is mandatory.
-
----
-
-# 45. Patient server rules
-
-Patient booking server must enforce:
-
-- self-booking enabled;
-- patient OTP context;
-- clinic scope;
-- doctor bookable;
-- within 30 days;
-- not in past;
-- start aligned to patient interval;
-- full duration fits availability;
-- no doctor overlap;
-- no patient overlap;
-- fewer than 3 active future appointments;
-- no override capability.
-
-Do not trust browser availability as authoritative.
-
----
-
-# 46. Staff server rules
-
-Staff server validates clinic/role/patient/doctor/time/duration at trust boundary.
-
-Permitted conflicts may only be overridden explicitly.
-
-Stale race conflict fails before a user can consciously retry with override intent.
-
----
-
-# 47. Schedule-change preview and attention
-
-Before changing recurring hours/leave/block/special availability, support an affected appointment count preview.
-
-If staff proceeds, preserve appointments and create operational scheduling-attention records if necessary.
-
-Do not mutate appointment lifecycle status solely because the doctor's current schedule changed.
-
----
-
-# 48. Pre-consultation integration
-
-Appointment exists before arrival specifically so patient preparation has visit context.
-
-After booking:
-
-- link can be sent manually;
-- intake can attach to the Encounter;
-- documents can be uploaded using existing rules;
-- pre-consult preparation can proceed.
-
-Reschedule must not reset this context.
-
-Incomplete intake remains non-blocking. Scheduler MVP does not introduce automatic reminder automation into this integration.
-
----
-
-# 49. Security boundaries
-
-- clinic isolation everywhere;
-- patient portal sees only the authenticated patient's permitted data;
-- scheduling rights do not imply clinical interpretation rights;
-- staff note not patient-visible;
-- exception reason not patient-visible;
-- override metadata not patient-visible;
-- meaningful mutations are traceable;
-- no service-role credentials exposed to browser.
-
----
-
-# 50. Explicit non-goals
-
-Do not implement in Scheduler MVP:
-
-- patient rescheduling;
-- patient cancellation;
-- recurring appointment series;
-- Month view;
-- Google/external calendar sync;
-- automatic schedule shifting when doctor is late;
-- queue token system;
-- predictive wait time;
-- automated bulk rescheduling;
-- temporary slot holds;
-- copy-schedule templates;
-- billing/payments;
-- advanced service catalog;
-- complex timezone support;
-- AI urgency/priority;
-- automatic no-show classification;
-- automatic intake reminders;
-- automatic appointment reminders;
-- automatic reschedule/cancellation messaging;
-- generic patient notification campaigns.
-
----
-
-# 51. Phase sequence
-
-Implementation must follow `IMPLEMENTATION_PLAN.md`:
-
-- S0 Specification guardrails
-- S1 Core scheduling data model
-- S2 Availability engine
-- S3 Atomic lifecycle/conflicts/concurrency
-- S4 Staff Scheduler calendar/modal
-- S5 Schedule/settings/exceptions
-- S6 Unified Patient Portal scheduling
-- S7 Patient preparation/link/history integration
-- S8 Security/regression/pilot hardening
-
-Do not ask Codex to implement the entire Scheduler as one unbounded task.
-
-Patient communications/reminder automation is not an S0–S8 phase. It is deferred until after Scheduler MVP.
-
----
-
-# 52. Definition of Done
-
-Scheduler MVP is pilot-ready only when a clinic can:
-
-1. configure doctor weekly working sessions;
-2. configure scheduling interval and duration;
-3. configure leave/block/special-working exceptions;
-4. see affected appointment counts before availability changes;
-5. use Day/Week calendar views;
-6. schedule across multiple doctors;
-7. search patients/appointments;
-8. create a new patient inside booking;
-9. book arbitrary minute staff times;
-10. detect conflicts before save;
-11. deliberately override permitted conflicts;
-12. prevent accidental concurrent duplicate booking;
-13. reschedule without losing preparation;
-14. change doctor without recreating clinical history;
-15. cancel;
-16. manually mark no-show;
-17. rebook late/no-show patients;
-18. manually send patient link;
-19. enable/disable patient self-booking;
-20. let OTP-authenticated patients self-book clean availability;
-21. enforce 30-day booking window;
-22. enforce three-future-appointment self-service cap;
-23. prevent patient overlap;
-24. create Encounter immediately after booking;
-25. allow intake/documents immediately after booking;
-26. preserve internal audit/history;
-27. show patients safe appointment history;
-28. keep Clinic Desk/Queue behavior intact;
-29. operate without requiring any automated reminder/notification worker.
-
-A rendered calendar alone is not completion.
+Scheduler MVP is not complete because a calendar renders. Pilot readiness requires working schedule/settings, clean availability, duration-aware booking, multi-doctor staff calendar, explicit conflict override, race safety, reschedule/doctor-change preservation, lifecycle actions, OTP self-booking, preparation reuse, safe history, clinic/role isolation, legacy-duration remediation, Queue regression safety and no dependency on automated messaging.

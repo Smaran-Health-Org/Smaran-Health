@@ -1,9 +1,8 @@
 import { after, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
-import { DocumentAccessError } from "@/lib/db/documents";
-import { DocumentProcessingError, processMedicalDocument } from "@/lib/documents/process";
-import { drainClinicalStateReconciliation } from "@/lib/db/clinical-state";
-import { apiError, conflict, internalError, notFound, unauthorized } from "@/lib/api/error-handler";
+import { DocumentAccessError, retryDocumentProcessing } from "@/lib/db/documents";
+import { wakeDocumentPipeline } from "@/lib/documents/pipeline";
+import { conflict, internalError, notFound, unauthorized } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -17,12 +16,10 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const document = await processMedicalDocument(id);
-    // Opportunistic only: the committed source already has durable work and a
-    // later server invocation can retry it if this process ends here.
-    after(() => drainClinicalStateReconciliation().catch(() => undefined));
+    await retryDocumentProcessing(id);
+    after(() => wakeDocumentPipeline());
     return NextResponse.json(
-      { document },
+      { status: "scheduled" },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
@@ -32,14 +29,6 @@ export async function POST(
       if (error.kind === "consent_required") {
         return conflict("Document processing requires accepted patient consent. The original remains available and the consultation is not blocked.");
       }
-    }
-    if (error instanceof DocumentProcessingError) {
-      return apiError(
-        "The document could not be processed right now. The original is safe and you can retry.",
-        "document_processing_failed",
-        503,
-        { reasonCode: error.code }
-      );
     }
     return internalError("The document could not be processed right now. The original is safe and you can retry.");
   }

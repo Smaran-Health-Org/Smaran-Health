@@ -10,21 +10,23 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 
 **AC-SCH-F03** All Scheduler reads/writes MUST remain scoped to the authenticated clinic.
 
-**AC-SCH-F04** Scheduler changes MUST NOT weaken doctor/admin workspace authorization or expose doctor-only clinical interpretation to admin/reception users.
+**AC-SCH-F04** Scheduler changes MUST NOT weaken workspace authorization or expose doctor-only clinical interpretation to operational scheduling users. Existing `admin` and `assistant` roles are Scheduler operational staff; product wording **Admin/Receptionist** maps to this capability set. A new `reception` profile enum is NOT required. Operational access MUST NOT grant either role doctor-only clinical interpretation or confirmation authority.
 
-**AC-SCH-F05** MVP scheduling time MUST be interpreted/displayed in `Asia/Kolkata`, with timezone-aware persisted timestamps.
+**AC-SCH-F05** MVP scheduling time MUST be interpreted/displayed in `Asia/Kolkata`, with timezone-aware persisted appointment/exception timestamps where applicable.
+
+**AC-SCH-F06** New Scheduler child/history/attention records SHOULD reference the canonical Appointment when appointment identity is sufficient, so patient merge does not require redundant patient ownership rewrites.
 
 ## Doctor schedule settings
 
-**AC-SCH-D01** Doctor/admin MUST be able to define a recurring weekly working schedule.
+**AC-SCH-D01** Authorized doctor/operational-staff scheduling users MUST be able to define a recurring weekly working schedule according to server-side role policy.
 
 **AC-SCH-D02** Multiple working sessions on the same weekday MUST be supported.
 
 **AC-SCH-D03** The weekly schedule MUST repeat automatically until explicitly changed.
 
-**AC-SCH-D04** Doctor/admin MUST be able to configure scheduling interval and default appointment duration separately.
+**AC-SCH-D04** Authorized doctor/operational-staff scheduling users MUST be able to configure scheduling interval and default appointment duration separately according to server-side role policy.
 
-**AC-SCH-D05** Doctor/admin MUST be able to create/edit/delete leave, blocked time and special-working exceptions.
+**AC-SCH-D05** Authorized doctor/operational-staff scheduling users MUST be able to create/edit/delete leave, blocked time and special-working exceptions according to server-side role policy.
 
 **AC-SCH-D06** Internal exception reason/note MUST be visible to authorized staff and MUST NOT be exposed to patients.
 
@@ -32,13 +34,25 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 
 **AC-SCH-D08** Existing affected appointments MUST NOT be automatically moved or cancelled after a schedule/exception change.
 
+**AC-SCH-D09** Clinic scheduler settings MUST default to a 5-minute scheduling interval and a 5-minute default appointment duration.
+
+**AC-SCH-D10** Doctor scheduling interval/default duration overrides MUST support inheritance: when the doctor override is unset, the effective value MUST come from the clinic setting.
+
+**AC-SCH-D11** Recurring working sessions for the same doctor and weekday MUST NOT overlap; multiple non-overlapping sessions on the same weekday MUST remain valid.
+
+**AC-SCH-D12** Updating a clinic, doctor or appointment-type default MUST NOT retroactively rewrite `duration_minutes` on an existing appointment.
+
+**AC-SCH-D13** Date-specific availability exceptions MUST override the recurring weekly schedule for the affected doctor/date/time.
+
+**AC-SCH-D14** Contradictory overlapping exceptions for the same doctor and overlapping date/time MUST be rejected rather than resolved through hidden exception precedence.
+
 ## Availability engine
 
 **AC-SCH-A01** Patient availability MUST be calculated from recurring working hours plus special-working availability minus leave/blocked intervals minus active appointments.
 
-**AC-SCH-A02** Availability MUST be duration-aware; an appointment start is invalid if its full duration overlaps an unavailable interval or active appointment.
+**AC-SCH-A02** Availability MUST be duration-aware; an appointment start is invalid if its full duration overlaps an unavailable interval, extends beyond valid working availability, or overlaps an active appointment.
 
-**AC-SCH-A03** Patient-facing start times MUST align to the doctor's configured scheduling interval.
+**AC-SCH-A03** Patient-facing start times MUST align to the doctor's effective scheduling interval after doctor→clinic inheritance is resolved.
 
 **AC-SCH-A04** Staff MUST be allowed to enter arbitrary minute start times independent of the patient-facing interval.
 
@@ -50,13 +64,19 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 
 **AC-SCH-A08** Availability MUST be computed dynamically; the system MUST NOT persist every theoretical slot as rows.
 
+**AC-SCH-A09** Patient-facing clean availability MUST NOT silently assume a duration for a future active legacy appointment whose duration remains unknown; the unresolved condition MUST be treated conservatively until remediated.
+
+**AC-SCH-A10** A doctor with no configured working hours MUST be unavailable to patient self-booking.
+
+**AC-SCH-A11** Authorized operational staff MAY later use the explicit outside-hours override flow, but ordinary availability MUST NOT treat outside-hours time as valid.
+
 ## Staff booking and conflicts
 
-**AC-SCH-B01** Authorized doctor/admin/reception staff MUST be able to create appointments.
+**AC-SCH-B01** Authorized doctor and operational staff (`admin` and `assistant`) MUST be able to create appointments.
 
 **AC-SCH-B02** Staff booking MUST allow patient, doctor, date, start time and effective duration to be resolved before save.
 
-**AC-SCH-B03** Staff MUST be able to override an individual appointment duration.
+**AC-SCH-B03** Staff MUST be able to override an individual appointment duration within the supported 5–60 minute range.
 
 **AC-SCH-B04** Staff MUST receive a warning before overlapping another appointment for the same doctor.
 
@@ -71,6 +91,10 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 **AC-SCH-B09** WHEN two normal booking attempts race for the same free time THEN the first successful save MUST win and the later stale save MUST fail rather than becoming an implicit double-booking override.
 
 **AC-SCH-B10** New-patient booking MUST reuse existing duplicate-patient protection and SHOULD allow patient creation without leaving the booking modal flow.
+
+**AC-SCH-B11** Appointment duration MUST be an integer from 5 through 60 minutes inclusive; it MUST NOT be required to be a multiple of five.
+
+**AC-SCH-B12** For a new appointment, effective duration MUST resolve in this order: explicit appointment duration override → selected appointment-type default → doctor default override → clinic default. The resolved value MUST be persisted on the Appointment.
 
 ## Appointment lifecycle
 
@@ -92,6 +116,8 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 
 **AC-SCH-L09** Scheduler MUST NOT automatically reorder the existing waiting queue or implement token logic.
 
+**AC-SCH-L10** When an appointment is reassigned to another doctor, its resolved duration MUST be preserved; a doctor-scoped `appointment_type_id` MUST be cleared unless a valid type for the target doctor is deliberately selected. The change MUST remain traceable.
+
 ## Calendar and staff UX
 
 **AC-SCH-U01** MVP MUST provide Day and Week calendar views.
@@ -112,7 +138,7 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 
 ## Patient self-booking
 
-**AC-SCH-P01** Patient self-booking MUST be controlled by an On/Off clinic setting.
+**AC-SCH-P01** Patient self-booking MUST be controlled by an On/Off clinic setting and MUST default Off until the clinic explicitly enables it.
 
 **AC-SCH-P02** Self-booking MUST require OTP-authenticated patient context and MUST NOT trust a caller-supplied patient ID.
 
@@ -148,6 +174,30 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 
 **AC-SCH-PP05** Patient-visible appointment history MUST be a safe projection and MUST NOT expose raw internal audit metadata, staff-only notes or override reasons.
 
+## Appointment types, history and legacy migration
+
+**AC-SCH-H01** Appointment types MUST be doctor-scoped and MAY provide a default duration; they MUST NOT become a billing/service catalog in Scheduler MVP.
+
+**AC-SCH-H02** An appointment type that is referenced by appointment history MUST be deactivated/inactivated rather than hard-deleted in a way that breaks historical references.
+
+**AC-SCH-H03** Existing legacy appointments MUST remain readable after S1 migration without a database reset.
+
+**AC-SCH-H04** S1 migration MUST NOT fabricate duration values for legacy appointments that do not have source evidence for duration.
+
+**AC-SCH-H05** A future active legacy appointment with unknown duration MUST receive an open scheduling-attention issue for explicit staff remediation while remaining traceable as the same Appointment/Encounter.
+
+**AC-SCH-H06** Completed, cancelled and no-show legacy appointments MAY remain duration-unknown and MUST remain readable/historically intact.
+
+**AC-SCH-H07** Resolving a scheduling-attention issue MUST preserve issue history rather than deleting the fact that remediation was required.
+
+**AC-SCH-H08** Appointment scheduling events intended for patient-safe history MUST be distinct from raw internal audit metadata and MUST NOT contain staff-only notes, exception reasons or override rationale.
+
+**AC-SCH-H09** Duplicate active appointment-type labels MUST be allowed. Stable appointment-type IDs MUST be authoritative; implementations MUST NOT impose uniqueness or identity semantics on the label/name.
+
+**AC-SCH-H10** Scheduling-attention issues MUST automatically resolve when their underlying conflict no longer exists while retaining detected/resolved provenance and history.
+
+**AC-SCH-H11** A scheduling-interval change alone MUST NOT create or preserve a scheduling-attention issue solely because an existing appointment's historical start minute no longer aligns to the new interval.
+
 ## Doctor lifecycle and scope
 
 **AC-SCH-M01** Multi-doctor clinics MUST be supported by Scheduler data/query design.
@@ -166,6 +216,10 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 
 **AC-SCH-R03** Scheduler rescheduling/cancellation MUST NOT delete medical documents, intake statements, observations or other historical clinical evidence.
 
-**AC-SCH-R04** Patient/admin scheduling surfaces MUST NOT expose doctor-only clinical brief, delta review or confirmed-state controls.
+**AC-SCH-R04** Patient/operational scheduling surfaces MUST NOT expose doctor-only clinical brief, delta review or confirmed-state controls.
 
 **AC-SCH-R05** Security tests MUST cover cross-clinic access, patient-session isolation and unauthorized override attempts.
+
+**AC-SCH-R06** S1/S3 database design MUST NOT use an overlap constraint that makes approved deliberate staff overlaps impossible; ordinary conflict races and deliberate override intent MUST remain distinguishable at the authoritative scheduling transaction.
+
+**AC-SCH-R07** Patient merge regression tests MUST prove Appointment-linked scheduling history/attention records remain correctly associated after canonical patient merge without losing Appointment/Encounter identity.

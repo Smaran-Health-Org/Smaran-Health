@@ -26,10 +26,11 @@ export default async function ReviewChangesPage({ params, searchParams }: { para
   ]);
   if (!consultation || !appointment || !patient) notFound();
   const comparisons = clinicalStateReviewComparisons(deltas, currentState);
+  const refreshKey = JSON.stringify({ deltas: deltas.map((delta) => [delta.id, delta.baseStateVersionId, delta.effectiveSourceRevision]), comparisons });
   return <AppShell doctorName={session.fullName} clinicName={clinicName} patientCount={patientResult.total} role="doctor" workspace="clinical"><div className={styles.pageContent}>
     <Link href={`/patients/${patientId}/preconsult?consultation=${consultationId}`} className={styles.backLink}>Back to pre-consult brief</Link>
     <header className={styles.profileHeader}><div className={styles.profileHeaderMain}><p className={styles.eyebrow}>Doctor reconciliation</p><h1>Review changes for {patient.full_name}</h1><p>Reviewing is optional and never delays consultation.</p></div></header>
-    <ReviewClinicalChanges patientId={patientId} deltas={deltas} comparisons={comparisons} />
+    <ReviewClinicalChanges patientId={patientId} deltas={deltas} comparisons={comparisons} refreshKey={refreshKey} />
     <section className={styles.panel}><div className={styles.panelTitle}><div><p className={styles.eyebrow}>Care remains available</p><h2>Start consultation</h2></div></div><StartQueuedConsultation appointmentId={appointment.id} consultationId={consultationId} /></section>
   </div></AppShell>;
 }

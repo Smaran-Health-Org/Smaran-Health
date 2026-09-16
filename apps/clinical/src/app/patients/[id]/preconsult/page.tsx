@@ -13,6 +13,9 @@ import { drainPreconsultBriefGeneration, getPreconsultBriefSnapshot, getPreconsu
 import { preconsultEvidenceHref, preconsultEvidenceLabel } from "@/lib/preconsult/evidence";
 import { getPendingClinicalStateDeltas } from "@/lib/db/clinical-state";
 import { whyTodayProvenanceLabel } from "@/lib/preconsult/verification-label";
+import { PreconsultLifecycleRefresh } from "@/components/preconsult-lifecycle-refresh";
+import { listStaffDocuments } from "@/lib/db/documents";
+import { drainDocumentPipeline } from "@/lib/documents/pipeline";
 
 function verificationLabel(value: string) {
   return value === "confirmed" ? "Doctor-confirmed" : value === "proposed" ? "Proposed — review required" : value === "patient_reported_unconfirmed" ? "Patient-reported — unconfirmed" : value === "external_unconfirmed" ? "External evidence — unconfirmed" : "Needs Review";
@@ -43,22 +46,36 @@ export default async function PreconsultPage({ params, searchParams }: { params:
     getPreconsultBriefSnapshot(consultationId).catch(() => ({ artifact: null, lifecycle: "unavailable" as const })),
     Promise.all([
       client.from("patient_intake_statements").select("reason_for_visit_raw,information_source").eq("consultation_id", consultationId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      client.from("documents").select("id,original_filename,document_type").eq("patient_id", patientId).eq("clinic_id", session.clinicId).order("created_at", { ascending: false }).limit(6),
+      client.from("documents").select("id,original_filename,document_type,patient_intake_id").eq("patient_id", patientId).eq("clinic_id", session.clinicId).order("created_at", { ascending: false }).limit(6),
     ]),
     getPendingClinicalStateDeltas(patientId).catch(() => []),
   ]);
   const { artifact: brief, lifecycle } = snapshotResult;
   if (brief) await recordPreconsultBriefView(consultationId, brief.id).catch(() => undefined);
   after(() => drainPreconsultBriefGeneration().catch(() => undefined));
+  after(() => drainDocumentPipeline().catch(() => undefined));
   const payload = brief?.payload;
   const relevantObservationIds = payload ? [...payload.changes, ...payload.patientOverview].flatMap((claim) => claim.sources.filter((source) => source.type === "observation").map((source) => source.id)) : [];
   const trends = relevantObservationIds.length ? await getPreconsultTrendGroups(patientId, relevantObservationIds).catch(() => []) : [];
   const [fallbackIntake, fallbackDocuments] = fallbackSources;
+  const documentItems = await listStaffDocuments(consultationId).catch(() => []);
+  const hasAutoEligibleDocument = (fallbackDocuments.data ?? []).some((document) => document.patient_intake_id);
+  const documentsProcessing = documentItems.some((document) => document.status === "processing");
+  const documentFailed = documentItems.some((document) => document.latestExtractionStatus === "technical_failure");
+  const preparingBrief = !brief && !documentFailed && (lifecycle === "updating" || hasAutoEligibleDocument);
+  const asynchronousWorkActive = documentsProcessing || preparingBrief || lifecycle === "updating";
+  const lifecycleLabel = documentFailed ? "Processing failed — retry available"
+    : documentsProcessing ? "Processing documents"
+    : preparingBrief ? "Preparing brief"
+    : lifecycle === "partial" ? "Partial brief available"
+    : brief ? "Ready"
+    : "Waiting for intake";
   const meta = [patient.age != null ? `${patient.age} years` : null, patient.gender].filter(Boolean).join(" · ");
   return <AppShell doctorName={session.fullName} clinicName={clinicName} patientCount={patientResult.total} role="doctor" workspace="clinical"><div className={styles.pageContent}>
+    <PreconsultLifecycleRefresh active={asynchronousWorkActive} />
     <Link href="/dashboard" className={styles.backLink}>Today&apos;s overview</Link>
     <header className={styles.profileHeader}><span className={styles.profileAvatar}>{patient.full_name.split(/\s+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join("").toUpperCase()}</span><div className={styles.profileHeaderMain}><p className={styles.eyebrow}>Pre-consult brief · preparation aid</p><h1>{patient.full_name}</h1><p>{meta || "Patient record"}</p>{consultation.is_priority ? <p className={styles.panelHint}>Human Priority context{consultation.priority_updated_at ? ` · set ${new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(consultation.priority_updated_at))}` : ""}{consultation.priority_reason ? ` · ${consultation.priority_reason}` : ""}</p> : null}</div></header>
-    {!payload ? <section className={styles.panel}><div className={styles.panelTitle}><div><p className={styles.eyebrow}>Preparing</p><h2>Brief unavailable for the moment</h2></div></div><p className={styles.memorySummary}>Original intake and evidence remain available. This does not delay care.</p></section> : <>
+    {!payload ? <section className={styles.panel}><div className={styles.panelTitle}><div><p className={styles.eyebrow}>{lifecycleLabel}</p><h2>{documentFailed ? "Document processing needs recovery" : lifecycleLabel === "Waiting for intake" ? "Waiting for patient information" : "Brief unavailable for the moment"}</h2></div></div><p className={styles.memorySummary}>{documentFailed ? "The original document remains available. An authorized staff member can retry processing; care is not delayed." : "Original intake and evidence remain available. This does not delay care."}</p></section> : <>
       {lifecycle === "updating" ? <div className={styles.errorBanner} role="status"><strong>Updating — newer information available.</strong> This brief was generated {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(brief.generatedAt))}; it remains available while the newer information is prepared.</div> : null}
       {lifecycle === "partial" ? <div className={styles.errorBanner} role="status">Partial brief: some eligible source categories are not available yet. Original evidence remains available.</div> : null}
       <section className={styles.panel}><div className={styles.panelTitle}><div><p className={styles.eyebrow}>Patient statement</p><h2>Why today?</h2></div></div><div className={styles.memoryCard}><strong>{whyTodayProvenanceLabel(payload.whyToday.provenance)}</strong><p className={styles.memorySummary}>{payload.whyToday.verbatim ?? "No reason for visit has been submitted."}</p></div></section>

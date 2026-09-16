@@ -2,27 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Icon } from "@/components/icons";
 import styles from "@/components/clinical.module.css";
 import type { SessionContext } from "@/types";
-
-// Idle timeout in ms — auto sign-out after inactivity (PHI safety). Default 30
-// minutes, overridable via NEXT_PUBLIC_SESSION_INACTIVITY_MINUTES.
-const INACTIVITY_MS = (() => {
-  const minutes = Number(
-    process.env.NEXT_PUBLIC_SESSION_INACTIVITY_MINUTES ?? 30
-  );
-  const safe = Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
-  return safe * 60 * 1000;
-})();
 
 function initials(name: string): string {
   return name
@@ -52,7 +36,6 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
-  const signingOutRef = useRef(false);
   const accountMenuRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
@@ -66,81 +49,17 @@ export function AppShell({
     return () => document.removeEventListener("pointerdown", closeAccountMenu);
   }, []);
 
-  const handleSignOut = useCallback(
-    async (reason?: "expired") => {
-      if (signingOutRef.current) return;
-      signingOutRef.current = true;
-      setSigningOut(true);
-      try {
-        const supabase = createClient();
-        await supabase.auth.signOut();
-      } finally {
-        router.push(reason === "expired" ? "/login?expired=1" : "/login");
-        router.refresh();
-      }
-    },
-    [router]
-  );
+  async function handleSignOut() {
+    setSigningOut(true);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
-  // Idle timeout: sign out after inactivity so a stale session isn't left open
-  // on a shared or unattended device. Any pointer/keyboard/scroll activity
-  // resets the countdown.
-  //
-  // We compare against a real `lastActivity` timestamp and re-check on a short
-  // interval (instead of a single long setTimeout), so browser throttling of
-  // timers in background tabs can't silently keep a session alive for many
-  // extra minutes. Returning to a hidden tab triggers an immediate re-check.
-  useEffect(() => {
-    const activityEvents = [
-      "pointerdown",
-      "keydown",
-      "mousemove",
-      "scroll",
-      "touchstart",
-    ] as const;
-    let lastActivity = Date.now();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    function schedule() {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(check, Math.min(INACTIVITY_MS, 30_000));
-    }
-
-    function check() {
-      if (Date.now() - lastActivity >= INACTIVITY_MS) {
-        handleSignOut("expired");
-        return;
-      }
-      schedule();
-    }
-
-    function onActivity() {
-      lastActivity = Date.now();
-      schedule();
-    }
-
-    function onVisibility() {
-      if (document.visibilityState === "visible") check();
-    }
-
-    schedule();
-    activityEvents.forEach((event) =>
-      window.addEventListener(event, onActivity, { passive: true })
-    );
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      if (timer) clearTimeout(timer);
-      activityEvents.forEach((event) =>
-        window.removeEventListener(event, onActivity)
-      );
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [handleSignOut]);
-
-  const isPatients = pathname.startsWith("/patients");
+  const isPatients = pathname.startsWith("/patients") || pathname.startsWith("/desk/patients");
   const isDashboard = pathname === "/dashboard";
-  const isDesk = pathname === "/desk" || pathname.startsWith("/desk/");
+  const isDeskHome = pathname === "/desk";
   const homeHref = workspace === "desk" ? "/desk" : "/dashboard";
   const workspaceLabel = workspace === "desk" ? "Clinic Desk" : "Clinical";
 
@@ -164,6 +83,8 @@ export function AppShell({
               <Link
                 href="/dashboard"
                 className={isDashboard ? styles.activeNav : undefined}
+                aria-label="Today"
+                title="Today"
               >
                 <Icon name="home" />
                 <span>Today</span>
@@ -171,6 +92,8 @@ export function AppShell({
               <Link
                 href="/patients"
                 className={isPatients ? styles.activeNav : undefined}
+                aria-label="Patients"
+                title="Patients"
               >
                 <Icon name="users" />
                 <span>Patients</span>
@@ -179,11 +102,16 @@ export function AppShell({
             </>
           ) : (
             <>
-              <Link href="/desk" className={isDesk ? styles.activeNav : undefined}>
+              <Link href="/desk" className={isDeskHome ? styles.activeNav : undefined} aria-label="Today" title="Today">
                 <Icon name="home" />
                 <span>Today</span>
               </Link>
-              <span className={styles.disabledNav} aria-disabled="true">
+              <Link href="/desk/patients" className={isPatients ? styles.activeNav : undefined} aria-label="Patients" title="Patients">
+                <Icon name="users" />
+                <span>Patients</span>
+                <small>{patientCount}</small>
+              </Link>
+              <span className={styles.disabledNav} aria-disabled="true" aria-label="Scheduler, planned for later" title="Scheduler (planned)">
                 <Icon name="calendar" />
                 <span>Scheduler</span>
                 <small>Later</small>
@@ -191,6 +119,7 @@ export function AppShell({
             </>
           )}
         </nav>
+
       </aside>
 
       <div className={styles.appSurface}>
@@ -218,8 +147,8 @@ export function AppShell({
                 <small>Workspace</small>
                 {role === "doctor" ? (
                   <div>
-                    <Link data-active={workspace === "clinical"} href="/dashboard">Clinical</Link>
-                    <Link data-active={workspace === "desk"} href="/desk">Clinic Desk</Link>
+                    <Link data-active={workspace === "clinical"} href="/dashboard">Doctor</Link>
+                    <Link data-active={workspace === "desk"} href="/desk">Receptionist</Link>
                   </div>
                 ) : (
                   <strong>Clinic Desk</strong>
@@ -228,7 +157,7 @@ export function AppShell({
               <button
                 type="button"
                 className={styles.accountSignOut}
-                onClick={() => handleSignOut()}
+                onClick={handleSignOut}
                 disabled={signingOut}
               >
                 <Icon name="logOut" />

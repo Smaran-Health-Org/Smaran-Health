@@ -48,7 +48,3 @@
 **/*.backup
 **/*.sqlite
 **/*.sqlite3
-
-# Supabase CLI generated state (CLI should be run from apps/clinical only)
-**/supabase/.temp/
-**/supabase/.branches/

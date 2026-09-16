@@ -6,6 +6,7 @@ import {
   timestamp,
   uuid,
   integer,
+  time,
   jsonb,
   boolean,
   real,
@@ -214,6 +215,8 @@ export const patients = pgTable(
     gender: text("gender"),
     phone: text("phone"),
     normalizedPhone: text("normalized_phone"),
+    email: text("email"),
+    normalizedEmail: text("normalized_email"),
     address: text("address"),
     medicalRecordNumber: text("medical_record_number"),
     weightKg: real("weight_kg"),
@@ -236,6 +239,10 @@ export const patients = pgTable(
     index("patients_clinic_normalized_phone_idx").on(
       table.clinicId,
       table.normalizedPhone
+    ),
+    index("patients_clinic_normalized_email_idx").on(
+      table.clinicId,
+      table.normalizedEmail
     ),
     index("patients_clinic_normalized_name_idx").on(
       table.clinicId,
@@ -266,9 +273,6 @@ export const consultations = pgTable("consultations", {
   consentTimestamp: timestamp("consent_timestamp", { withTimezone: true }),
   startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
   endedAt: timestamp("ended_at", { withTimezone: true }),
-  // Sarvam Batch API job id. Persisted so the client can poll completion
-  // (and resume after a reload) without re-uploading the audio.
-  sarvamJobId: text("sarvam_job_id"),
 });
 
 export const patientMergeEvents = pgTable(
@@ -312,6 +316,14 @@ export const appointments = pgTable(
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
     status: appointmentStatusEnum("status").notNull().default("scheduled"),
     idempotencyKey: text("idempotency_key"),
+    durationMinutes: integer("duration_minutes"),
+    appointmentTypeId: uuid("appointment_type_id").references(() => appointmentTypes.id, {
+      onDelete: "restrict",
+    }),
+    rebookedFromAppointmentId: uuid("rebooked_from_appointment_id"),
+    staffNote: text("staff_note"),
+    creationRequest: jsonb("creation_request"),
+    creationRequestFingerprint: text("creation_request_fingerprint"),
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
     queueOrder: integer("queue_order"),
     createdBy: uuid("created_by").references(() => profiles.id, {
@@ -331,7 +343,187 @@ export const appointments = pgTable(
     ),
     index("appointments_patient_id_idx").on(table.patientId),
     index("appointments_doctor_id_idx").on(table.doctorId),
+    index("appointments_clinic_doctor_scheduled_active_idx").on(
+      table.clinicId,
+      table.doctorId,
+      table.scheduledAt
+    ),
+    index("appointments_clinic_patient_scheduled_active_idx").on(
+      table.clinicId,
+      table.patientId,
+      table.scheduledAt
+    ),
+    index("appointments_appointment_type_id_idx").on(table.appointmentTypeId),
   ]
+);
+
+export const clinicSchedulerSettings = pgTable("clinic_scheduler_settings", {
+  clinicId: uuid("clinic_id")
+    .references(() => clinics.id, { onDelete: "cascade" })
+    .primaryKey(),
+  timezone: text("timezone").notNull().default("Asia/Kolkata"),
+  schedulingIntervalMinutes: integer("scheduling_interval_minutes").notNull().default(5),
+  defaultDurationMinutes: integer("default_duration_minutes").notNull().default(5),
+  patientSelfBookingEnabled: boolean("patient_self_booking_enabled").notNull().default(false),
+  patientBookingWindowDays: integer("patient_booking_window_days").notNull().default(30),
+  patientMinimumNoticeMinutes: integer("patient_minimum_notice_minutes").notNull().default(0),
+  patientFutureBookingCap: integer("patient_future_booking_cap").notNull().default(3),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const doctorSchedulerSettings = pgTable("doctor_scheduler_settings", {
+  doctorId: uuid("doctor_id")
+    .references(() => profiles.id, { onDelete: "cascade" })
+    .primaryKey(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  schedulingIntervalMinutes: integer("scheduling_interval_minutes"),
+  defaultDurationMinutes: integer("default_duration_minutes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const doctorWorkingHours = pgTable(
+  "doctor_working_hours",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    doctorId: uuid("doctor_id").references(() => profiles.id, { onDelete: "cascade" }).notNull(),
+    weekday: integer("weekday").notNull(),
+    startTime: time("start_time").notNull(),
+    endTime: time("end_time").notNull(),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("doctor_working_hours_clinic_doctor_weekday_idx").on(
+      table.clinicId,
+      table.doctorId,
+      table.weekday,
+      table.startTime
+    ),
+  ]
+);
+
+export const doctorAvailabilityExceptions = pgTable(
+  "doctor_availability_exceptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    doctorId: uuid("doctor_id").references(() => profiles.id, { onDelete: "cascade" }).notNull(),
+    exceptionType: text("exception_type").$type<"leave" | "blocked" | "special_working">().notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    staffNote: text("staff_note"),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("doctor_availability_exceptions_clinic_doctor_starts_at_idx").on(
+      table.clinicId,
+      table.doctorId,
+      table.startsAt
+    ),
+  ]
+);
+
+export const appointmentTypes = pgTable(
+  "appointment_types",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    doctorId: uuid("doctor_id").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    name: text("name").notNull(),
+    defaultDurationMinutes: integer("default_duration_minutes"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("appointment_types_clinic_doctor_active_idx").on(
+      table.clinicId,
+      table.doctorId,
+      table.isActive,
+      table.name
+    ),
+  ]
+);
+
+export const appointmentEvents = pgTable(
+  "appointment_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
+    eventType: text("event_type").$type<"created" | "unknown_duration_resolved" | "rescheduled" | "reassigned" | "cancelled" | "no_show" | "rebooked" | "override_doctor_overlap" | "override_patient_overlap" | "override_availability" | "override_unresolved_duration" | "future_cap_acknowledged">().notNull(),
+    actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "set null" }),
+    actorRole: profileRoleEnum("actor_role"),
+    payload: jsonb("payload").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("appointment_events_appointment_created_idx").on(table.appointmentId, table.createdAt)]
+);
+
+export const appointmentLifecycleReceipts = pgTable(
+  "appointment_lifecycle_receipts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }),
+    action: text("action").$type<"create" | "reschedule" | "reassign" | "cancel" | "no_show" | "rebook">().notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    response: jsonb("response").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("appointment_lifecycle_receipts_unique").on(table.clinicId, table.idempotencyKey),
+    index("appointment_lifecycle_receipts_appointment_created_idx").on(table.appointmentId, table.createdAt),
+  ]
+);
+
+export const appointmentSchedulingIssues = pgTable(
+  "appointment_scheduling_issues",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
+    issueType: text("issue_type").$type<"unknown_duration">().notNull(),
+    status: text("status").$type<"open" | "resolved">().notNull().default("open"),
+    detectedBy: uuid("detected_by").references(() => profiles.id, { onDelete: "set null" }),
+    detectedSource: text("detected_source").notNull().default("legacy_migration"),
+    detectedAt: timestamp("detected_at", { withTimezone: true }).defaultNow().notNull(),
+    resolvedBy: uuid("resolved_by").references(() => profiles.id, { onDelete: "set null" }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolutionSource: text("resolution_source"),
+  },
+  (table) => [
+    index("appointment_scheduling_issues_clinic_status_idx").on(
+      table.clinicId,
+      table.status,
+      table.detectedAt
+    ),
+  ]
+);
+
+export const appointmentSchedulingIssueHistory = pgTable(
+  "appointment_scheduling_issue_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    issueId: uuid("issue_id")
+      .references(() => appointmentSchedulingIssues.id, { onDelete: "restrict" })
+      .notNull(),
+    action: text("action").$type<"detected" | "resolved">().notNull(),
+    actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "set null" }),
+    source: text("source").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("appointment_scheduling_issue_history_issue_created_idx").on(table.issueId, table.createdAt)]
 );
 
 export const encounterPriorityEvents = pgTable(
@@ -448,6 +640,15 @@ export const intakeAccessSessions = pgTable(
     otpHash: text("otp_hash").notNull(),
     verifiedSessionHash: text("verified_session_hash"),
     deliveryStatus: intakeDeliveryStatusEnum("delivery_status").notNull().default("pending"),
+    deliveryChannel: text("delivery_channel"),
+    deliveryProvider: text("delivery_provider"),
+    deliveryProviderStatus: text("delivery_provider_status"),
+    deliveryRecipient: text("delivery_recipient"),
+    providerMessageId: text("provider_message_id"),
+    deliveryAttemptedAt: timestamp("delivery_attempted_at", { withTimezone: true }),
+    deliverySentAt: timestamp("delivery_sent_at", { withTimezone: true }),
+    deliveryFailedAt: timestamp("delivery_failed_at", { withTimezone: true }),
+    deliveryFailureCode: text("delivery_failure_code"),
     failedAttempts: integer("failed_attempts").notNull().default(0),
     maxAttempts: integer("max_attempts").notNull().default(5),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -491,6 +692,7 @@ export const documents = pgTable(
   "documents",
   {
     id: uuid("id").primaryKey(),
+    registrationCommandId: uuid("registration_command_id").defaultRandom().notNull(),
     clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
     patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
     originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
@@ -520,6 +722,7 @@ export const documents = pgTable(
     index("documents_consultation_created_idx").on(table.consultationId, table.createdAt),
     index("documents_patient_hash_idx").on(table.clinicId, table.patientId, table.contentHash),
     index("documents_duplicate_of_idx").on(table.duplicateOfDocumentId),
+    uniqueIndex("documents_clinic_registration_command_uidx").on(table.clinicId, table.registrationCommandId),
   ]
 );
 
@@ -724,8 +927,23 @@ export const audioFiles = pgTable("audio_files", {
   storagePath: text("storage_path").notNull(),
   durationSeconds: integer("duration_seconds"),
   format: text("format"),
+  recordingStatus: text("recording_status").$type<"created" | "recording" | "paused" | "finalizing" | "finalized" | "interrupted">().notNull().default("created"),
+  transcriptionStatus: text("transcription_status").$type<"pending" | "processing" | "completed" | "retryable_failed">().notNull().default("pending"),
+  transcriptionFailureCode: text("transcription_failure_code"),
+  finalizedAt: timestamp("finalized_at", { withTimezone: true }),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const audioRecordingChunks = pgTable("audio_recording_chunks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  audioFileId: uuid("audio_file_id").references(() => audioFiles.id, { onDelete: "cascade" }).notNull(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  sequenceNumber: integer("sequence_number").notNull(),
+  storagePath: text("storage_path").notNull().unique(),
+  contentHash: text("content_hash").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [uniqueIndex("audio_recording_chunks_audio_sequence_idx").on(table.audioFileId, table.sequenceNumber)]);
 
 export const transcripts = pgTable("transcripts", {
   id: uuid("id").defaultRandom().primaryKey(),

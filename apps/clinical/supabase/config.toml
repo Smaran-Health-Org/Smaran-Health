@@ -40,7 +40,6 @@ allowed_mime_types = ["audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "aud
 # development.
 [analytics]
 enabled = false
-
 [storage.buckets.medical-documents]
 public = false
 file_size_limit = "4MB"

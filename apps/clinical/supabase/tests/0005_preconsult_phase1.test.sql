@@ -199,9 +199,11 @@ SELECT throws_ok(
   'merge provenance fields remain write-locked until Phase 2'
 );
 
-UPDATE public.appointments
-SET status = 'cancelled'
-WHERE idempotency_key = 'clinic-a-booking';
+SELECT public.scheduler_mutate_appointment_v3(
+  'cancel',
+  (SELECT id FROM public.appointments WHERE idempotency_key = 'clinic-a-booking'),
+  NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'phase1-cancel'
+);
 
 SELECT is(
   (

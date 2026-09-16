@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import {
-  getAppointment,
-  updateAppointmentStatus,
+  mutateSchedulerAppointment,
+  SchedulerMutationError,
 } from "@/lib/db/appointments";
-import { createAuditLog } from "@/lib/db/audit";
 import { updateAppointmentSchema } from "@/lib/validation";
 import {
   badRequest,
+  conflict,
   internalError,
   notFound,
   unauthorized,
@@ -28,25 +28,20 @@ export async function PATCH(
   }
 
   try {
-    const existing = await getAppointment(id, session.clinicId);
-    if (!existing) return notFound("Appointment not found");
-
-    const appointment = await updateAppointmentStatus(
-      id,
-      parsed.data.status,
-      session.clinicId
-    );
-
-    await createAuditLog(
-      session.clinicId,
-      session.profileId,
-      `appointment.${parsed.data.status}`,
-      "appointment",
-      appointment.id
-    );
+    const appointment = await mutateSchedulerAppointment({
+      ...parsed.data,
+      appointmentId: id,
+    });
 
     return NextResponse.json(appointment);
-  } catch {
+  } catch (error) {
+    if (error instanceof SchedulerMutationError) {
+      if (error.code === "not_found") return notFound("Appointment not found");
+      return conflict("Appointment lifecycle action was not accepted", {
+        code: error.code,
+        ...error.details,
+      });
+    }
     return internalError("Could not update appointment");
   }
 }

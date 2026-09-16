@@ -50,24 +50,17 @@ export async function getDashboardOverview(clinicId: string): Promise<DashboardO
   startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday start
   const weekIso = startOfWeek.toISOString();
 
-  // Fire all eight queries concurrently — one round-trip instead of sequential
-  // phases (previously the counts then the lists), plus the live clinic queue.
-  const [
-    todayQueue,
-    totalPatients,
-    totalConsultations,
-    awaitingReview,
-    approvedNotes,
-    consultationsThisWeek,
-    recentConsultations,
-    needsAttention,
-  ] = await Promise.all([
-    getAppointmentQueue(clinicId),
-    countRows(supabase, "patients", clinicId),
-    countRows(supabase, "consultations", clinicId),
-    countRows(supabase, "consultations", clinicId, { status: "draft_ready" }),
-    countRows(supabase, "clinical_notes", clinicId, { status: "approved" }),
-    countRows(supabase, "consultations", clinicId, { since: weekIso }),
+  const [todayQueue, totalPatients, totalConsultations, awaitingReview, approvedNotes, consultationsThisWeek] =
+    await Promise.all([
+      getAppointmentQueue(clinicId),
+      countRows(supabase, "patients", clinicId),
+      countRows(supabase, "consultations", clinicId),
+      countRows(supabase, "consultations", clinicId, { status: "draft_ready" }),
+      countRows(supabase, "clinical_notes", clinicId, { status: "approved" }),
+      countRows(supabase, "consultations", clinicId, { since: weekIso }),
+    ]);
+
+  const [recentConsultations, needsAttention] = await Promise.all([
     getRecentConsultations(clinicId, 6),
     getPendingConsultations(clinicId),
   ]);

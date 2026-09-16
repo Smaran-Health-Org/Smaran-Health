@@ -93,8 +93,8 @@ export function TodayPatientsList({
   const [intakePreview, setIntakePreview] = useState<{
     patientName: string;
     intakeUrl: string;
-    otp: string;
   } | null>(null);
+  const [intakeNotice, setIntakeNotice] = useState<string | null>(null);
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return queue.items;
@@ -129,6 +129,7 @@ export function TodayPatientsList({
   async function sendIntake(item: AppointmentQueueItem) {
     setError(null);
     setIntakePreview(null);
+    setIntakeNotice(null);
     setPendingAppointmentId(item.appointmentId);
     try {
       const response = await fetch(`/api/appointments/${item.appointmentId}/intake`, {
@@ -137,14 +138,17 @@ export function TodayPatientsList({
       const body = await response.json().catch(() => null) as {
         error?: string;
         deliveryStatus?: "sent" | "preview" | "pending";
+        recipient?: string;
         message?: string;
-        preview?: { intakeUrl: string; otp: string };
+        preview?: { intakeUrl: string };
       } | null;
       if (!response.ok) throw new Error(body?.error || "Could not send the intake link. Please try again.");
       if (body?.deliveryStatus === "preview" && body.preview) {
         setIntakePreview({ patientName: item.patientName, ...body.preview });
       } else if (body?.deliveryStatus === "pending") {
         setError(body.message || "Delivery confirmation is pending. Check the queue before resending.");
+      } else if (body?.deliveryStatus === "sent") {
+        setIntakeNotice(`Intake link sent to ${body.recipient || "the patient email"}.`);
       }
       router.refresh();
     } catch (deliveryError) {
@@ -181,14 +185,14 @@ export function TodayPatientsList({
       </div>
 
       {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
+      {intakeNotice ? <div className={styles.savedNotice} role="status">{intakeNotice}</div> : null}
       {intakePreview ? (
         <div className={styles.intakePreviewBanner} role="status">
           <div>
             <strong>Local preview for {intakePreview.patientName}</strong>
-            <span>Production delivery sends these directly to the registered mobile.</span>
+            <span>Live delivery sends the link to the configured patient email. This preview is development-only.</span>
           </div>
           <label>Secure link<input readOnly value={intakePreview.intakeUrl} /></label>
-          <label>OTP<input readOnly value={intakePreview.otp} /></label>
           <button type="button" className={styles.secondaryButton} onClick={() => setIntakePreview(null)}>Close</button>
         </div>
       ) : null}
@@ -261,7 +265,7 @@ export function TodayPatientsList({
                           ? "Awaiting delivery"
                           : item.intakeAccessStatus !== "not_sent"
                             ? "Resend intake"
-                            : "Send intake"}
+                            : "Send link"}
                     </button>
                   ) : null}
                   <button

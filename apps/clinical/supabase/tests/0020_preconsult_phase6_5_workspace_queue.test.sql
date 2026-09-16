@@ -38,7 +38,7 @@ SELECT has_function('public', 'reorder_waiting_queue', ARRAY['uuid', 'text'], 'm
 SELECT has_function('public', 'create_walk_in_with_consultation', ARRAY['uuid', 'uuid', 'text'], 'atomic walk-in function exists');
 SELECT ok(NOT has_column_privilege('authenticated', 'public.appointments', 'checked_in_at', 'UPDATE'), 'authenticated callers cannot set check-in time directly');
 SELECT ok(NOT has_column_privilege('authenticated', 'public.appointments', 'queue_order', 'UPDATE'), 'authenticated callers cannot set queue order directly');
-SELECT ok(has_column_privilege('authenticated', 'public.appointments', 'status', 'UPDATE'), 'authenticated callers retain appointment status updates');
+SELECT ok(NOT has_column_privilege('authenticated', 'public.appointments', 'status', 'UPDATE'), 'authenticated callers cannot bypass Scheduler lifecycle guards with direct status updates');
 SELECT is((SELECT count(*) FROM public.clinical_notes), 0::bigint, 'assistant cannot read doctor-only clinical notes');
 SELECT lives_ok(
   $$ UPDATE public.consultations SET status = 'approved' WHERE id = '46000000-0000-4000-8000-000000000001' $$,
