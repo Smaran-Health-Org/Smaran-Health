@@ -55,6 +55,9 @@ SELECT throws_ok(
 
 INSERT INTO public.doctor_working_hours (clinic_id, doctor_id, weekday, start_time, end_time) VALUES
   ('73000000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', 1, '09:00', '12:00');
+INSERT INTO public.doctor_working_hours (clinic_id, doctor_id, weekday, start_time, end_time)
+SELECT '73000000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', weekday, '00:00', '23:59'
+FROM (VALUES (0), (2), (3), (4), (5), (6)) AS weekdays(weekday);
 SELECT lives_ok(
   $$ INSERT INTO public.doctor_working_hours (clinic_id, doctor_id, weekday, start_time, end_time) VALUES ('73000000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', 1, '13:00', '17:00') $$,
   'non-overlapping working sessions remain valid'
@@ -87,6 +90,13 @@ SELECT is(public.open_unknown_duration_issues_for_future_scheduled_appointments(
 SELECT is((SELECT count(*) FROM public.appointment_scheduling_issues WHERE appointment_id = '73500000-0000-4000-8000-000000000001' AND status = 'open'), 1::bigint, 'future legacy issue is open');
 SELECT is((SELECT count(*) FROM public.appointment_scheduling_issues WHERE appointment_id = '73500000-0000-4000-8000-000000000002'), 0::bigint, 'completed legacy history remains duration-unknown without an open issue');
 
+-- This historical S1 fixture creates many future visits for one synthetic
+-- patient; raise its clinic's staff cap so it can test duration/receipt facts
+-- without relying on an implicit future-cap acknowledgement.
+UPDATE public.clinic_scheduler_settings
+SET patient_future_booking_cap = 20
+WHERE clinic_id = '73000000-0000-4000-8000-000000000001';
+
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '73100000-0000-4000-8000-000000000002', true);
 SELECT lives_ok($$ SELECT * FROM public.remediate_appointment_unknown_duration('73500000-0000-4000-8000-000000000001', 7) $$, 'explicit duration remediation succeeds');
@@ -104,7 +114,7 @@ SELECT is((SELECT duration_minutes FROM public.appointments WHERE idempotency_ke
 SELECT throws_ok($$ SELECT * FROM public.create_appointment_with_consultation_v2('73200000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', '2035-01-02T06:00:00Z', NULL, NULL, 4, 's1-invalid-duration') $$, '22023', 'Duration must be between 5 and 60 minutes', 'duration below five is rejected');
 SELECT lives_ok($$ SELECT * FROM public.create_appointment_with_consultation_v2('73200000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', '2035-01-02T07:00:00Z', '73300000-0000-4000-8000-000000000001', NULL, NULL, 's1-type-duration') $$, 'same-clinic same-doctor type is accepted');
 SELECT is((SELECT duration_minutes FROM public.appointments WHERE idempotency_key = 's1-type-duration'), 17, 'appointment type default beats doctor and clinic defaults');
-SELECT throws_ok($$ SELECT * FROM public.create_appointment_with_consultation_v2('73200000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', '2035-01-02T08:00:00Z', '73300000-0000-4000-8000-000000000003', NULL, NULL, 's1-cross-clinic-type') $$, 'P0002', 'Appointment type not found for this doctor in clinic', 'cross-clinic or wrong-doctor type is rejected');
+SELECT throws_ok($$ SELECT * FROM public.create_appointment_with_consultation_v2('73200000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', '2035-01-02T08:00:00Z', '73300000-0000-4000-8000-000000000003', NULL, NULL, 's1-cross-clinic-type') $$, '22023', 'Scheduler creation requires a new acknowledgement: invalid_doctor_type', 'cross-clinic or wrong-doctor type is rejected by S3 authority');
 
 SELECT set_config('request.jwt.claim.sub', '73100000-0000-4000-8000-000000000002', true);
 SELECT lives_ok($$ SELECT * FROM public.create_appointment_with_consultation_v2('73200000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', '2035-01-03T04:00:00Z', NULL, NULL, NULL, 's1-admin-create') $$, 'admin can create a Scheduler appointment');
@@ -129,7 +139,7 @@ UPDATE public.appointments SET scheduled_at = '2035-01-04T05:00:00Z', staff_note
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '73100000-0000-4000-8000-000000000001', true);
 SELECT lives_ok($$ SELECT * FROM public.create_appointment_with_consultation_v2('73200000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', '2035-01-04T04:00:00Z', NULL, NULL, NULL, 's1-replay') $$, 'later mutable Appointment fields do not define receipt replay');
-SELECT throws_ok($$ SELECT * FROM public.create_appointment_with_consultation_v2('73200000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', '2035-01-04T06:00:00Z', NULL, NULL, NULL, 's1-replay') $$, '22023', 'Idempotency key already used for different appointment creation request', 'mismatched request with the same key fails safely');
+SELECT throws_ok($$ SELECT * FROM public.create_appointment_with_consultation_v2('73200000-0000-4000-8000-000000000001', '73100000-0000-4000-8000-000000000001', '2035-01-04T06:00:00Z', NULL, NULL, NULL, 's1-replay') $$, '22023', 'Scheduler creation requires a new acknowledgement: idempotency_mismatch', 'mismatched request with the same key fails safely');
 
 RESET ROLE;
 UPDATE public.clinic_scheduler_settings SET default_duration_minutes = 5 WHERE clinic_id = '73000000-0000-4000-8000-000000000001';

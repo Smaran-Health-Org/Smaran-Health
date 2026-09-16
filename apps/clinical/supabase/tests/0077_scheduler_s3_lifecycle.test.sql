@@ -90,7 +90,7 @@ SELECT is((public.scheduler_mutate_appointment_v3('cancel', (SELECT id FROM publ
 SELECT is((SELECT count(*) FROM public.appointment_events WHERE appointment_id = (SELECT id FROM public.appointments WHERE idempotency_key = 's3-create-one') AND event_type = 'cancelled'), 1::bigint, 'cancel retry does not duplicate lifecycle event');
 
 SELECT is(
-  (public.scheduler_mutate_appointment_v3('rebook', (SELECT id FROM public.appointments WHERE idempotency_key = 's3-create-one'), NULL, NULL, '2035-01-09T04:00:00Z', NULL, NULL, NULL, NULL, 's3-rebook') ->> 'ok')::boolean,
+  (public.scheduler_mutate_appointment_v3('rebook', (SELECT id FROM public.appointments WHERE idempotency_key = 's3-create-one'), NULL, NULL, '2035-01-09T04:00:00Z', NULL, NULL, NULL, (SELECT updated_at FROM public.appointments WHERE idempotency_key = 's3-create-one'), 's3-rebook') ->> 'ok')::boolean,
   true,
   'rebook creates a replacement booking through the same authority'
 );
@@ -103,9 +103,10 @@ SELECT throws_ok(
 );
 SELECT ok(NOT has_table_privilege('authenticated', 'public.appointments', 'UPDATE'), 'direct Appointment update grant is removed');
 
+SELECT set_config('test.s3_cross_clinic_appointment_id', (SELECT id::text FROM public.appointments WHERE idempotency_key = 's3-overlap-accepted'), true);
 SELECT set_config('request.jwt.claim.sub', '77100000-0000-4000-8000-000000000004', true);
 SELECT throws_ok(
-  $$ SELECT public.scheduler_mutate_appointment_v3('cancel', (SELECT id FROM public.appointments WHERE idempotency_key = 's3-overlap-accepted'), NULL, NULL, NULL, NULL, NULL, NULL, NULL, 's3-cross-clinic') $$,
+  $$ SELECT public.scheduler_mutate_appointment_v3('cancel', current_setting('test.s3_cross_clinic_appointment_id')::uuid, NULL, NULL, NULL, NULL, NULL, NULL, '2000-01-01T00:00:00Z', 's3-cross-clinic') $$,
   'P0002', 'Appointment not found in clinic', 'cross-clinic lifecycle mutation is rejected'
 );
 

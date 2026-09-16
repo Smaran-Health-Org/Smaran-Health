@@ -14,6 +14,9 @@ INSERT INTO public.patients (id, clinic_id, full_name) VALUES
   ('76200000-0000-4000-8000-000000000001', '76000000-0000-4000-8000-000000000001', 'S1 Review Merge Source'),
   ('76200000-0000-4000-8000-000000000002', '76000000-0000-4000-8000-000000000001', 'S1 Review Merge Canonical');
 
+INSERT INTO public.doctor_availability_exceptions (clinic_id, doctor_id, exception_type, starts_at, ends_at)
+VALUES ('76000000-0000-4000-8000-000000000001', '76100000-0000-4000-8000-000000000001', 'special_working', '2040-01-01T04:00:00Z', '2040-01-01T05:00:00Z');
+
 SELECT ok(NOT has_table_privilege('authenticated', 'public.clinic_scheduler_settings', 'INSERT'), 'authenticated callers cannot create a clinic Scheduler settings singleton');
 SELECT ok(NOT has_table_privilege('authenticated', 'public.clinic_scheduler_settings', 'DELETE'), 'authenticated callers cannot delete a clinic Scheduler settings singleton');
 

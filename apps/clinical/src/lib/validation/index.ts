@@ -181,31 +181,41 @@ export const createAppointmentSchema = z.object({
   appointmentTypeId: z.string().uuid().optional(),
   staffNote: z.string().trim().max(2000).optional(),
   durationMinutes: z.number().int().min(5).max(60).optional(),
-  idempotencyKey: z.string().trim().min(1).max(200).optional(),
+  idempotencyKey: z.string().trim().min(1).max(200),
+  conflictAcknowledgements: z.array(schedulerConflictAcknowledgementSchema).max(20).optional(),
+  futureCapAcknowledgement: schedulerConflictAcknowledgementSchema.optional(),
+}).strict();
+
+const lifecycleCommandSchema = z.object({
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+  idempotencyKey: z.string().trim().min(1).max(200),
   conflictAcknowledgements: z.array(schedulerConflictAcknowledgementSchema).max(20).optional(),
   futureCapAcknowledgement: schedulerConflictAcknowledgementSchema.optional(),
 });
 
-export const updateAppointmentSchema = z.object({
-  action: z.enum(["reschedule", "reassign", "cancel", "no_show", "rebook"]),
-  patientId: z.string().uuid().optional(),
-  doctorId: z.string().uuid().optional(),
-  scheduledAt: z.string().datetime({ offset: true }).optional(),
-  durationMinutes: z.number().int().min(5).max(60).optional(),
-  appointmentTypeId: z.string().uuid().nullable().optional(),
-  staffNote: z.string().trim().max(2000).optional(),
-  expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
-  idempotencyKey: z.string().trim().min(1).max(200).optional(),
-  conflictAcknowledgements: z.array(schedulerConflictAcknowledgementSchema).max(20).optional(),
-  futureCapAcknowledgement: schedulerConflictAcknowledgementSchema.optional(),
-}).superRefine((value, context) => {
-  if (["reschedule", "rebook"].includes(value.action) && !value.scheduledAt) {
-    context.addIssue({ code: "custom", path: ["scheduledAt"], message: "Scheduled time is required" });
-  }
-  if (value.action === "reassign" && !value.doctorId) {
-    context.addIssue({ code: "custom", path: ["doctorId"], message: "Doctor is required" });
-  }
-});
+export const updateAppointmentSchema = z.discriminatedUnion("action", [
+  lifecycleCommandSchema.extend({
+    action: z.literal("reschedule"),
+    scheduledAt: z.string().datetime({ offset: true }),
+    durationMinutes: z.number().int().min(5).max(60).optional(),
+    appointmentTypeId: z.string().uuid().nullable().optional(),
+  }).strict(),
+  lifecycleCommandSchema.extend({
+    action: z.literal("reassign"),
+    doctorId: z.string().uuid(),
+    appointmentTypeId: z.string().uuid().nullable().optional(),
+  }).strict(),
+  lifecycleCommandSchema.extend({ action: z.literal("cancel") }).strict(),
+  lifecycleCommandSchema.extend({ action: z.literal("no_show") }).strict(),
+  lifecycleCommandSchema.extend({
+    action: z.literal("rebook"),
+    doctorId: z.string().uuid().optional(),
+    scheduledAt: z.string().datetime({ offset: true }),
+    durationMinutes: z.number().int().min(5).max(60).optional(),
+    appointmentTypeId: z.string().uuid().nullable().optional(),
+    staffNote: z.string().trim().max(2000).optional(),
+  }).strict(),
+]);
 
 export const appointmentQueueOperationSchema = z.object({
   operation: z.enum(["check_in", "mark_arrived", "mark_waiting", "start_consultation"]),

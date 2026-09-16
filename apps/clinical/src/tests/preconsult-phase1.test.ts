@@ -65,10 +65,11 @@ test("appointment validation requires a patient and scheduled timestamp", () => 
 
   assert.equal(
     createAppointmentSchema.safeParse({
-      patientId: PATIENT_ID,
-      doctorId: DOCTOR_ID,
-      scheduledAt: SCHEDULED_AT,
-      durationMinutes: 7,
+    patientId: PATIENT_ID,
+    doctorId: DOCTOR_ID,
+    scheduledAt: SCHEDULED_AT,
+    durationMinutes: 7,
+    idempotencyKey: "booking-2",
     }).success,
     true
   );
@@ -89,7 +90,26 @@ test("appointment validation requires a patient and scheduled timestamp", () => 
     }).success,
     false
   );
-  assert.equal(updateAppointmentSchema.safeParse({ action: "no_show" }).success, true);
+  assert.equal(updateAppointmentSchema.safeParse({
+    action: "no_show",
+    expectedUpdatedAt: SCHEDULED_AT,
+    idempotencyKey: "no-show-1",
+  }).success, true);
+  assert.equal(updateAppointmentSchema.safeParse({ action: "no_show" }).success, false);
+  assert.equal(updateAppointmentSchema.safeParse({
+    action: "reschedule",
+    patientId: PATIENT_ID,
+    scheduledAt: SCHEDULED_AT,
+    expectedUpdatedAt: SCHEDULED_AT,
+    idempotencyKey: "spoofed-reschedule",
+  }).success, false);
+  assert.equal(updateAppointmentSchema.safeParse({
+    action: "reassign",
+    doctorId: DOCTOR_ID,
+    scheduledAt: SCHEDULED_AT,
+    expectedUpdatedAt: SCHEDULED_AT,
+    idempotencyKey: "combined-reassign",
+  }).success, false);
   assert.equal(updateAppointmentSchema.safeParse({ action: "processing" }).success, false);
 });
 
