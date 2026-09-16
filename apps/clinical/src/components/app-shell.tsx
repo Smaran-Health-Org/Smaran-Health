@@ -60,6 +60,7 @@ export function AppShell({
   const isPatients = pathname.startsWith("/patients") || pathname.startsWith("/desk/patients");
   const isDashboard = pathname === "/dashboard";
   const isDeskHome = pathname === "/desk";
+  const isScheduler = pathname === "/scheduler";
   const homeHref = workspace === "desk" ? "/desk" : "/dashboard";
   const workspaceLabel = workspace === "desk" ? "Clinic Desk" : "Clinical";
 
@@ -89,6 +90,10 @@ export function AppShell({
                 <Icon name="home" />
                 <span>Today</span>
               </Link>
+              <Link href="/scheduler" className={isScheduler ? styles.activeNav : undefined} aria-label="Scheduler" title="Scheduler">
+                <Icon name="calendar" />
+                <span>Scheduler</span>
+              </Link>
               <Link
                 href="/patients"
                 className={isPatients ? styles.activeNav : undefined}
@@ -111,11 +116,10 @@ export function AppShell({
                 <span>Patients</span>
                 <small>{patientCount}</small>
               </Link>
-              <span className={styles.disabledNav} aria-disabled="true" aria-label="Scheduler, planned for later" title="Scheduler (planned)">
+              <Link href="/scheduler" className={isScheduler ? styles.activeNav : undefined} aria-label="Scheduler" title="Scheduler">
                 <Icon name="calendar" />
                 <span>Scheduler</span>
-                <small>Later</small>
-              </span>
+              </Link>
             </>
           )}
         </nav>

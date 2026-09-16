@@ -10,7 +10,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S3 — Complete. S4, S5 and S6 remain not started.**
+**PHASE S4 — Complete. S5 and S6 remain not started.**
 
 ## Phase tracker
 
@@ -20,7 +20,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 | S1 | Core scheduling data model | Complete | AC-SCH-F*, D01–D14, B11–B12, H01–H11, M01, P01, R03–R07 |
 | S2 | Availability engine | Complete | AC-SCH-A01–A11, P05–P08, F05 |
 | S3 | Atomic lifecycle + conflicts/concurrency | Complete | AC-SCH-B*, L*, P09–P12, R* |
-| S4 | Staff Scheduler calendar + booking modal | Not started | AC-SCH-U*, staff B* |
+| S4 | Staff Scheduler calendar + booking modal | Complete | AC-SCH-U01–U08, B01–B07, R01, R04 |
 | S5 | Schedule/settings + exceptions | Not started | AC-SCH-D*, H09–H11, M02 |
 | S6 | Unified Patient Portal scheduling | Not started | AC-SCH-P*, PP01–PP02, A09–A11 |
 | S7 | Patient preparation/link/history integration | Not started | AC-SCH-PP03–PP05, H08, lifecycle preservation |
@@ -173,3 +173,15 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 - Known limitations / deferred work: S3 establishes backend authority and lifecycle foundations only. S4 Staff Scheduler UI, S5 schedule/settings management, S6 patient portal/session adapters, patient-side rescheduling/cancellation, appointment holds, automated communications/reminders and patient override capability remain out of scope.
 - Product decisions/questions surfaced: None.
 - Recommended next task: No active next phase; S4 remains not started and requires separately scoped work.
+
+### Phase S4 — Staff Scheduler calendar and booking modal
+
+- Status: Complete.
+- Commit/PR: Implemented in the current working tree; no PR created.
+- Work completed: Added the shared, authenticated `/scheduler` staff surface for doctor, admin and assistant roles while preserving the clinical versus Clinic Desk shell. The Day and Week calendar uses Asia/Kolkata dates, multi-doctor Day filtering, actual persisted starts/durations, unknown-duration distinction, free-space booking prefill, appointment search/history, loading/empty/error states, and accessible native dialogs. The booking flow reuses patient search/create/duplicate review, type lookup, S2 server-side advisory preview, S3-backed creation, deliberate fingerprint-bound conflict/future-cap acknowledgement, exact idempotency retries, and explicit-only intake-link sending. Existing appointment actions use S3 lifecycle APIs, preserve stale-write safety, keep reassignment doctor-only, expose only read-only operational preparation summaries, and support the existing explicit unknown-duration remediation RPC. New calendar/search projections are clinic scoped and intentionally omit staff notes, clinical briefs, deltas, confirmed state, raw documents and audit metadata.
+- Files: `apps/clinical/src/app/scheduler/page.tsx`; `apps/clinical/src/components/scheduler-workspace.tsx`; `apps/clinical/src/lib/db/scheduler-read.ts`; authenticated Scheduler calendar, search, availability, booking-options and duration-remediation routes; navigation/CSS updates; `src/tests/scheduler-s4-read.test.ts`.
+- Acceptance criteria satisfied: AC-SCH-U01–U08; AC-SCH-B01–B07; AC-SCH-R01; AC-SCH-R04.
+- Tests/validation actually run: `npm run lint` (pass); `npx tsc --noEmit` (pass); `npm test` (pass, 131 tests including S4 read/privacy coverage); focused local DB tests `0077_scheduler_s3_lifecycle`, `0085_scheduler_s3_closure_review_fixes`, and `0008_preconsult_phase3_queue` (pass, 62 assertions); `npx next build --webpack` (pass). Default `npm run build` (Turbopack) is blocked in this environment by an OS port-binding failure while processing CSS; webpack validates the same production application successfully.
+- Security/privacy review: Every new Scheduler read is authenticated and clinic scoped. The generalized calendar/search shape excludes clinical interpretation, raw evidence, audit payloads and `staffNote`; scheduling writes remain exclusively on S3 authority, and Scheduler does not mutate Queue state.
+- Known limitations / deferred work: S5 schedule/settings and exceptions UI, S6 patient self-booking, reminders/automation, drag/drop, and Month view remain out of scope. Appointment staff notes are intentionally not displayed in S4 because no narrower, explicitly approved detail authorization contract existed.
+- Recommended next task: S5 — Doctor schedule/settings and exception management, scoped independently.
