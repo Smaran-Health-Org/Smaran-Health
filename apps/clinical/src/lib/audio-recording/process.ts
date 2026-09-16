@@ -1,6 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { configuredAudioTranscriptionAdapter } from "./transcription-adapter";
+import { sarvamAudioTranscriptionAdapter } from "./transcription-sarvam";
 
 /** Runs only on the server against the durable, ordered chunk manifest. */
 export async function transcribeDurableRecording(recordingId: string): Promise<void> {
@@ -14,7 +14,7 @@ export async function transcribeDurableRecording(recordingId: string): Promise<v
   if (chunksError) throw new Error("recording_chunks_unavailable");
   await service.from("audio_files").update({ transcription_status: "processing", transcription_failure_code: null }).eq("id", recordingId);
   try {
-    const result = await configuredAudioTranscriptionAdapter().transcribe({
+    const result = await sarvamAudioTranscriptionAdapter().transcribe({
       recordingId, consultationId: String(audio.consultation_id), clinicId: String(audio.clinic_id),
       format: typeof audio.format === "string" ? audio.format : null,
       chunks: (chunks ?? []).map((chunk) => ({ sequenceNumber: Number(chunk.sequence_number), storagePath: String(chunk.storage_path) })),
