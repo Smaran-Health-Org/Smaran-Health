@@ -1,5 +1,6 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getSessionContext } from "@/lib/db/session";
+import { resolveEffectiveSchedulerSettings } from "@/lib/db/scheduler-availability";
 import type { SessionContext } from "@/types";
 
 type ServerClient = Awaited<ReturnType<typeof createServerClient>>;
@@ -24,9 +25,15 @@ export type SchedulerAppointmentSummary = {
 
 export type SchedulerCalendar = {
   appointments: SchedulerAppointmentSummary[];
-  doctors: Array<{ id: string; fullName: string }>;
+  doctors: Array<{ id: string; fullName: string; effectiveIntervalMinutes: number }>;
   effectiveIntervalMinutes: number;
   timezone: "Asia/Kolkata";
+};
+
+export type SchedulerPatientSearchResult = {
+  id: string;
+  fullName: string;
+  phone: string | null;
 };
 
 export class SchedulerReadError extends Error {
@@ -79,14 +86,17 @@ export async function getSchedulerCalendarWithClient(
     .order("scheduled_at", { ascending: true });
   if (input.doctorIds?.length) appointmentQuery = appointmentQuery.in("doctor_id", input.doctorIds);
 
-  const [appointmentsResult, doctorsResult, settingsResult] = await Promise.all([
+  const [appointmentsResult, doctorsResult, settingsResult, doctorSettingsResult] = await Promise.all([
     appointmentQuery,
     supabase.from("profiles").select("id, full_name").eq("clinic_id", session.clinicId).eq("role", "doctor").order("full_name"),
-    supabase.from("clinic_scheduler_settings").select("scheduling_interval_minutes").eq("clinic_id", session.clinicId).maybeSingle(),
+    supabase.from("clinic_scheduler_settings").select("scheduling_interval_minutes, default_duration_minutes").eq("clinic_id", session.clinicId).maybeSingle(),
+    supabase.from("doctor_scheduler_settings").select("doctor_id, scheduling_interval_minutes, default_duration_minutes").eq("clinic_id", session.clinicId),
   ]);
-  if (appointmentsResult.error || doctorsResult.error || settingsResult.error) throw new SchedulerReadError("not_found");
+  if (appointmentsResult.error || doctorsResult.error || settingsResult.error || doctorSettingsResult.error || !settingsResult.data) throw new SchedulerReadError("not_found");
   const appointments = (appointmentsResult.data ?? []) as RawAppointment[];
   const doctors = (doctorsResult.data ?? []) as Array<{ id: string; full_name: string }>;
+  const doctorSettings = new Map((doctorSettingsResult.data ?? []).map((row: { doctor_id: string; scheduling_interval_minutes: number | null; default_duration_minutes: number | null }) => [row.doctor_id, row]));
+  const clinicSettings = settingsResult.data as { scheduling_interval_minutes: number; default_duration_minutes: number };
   const patientIds = [...new Set(appointments.map((row) => row.patient_id))];
   const consultationIds = [...new Set(appointments.map((row) => row.consultation_id))];
   const typeIds = [...new Set(appointments.flatMap((row) => row.appointment_type_id ? [row.appointment_type_id] : []))];
@@ -122,8 +132,19 @@ export async function getSchedulerCalendarWithClient(
         documentStatus: documentStatus.get(row.consultation_id) ?? "none", updatedAt: row.updated_at,
       }];
     }),
-    doctors: doctors.map((row) => ({ id: row.id, fullName: row.full_name })),
-    effectiveIntervalMinutes: settingsResult.data?.scheduling_interval_minutes ?? 5,
+    doctors: doctors.map((row) => {
+      const settings = doctorSettings.get(row.id);
+      const resolved = resolveEffectiveSchedulerSettings({
+        clinicIntervalMinutes: clinicSettings.scheduling_interval_minutes,
+        clinicDefaultDurationMinutes: clinicSettings.default_duration_minutes,
+        doctorIntervalMinutes: settings?.scheduling_interval_minutes,
+        doctorDefaultDurationMinutes: settings?.default_duration_minutes,
+        appointmentTypeDefaultDurationMinutes: null,
+        explicitDurationMinutes: null,
+      });
+      return { id: row.id, fullName: row.full_name, effectiveIntervalMinutes: resolved.effectiveIntervalMinutes };
+    }),
+    effectiveIntervalMinutes: clinicSettings.scheduling_interval_minutes,
     timezone: "Asia/Kolkata",
   };
 }
@@ -134,20 +155,33 @@ export async function getSchedulerCalendar(input: { startsAt: string; endsAt: st
   return getSchedulerCalendarWithClient(await createServerClient(), session, input);
 }
 
-export async function searchSchedulerAppointmentsWithClient(
+export async function searchSchedulerPatientsWithClient(
   supabase: ServerClient, session: SessionContext, input: { query: string; limit: number }
-): Promise<SchedulerAppointmentSummary[]> {
+): Promise<SchedulerPatientSearchResult[]> {
   assertStaff(session);
   const query = input.query.replace(/[%_,().]/g, " ").trim();
   if (query.length < 2 || query.length > 100) throw new SchedulerReadError("invalid");
-  const patientsResult = await supabase.from("patients").select("id").eq("clinic_id", session.clinicId).is("merged_into_patient_id", null).or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`).limit(input.limit);
+  const patientsResult = await supabase.from("patients").select("id, full_name, phone").eq("clinic_id", session.clinicId).is("merged_into_patient_id", null).or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`).order("full_name").limit(input.limit);
   if (patientsResult.error) throw new SchedulerReadError("not_found");
-  const patientIds = (patientsResult.data ?? []).map((row: { id: string }) => row.id);
-  if (!patientIds.length) return [];
-  const rows = await supabase.from("appointments").select("scheduled_at").eq("clinic_id", session.clinicId).in("patient_id", patientIds).order("scheduled_at", { ascending: false }).limit(input.limit);
-  if (rows.error || !rows.data?.length) return [];
-  const earliest = rows.data[rows.data.length - 1]?.scheduled_at;
-  const latest = new Date(Date.parse(rows.data[0].scheduled_at) + 1).toISOString();
+  return (patientsResult.data ?? []).map((row: { id: string; full_name: string; phone: string | null }) => ({ id: row.id, fullName: row.full_name, phone: row.phone }));
+}
+
+export async function getSchedulerPatientHistoryWithClient(
+  supabase: ServerClient, session: SessionContext, input: { patientId: string; limit: number }
+): Promise<SchedulerAppointmentSummary[]> {
+  assertStaff(session);
+  const patientResult = await supabase.from("patients").select("id").eq("id", input.patientId).eq("clinic_id", session.clinicId).is("merged_into_patient_id", null).maybeSingle();
+  if (patientResult.error || !patientResult.data) throw new SchedulerReadError("not_found");
+  const appointmentsResult = await supabase.from("appointments")
+    .select("scheduled_at")
+    .eq("clinic_id", session.clinicId)
+    .eq("patient_id", input.patientId)
+    .order("scheduled_at", { ascending: false })
+    .limit(input.limit);
+  if (appointmentsResult.error || !appointmentsResult.data?.length) return [];
+  const earliest = appointmentsResult.data[appointmentsResult.data.length - 1]?.scheduled_at;
+  const latest = new Date(Date.parse(appointmentsResult.data[0].scheduled_at) + 1).toISOString();
   return (await getSchedulerCalendarWithClient(supabase, session, { startsAt: earliest, endsAt: latest, allowLongRange: true })).appointments
-    .filter((appointment) => patientIds.includes(appointment.patientId)).slice(0, input.limit);
+    .filter((appointment) => appointment.patientId === input.patientId)
+    .slice(0, input.limit);
 }

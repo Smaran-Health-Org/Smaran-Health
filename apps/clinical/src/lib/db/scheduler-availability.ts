@@ -48,6 +48,17 @@ export type PatientAvailabilityRequest = {
   localDate: string;
 };
 
+export type SchedulerBookingOptions = {
+  effectiveIntervalMinutes: number;
+  effectiveDefaultDurationMinutes: number;
+  appointmentTypes: Array<{
+    id: string;
+    name: string;
+    defaultDurationMinutes: number | null;
+    resolvedDurationMinutes: number;
+  }>;
+};
+
 /**
  * This context may only be constructed by a verified patient-authentication or
  * patient-session layer. It is not derived from a normal profile/staff session
@@ -100,6 +111,48 @@ function assertOperationalStaff(session: SessionContext): void {
   if (!["doctor", "admin", "assistant"].includes(session.role)) {
     throw new SchedulerAvailabilityError("forbidden");
   }
+}
+
+/**
+ * A narrow S4 read projection. Settings precedence remains centralized in
+ * resolveEffectiveSchedulerSettings rather than being reproduced by the UI.
+ */
+export async function getStaffSchedulerBookingOptionsWithClient(
+  supabase: ServerClient,
+  session: SessionContext,
+  doctorId: string
+): Promise<SchedulerBookingOptions> {
+  assertOperationalStaff(session);
+  const [doctorResponse, clinicSettingsResponse, doctorSettingsResponse, typesResponse] = await Promise.all([
+    supabase.from("profiles").select("id, role").eq("id", doctorId).eq("clinic_id", session.clinicId).eq("role", "doctor").maybeSingle(),
+    supabase.from("clinic_scheduler_settings").select("scheduling_interval_minutes, default_duration_minutes").eq("clinic_id", session.clinicId).single(),
+    supabase.from("doctor_scheduler_settings").select("scheduling_interval_minutes, default_duration_minutes").eq("clinic_id", session.clinicId).eq("doctor_id", doctorId).maybeSingle(),
+    supabase.from("appointment_types").select("id, name, default_duration_minutes").eq("clinic_id", session.clinicId).eq("doctor_id", doctorId).eq("is_active", true).order("name"),
+  ]);
+  const doctor = rowsOrThrow(doctorResponse);
+  const clinicSettings = rowsOrThrow(clinicSettingsResponse) as Pick<SchedulerSettingsRow, "scheduling_interval_minutes" | "default_duration_minutes">;
+  if (!doctor || doctor.role !== "doctor" || doctorSettingsResponse.error || typesResponse.error) {
+    throw new SchedulerAvailabilityError("not_found");
+  }
+  const resolve = (appointmentTypeDefaultDurationMinutes: number | null) => resolveEffectiveSchedulerSettings({
+    clinicIntervalMinutes: clinicSettings.scheduling_interval_minutes,
+    clinicDefaultDurationMinutes: clinicSettings.default_duration_minutes,
+    doctorIntervalMinutes: doctorSettingsResponse.data?.scheduling_interval_minutes,
+    doctorDefaultDurationMinutes: doctorSettingsResponse.data?.default_duration_minutes,
+    appointmentTypeDefaultDurationMinutes,
+    explicitDurationMinutes: undefined,
+  });
+  const defaults = resolve(null);
+  return {
+    effectiveIntervalMinutes: defaults.effectiveIntervalMinutes,
+    effectiveDefaultDurationMinutes: defaults.resolvedDurationMinutes,
+    appointmentTypes: (typesResponse.data ?? []).map((type: { id: string; name: string; default_duration_minutes: number | null }) => ({
+      id: type.id,
+      name: type.name,
+      defaultDurationMinutes: type.default_duration_minutes,
+      resolvedDurationMinutes: resolve(type.default_duration_minutes).resolvedDurationMinutes,
+    })),
+  };
 }
 
 async function resolveAvailability(
