@@ -320,6 +320,7 @@ export const appointments = pgTable(
     appointmentTypeId: uuid("appointment_type_id").references(() => appointmentTypes.id, {
       onDelete: "restrict",
     }),
+    rebookedFromAppointmentId: uuid("rebooked_from_appointment_id"),
     staffNote: text("staff_note"),
     creationRequest: jsonb("creation_request"),
     creationRequestFingerprint: text("creation_request_fingerprint"),
@@ -457,13 +458,32 @@ export const appointmentEvents = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
     appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
-    eventType: text("event_type").$type<"created" | "unknown_duration_resolved">().notNull(),
+    eventType: text("event_type").$type<"created" | "unknown_duration_resolved" | "rescheduled" | "reassigned" | "cancelled" | "no_show" | "rebooked" | "override_doctor_overlap" | "override_patient_overlap" | "override_availability" | "override_unresolved_duration" | "future_cap_acknowledged">().notNull(),
     actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "set null" }),
     actorRole: profileRoleEnum("actor_role"),
     payload: jsonb("payload").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index("appointment_events_appointment_created_idx").on(table.appointmentId, table.createdAt)]
+);
+
+export const appointmentLifecycleReceipts = pgTable(
+  "appointment_lifecycle_receipts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }),
+    action: text("action").$type<"create" | "reschedule" | "reassign" | "cancel" | "no_show" | "rebook">().notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    response: jsonb("response").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("appointment_lifecycle_receipts_unique").on(table.clinicId, table.idempotencyKey),
+    index("appointment_lifecycle_receipts_appointment_created_idx").on(table.appointmentId, table.createdAt),
+  ]
 );
 
 export const appointmentSchedulingIssues = pgTable(

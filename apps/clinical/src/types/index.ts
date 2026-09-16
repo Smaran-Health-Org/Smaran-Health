@@ -13,6 +13,7 @@ import type {
   doctorAvailabilityExceptions,
   appointmentTypes,
   appointmentEvents,
+  appointmentLifecycleReceipts,
   appointmentSchedulingIssues,
   appointmentSchedulingIssueHistory,
   encounterPriorityEvents,
@@ -52,6 +53,7 @@ export type DoctorWorkingHours = InferSelectModel<typeof doctorWorkingHours>;
 export type DoctorAvailabilityException = InferSelectModel<typeof doctorAvailabilityExceptions>;
 export type AppointmentType = InferSelectModel<typeof appointmentTypes>;
 export type AppointmentEvent = InferSelectModel<typeof appointmentEvents>;
+export type AppointmentLifecycleReceipt = InferSelectModel<typeof appointmentLifecycleReceipts>;
 export type AppointmentSchedulingIssue = InferSelectModel<typeof appointmentSchedulingIssues>;
 export type AppointmentSchedulingIssueHistory = InferSelectModel<typeof appointmentSchedulingIssueHistory>;
 export type EncounterPriorityEvent = InferSelectModel<typeof encounterPriorityEvents>;

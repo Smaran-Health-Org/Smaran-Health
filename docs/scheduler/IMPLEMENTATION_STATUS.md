@@ -10,7 +10,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S2 — Complete. Final deterministic validation and targeted closure review passed. S3 remains not started.**
+**PHASE S2 — Complete. S3 implementation is in progress; it has not received final regression, independent review, or closure.**
 
 ## Phase tracker
 
@@ -19,7 +19,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 | S0 | Specification guardrails + refinement/architecture synchronization | Complete | Documentation/discoverability |
 | S1 | Core scheduling data model | Complete | AC-SCH-F*, D01–D14, B11–B12, H01–H11, M01, P01, R03–R07 |
 | S2 | Availability engine | Complete | AC-SCH-A01–A11, P05–P08, F05 |
-| S3 | Atomic lifecycle + conflicts/concurrency | Not started | AC-SCH-B*, L*, P09–P12, R* |
+| S3 | Atomic lifecycle + conflicts/concurrency | In progress — not closed | AC-SCH-B*, L*, P09–P12, R* |
 | S4 | Staff Scheduler calendar + booking modal | Not started | AC-SCH-U*, staff B* |
 | S5 | Schedule/settings + exceptions | Not started | AC-SCH-D*, H09–H11, M02 |
 | S6 | Unified Patient Portal scheduling | Not started | AC-SCH-P*, PP01–PP02, A09–A11 |
@@ -158,3 +158,13 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 - Known limitations / deferred work: S2 does not implement booking mutation; authoritative save-time conflict validation; concurrency locking; slot holds; first-save-wins transaction handling; deliberate overlap or outside-hours overrides; semantic rescheduling; cancellation/no-show mutation; Scheduler calendar UI; patient OTP scheduling UI; doctor schedule/settings management; affected-count behavior; or automated communications. These are later Scheduler work, not S2 defects.
 - Product decisions/questions surfaced: None.
 - Recommended next task: **S3 — Atomic appointment lifecycle, authoritative conflict validation, concurrency and deliberate overrides.** S3 remains not started.
+
+### Phase S3 — Atomic lifecycle, conflicts and concurrency
+
+- Status: In progress — intentionally not closed.
+- Work completed so far: added the transactional `scheduler_mutate_appointment_v3` authority for staff create/reschedule/reassign/cancel/no-show/rebook, deterministic clinic+doctor/patient/receipt advisory domains, stale checks, lifecycle receipts, save-time conflict acknowledgement fingerprints, conservative unknown-duration occupancy, staff future-cap acknowledgement, safe event/audit records, and rebook lineage. The legacy S1 creation RPC now routes through S3; the trusted walk-in Queue path remains separate and retains immediate check-in behavior.
+- DB migrations: `0077_scheduler_s3_lifecycle.sql`, `0078_scheduler_s3_creation_entrypoint_hardening.sql`, `0079_scheduler_s3_compatibility_errors.sql`, `0080_scheduler_s3_legacy_creation_replay.sql`, `0081_scheduler_s3_conflict_candidate_fingerprints.sql`, `0082_scheduler_s3_legacy_rpc_compatibility.sql`, `0083_scheduler_s3_walk_in_replay_compatibility.sql`.
+- Tests/validation actually run: local `npm run db:migrate` (pass); focused `0073_scheduler_s1.test.sql` plus `0077_scheduler_s3_lifecycle.test.sql` (pass, 80 assertions); focused TypeScript appointment-wrapper test (pass, 6 tests); `npx tsc --noEmit` (pass). Full deterministic validation passed: `npm run test:db` (31 pgTAP files / 806 tests), `npm test` (129 tests), and `npm run lint`. `npm run build` remains environment-blocked by the known Turbopack socket restriction; `npx next build --webpack` passed. Independent review and phase closure remain pending.
+- Security/privacy review: direct authenticated `appointments` UPDATE is revoked; Queue remains on its guarded definer functions. Lifecycle functions authenticate clinic-scoped doctor/admin/assistant actors and preserve doctor-only clinical boundaries. Scheduling events omit staff notes, rationale, and clinical content.
+- Known limitations before closure: S3 still requires the prescribed broader deterministic regression/CI and independent review. S4 UI, S5 scheduling-configuration work, and S6 patient portal/session adapters remain out of scope.
+- Recommended next task: perform the specified implementation review/CI workflow; do not mark S3 complete without it.

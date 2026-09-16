@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   createAppointmentWithClient,
-  updateAppointmentStatusWithClient,
+  mutateSchedulerAppointmentWithClient,
 } from "../lib/db/appointments";
 import {
   normalizePatientName,
@@ -89,11 +89,11 @@ test("appointment validation requires a patient and scheduled timestamp", () => 
     }).success,
     false
   );
-  assert.equal(updateAppointmentSchema.safeParse({ status: "no_show" }).success, true);
-  assert.equal(updateAppointmentSchema.safeParse({ status: "processing" }).success, false);
+  assert.equal(updateAppointmentSchema.safeParse({ action: "no_show" }).success, true);
+  assert.equal(updateAppointmentSchema.safeParse({ action: "processing" }).success, false);
 });
 
-test("appointment creation delegates one atomic, idempotent RPC call", async () => {
+test("appointment creation delegates one atomic Scheduler lifecycle RPC call", async () => {
   let rpcName: string | undefined;
   let rpcArgs: Record<string, unknown> | undefined;
   const row = {
@@ -118,7 +118,7 @@ test("appointment creation delegates one atomic, idempotent RPC call", async () 
     rpc: async (name: string, args: Record<string, unknown>) => {
       rpcName = name;
       rpcArgs = args;
-      return { data: [row], error: null };
+      return { data: { ok: true, appointment: row }, error: null };
     },
   } as unknown as Parameters<typeof createAppointmentWithClient>[0];
 
@@ -131,24 +131,29 @@ test("appointment creation delegates one atomic, idempotent RPC call", async () 
     idempotencyKey: "booking-1",
   });
 
-  assert.equal(rpcName, "create_appointment_with_consultation_v2");
+  assert.equal(rpcName, "scheduler_mutate_appointment_v3");
   assert.deepEqual(rpcArgs, {
+    p_action: "create",
+    p_appointment_id: null,
     p_patient_id: PATIENT_ID,
     p_doctor_id: DOCTOR_ID,
     p_scheduled_at: SCHEDULED_AT,
     p_appointment_type_id: null,
     p_staff_note: "staff-only scheduling note",
     p_duration_minutes: 7,
+    p_expected_updated_at: null,
     p_idempotency_key: "booking-1",
+    p_conflict_acknowledgements: [],
+    p_future_cap_acknowledgement: null,
   });
   assert.equal(appointment.consultationId, CONSULTATION_ID);
   assert.equal(appointment.status, "scheduled");
   assert.equal(appointment.durationMinutes, 7);
 });
 
-test("cancelled and no-show updates touch appointments only", async () => {
-  const touchedTables: string[] = [];
-  let updatePayload: Record<string, unknown> | undefined;
+test("lifecycle mutations use the guarded Scheduler RPC", async () => {
+  let rpcName: string | undefined;
+  let rpcArgs: Record<string, unknown> | undefined;
   const appointment = {
     id: APPOINTMENT_ID,
     clinicId: CLINIC_ID,
@@ -162,41 +167,26 @@ test("cancelled and no-show updates touch appointments only", async () => {
     createdAt: "2026-08-30T10:00:00.000Z",
     updatedAt: "2026-08-30T10:00:00.000Z",
   };
-  const query = {
-    update(payload: Record<string, unknown>) {
-      updatePayload = payload;
-      return query;
-    },
-    eq() {
-      return query;
-    },
-    select() {
-      return query;
-    },
-    async single() {
-      return { data: { ...appointment, status: updatePayload?.status }, error: null };
-    },
-  };
   const client = {
-    from(table: string) {
-      touchedTables.push(table);
-      return query;
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      rpcName = name;
+      rpcArgs = args;
+      return { data: { ok: true, appointment }, error: null };
     },
-  } as unknown as Parameters<typeof updateAppointmentStatusWithClient>[0];
+  } as unknown as Parameters<typeof mutateSchedulerAppointmentWithClient>[0];
 
-  for (const status of ["cancelled", "no_show"] as const) {
-    const result = await updateAppointmentStatusWithClient(
-      client,
-      APPOINTMENT_ID,
-      status,
-      CLINIC_ID
-    );
-    assert.equal(result.status, status);
-  }
+  const result = await mutateSchedulerAppointmentWithClient(client, {
+    action: "cancel",
+    appointmentId: APPOINTMENT_ID,
+    expectedUpdatedAt: "2026-08-30T10:00:00.000Z",
+    idempotencyKey: "cancel-1",
+  });
 
-  assert.deepEqual(touchedTables, ["appointments", "appointments"]);
-  assert.equal(updatePayload?.status, "no_show");
-  assert.equal("consultation_status" in (updatePayload ?? {}), false);
+  assert.equal(result.status, "cancelled");
+  assert.equal(rpcName, "scheduler_mutate_appointment_v3");
+  assert.equal(rpcArgs?.p_action, "cancel");
+  assert.equal(rpcArgs?.p_appointment_id, APPOINTMENT_ID);
+  assert.equal("p_status" in (rpcArgs ?? {}), false);
 });
 
 test("migration keeps name and phone as non-unique clinic-scoped signals", () => {
