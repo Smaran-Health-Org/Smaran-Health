@@ -80,12 +80,12 @@ SELECT throws_ok($$ SELECT public.issue_patient_portal_access('88200000-0000-400
 SELECT throws_ok($$ SELECT public.issue_patient_portal_access('88200000-0000-4000-8000-000000000007', repeat('1',64), repeat('2',64), now() + interval '25 hours', now() + interval '10 minutes') $$, '22023', NULL, 'overlong link expiry is rejected');
 
 SELECT set_config('request.jwt.claim.sub', '88100000-0000-4000-8000-000000000001', true);
+SELECT isnt(public.verify_patient_portal_code(repeat('a',64), repeat('b',64), repeat('1',64)), 'verified', 'untouched pending access cannot verify before delivery is attempted');
 SELECT lives_ok($$ SELECT public.record_patient_portal_delivery(current_setting('test.portal_access_one')::uuid, 'pending', 'email', 'resend', 'one@example.invalid') $$, 'pending delivery metadata is accepted');
 RESET ROLE;
 SELECT ok((SELECT invalidated_at IS NULL FROM public.patient_portal_access_sessions WHERE id = current_setting('test.portal_access_one')::uuid), 'pending delivery leaves the access session valid');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '88100000-0000-4000-8000-000000000001', true);
-SELECT isnt(public.verify_patient_portal_code(repeat('a',64), repeat('b',64), repeat('1',64)), 'verified', 'delivery must be sent or preview before verification');
 SELECT lives_ok($$ SELECT public.record_patient_portal_delivery(current_setting('test.portal_access_one')::uuid, 'sent', 'email', 'resend', 'one@example.invalid', 'portal-sent-one') $$, 'sent delivery is accepted');
 RESET ROLE;
 SELECT is((SELECT provider_message_id FROM public.patient_portal_access_sessions WHERE id = current_setting('test.portal_access_one')::uuid), 'portal-sent-one', 'sent delivery persists safe provider metadata');

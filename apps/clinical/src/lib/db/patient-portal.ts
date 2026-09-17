@@ -17,10 +17,14 @@ import {
 } from "@/lib/patient-portal/security";
 import { patientPortalUrl } from "@/lib/patient-portal/security";
 import {
-  NotificationDeliveryError,
   sendPatientPortalInvitation,
-  type NotificationDelivery,
 } from "@/lib/notifications/intake-invitation";
+import {
+  deliverPatientPortalInvitation,
+  PatientPortalInvitationDeliveryError,
+  type PatientPortalDeliveryRecord,
+  type PatientPortalInvitationDelivery,
+} from "@/lib/patient-portal/invitation-delivery";
 
 type PortalContextRow = {
   clinic_id: string;
@@ -62,7 +66,7 @@ export function maskEmail(email: string): string {
 export async function issuePatientPortalInvitation(patientId: string): Promise<{
   accessSessionId: string;
   maskedRecipient: string;
-  delivery: NotificationDelivery | { status: "pending"; provider: "resend" | "preview" };
+  delivery: PatientPortalInvitationDelivery;
   preview?: { portalUrl: string; verificationCode: string };
 }> {
   const session = await getSessionContext();
@@ -84,44 +88,39 @@ export async function issuePatientPortalInvitation(patientId: string): Promise<{
 
   const recipient = issued.destination_email;
   const pendingProvider = process.env.INTAKE_DELIVERY_MODE === "live" ? "resend" : "preview";
-  const { error: pendingError } = await supabase.rpc("record_patient_portal_delivery", {
-    p_access_session_id: issued.access_session_id, p_delivery_status: "pending", p_delivery_channel: "email",
-    p_delivery_provider: pendingProvider, p_delivery_recipient: recipient,
-    p_provider_message_id: null, p_failure_code: null,
-  });
-  if (pendingError) mapPortalRpcError(pendingError);
+  const recordDelivery = async (record: PatientPortalDeliveryRecord) => {
+    const { error: recordError } = await supabase.rpc("record_patient_portal_delivery", {
+      p_access_session_id: issued.access_session_id,
+      p_delivery_status: record.status,
+      p_delivery_channel: record.channel,
+      p_delivery_provider: record.provider,
+      p_delivery_recipient: record.recipient,
+      p_provider_message_id: record.providerMessageId ?? null,
+      p_failure_code: record.failureCode ?? null,
+    });
+    if (recordError) mapPortalRpcError(recordError);
+  };
 
-  let delivery: NotificationDelivery;
+  let delivery: PatientPortalInvitationDelivery;
   try {
-    delivery = await sendPatientPortalInvitation({
-      type: "patient_portal_invitation",
-      channel: "email",
-      recipient,
-      variables: { patientFirstName: issued.patient_first_name, clinicName: issued.clinic_name, portalUrl },
-      metadata: { clinicId: session.clinicId, patientId, accessSessionId: issued.access_session_id },
+    delivery = await deliverPatientPortalInvitation({
+      notification: {
+        type: "patient_portal_invitation",
+        channel: "email",
+        recipient,
+        variables: { patientFirstName: issued.patient_first_name, clinicName: issued.clinic_name, portalUrl },
+        metadata: { clinicId: session.clinicId, patientId, accessSessionId: issued.access_session_id },
+      },
+      pendingProvider,
+      send: sendPatientPortalInvitation,
+      recordDelivery,
     });
   } catch (error) {
-    if (error instanceof NotificationDeliveryError && error.kind === "ambiguous") {
-      return {
-        accessSessionId: issued.access_session_id,
-        maskedRecipient: maskEmail(recipient),
-        delivery: { status: "pending", provider: pendingProvider },
-      };
+    if (error instanceof PatientPortalInvitationDeliveryError) {
+      throw new PatientPortalError(error.kind === "invalid_recipient" ? "delivery_invalid" : "delivery_unavailable");
     }
-    const safeCode = error instanceof NotificationDeliveryError ? error.safeCode : "delivery_unavailable";
-    const { error: failedRecordError } = await supabase.rpc("record_patient_portal_delivery", {
-      p_access_session_id: issued.access_session_id, p_delivery_status: "failed", p_delivery_channel: "email",
-      p_delivery_provider: "resend", p_delivery_recipient: recipient, p_provider_message_id: null, p_failure_code: safeCode,
-    });
-    if (failedRecordError) mapPortalRpcError(failedRecordError);
-    throw new PatientPortalError(error instanceof NotificationDeliveryError && error.kind === "invalid_recipient" ? "delivery_invalid" : "delivery_unavailable");
+    throw error;
   }
-  const { error: recordError } = await supabase.rpc("record_patient_portal_delivery", {
-    p_access_session_id: issued.access_session_id, p_delivery_status: delivery.status, p_delivery_channel: "email",
-    p_delivery_provider: delivery.provider, p_delivery_recipient: recipient,
-    p_provider_message_id: delivery.providerMessageId ?? null, p_failure_code: null,
-  });
-  if (recordError) mapPortalRpcError(recordError);
   return {
     accessSessionId: issued.access_session_id,
     maskedRecipient: maskEmail(recipient),
