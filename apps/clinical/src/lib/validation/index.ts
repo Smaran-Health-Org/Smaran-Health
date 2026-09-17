@@ -242,6 +242,24 @@ export const verifyPatientIntakeOtpSchema = z.object({
   otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
 });
 
+// ── Patient Portal (Scheduler S6) ──────────────────────────────────────────
+
+export const verifyPatientPortalCodeSchema = z.object({
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit verification code"),
+}).strict();
+
+export const patientPortalAvailabilityQuerySchema = z.object({
+  doctorId: z.string().uuid(),
+  localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+}).strict();
+
+export const patientPortalBookingSchema = z.object({
+  doctorId: z.string().uuid(),
+  scheduledAt: z.string().datetime({ offset: true }),
+  idempotencyKey: z.string().trim().min(1).max(200),
+  warningProof: z.string().trim().min(1).max(1000).optional(),
+}).strict();
+
 const selfReportedItemSchema = z.string().trim().min(1).max(300);
 
 export const submitPatientIntakeSchema = z.object({

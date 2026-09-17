@@ -10,7 +10,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S5 — Complete. S6 remains not started.**
+**PHASE S5 — Complete. S6 is partially implemented; shared S3 patient-confirmation work remains.**
 
 ## Phase tracker
 
@@ -22,7 +22,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 | S3 | Atomic lifecycle + conflicts/concurrency | Complete | AC-SCH-B*, L*, P09–P12, R* |
 | S4 | Staff Scheduler calendar + booking modal | Complete | AC-SCH-U01–U08, B01–B07, R01, R04 |
 | S5 | Schedule/settings + exceptions | Complete | AC-SCH-D*, H09–H11, M02 |
-| S6 | Unified Patient Portal scheduling | Not started | AC-SCH-P*, PP01–PP02, A09–A11 |
+| S6 | Unified Patient Portal scheduling | Partial | AC-SCH-P*, PP01–PP02, A09–A11 |
 | S7 | Patient preparation/link/history integration | Not started | AC-SCH-PP03–PP05, H08, lifecycle preservation |
 | S8 | Security/regression/pilot hardening | Not started | All relevant AC-SCH-*; especially R* and B09 |
 
@@ -198,3 +198,17 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 - Known limitations / deferred work: The impact summary intentionally returns counts only, not patient/clinical content. S6 patient self-booking, communications, drag/drop, Month view and any clinical-account deactivation are still out of scope.
 - Product decisions/questions surfaced: None.
 - Recommended next task: S6 only after a separately scoped request.
+
+### Phase S6 — Unified Patient Portal scheduling foundation
+
+- Status: Partial.
+- Work completed: Added a staff-issued, high-entropy Patient Portal email-link foundation. The new access session is clinic/patient scoped, preserves merged-source provenance, requires a canonical patient with registered email and mobile, HMAC-stores only credential digests, limits verification to five attempts within ten minutes, and establishes/revokes a hash-only HttpOnly portal cookie session. Existing Intake security helpers now use extracted shared credential primitives without changing Intake behavior. A narrow staff Send portal link control is available in doctor Patient Details and the operational Clinic Desk patient surface. The portal has patient-safe doctor discovery, S2-backed availability, upcoming/basic history, and explicit logout; its UI reveals no clinical or Scheduler-internal data.
+- Acceptance criteria partially evidenced: AC-SCH-P01 (existing clinic setting remains the S2 policy source), AC-SCH-P02, AC-SCH-PP01 foundation, AC-SCH-A09–A11 via the existing S2 patient projection, and AC-SCH-R02/R04 session/read boundaries. AC-SCH-P03–P12, PP02 preparation/document adapters, appointment detail, R05 concurrency/security DB tests, and portal booking remain open.
+- Files changed: `apps/clinical/supabase/migrations/0087_scheduler_s6_patient_portal.sql`; `apps/clinical/src/lib/patient-access/security.ts`; `apps/clinical/src/lib/patient-portal/*`; `apps/clinical/src/lib/db/patient-portal.ts`; Patient Portal routes/UI; patient portal email/template and send action; validation/schema/test updates; this Scheduler documentation.
+- DB migrations: `0087_scheduler_s6_patient_portal.sql`.
+- Tests/validation actually run: local `npm run db:reset` through `0087` (pass); `npx tsx --test src/tests/patient-portal-security.test.ts` (pass, 3 tests); filtered `npm test -- --test-name-pattern='patient portal|intake'` (pass, 147 tests); `npx tsc --noEmit` (pass); `npm run lint` (pass); `npx next build --webpack` (pass).
+- Security/privacy review: no raw portal link token, verification code, or verified-session secret is persisted; direct portal-table browser DML is revoked; protected portal reads first resolve a server-side cookie digest to clinic plus canonical patient; pre-verification UI reveals no patient/clinic data; patient-safe projections omit clinical state, staff notes, exceptions, audit/event payloads and other appointment identifiers. Preview URL/code remain only in the authenticated staff response. The portal does not alter Intake credentials, consent, documents, Queue, or staff Scheduler behavior.
+- Concurrency/idempotency review: access issuance invalidates earlier credentials under the patient row lock; verification locks its session row; booking concurrency/idempotency remains intentionally unimplemented rather than creating a second Appointment authority.
+- Known limitations: Patient Confirm is deliberately absent. The remaining S6 work must extract the proven S3 create branch into a private shared create core and add the stricter portal wrapper, portal receipts/warning proofs, two-session races, appointment detail and appointment-scoped Intake/document adapters. Patient reschedule/cancel remain disabled.
+- Product decisions/questions surfaced: None; S-D093 records the approved email-link/fixed-code MVP interpretation.
+- Recommended next task: Complete the bounded S3 shared-create extraction plus patient booking transaction and its database concurrency tests before enabling slot confirmation in the UI.

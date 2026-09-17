@@ -86,6 +86,7 @@ These decisions are approved from the Scheduler refinement. Do not silently reve
 - **S-D062** After self-booking, patient remains in the same authenticated portal and can immediately complete details/upload documents.
 - **S-D063** Staff has an explicit Send Patient Link action; automatic send after every booking is not required in MVP.
 - **S-D064** Patient-visible appointment timeline is a safe projection, not the raw internal audit log.
+- **S-D093** S6 MVP Patient Portal access is staff-issued and patient-specific: a high-entropy secure link is delivered through the existing Resend email path, then the patient enters the fixed verification code `123456`. The code is an additional verification gate, not proof of possession of the registered phone; no SMS/OTP provider, public clinic key, public patient lookup, or patient account is introduced. Intake remains its existing direct secure-link flow.
 
 ## Multi-doctor and doctor lifecycle
 

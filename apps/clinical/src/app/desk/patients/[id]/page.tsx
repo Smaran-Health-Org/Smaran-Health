@@ -10,6 +10,7 @@ import { AppShell } from "@/components/app-shell";
 import { DocumentManager } from "@/components/document-manager";
 import { AssistedIntake } from "@/components/assisted-intake";
 import { OperationalPatientDetails } from "@/components/operational-patient-details";
+import { SendPatientPortalLink } from "@/components/send-patient-portal-link";
 import styles from "@/components/clinical.module.css";
 
 export default async function DeskPatientPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,6 +44,11 @@ export default async function DeskPatientPage({ params }: { params: Promise<{ id
           previousVisits={Math.max(0, consultations.length - todayItems.length)}
           visitStatus={activeVisit?.operationalStatus?.replaceAll("_", " ") ?? null}
         />
+        <section className={styles.panel}>
+          <div className={styles.panelTitle}><div><p className={styles.eyebrow}>Patient access</p><h2>Patient Portal</h2></div></div>
+          <p>Send a secure email link for appointments and portal access.</p>
+          <SendPatientPortalLink patientId={patient.id} />
+        </section>
 
         {!activeVisit ? <section className={styles.panel}><div className={styles.emptyState}><strong>No visit today</strong><p>Add this patient as a walk-in from Today.</p></div></section> : null}
 

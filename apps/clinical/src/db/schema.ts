@@ -666,6 +666,43 @@ export const intakeAccessSessions = pgTable(
   ]
 );
 
+// Patient Portal access is patient-scoped (unlike appointment-scoped Intake).
+// Raw access, verification, and browser-session secrets are never persisted.
+export const patientPortalAccessSessions = pgTable(
+  "patient_portal_access_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    otpHash: text("otp_hash").notNull(),
+    verifiedSessionHash: text("verified_session_hash"),
+    failedAttempts: integer("failed_attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    deliveryStatus: text("delivery_status").notNull().default("pending"),
+    deliveryChannel: text("delivery_channel"),
+    deliveryProvider: text("delivery_provider"),
+    deliveryRecipient: text("delivery_recipient"),
+    providerMessageId: text("provider_message_id"),
+    deliveryAttemptedAt: timestamp("delivery_attempted_at", { withTimezone: true }),
+    deliverySentAt: timestamp("delivery_sent_at", { withTimezone: true }),
+    deliveryFailedAt: timestamp("delivery_failed_at", { withTimezone: true }),
+    deliveryFailureCode: text("delivery_failure_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("patient_portal_access_verified_session_idx").on(table.verifiedSessionHash),
+    index("patient_portal_access_clinic_patient_idx").on(table.clinicId, table.patientId),
+  ]
+);
+
 export const patientDemographicChangeEvents = pgTable(
   "patient_demographic_change_events",
   {

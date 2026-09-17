@@ -231,7 +231,7 @@ Evolve OTP intake access into clinic/patient-scoped portal access for safe self-
 
 ## Work
 
-Portal supports permitted booking/upcoming/history/details/intake/documents. Self-booking remains Off until enabled. Enforce OTP patient identity, 30-day window, 0-minute notice, effective interval/full-duration fit, configured working availability, no doctor/patient overlap, cap 3, warning below cap, no override, first-confirmation-wins. Patient reschedule/cancel stays disabled.
+Portal supports permitted booking/upcoming/history/details/intake/documents. S6 MVP access is a staff-issued high-entropy Resend email link plus the fixed verification code `123456`; the code is not SMS/mobile-possession proof and Intake direct-link behavior remains unchanged. Self-booking remains Off until enabled. Enforce trusted patient identity, 30-day window, 0-minute notice, effective interval/full-duration fit, configured working availability, no doctor/patient overlap, cap 3, warning below cap, no override, first-confirmation-wins. Patient reschedule/cancel stays disabled.
 
 ## Acceptance criteria
 
