@@ -1,8 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
-// Public routes that don't require authentication
-const PUBLIC_ROUTES = ["/login", "/auth/callback", "/intake", "/api/intake"];
+// Public routes that don't require authentication.
+// `/api/internal` is schedulable infrastructure, not user-facing: those route
+// handlers authenticate the caller themselves with a CRON_SECRET bearer token.
+// Without this entry the middleware redirects the scheduler to /login, so the
+// durable document pipeline would silently never run.
+const PUBLIC_ROUTES = [
+  "/login",
+  "/auth/callback",
+  "/intake",
+  "/api/intake",
+  "/api/internal",
+];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
