@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getSchedulerCalendarWithClient, SchedulerReadError, searchSchedulerPatientsWithClient } from "../lib/db/scheduler-read";
-import { calendarAppointmentGeometry, calendarIntervalGridHeightPx } from "../lib/scheduler/calendar-geometry";
-import { hasValidDurationOverride, optionalDurationOverride } from "../lib/scheduler/workspace-payloads";
+import { getSchedulerCalendarWithClient, getSchedulerPatientHistoryWithClient, SchedulerReadError, searchSchedulerPatientsWithClient } from "../lib/db/scheduler-read";
+import { calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarIntervalGridHeightPx } from "../lib/scheduler/calendar-geometry";
+import { bookingSemanticIdentity, displayedBookingDuration, hasValidDurationOverride, optionalDurationOverride, selectedDoctorTypeId } from "../lib/scheduler/workspace-payloads";
 import type { SessionContext } from "../types";
 
 const session: SessionContext = { userId: "actor", profileId: "actor", clinicId: "clinic-a", email: "staff@example.test", fullName: "Staff", role: "assistant" };
@@ -52,6 +52,31 @@ test("S4 calendar geometry uses one minute scale across actual and unknown durat
   assert.equal(calendarIntervalGridHeightPx(15), 18);
 });
 
+test("S4 overlap lanes preserve actual vertical geometry and use half-open intervals", () => {
+  assert.deepEqual(calendarAppointmentOverlapLayout([
+    { id: "first", startMinute: 9 * 60, durationMinutes: 30 },
+    { id: "second", startMinute: 10 * 60, durationMinutes: 30 },
+  ]), [{ id: "first", laneIndex: 0, laneCount: 1 }, { id: "second", laneIndex: 0, laneCount: 1 }]);
+  assert.deepEqual(calendarAppointmentOverlapLayout([
+    { id: "first", startMinute: 9 * 60, durationMinutes: 30 },
+    { id: "second", startMinute: 9 * 60 + 15, durationMinutes: 30 },
+  ]), [{ id: "first", laneIndex: 0, laneCount: 2 }, { id: "second", laneIndex: 1, laneCount: 2 }]);
+  assert.deepEqual(calendarAppointmentOverlapLayout([
+    { id: "first", startMinute: 9 * 60, durationMinutes: 30 },
+    { id: "second", startMinute: 9 * 60, durationMinutes: 30 },
+    { id: "third", startMinute: 9 * 60 + 10, durationMinutes: 30 },
+  ]), [{ id: "first", laneIndex: 0, laneCount: 3 }, { id: "second", laneIndex: 1, laneCount: 3 }, { id: "third", laneIndex: 2, laneCount: 3 }]);
+  assert.deepEqual(calendarAppointmentOverlapLayout([
+    { id: "first", startMinute: 9 * 60, durationMinutes: 30 },
+    { id: "second", startMinute: 9 * 60 + 30, durationMinutes: 30 },
+  ]), [{ id: "first", laneIndex: 0, laneCount: 1 }, { id: "second", laneIndex: 0, laneCount: 1 }]);
+  const before = calendarAppointmentGeometry({ minute: 15, durationMinutes: 30 });
+  const unknown = calendarAppointmentOverlapLayout([{ id: "unknown", startMinute: 9 * 60, durationMinutes: null }, { id: "known", startMinute: 9 * 60 + 20, durationMinutes: 5 }]);
+  assert.deepEqual(unknown, [{ id: "unknown", laneIndex: 0, laneCount: 2 }, { id: "known", laneIndex: 1, laneCount: 2 }]);
+  assert.equal("durationMinutes" in unknown[0], false);
+  assert.deepEqual(calendarAppointmentGeometry({ minute: 15, durationMinutes: 30 }), before);
+});
+
 test("S4 optional duration payloads preserve server-side inheritance", () => {
   assert.equal(optionalDurationOverride(""), undefined);
   assert.equal(optionalDurationOverride("5"), 5);
@@ -62,6 +87,18 @@ test("S4 optional duration payloads preserve server-side inheritance", () => {
   assert.equal(hasValidDurationOverride(""), true);
   assert.equal(hasValidDurationOverride("15"), true);
   assert.equal(hasValidDurationOverride("0"), false);
+});
+
+test("S4 doctor-scoped type state clears only incompatible types and retains duration intent", () => {
+  assert.equal(selectedDoctorTypeId("", ["type-a"]), "");
+  assert.equal(selectedDoctorTypeId("type-a", ["type-a", "type-b"]), "type-a");
+  assert.equal(selectedDoctorTypeId("type-a", ["type-b"]), "");
+  assert.equal(displayedBookingDuration({ typeId: "type-a", appointmentTypes: [{ id: "type-a", resolvedDurationMinutes: 20 }], effectiveDefaultDurationMinutes: 10 }), 20);
+  assert.equal(displayedBookingDuration({ typeId: "", appointmentTypes: [{ id: "type-a", resolvedDurationMinutes: 20 }], effectiveDefaultDurationMinutes: 15 }), 15);
+  assert.equal(optionalDurationOverride("25"), 25);
+  const before = bookingSemanticIdentity({ patientId: "patient", doctorId: "doctor-a", date: "2026-09-17", time: "09:00", durationOverride: "25", typeId: "type-a", staffNote: "" });
+  const after = bookingSemanticIdentity({ patientId: "patient", doctorId: "doctor-b", date: "2026-09-17", time: "09:00", durationOverride: "25", typeId: "", staffNote: "" });
+  assert.notEqual(before, after);
 });
 
 test("S4 searches canonical patients before fetching any selected-patient history", async () => {
@@ -77,6 +114,52 @@ test("S4 searches canonical patients before fetching any selected-patient histor
     { id: "patient-1", fullName: "Asha Patel", phone: "+919999999999" },
     { id: "patient-2", fullName: "Asha Patil", phone: "+918888888888" },
   ]);
+});
+
+test("S4 selected-patient history is independently bounded, patient-scoped, and safely hydrated", async () => {
+  const calls: Array<{ table: string; operations: Array<[string, unknown, unknown?]> }> = [];
+  const appointment = (id: string, scheduledAt: string) => ({ id, patient_id: "patient-1", doctor_id: "doctor-1", consultation_id: `encounter-${id}`, scheduled_at: scheduledAt, duration_minutes: 15, status: "scheduled", appointment_type_id: null, updated_at: scheduledAt });
+  const client = {
+    from(table: string) {
+      const operations: Array<[string, unknown, unknown?]> = [];
+      calls.push({ table, operations });
+      const data = () => {
+        if (table === "appointments") return operations.some(([name]) => name === "gte") ? [appointment("upcoming", "2030-01-01T04:00:00.000Z")] : [appointment("past", "2020-01-01T04:00:00.000Z")];
+        if (table === "patients") return [{ id: "patient-1", full_name: "Patient One", phone: "+919999999999" }];
+        if (table === "profiles") return [{ id: "doctor-1", full_name: "Dr One" }];
+        if (table === "consultations") return [{ id: "encounter-upcoming", operational_status: "scheduled" }, { id: "encounter-past", operational_status: "completed" }];
+        return [];
+      };
+      const query = {
+        select: () => query,
+        eq: (column: string, value: unknown) => { operations.push(["eq", column, value]); return query; },
+        gte: (column: string, value: unknown) => { operations.push(["gte", column, value]); return query; },
+        lt: (column: string, value: unknown) => { operations.push(["lt", column, value]); return query; },
+        in: (column: string, value: unknown) => { operations.push(["in", column, value]); return query; },
+        is: (column: string, value: unknown) => { operations.push(["is", column, value]); return query; },
+        order: (column: string, value: unknown) => { operations.push(["order", column, value]); return query; },
+        limit: (value: unknown) => { operations.push(["limit", value]); return query; },
+        maybeSingle: () => ({ data: { id: "patient-1" }, error: null }),
+        then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: data(), error: null }).then(resolve),
+      };
+      return query;
+    },
+  } as never;
+  const history = await getSchedulerPatientHistoryWithClient(client, session, { patientId: "patient-1", limit: 2 });
+  assert.deepEqual(history.upcoming.map((item) => item.id), ["upcoming"]);
+  assert.deepEqual(history.past.map((item) => item.id), ["past"]);
+  const historyQueries = calls.filter((call) => call.table === "appointments");
+  assert.equal(historyQueries.length, 2);
+  for (const call of historyQueries) {
+    assert.ok(call.operations.some(([name, column, value]) => name === "eq" && column === "clinic_id" && value === "clinic-a"));
+    assert.ok(call.operations.some(([name, column, value]) => name === "eq" && column === "patient_id" && value === "patient-1"));
+    assert.ok(call.operations.some(([name, value]) => name === "limit" && value === 2));
+  }
+  assert.ok(historyQueries.some((call) => call.operations.some(([name]) => name === "gte")));
+  assert.ok(historyQueries.some((call) => call.operations.some(([name]) => name === "lt")));
+  assert.equal("staffNote" in history.upcoming[0]!, false);
+  assert.equal("clinicalBrief" in history.past[0]!, false);
+  assert.equal("auditMetadata" in history.past[0]!, false);
 });
 
 test("S4 rejects an oversized public calendar range", async () => {

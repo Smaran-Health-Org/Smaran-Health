@@ -36,6 +36,11 @@ export type SchedulerPatientSearchResult = {
   phone: string | null;
 };
 
+export type SchedulerPatientHistory = {
+  upcoming: SchedulerAppointmentSummary[];
+  past: SchedulerAppointmentSummary[];
+};
+
 export class SchedulerReadError extends Error {
   constructor(public readonly kind: "forbidden" | "invalid" | "not_found") {
     super("Scheduler data is unavailable");
@@ -59,6 +64,50 @@ type RawAppointment = {
   scheduled_at: string; duration_minutes: number | null; status: SchedulerAppointmentSummary["status"];
   appointment_type_id: string | null; updated_at: string;
 };
+
+/**
+ * Shared scheduling-only hydration for rows already bounded by a calendar or
+ * patient-history query. It never widens an appointment query and selects no
+ * clinical interpretation, staff note, source-document, or audit data.
+ */
+async function hydrateSchedulerAppointmentSummariesWithClient(
+  supabase: ServerClient, session: SessionContext, appointments: RawAppointment[]
+): Promise<SchedulerAppointmentSummary[]> {
+  const patientIds = [...new Set(appointments.map((row) => row.patient_id))];
+  const doctorIds = [...new Set(appointments.map((row) => row.doctor_id))];
+  const consultationIds = [...new Set(appointments.map((row) => row.consultation_id))];
+  const typeIds = [...new Set(appointments.flatMap((row) => row.appointment_type_id ? [row.appointment_type_id] : []))];
+  const [patientsResult, doctorsResult, consultationsResult, intakesResult, documentsResult, typesResult] = await Promise.all([
+    patientIds.length ? supabase.from("patients").select("id, full_name, phone").eq("clinic_id", session.clinicId).in("id", patientIds) : Promise.resolve({ data: [], error: null }),
+    doctorIds.length ? supabase.from("profiles").select("id, full_name").eq("clinic_id", session.clinicId).eq("role", "doctor").in("id", doctorIds) : Promise.resolve({ data: [], error: null }),
+    consultationIds.length ? supabase.from("consultations").select("id, operational_status").eq("clinic_id", session.clinicId).in("id", consultationIds) : Promise.resolve({ data: [], error: null }),
+    consultationIds.length ? supabase.from("patient_intakes").select("consultation_id, status").eq("clinic_id", session.clinicId).in("consultation_id", consultationIds) : Promise.resolve({ data: [], error: null }),
+    consultationIds.length ? supabase.from("documents").select("consultation_id, status").eq("clinic_id", session.clinicId).in("consultation_id", consultationIds) : Promise.resolve({ data: [], error: null }),
+    typeIds.length ? supabase.from("appointment_types").select("id, name").eq("clinic_id", session.clinicId).in("id", typeIds) : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (patientsResult.error || doctorsResult.error || consultationsResult.error || intakesResult.error || documentsResult.error || typesResult.error) throw new SchedulerReadError("not_found");
+  const patients = new Map((patientsResult.data ?? []).map((row: { id: string; full_name: string; phone: string | null }) => [row.id, row]));
+  const doctors = new Map((doctorsResult.data ?? []).map((row: { id: string; full_name: string }) => [row.id, row.full_name]));
+  const consultations = new Map((consultationsResult.data ?? []).map((row: { id: string; operational_status: string }) => [row.id, row.operational_status]));
+  const intakes = new Map((intakesResult.data ?? []).map((row: { consultation_id: string; status: string }) => [row.consultation_id, row.status]));
+  const types = new Map((typesResult.data ?? []).map((row: { id: string; name: string }) => [row.id, row.name]));
+  const documentStatus = new Map<string, "ready" | "needs_review">();
+  for (const row of documentsResult.data ?? [] as Array<{ consultation_id: string; status: string }>) documentStatus.set(row.consultation_id, row.status === "processed" ? "ready" : "needs_review");
+  return appointments.flatMap((row): SchedulerAppointmentSummary[] => {
+    const patient = patients.get(row.patient_id);
+    const doctorName = doctors.get(row.doctor_id);
+    if (!patient || !doctorName) return []; // Defensive against broken cross-clinic references.
+    return [{
+      id: row.id, patientId: row.patient_id, patientName: patient.full_name, patientPhone: patient.phone,
+      doctorId: row.doctor_id, doctorName, scheduledAt: row.scheduled_at,
+      durationMinutes: row.duration_minutes, durationState: row.duration_minutes === null ? "unknown" : "known",
+      status: row.status, appointmentTypeName: row.appointment_type_id ? types.get(row.appointment_type_id) ?? null : null,
+      encounterOperationalStatus: consultations.get(row.consultation_id) ?? "scheduled",
+      intakeStatus: intakes.get(row.consultation_id) ?? null,
+      documentStatus: documentStatus.get(row.consultation_id) ?? "none", updatedAt: row.updated_at,
+    }];
+  });
+}
 
 /**
  * Scheduling-only projection. It intentionally never selects staff notes,
@@ -97,41 +146,8 @@ export async function getSchedulerCalendarWithClient(
   const doctors = (doctorsResult.data ?? []) as Array<{ id: string; full_name: string }>;
   const doctorSettings = new Map((doctorSettingsResult.data ?? []).map((row: { doctor_id: string; scheduling_interval_minutes: number | null; default_duration_minutes: number | null }) => [row.doctor_id, row]));
   const clinicSettings = settingsResult.data as { scheduling_interval_minutes: number; default_duration_minutes: number };
-  const patientIds = [...new Set(appointments.map((row) => row.patient_id))];
-  const consultationIds = [...new Set(appointments.map((row) => row.consultation_id))];
-  const typeIds = [...new Set(appointments.flatMap((row) => row.appointment_type_id ? [row.appointment_type_id] : []))];
-  const [patientsResult, consultationsResult, intakesResult, documentsResult, typesResult] = await Promise.all([
-    patientIds.length ? supabase.from("patients").select("id, full_name, phone").eq("clinic_id", session.clinicId).in("id", patientIds) : Promise.resolve({ data: [], error: null }),
-    consultationIds.length ? supabase.from("consultations").select("id, operational_status").eq("clinic_id", session.clinicId).in("id", consultationIds) : Promise.resolve({ data: [], error: null }),
-    consultationIds.length ? supabase.from("patient_intakes").select("consultation_id, status").eq("clinic_id", session.clinicId).in("consultation_id", consultationIds) : Promise.resolve({ data: [], error: null }),
-    consultationIds.length ? supabase.from("documents").select("consultation_id, status").eq("clinic_id", session.clinicId).in("consultation_id", consultationIds) : Promise.resolve({ data: [], error: null }),
-    typeIds.length ? supabase.from("appointment_types").select("id, name").eq("clinic_id", session.clinicId).in("id", typeIds) : Promise.resolve({ data: [], error: null }),
-  ]);
-  if (patientsResult.error || consultationsResult.error || intakesResult.error || documentsResult.error || typesResult.error) throw new SchedulerReadError("not_found");
-  const patients = new Map((patientsResult.data ?? []).map((row: { id: string; full_name: string; phone: string | null }) => [row.id, row]));
-  const doctorMap = new Map(doctors.map((row) => [row.id, row.full_name]));
-  const consultations = new Map((consultationsResult.data ?? []).map((row: { id: string; operational_status: string }) => [row.id, row.operational_status]));
-  const intakes = new Map((intakesResult.data ?? []).map((row: { consultation_id: string; status: string }) => [row.consultation_id, row.status]));
-  const types = new Map((typesResult.data ?? []).map((row: { id: string; name: string }) => [row.id, row.name]));
-  const documentRows = documentsResult.data ?? [] as Array<{ consultation_id: string; status: string }>;
-  const documentStatus = new Map<string, "ready" | "needs_review">();
-  for (const row of documentRows) documentStatus.set(row.consultation_id, row.status === "processed" ? "ready" : "needs_review");
-
   return {
-    appointments: appointments.flatMap((row): SchedulerAppointmentSummary[] => {
-      const patient = patients.get(row.patient_id);
-      const doctorName = doctorMap.get(row.doctor_id);
-      if (!patient || !doctorName) return []; // defensive against broken cross-clinic references
-      return [{
-        id: row.id, patientId: row.patient_id, patientName: patient.full_name, patientPhone: patient.phone,
-        doctorId: row.doctor_id, doctorName, scheduledAt: row.scheduled_at,
-        durationMinutes: row.duration_minutes, durationState: row.duration_minutes === null ? "unknown" : "known",
-        status: row.status, appointmentTypeName: row.appointment_type_id ? types.get(row.appointment_type_id) ?? null : null,
-        encounterOperationalStatus: consultations.get(row.consultation_id) ?? "scheduled",
-        intakeStatus: intakes.get(row.consultation_id) ?? null,
-        documentStatus: documentStatus.get(row.consultation_id) ?? "none", updatedAt: row.updated_at,
-      }];
-    }),
+    appointments: await hydrateSchedulerAppointmentSummariesWithClient(supabase, session, appointments),
     doctors: doctors.map((row) => {
       const settings = doctorSettings.get(row.id);
       const resolved = resolveEffectiveSchedulerSettings({
@@ -168,20 +184,21 @@ export async function searchSchedulerPatientsWithClient(
 
 export async function getSchedulerPatientHistoryWithClient(
   supabase: ServerClient, session: SessionContext, input: { patientId: string; limit: number }
-): Promise<SchedulerAppointmentSummary[]> {
+): Promise<SchedulerPatientHistory> {
   assertStaff(session);
   const patientResult = await supabase.from("patients").select("id").eq("id", input.patientId).eq("clinic_id", session.clinicId).is("merged_into_patient_id", null).maybeSingle();
   if (patientResult.error || !patientResult.data) throw new SchedulerReadError("not_found");
-  const appointmentsResult = await supabase.from("appointments")
-    .select("scheduled_at")
-    .eq("clinic_id", session.clinicId)
-    .eq("patient_id", input.patientId)
-    .order("scheduled_at", { ascending: false })
-    .limit(input.limit);
-  if (appointmentsResult.error || !appointmentsResult.data?.length) return [];
-  const earliest = appointmentsResult.data[appointmentsResult.data.length - 1]?.scheduled_at;
-  const latest = new Date(Date.parse(appointmentsResult.data[0].scheduled_at) + 1).toISOString();
-  return (await getSchedulerCalendarWithClient(supabase, session, { startsAt: earliest, endsAt: latest, allowLongRange: true })).appointments
-    .filter((appointment) => appointment.patientId === input.patientId)
-    .slice(0, input.limit);
+  const now = new Date().toISOString();
+  const appointmentFields = "id, patient_id, doctor_id, consultation_id, scheduled_at, duration_minutes, status, appointment_type_id, updated_at";
+  // These two independently bounded queries remain patient-scoped at the database boundary.
+  const [upcomingResult, pastResult] = await Promise.all([
+    supabase.from("appointments").select(appointmentFields).eq("clinic_id", session.clinicId).eq("patient_id", input.patientId).gte("scheduled_at", now).order("scheduled_at", { ascending: true }).limit(input.limit),
+    supabase.from("appointments").select(appointmentFields).eq("clinic_id", session.clinicId).eq("patient_id", input.patientId).lt("scheduled_at", now).order("scheduled_at", { ascending: false }).limit(input.limit),
+  ]);
+  if (upcomingResult.error || pastResult.error) throw new SchedulerReadError("not_found");
+  const [upcoming, past] = await Promise.all([
+    hydrateSchedulerAppointmentSummariesWithClient(supabase, session, (upcomingResult.data ?? []) as RawAppointment[]),
+    hydrateSchedulerAppointmentSummariesWithClient(supabase, session, (pastResult.data ?? []) as RawAppointment[]),
+  ]);
+  return { upcoming, past };
 }

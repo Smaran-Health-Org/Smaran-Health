@@ -1356,6 +1356,7 @@
 .schedulerSearchResults { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .5rem; margin: -.6rem 0 .8rem; }
 .schedulerSearchResults button, .schedulerPatientResult { display: grid; gap: .15rem; border: 1px solid #dce6e1; border-radius: 10px; background: #fff; padding: .62rem .72rem; color: #40534c; text-align: left; font: inherit; cursor: pointer; }
 .schedulerSearchResults strong, .schedulerPatientResult strong { font-size: .72rem; }.schedulerSearchResults span, .schedulerPatientResult span { color: #7b8984; font-size: .62rem; }
+.schedulerHistoryGroup { display: grid; gap: .35rem; align-content: start; }
 .schedulerState { margin: 1rem 0; border: 1px dashed #d7e1dc; border-radius: 14px; background: #fafcfb; padding: 2rem; color: #61716b; text-align: center; font-size: .78rem; }
 .schedulerCalendar { overflow: auto; border: 1px solid #dfe7e3; border-radius: 17px; background: #fff; box-shadow: 0 8px 25px rgba(30,45,39,.04); }
 .schedulerGridHeader, .schedulerHour { display: grid; grid-template-columns: 58px repeat(var(--scheduler-columns), minmax(190px, 1fr)); min-width: max-content; }
