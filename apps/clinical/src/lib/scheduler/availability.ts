@@ -57,6 +57,8 @@ export type AvailabilityInput = {
   effectiveIntervalMinutes: number;
   resolvedDurationMinutes: number;
   asOf: number;
+  /** Scheduler-only booking switch; Queue/walk-in discovery is intentionally separate. */
+  isBookable?: boolean;
   patientPolicy?: PatientPolicy;
 };
 
@@ -278,6 +280,22 @@ export function calculateAvailability(input: AvailabilityInput): AvailabilityRes
       patientOccupancies
     )
     : [];
+
+  // Bookability is a Scheduler admission rule, not an account or Queue rule.
+  // Return no normal availability so both patient starts and staff candidate
+  // evaluation agree with S3's final target-doctor check.
+  if (input.isBookable === false) {
+    return {
+      localDate: input.localDate,
+      cleanIntervals: [],
+      normalAvailabilityIntervals: [],
+      doctorOccupancyIntervals: unionIntervals(doctorOccupancies),
+      diagnostics: [],
+      configurationInvalid: false,
+      patientStarts: [],
+      patientEligibility,
+    };
+  }
 
   return {
     localDate: input.localDate,

@@ -22,22 +22,22 @@ SELECT ok(NOT has_table_privilege('authenticated', 'public.clinic_scheduler_sett
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '76100000-0000-4000-8000-000000000002', true);
-SELECT lives_ok(
+SELECT throws_ok(
   $$ UPDATE public.clinic_scheduler_settings SET default_duration_minutes = 10 WHERE clinic_id = '76000000-0000-4000-8000-000000000001' $$,
-  'admin can update permitted clinic Scheduler settings'
+  '42501', NULL, 'S5 removes authenticated direct clinic settings writes'
 );
 SELECT set_config('request.jwt.claim.sub', '76100000-0000-4000-8000-000000000003', true);
-SELECT lives_ok(
+SELECT throws_ok(
   $$ UPDATE public.clinic_scheduler_settings SET default_duration_minutes = 11 WHERE clinic_id = '76000000-0000-4000-8000-000000000001' $$,
-  'assistant can update permitted clinic Scheduler settings'
+  '42501', NULL, 'S5 removes authenticated direct clinic settings writes'
 );
 SELECT set_config('request.jwt.claim.sub', '76100000-0000-4000-8000-000000000001', true);
-SELECT lives_ok(
+SELECT throws_ok(
   $$ UPDATE public.clinic_scheduler_settings SET default_duration_minutes = 12 WHERE clinic_id = '76000000-0000-4000-8000-000000000001' $$,
-  'doctor update is filtered by the approved clinic-settings role policy'
+  '42501', NULL, 'doctor cannot bypass S5 configuration authority'
 );
 RESET ROLE;
-SELECT is((SELECT default_duration_minutes FROM public.clinic_scheduler_settings WHERE clinic_id = '76000000-0000-4000-8000-000000000001'), 11, 'doctor remains subject to the approved clinic-settings role policy');
+SELECT is((SELECT default_duration_minutes FROM public.clinic_scheduler_settings WHERE clinic_id = '76000000-0000-4000-8000-000000000001'), 5, 'direct writes leave the clinic default unchanged');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '76100000-0000-4000-8000-000000000001', true);
 SELECT throws_ok(
@@ -53,19 +53,26 @@ RESET ROLE;
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '76100000-0000-4000-8000-000000000002', true);
-SELECT lives_ok(
+SELECT throws_ok(
   $$ INSERT INTO public.doctor_working_hours (id, clinic_id, doctor_id, weekday, start_time, end_time, created_by) VALUES ('76300000-0000-4000-8000-000000000001', '76000000-0000-4000-8000-000000000001', '76100000-0000-4000-8000-000000000001', 1, '08:00', '09:00', '76100000-0000-4000-8000-000000000001') $$,
-  'authenticated working-hours create accepts the authorized actor rather than a spoofed creator'
+  '42501', NULL, 'S5 removes authenticated direct working-hours writes'
 );
-SELECT lives_ok(
+SELECT throws_ok(
   $$ INSERT INTO public.doctor_availability_exceptions (id, clinic_id, doctor_id, exception_type, starts_at, ends_at, created_by) VALUES ('76300000-0000-4000-8000-000000000002', '76000000-0000-4000-8000-000000000001', '76100000-0000-4000-8000-000000000001', 'leave', '2041-01-01T04:00:00Z', '2041-01-01T05:00:00Z', '76100000-0000-4000-8000-000000000001') $$,
-  'authenticated exception create accepts the authorized actor rather than a spoofed creator'
+  '42501', NULL, 'S5 removes authenticated direct exception writes'
 );
-SELECT lives_ok(
+SELECT throws_ok(
   $$ INSERT INTO public.appointment_types (id, clinic_id, doctor_id, name, created_by) VALUES ('76300000-0000-4000-8000-000000000003', '76000000-0000-4000-8000-000000000001', '76100000-0000-4000-8000-000000000001', 'S1 Review Type', '76100000-0000-4000-8000-000000000001') $$,
-  'authenticated appointment-type create accepts the authorized actor rather than a spoofed creator'
+  '42501', NULL, 'S5 removes authenticated direct appointment-type writes'
 );
 RESET ROLE;
+
+INSERT INTO public.doctor_working_hours (id, clinic_id, doctor_id, weekday, start_time, end_time, created_by) VALUES
+  ('76300000-0000-4000-8000-000000000001', '76000000-0000-4000-8000-000000000001', '76100000-0000-4000-8000-000000000001', 1, '08:00', '09:00', '76100000-0000-4000-8000-000000000002');
+INSERT INTO public.doctor_availability_exceptions (id, clinic_id, doctor_id, exception_type, starts_at, ends_at, created_by) VALUES
+  ('76300000-0000-4000-8000-000000000002', '76000000-0000-4000-8000-000000000001', '76100000-0000-4000-8000-000000000001', 'leave', '2041-01-01T04:00:00Z', '2041-01-01T05:00:00Z', '76100000-0000-4000-8000-000000000002');
+INSERT INTO public.appointment_types (id, clinic_id, doctor_id, name, created_by) VALUES
+  ('76300000-0000-4000-8000-000000000003', '76000000-0000-4000-8000-000000000001', '76100000-0000-4000-8000-000000000001', 'S1 Review Type', '76100000-0000-4000-8000-000000000002');
 
 SELECT is((SELECT created_by::text FROM public.doctor_working_hours WHERE id = '76300000-0000-4000-8000-000000000001'), '76100000-0000-4000-8000-000000000002', 'working-hours creation provenance is bound to the authenticated actor');
 SELECT is((SELECT created_by::text FROM public.doctor_availability_exceptions WHERE id = '76300000-0000-4000-8000-000000000002'), '76100000-0000-4000-8000-000000000002', 'exception creation provenance is bound to the authenticated actor');
@@ -73,9 +80,9 @@ SELECT is((SELECT created_by::text FROM public.appointment_types WHERE id = '763
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '76100000-0000-4000-8000-000000000002', true);
-SELECT throws_ok($$ UPDATE public.doctor_working_hours SET created_by = '76100000-0000-4000-8000-000000000001' WHERE id = '76300000-0000-4000-8000-000000000001' $$, '22023', 'Scheduler configuration creator is immutable', 'working-hours creation provenance cannot be rewritten');
-SELECT throws_ok($$ UPDATE public.doctor_availability_exceptions SET created_by = '76100000-0000-4000-8000-000000000001' WHERE id = '76300000-0000-4000-8000-000000000002' $$, '22023', 'Scheduler configuration creator is immutable', 'exception creation provenance cannot be rewritten');
-SELECT throws_ok($$ UPDATE public.appointment_types SET created_by = '76100000-0000-4000-8000-000000000001' WHERE id = '76300000-0000-4000-8000-000000000003' $$, '22023', 'Scheduler configuration creator is immutable', 'appointment-type creation provenance cannot be rewritten');
+SELECT throws_ok($$ UPDATE public.doctor_working_hours SET created_by = '76100000-0000-4000-8000-000000000001' WHERE id = '76300000-0000-4000-8000-000000000001' $$, '42501', NULL, 'direct working-hours updates remain denied');
+SELECT throws_ok($$ UPDATE public.doctor_availability_exceptions SET created_by = '76100000-0000-4000-8000-000000000001' WHERE id = '76300000-0000-4000-8000-000000000002' $$, '42501', NULL, 'direct exception updates remain denied');
+SELECT throws_ok($$ UPDATE public.appointment_types SET created_by = '76100000-0000-4000-8000-000000000001' WHERE id = '76300000-0000-4000-8000-000000000003' $$, '42501', NULL, 'direct appointment-type updates remain denied');
 RESET ROLE;
 
 SELECT throws_ok(

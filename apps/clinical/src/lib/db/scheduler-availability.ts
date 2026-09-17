@@ -181,7 +181,7 @@ async function resolveAvailability(
 
   const doctorSettingsResponse = await supabase
     .from("doctor_scheduler_settings")
-    .select("scheduling_interval_minutes, default_duration_minutes")
+    .select("scheduling_interval_minutes, default_duration_minutes, is_bookable")
     .eq("clinic_id", context.clinicId)
     .eq("doctor_id", request.doctorId)
     .maybeSingle();
@@ -309,6 +309,7 @@ async function resolveAvailability(
     effectiveIntervalMinutes,
     resolvedDurationMinutes,
     asOf,
+    isBookable: doctorSettings?.is_bookable ?? true,
     patientPolicy,
   });
   return { result, effectiveIntervalMinutes, resolvedDurationMinutes, patientAppointments };

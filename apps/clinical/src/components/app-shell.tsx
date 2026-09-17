@@ -60,7 +60,7 @@ export function AppShell({
   const isPatients = pathname.startsWith("/patients") || pathname.startsWith("/desk/patients");
   const isDashboard = pathname === "/dashboard";
   const isDeskHome = pathname === "/desk";
-  const isScheduler = pathname === "/scheduler";
+  const isScheduler = pathname.startsWith("/scheduler");
   const homeHref = workspace === "desk" ? "/desk" : "/dashboard";
   const workspaceLabel = workspace === "desk" ? "Clinic Desk" : "Clinical";
 

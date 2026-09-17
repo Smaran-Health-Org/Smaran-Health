@@ -10,7 +10,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S4 — Complete. S5 and S6 remain not started.**
+**PHASE S5 — Complete. S6 remains not started.**
 
 ## Phase tracker
 
@@ -21,7 +21,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 | S2 | Availability engine | Complete | AC-SCH-A01–A11, P05–P08, F05 |
 | S3 | Atomic lifecycle + conflicts/concurrency | Complete | AC-SCH-B*, L*, P09–P12, R* |
 | S4 | Staff Scheduler calendar + booking modal | Complete | AC-SCH-U01–U08, B01–B07, R01, R04 |
-| S5 | Schedule/settings + exceptions | Not started | AC-SCH-D*, H09–H11, M02 |
+| S5 | Schedule/settings + exceptions | Complete | AC-SCH-D*, H09–H11, M02 |
 | S6 | Unified Patient Portal scheduling | Not started | AC-SCH-P*, PP01–PP02, A09–A11 |
 | S7 | Patient preparation/link/history integration | Not started | AC-SCH-PP03–PP05, H08, lifecycle preservation |
 | S8 | Security/regression/pilot hardening | Not started | All relevant AC-SCH-*; especially R* and B09 |
@@ -184,5 +184,17 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 - Tests/validation actually run: focused `npx tsx --test src/tests/scheduler-s4-read.test.ts` (pass, 8 tests including overlap lanes, doctor/type reconciliation, and patient-scoped upcoming/past history); `npm test` (pass, 137 tests); `npx tsc --noEmit` (pass); `npm run lint` (pass); `npm run test:db` (pass, 33 pgTAP files / 855 tests including S1/S3 authority, Queue and merge regressions); `npm run build` remains blocked by the established local Turbopack OS port-binding restriction while processing CSS; `npx next build --webpack` (pass).
 - Security/privacy review: Every new Scheduler read is authenticated and clinic scoped. The generalized calendar/search shape excludes clinical interpretation, raw evidence, audit payloads and `staffNote`; scheduling writes remain exclusively on S3 authority, and Scheduler does not mutate Queue state.
 - Known limitations / deferred work: S5 schedule/settings and exceptions UI, S6 patient self-booking, reminders/automation, drag/drop, and Month view remain out of scope. Appointment staff notes are intentionally not displayed in S4 because no narrower, explicitly approved detail authorization contract existed.
-- Phase boundaries: S5 — Not started. S6 — Not started.
-- Recommended next task: S5 — Doctor schedule/settings and exception management, scoped independently.
+- Phase boundaries: S5 — Complete. S6 — Not started.
+- Recommended next task: S6 remains separately scoped and must not be started as part of this phase.
+
+### Phase S5 — Doctor schedule/settings, exceptions, bookability and attention reconciliation
+
+- Status: Complete.
+- Work completed: Added a single SQL normal-availability authority that unions recurring/special-working positive intervals, subtracts leave/blocked intervals, uses Kolkata half-open full-duration containment, and is shared by S3 normal conflict checks, S5 preview/save reconciliation, and known-duration remediation. Added Scheduler-only doctor bookability with a defense-in-depth doctor write guard; S3 create/rebook/reschedule/reassign reject an unbookable target while cancel/no-show remain valid. Configuration changes go through authenticated impact-preview and atomic-save RPCs with command fingerprints, compatible Scheduler locks, authoritative post-save issue reconciliation, and no Appointment scheduling mutations. `schedule_invalid` attention creates/resolves with preserved history; unknown duration only receives that issue after real-duration remediation. Authenticated direct configuration DML is revoked. The staff `/scheduler/settings` surface supports defaults, nullable doctor inheritance, recurring sessions, exceptions, appointment types, bookability confirmation, preview confirmation and edit/deactivate/delete workflows. Senior-review remediation closes direct execution of every internal S5 helper; replays existing S3 receipts before bookability enforcement; preserves omitted doctor overrides while allowing explicit-null clears; resolves obsolete issues on cancel/no-show/past state; reconciles only schedule-impacting commands; makes S2 availability bookability-aware; aligns cross-midnight special work to Kolkata-date semantics; keeps exception editing in Kolkata wall time; resets doctor form state; surfaces authoritative reconciliation counts; and proves the preview/save race with two database connections.
+- Files: `apps/clinical/supabase/migrations/0086_scheduler_s5_configuration_and_attention.sql`; `src/lib/db/scheduler-configuration.ts`; `src/lib/db/scheduler-availability.ts`; `src/lib/scheduler/availability.ts`; `/api/scheduler/configuration`; `/api/scheduler/configuration/impact-preview`; `/scheduler/settings`; `scheduler-settings.tsx`; `scripts/test-scheduler-s5-concurrency.ts`; S5/S2 unit and pgTAP coverage; updated S1 authority regression coverage.
+- Acceptance criteria satisfied: AC-SCH-D01–D14; AC-SCH-H09–H11; AC-SCH-M02; AC-SCH-R03–R05.
+- Tests/validation actually run: `npm run db:reset` (pass through `0086`); focused `npx supabase test db --local supabase/tests/0086_scheduler_s5_configuration_and_attention.test.sql` (pass, 47 assertions); `npm run test:db` (pass, 34 files / 902 tests); `npm run test:db:scheduler-s5-concurrency` (pass, two-session preview/save race); focused `npx tsx --test src/tests/scheduler-configuration.test.ts` (pass, 5 tests); `npm test` (pass, 144 tests); `npx tsc --noEmit` (pass); `npm run lint` (pass); `npm run build` reached the established local Turbopack OS port-binding restriction while processing CSS, with no client/server import error; `npx next build --webpack` (pass). The existing middleware-to-proxy deprecation warning remains non-blocking.
+- Security/privacy review: Every configuration read/write is authenticated, clinic scoped and role checked in both routes and SECURITY DEFINER RPCs. `PUBLIC`, `anon`, and `authenticated` cannot execute internal S5 helpers; only the approved preview/save entry points (plus preserved S3/S1 public contracts) remain callable. Doctors cannot mutate or delete Scheduler bookability, direct authenticated configuration DML is revoked, configuration saves do not alter Appointment/Encounter/intake/document facts, issue history contains source/provenance but no staff notes or clinical payload, and patient-facing availability continues to omit exception notes/reasons.
+- Known limitations / deferred work: The impact summary intentionally returns counts only, not patient/clinical content. S6 patient self-booking, communications, drag/drop, Month view and any clinical-account deactivation are still out of scope.
+- Product decisions/questions surfaced: None.
+- Recommended next task: S6 only after a separately scoped request.

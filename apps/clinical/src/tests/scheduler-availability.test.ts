@@ -164,6 +164,25 @@ test("S2 allows special-working without recurring hours but no availability with
   assert.ok(special.patientStarts.includes(at(10)));
 });
 
+test("S2 Scheduler availability is empty for an explicitly unbookable doctor", () => {
+  const result = calculateAvailability(base({
+    isBookable: false,
+    patientPolicy: { selfBookingEnabled: true, bookingWindowDays: 30, minimumNoticeMinutes: 0, futureBookingCap: 3, futureScheduledCount: 0 },
+  }));
+  assert.deepEqual(result.normalAvailabilityIntervals, []);
+  assert.deepEqual(result.patientStarts, []);
+  assertCandidateConflicts(evaluateStaffCandidate(result, at(9), 5), ["working_availability"]);
+});
+
+test("S2 clips cross-midnight special-working to the requested Kolkata day", () => {
+  const result = calculateAvailability(base({
+    workingHours: [],
+    exceptions: [{ type: "special_working", startsAt: at(23, 30), endsAt: at(0, 30, "2026-09-15") }],
+  }));
+  assertCandidateConflicts(evaluateStaffCandidate(result, at(23, 45), 15), []);
+  assertCandidateConflicts(evaluateStaffCandidate(result, at(23, 45), 30), ["working_availability"]);
+});
+
 test("S2 dynamically recalculates rather than retaining generated slot rows", () => {
   const input = base({ patientPolicy: { selfBookingEnabled: true, bookingWindowDays: 30, minimumNoticeMinutes: 0, futureBookingCap: 3, futureScheduledCount: 0 } });
   const before = calculateAvailability(input).patientStarts;
