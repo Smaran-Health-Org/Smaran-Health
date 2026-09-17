@@ -14,7 +14,11 @@
 .header h1 { margin-top: 0; }
 .bookingFields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .times { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
-.times span { background: #e9f5ef; color: #14573f; padding: 8px 10px; border-radius: 6px; font-weight: 600; }
+.time, .selectedTime { border: 0; background: #e9f5ef; color: #14573f; padding: 8px 10px; border-radius: 6px; font: inherit; font-weight: 600; cursor: pointer; }
+.selectedTime { background: #17745b; color: #fff; }
+.confirm { margin-top: 16px; padding: 14px; border: 1px solid #dce6e0; border-radius: 8px; }
+.confirm button { border: 0; border-radius: 7px; padding: 10px 14px; font: inherit; font-weight: 700; cursor: pointer; background: #17745b; color: #fff; }
+.confirm button:disabled { opacity: .6; cursor: wait; }
 .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; border-top: 1px solid #dce6e0; margin-top: 32px; padding-top: 20px; }
 .columns ul { padding-left: 18px; line-height: 1.7; }
 @media (max-width: 600px) { .bookingFields, .columns { grid-template-columns: 1fr; } .header { align-items: stretch; flex-direction: column; } }

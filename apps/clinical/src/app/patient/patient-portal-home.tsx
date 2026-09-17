@@ -25,6 +25,11 @@ export function PatientPortalHome() {
   const [doctorId, setDoctorId] = useState("");
   const [date, setDate] = useState(localDateToday);
   const [times, setTimes] = useState<string[]>([]);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [warningProof, setWarningProof] = useState<string | null>(null);
+  const [bookingMessage, setBookingMessage] = useState<string | null>(null);
+  const [booking, setBooking] = useState(false);
+  const [bookingKey, setBookingKey] = useState<string | null>(null);
 
   useEffect(() => {
     void Promise.all([
@@ -54,6 +59,31 @@ export function PatientPortalHome() {
     router.push("/patient/access/expired");
   }
 
+  async function confirmBooking() {
+    if (!doctorId || !selectedTime || !bookingKey) return;
+    setBooking(true); setBookingMessage(null);
+    try {
+      const response = await fetch("/patient/api/scheduler/book", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doctorId, scheduledAt: selectedTime, idempotencyKey: bookingKey, ...(warningProof ? { warningProof } : {}) }),
+      });
+      const body = await response.json() as { code?: string; error?: string; warningProof?: string; booking?: { scheduledAt: string } };
+      if (response.ok && body.booking) {
+        setBookingMessage(`Your appointment is confirmed for ${appointmentTime(body.booking.scheduledAt)}.`);
+        setSelectedTime(null); setWarningProof(null); setBookingKey(null);
+        const upcomingResponse = await fetch("/patient/api/appointments?kind=upcoming", { cache: "no-store" });
+        if (upcomingResponse.ok) setUpcoming((await upcomingResponse.json() as { appointments: Appointment[] }).appointments);
+      } else if (body.code === "warning_required" && body.warningProof) {
+        setWarningProof(body.warningProof);
+        setBookingMessage("You already have an upcoming appointment. Confirm again if you still want this time.");
+      } else {
+        setSelectedTime(null); setWarningProof(null); setBookingKey(null); setBookingMessage(body.error ?? "That time is no longer available. Please choose another time.");
+      }
+    } catch {
+      setBookingMessage("Could not confirm this appointment. Please try again.");
+    } finally { setBooking(false); }
+  }
+
   if (loading) return <main className={styles.page}><section className={styles.card}><p>Opening your secure portal…</p></section></main>;
   if (error) return <main className={styles.page}><section className={styles.card}><h1>Portal unavailable</h1><p>{error}</p></section></main>;
   return <main className={styles.page}><section className={styles.wideCard}>
@@ -61,7 +91,9 @@ export function PatientPortalHome() {
     <section><h2>Book appointment</h2><p className={styles.muted}>Choose a doctor and date to see clean availability.</p>
       <div className={styles.bookingFields}><label>Doctor<select value={doctorId} onChange={(event) => setDoctorId(event.target.value)}>{doctors.map((doctor) => <option key={doctor.doctorId} value={doctor.doctorId}>{doctor.displayName}</option>)}</select></label>
       <label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label></div>
-      {times.length ? <div className={styles.times}>{times.map((time) => <span key={time}>{new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", timeStyle: "short" }).format(new Date(time))}</span>)}</div> : <p className={styles.muted}>No available times for this selection.</p>}
+      {times.length ? <div className={styles.times}>{times.map((time) => <button type="button" className={selectedTime === time ? styles.selectedTime : styles.time} key={time} onClick={() => { setSelectedTime(time); setBookingKey(crypto.randomUUID()); setWarningProof(null); setBookingMessage(null); }}>{new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", timeStyle: "short" }).format(new Date(time))}</button>)}</div> : <p className={styles.muted}>No available times for this selection.</p>}
+      {selectedTime ? <div className={styles.confirm}><p>Selected: {appointmentTime(selectedTime)}</p>{bookingMessage ? <p className={styles.muted}>{bookingMessage}</p> : null}<button disabled={booking} onClick={confirmBooking}>{warningProof ? "Confirm despite existing appointment" : "Confirm appointment"}</button></div> : null}
+      {!selectedTime && bookingMessage ? <p className={styles.muted}>{bookingMessage}</p> : null}
     </section>
     <section className={styles.columns}><div><h2>Upcoming</h2>{upcoming.length ? <ul>{upcoming.map((item) => <li key={item.id}>{appointmentTime(item.scheduledAt)} · {item.doctorDisplayName}</li>)}</ul> : <p className={styles.muted}>No upcoming appointments.</p>}</div>
       <div><h2>History</h2>{history.length ? <ul>{history.map((item) => <li key={item.id}>{appointmentTime(item.scheduledAt)} · {item.doctorDisplayName}</li>)}</ul> : <p className={styles.muted}>No previous appointments.</p>}</div></section>

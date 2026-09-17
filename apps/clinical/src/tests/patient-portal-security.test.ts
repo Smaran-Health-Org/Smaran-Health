@@ -14,6 +14,7 @@ import {
   deliverPatientPortalInvitation,
   PatientPortalInvitationDeliveryError,
 } from "../lib/patient-portal/invitation-delivery";
+import { createPatientPortalWarningProof, verifyPatientPortalWarningProof } from "../lib/patient-portal/booking-warning";
 import { patientPortalAvailabilityQuerySchema, patientPortalBookingSchema, verifyPatientPortalCodeSchema } from "../lib/validation";
 
 test("patient portal uses a high-entropy link and HMAC-only fixed verification credential", () => {
@@ -93,4 +94,24 @@ test("portal browser schemas reject caller-selected identities and staff-only bo
   assert.equal(patientPortalBookingSchema.safeParse({
     doctorId: "00000000-0000-4000-8000-000000000001", scheduledAt: "2026-09-18T10:00:00.000Z", idempotencyKey: "request-1", patientId: "00000000-0000-4000-8000-000000000002",
   }).success, false);
+  assert.equal(patientPortalBookingSchema.safeParse({
+    doctorId: "00000000-0000-4000-8000-000000000001", scheduledAt: "2026-09-18T10:00:00.000Z", idempotencyKey: "request-1",
+    clinicId: "00000000-0000-4000-8000-000000000002", durationMinutes: 15, staffNote: "private", conflictAcknowledgements: [],
+  }).success, false);
+});
+
+test("portal warning proofs are short-lived, session-bound, and tamper resistant", () => {
+  const secret = "patient-portal-warning-test-secret-at-least-32-characters";
+  const expected = {
+    portalAccessSessionId: "00000000-0000-4000-8000-000000000001",
+    canonicalPatientId: "00000000-0000-4000-8000-000000000002",
+    doctorId: "00000000-0000-4000-8000-000000000003",
+    scheduledAt: "2026-09-18T10:00:00.000Z",
+  };
+  const now = Date.parse("2026-09-18T09:00:00.000Z");
+  const proof = createPatientPortalWarningProof({ ...expected, futureCount: 2 }, secret, now);
+  assert.equal(verifyPatientPortalWarningProof(proof, expected, secret, now + 1), 2);
+  assert.equal(verifyPatientPortalWarningProof(proof, { ...expected, doctorId: "00000000-0000-4000-8000-000000000004" }, secret, now + 1), null);
+  assert.equal(verifyPatientPortalWarningProof(`${proof}x`, expected, secret, now + 1), null);
+  assert.equal(verifyPatientPortalWarningProof(proof, expected, secret, now + 5 * 60 * 1000), null);
 });

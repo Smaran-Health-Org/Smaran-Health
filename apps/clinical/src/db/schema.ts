@@ -703,6 +703,21 @@ export const patientPortalAccessSessions = pgTable(
   ]
 );
 
+export const patientPortalBookingReceipts = pgTable(
+  "patient_portal_booking_receipts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    portalAccessSessionId: uuid("portal_access_session_id").references(() => patientPortalAccessSessions.id, { onDelete: "restrict" }).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("patient_portal_booking_receipts_session_idempotency_key_key").on(table.portalAccessSessionId, table.idempotencyKey)]
+);
+
 export const patientDemographicChangeEvents = pgTable(
   "patient_demographic_change_events",
   {

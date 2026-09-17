@@ -13,6 +13,7 @@
     "test:db:phase9-correction-race": "tsx --test scripts/test-phase9-correction-race.ts",
     "test:db:phase10-concurrency": "tsx --test scripts/test-phase10-concurrency.ts",
     "test:db:scheduler-s5-concurrency": "tsx --test scripts/test-scheduler-s5-concurrency.ts",
+    "test:db:scheduler-s6-concurrency": "tsx --test scripts/test-scheduler-s6-booking-concurrency.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "npx supabase migration up --local",
     "db:seed": "npx tsx src/db/seed.ts",

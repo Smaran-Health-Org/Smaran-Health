@@ -25,6 +25,10 @@ import {
   type PatientPortalDeliveryRecord,
   type PatientPortalInvitationDelivery,
 } from "@/lib/patient-portal/invitation-delivery";
+import {
+  createPatientPortalWarningProof,
+  verifyPatientPortalWarningProof,
+} from "@/lib/patient-portal/booking-warning";
 
 type PortalContextRow = {
   clinic_id: string;
@@ -45,6 +49,18 @@ export type PatientPortalAppointment = {
   doctorDisplayName: string;
 };
 
+export type PatientPortalBookingRequest = {
+  doctorId: string;
+  scheduledAt: string;
+  idempotencyKey: string;
+  warningProof?: string;
+};
+
+export type PatientPortalBookingResult =
+  | { kind: "booked"; appointment: { id: string; scheduledAt: string; doctorId: string } }
+  | { kind: "warning_required"; warningProof: string }
+  | { kind: "booking_disabled" | "booking_limit_reached" | "time_unavailable" | "session_expired" | "request_invalid" };
+
 export class PatientPortalError extends Error {
   constructor(public readonly kind: "access_invalid" | "verification_invalid" | "verification_expired" | "verification_locked" | "delivery_invalid" | "delivery_unavailable" | "unavailable") {
     super("Patient portal request could not be completed");
@@ -55,6 +71,19 @@ function mapPortalRpcError(error: { code?: string } | null): never {
   if (error?.code === "P0002" || error?.code === "42501") throw new PatientPortalError("access_invalid");
   if (error?.code === "22023" || error?.code === "23505") throw new PatientPortalError("unavailable");
   throw new PatientPortalError("unavailable");
+}
+
+function bookingProofSecret(): string {
+  const value = process.env.PATIENT_PORTAL_BOOKING_PROOF_SECRET?.trim() ?? process.env.INTAKE_CREDENTIAL_PEPPER?.trim();
+  if (!value || value.length < 32) throw new PatientPortalError("unavailable");
+  return value;
+}
+
+function bookingFingerprint(context: PatientPortalContext, request: Pick<PatientPortalBookingRequest, "doctorId" | "scheduledAt">): string {
+  return hashPatientAccessCredential(JSON.stringify({
+    v: 1, canonicalPatientId: context.canonicalPatientId, doctorId: request.doctorId,
+    scheduledAt: new Date(request.scheduledAt).toISOString(),
+  }));
 }
 
 export function maskEmail(email: string): string {
@@ -158,6 +187,43 @@ export async function getPatientPortalContext(): Promise<PatientPortalContext | 
     canonicalPatientId: row.canonical_patient_id,
     portalAccessSessionId: row.portal_access_session_id,
   } : null;
+}
+
+export async function confirmPatientPortalBooking(context: PatientPortalContext, request: PatientPortalBookingRequest): Promise<PatientPortalBookingResult> {
+  const sessionSecret = (await cookies()).get(PATIENT_PORTAL_SESSION_COOKIE)?.value;
+  if (!sessionSecret) return { kind: "session_expired" };
+  const scheduledAt = new Date(request.scheduledAt).toISOString();
+  const expected = {
+    portalAccessSessionId: context.portalAccessSessionId,
+    canonicalPatientId: context.canonicalPatientId,
+    doctorId: request.doctorId,
+    scheduledAt,
+  };
+  const warningObservedFutureCount = request.warningProof
+    ? verifyPatientPortalWarningProof(request.warningProof, expected, bookingProofSecret())
+    : null;
+  if (request.warningProof && warningObservedFutureCount === null) return { kind: "request_invalid" };
+  const { data, error } = await createServiceRoleClient().rpc("patient_portal_confirm_booking", {
+    p_verified_session_hash: hashPatientAccessCredential(sessionSecret),
+    p_doctor_id: request.doctorId,
+    p_scheduled_at: scheduledAt,
+    p_idempotency_key: request.idempotencyKey,
+    p_request_fingerprint: bookingFingerprint(context, { doctorId: request.doctorId, scheduledAt }),
+    p_warning_observed_future_count: warningObservedFutureCount,
+  });
+  if (error) throw new PatientPortalError("unavailable");
+  const result = data as { ok?: boolean; code?: string; futureCount?: number; appointment?: { id: string; scheduled_at: string; doctor_id: string } } | null;
+  if (result?.ok && result.appointment) return {
+    kind: "booked",
+    appointment: { id: result.appointment.id, scheduledAt: result.appointment.scheduled_at, doctorId: result.appointment.doctor_id },
+  };
+  if (result?.code === "warning_required" && (result.futureCount === 1 || result.futureCount === 2)) {
+    return { kind: "warning_required", warningProof: createPatientPortalWarningProof({ ...expected, futureCount: result.futureCount }, bookingProofSecret()) };
+  }
+  if (result?.code === "booking_disabled" || result?.code === "booking_limit_reached" || result?.code === "time_unavailable" || result?.code === "session_expired") {
+    return { kind: result.code };
+  }
+  return { kind: "request_invalid" };
 }
 
 export async function logoutPatientPortal(): Promise<void> {
