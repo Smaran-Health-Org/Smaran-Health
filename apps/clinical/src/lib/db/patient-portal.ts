@@ -81,7 +81,9 @@ function bookingProofSecret(): string {
 
 function bookingFingerprint(context: PatientPortalContext, request: Pick<PatientPortalBookingRequest, "doctorId" | "scheduledAt">): string {
   return hashPatientAccessCredential(JSON.stringify({
-    v: 1, canonicalPatientId: context.canonicalPatientId, doctorId: request.doctorId,
+    // The session is preserved when a patient is re-homed.  Canonical patient
+    // identity is intentionally excluded so a completed request can replay.
+    v: 2, portalAccessSessionId: context.portalAccessSessionId, doctorId: request.doctorId,
     scheduledAt: new Date(request.scheduledAt).toISOString(),
   }));
 }

@@ -31,6 +31,13 @@ export function PatientPortalHome() {
   const [booking, setBooking] = useState(false);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
 
+  function clearBookingSelection() {
+    setSelectedTime(null);
+    setBookingKey(null);
+    setWarningProof(null);
+    setBookingMessage(null);
+  }
+
   useEffect(() => {
     void Promise.all([
       fetch("/patient/api/portal", { cache: "no-store" }), fetch("/patient/api/doctors", { cache: "no-store" }),
@@ -46,12 +53,14 @@ export function PatientPortalHome() {
 
   useEffect(() => {
     if (!doctorId || !date) return;
-    void fetch(`/patient/api/availability?doctorId=${encodeURIComponent(doctorId)}&localDate=${encodeURIComponent(date)}`, { cache: "no-store" })
+    const controller = new AbortController();
+    void fetch(`/patient/api/availability?doctorId=${encodeURIComponent(doctorId)}&localDate=${encodeURIComponent(date)}`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("Available times could not be loaded.");
         const body = await response.json() as { availability: { bookableStarts?: number[] } };
-        setTimes((body.availability.bookableStarts ?? []).map((start) => new Date(start).toISOString()));
-      }).catch(() => setTimes([]));
+        if (!controller.signal.aborted) setTimes((body.availability.bookableStarts ?? []).map((start) => new Date(start).toISOString()));
+      }).catch(() => { if (!controller.signal.aborted) setTimes([]); });
+    return () => controller.abort();
   }, [doctorId, date]);
 
   async function logout() {
@@ -89,8 +98,8 @@ export function PatientPortalHome() {
   return <main className={styles.page}><section className={styles.wideCard}>
     <header className={styles.header}><div><p className={styles.brand}>Smaran Health</p><h1>Patient portal</h1></div><button className={styles.secondary} onClick={logout}>Sign out</button></header>
     <section><h2>Book appointment</h2><p className={styles.muted}>Choose a doctor and date to see clean availability.</p>
-      <div className={styles.bookingFields}><label>Doctor<select value={doctorId} onChange={(event) => setDoctorId(event.target.value)}>{doctors.map((doctor) => <option key={doctor.doctorId} value={doctor.doctorId}>{doctor.displayName}</option>)}</select></label>
-      <label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label></div>
+      <div className={styles.bookingFields}><label>Doctor<select value={doctorId} onChange={(event) => { clearBookingSelection(); setTimes([]); setDoctorId(event.target.value); }}>{doctors.map((doctor) => <option key={doctor.doctorId} value={doctor.doctorId}>{doctor.displayName}</option>)}</select></label>
+      <label>Date<input type="date" value={date} onChange={(event) => { clearBookingSelection(); setTimes([]); setDate(event.target.value); }} /></label></div>
       {times.length ? <div className={styles.times}>{times.map((time) => <button type="button" className={selectedTime === time ? styles.selectedTime : styles.time} key={time} onClick={() => { setSelectedTime(time); setBookingKey(crypto.randomUUID()); setWarningProof(null); setBookingMessage(null); }}>{new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", timeStyle: "short" }).format(new Date(time))}</button>)}</div> : <p className={styles.muted}>No available times for this selection.</p>}
       {selectedTime ? <div className={styles.confirm}><p>Selected: {appointmentTime(selectedTime)}</p>{bookingMessage ? <p className={styles.muted}>{bookingMessage}</p> : null}<button disabled={booking} onClick={confirmBooking}>{warningProof ? "Confirm despite existing appointment" : "Confirm appointment"}</button></div> : null}
       {!selectedTime && bookingMessage ? <p className={styles.muted}>{bookingMessage}</p> : null}
