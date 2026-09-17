@@ -17,10 +17,122 @@
 // Modes: transcribe | translate | verbatim | translit | codemix
 // Pricing: ₹30/hour of audio (₹45/hr with diarization); ₹100 free credits.
 
+import {
+  logSarvam,
+  logSarvamError,
+  type SarvamLogFields,
+} from "./sarvam-log";
+
 const SARVAM_BASE_URL = "https://api.sarvam.ai";
 const SARVAM_STT_PATH = "/speech-to-text";
 const SARVAM_BATCH_PATH = "/speech-to-text/job/v1";
 export const SARVAM_STT_MODEL = "saaras:v3";
+
+/** Identifies which leg of the flow a log line belongs to. */
+type SarvamStep =
+  | "segment.transcribe"
+  | "batch.initiate"
+  | "batch.upload_url"
+  | "batch.upload_put"
+  | "batch.start"
+  | "batch.status"
+  | "batch.download_url"
+  | "batch.download_get";
+
+/**
+ * Sarvam only ever exposes api.sarvam.ai. The Batch flow also PUTs to a
+ * presigned storage host whose URL carries credentials, so anything that is
+ * not api.sarvam.ai is reported as an opaque label instead of a path.
+ */
+function describeTarget(url: string): { host: string; path: string } {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "api.sarvam.ai") {
+      return { host: parsed.hostname, path: parsed.pathname };
+    }
+    return { host: "[presigned-storage]", path: "[redacted]" };
+  } catch {
+    return { host: "[unparseable-url]", path: "[unparseable-url]" };
+  }
+}
+
+/**
+ * Single choke point for every outbound Sarvam request. Records start, outcome,
+ * status, duration and Sarvam's own request id so a failed consultation can be
+ * reconstructed from logs alone. Never records audio bytes or transcript text.
+ */
+async function sarvamRequest(input: {
+  step: SarvamStep;
+  url: string;
+  method: string;
+  headers?: Record<string, string>;
+  body?: BodyInit;
+  timeoutMs?: number;
+  context?: SarvamLogFields;
+}): Promise<{ response: Response; durationMs: number; requestId: string | null }> {
+  const target = describeTarget(input.url);
+  const context = input.context ?? {};
+  const startedAt = Date.now();
+
+  const controller = input.timeoutMs ? new AbortController() : null;
+  const timer = controller
+    ? setTimeout(() => controller.abort(), input.timeoutMs)
+    : null;
+
+  logSarvam("request.start", {
+    step: input.step,
+    method: input.method,
+    ...target,
+    timeoutMs: input.timeoutMs,
+    ...context,
+  });
+
+  try {
+    const response = await fetch(input.url, {
+      method: input.method,
+      headers: input.headers,
+      body: input.body,
+      signal: controller?.signal,
+    });
+    const durationMs = Date.now() - startedAt;
+    const requestId =
+      response.headers.get("x-request-id") ?? response.headers.get("request-id");
+
+    const fields: SarvamLogFields = {
+      step: input.step,
+      method: input.method,
+      ...target,
+      status: response.status,
+      durationMs,
+      requestId,
+      retryAfter: response.headers.get("retry-after"),
+      ...context,
+    };
+
+    if (response.ok) {
+      logSarvam("request.ok", fields);
+    } else {
+      logSarvamError("request.http_error", fields);
+    }
+    return { response, durationMs, requestId };
+  } catch (error) {
+    const durationMs = Date.now() - startedAt;
+    const aborted = error instanceof Error && error.name === "AbortError";
+    logSarvamError(aborted ? "request.timeout" : "request.network_error", {
+      step: input.step,
+      method: input.method,
+      ...target,
+      durationMs,
+      timeoutMs: input.timeoutMs,
+      errorName: error instanceof Error ? error.name : typeof error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      ...context,
+    });
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 // Sarvam REST is designed for quick responses — it only accepts audio up to
 // 30 seconds per request (longer audio must use the Batch API) — and each
@@ -99,18 +211,30 @@ export async function transcribeSegment(input: {
   form.append("mode", input.mode ?? "codemix");
   form.append("language_code", input.languageCode ?? "unknown");
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(`${SARVAM_BASE_URL}${SARVAM_STT_PATH}`, {
+    const { response, requestId, durationMs } = await sarvamRequest({
+      step: "segment.transcribe",
+      url: `${SARVAM_BASE_URL}${SARVAM_STT_PATH}`,
       method: "POST",
       headers: { "api-subscription-key": apiKey },
       body: form,
-      signal: controller.signal,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+      context: {
+        mode: input.mode ?? "codemix",
+        languageCode: input.languageCode ?? "unknown",
+        model: SARVAM_STT_MODEL,
+        audioBytes: input.audioBuffer.byteLength,
+      },
     });
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
+      logSarvamError("segment.rejected", {
+        status: response.status,
+        requestId,
+        durationMs,
+        errorBody: detail,
+      });
       throw new Error(
         `Sarvam STT returned ${response.status}. ${detail.slice(0, 300)}`
       );
@@ -124,14 +248,27 @@ export async function transcribeSegment(input: {
     const transcript =
       typeof data.transcript === "string" ? data.transcript.trim() : "";
     if (!transcript) {
+      logSarvamError("segment.empty_transcript", {
+        status: response.status,
+        requestId,
+        durationMs,
+      });
       throw new Error("Sarvam returned an empty transcript for this segment.");
     }
+
+    logSarvam("segment.completed", {
+      requestId,
+      durationMs,
+      transcriptChars: transcript.length,
+      languageCode:
+        typeof data.language_code === "string" ? data.language_code : null,
+    });
 
     return {
       transcript,
       languageCode:
         typeof data.language_code === "string" ? data.language_code : null,
-      requestId: typeof data.request_id === "string" ? data.request_id : null,
+      requestId: typeof data.request_id === "string" ? data.request_id : requestId,
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
@@ -140,8 +277,6 @@ export async function transcribeSegment(input: {
       );
     }
     throw error;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -183,11 +318,19 @@ function requireSarvamApiKey(): string {
   return apiKey;
 }
 
+/** Timeout for the small JSON control calls (initiate/start/status/urls). */
+const CONTROL_REQUEST_TIMEOUT_MS = 30_000;
+
 /** Thin JSON wrapper for the Sarvam API: sets the auth header, serializes the
  *  body, and surfaces Sarvam's error body on non-2xx responses. */
 async function sarvamJson<T>(
   path: string,
-  options: { method?: string; body?: unknown } = {}
+  options: {
+    step: SarvamStep;
+    method?: string;
+    body?: unknown;
+    context?: SarvamLogFields;
+  }
 ): Promise<T> {
   const apiKey = requireSarvamApiKey();
   const headers: Record<string, string> = { "api-subscription-key": apiKey };
@@ -196,13 +339,22 @@ async function sarvamJson<T>(
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(options.body);
   }
-  const response = await fetch(`${SARVAM_BASE_URL}${path}`, {
+  const { response } = await sarvamRequest({
+    step: options.step,
+    url: `${SARVAM_BASE_URL}${path}`,
     method: options.method ?? "POST",
     headers,
     body,
+    timeoutMs: CONTROL_REQUEST_TIMEOUT_MS,
+    context: options.context,
   });
   const text = await response.text().catch(() => "");
   if (!response.ok) {
+    logSarvamError("control.rejected", {
+      step: options.step,
+      status: response.status,
+      errorBody: text,
+    });
     throw new Error(`Sarvam returned ${response.status}. ${text.slice(0, 300)}`);
   }
   if (!text) return {} as T;
@@ -214,6 +366,7 @@ export async function initiateBatchJob(
   params: SarvamBatchJobParams = {}
 ): Promise<string> {
   const data = await sarvamJson<{ job_id?: unknown }>(SARVAM_BATCH_PATH, {
+    step: "batch.initiate",
     body: {
       job_parameters: {
         model: SARVAM_STT_MODEL,
@@ -221,10 +374,13 @@ export async function initiateBatchJob(
         language_code: params.languageCode ?? "unknown",
       },
     },
+    context: { mode: params.mode ?? "codemix" },
   });
   if (typeof data.job_id !== "string" || !data.job_id) {
+    logSarvamError("batch.initiate_missing_job_id", { responseShape: Object.keys(data) });
     throw new Error("Sarvam batch job initiation did not return a job_id.");
   }
+  logSarvam("batch.initiated", { jobId: data.job_id });
   return data.job_id;
 }
 
@@ -235,17 +391,26 @@ export async function uploadBatchFile(input: {
   audioBuffer: ArrayBuffer;
   mimeType: string;
 }): Promise<void> {
+  const uploadStartedAt = Date.now();
   const data = await sarvamJson<{
     upload_urls?: Record<string, { file_url?: unknown }>;
   }>(`${SARVAM_BATCH_PATH}/upload-files`, {
+    step: "batch.upload_url",
     body: { job_id: input.jobId, files: [input.fileName] },
+    context: { jobId: input.jobId },
   });
   const fileUrl = data.upload_urls?.[input.fileName]?.file_url;
   if (typeof fileUrl !== "string" || !fileUrl) {
+    logSarvamError("batch.upload_url_missing", {
+      jobId: input.jobId,
+      returnedFiles: Object.keys(data.upload_urls ?? {}),
+    });
     throw new Error("Sarvam did not return an upload URL for the audio file.");
   }
 
-  const putResponse = await fetch(fileUrl, {
+  const { response: putResponse, durationMs } = await sarvamRequest({
+    step: "batch.upload_put",
+    url: fileUrl,
     method: "PUT",
     headers: {
       "Content-Type": input.mimeType,
@@ -253,18 +418,40 @@ export async function uploadBatchFile(input: {
       "x-ms-blob-type": "BlockBlob",
     },
     body: new Uint8Array(input.audioBuffer),
+    context: {
+      jobId: input.jobId,
+      mimeType: input.mimeType,
+      audioBytes: input.audioBuffer.byteLength,
+    },
   });
   if (!putResponse.ok && putResponse.status !== 201) {
     const detail = await putResponse.text().catch(() => "");
+    logSarvamError("batch.upload_rejected", {
+      jobId: input.jobId,
+      status: putResponse.status,
+      errorBody: detail,
+    });
     throw new Error(
       `Upload to Sarvam storage failed (${putResponse.status}). ${detail.slice(0, 300)}`
     );
   }
+  logSarvam("batch.uploaded", {
+    jobId: input.jobId,
+    status: putResponse.status,
+    durationMs,
+    audioBytes: input.audioBuffer.byteLength,
+    totalMs: Date.now() - uploadStartedAt,
+  });
 }
 
 /** Step 4: start processing the uploaded audio. */
 export async function startBatchJob(jobId: string): Promise<void> {
-  await sarvamJson(`${SARVAM_BATCH_PATH}/${jobId}/start`, { method: "POST" });
+  await sarvamJson(`${SARVAM_BATCH_PATH}/${jobId}/start`, {
+    step: "batch.start",
+    method: "POST",
+    context: { jobId },
+  });
+  logSarvam("batch.started", { jobId });
 }
 
 export type SarvamBatchStatus = {
@@ -281,7 +468,11 @@ export async function getBatchJobStatus(
     job_state?: unknown;
     error_message?: unknown;
     job_details?: Array<{ outputs?: Array<{ file_name?: unknown }> }>;
-  }>(`${SARVAM_BATCH_PATH}/${jobId}/status`, { method: "GET" });
+  }>(`${SARVAM_BATCH_PATH}/${jobId}/status`, {
+    step: "batch.status",
+    method: "GET",
+    context: { jobId },
+  });
 
   const outputFiles = (data.job_details ?? [])
     .flatMap((detail) => detail.outputs ?? [])
@@ -293,12 +484,20 @@ export async function getBatchJobStatus(
       ? (data.job_state as SarvamBatchJobState)
       : "Failed";
 
-  return {
+  const errorMessage =
+    typeof data.error_message === "string" ? data.error_message : null;
+
+  // Poll results are the highest-value diagnostic signal: a job that sits in
+  // Accepted/Pending forever (quota, unreadable audio) looks identical to a
+  // job that is genuinely still running until you see the raw state.
+  logSarvam("batch.status_result", {
+    jobId,
     jobState,
-    outputFiles,
-    errorMessage:
-      typeof data.error_message === "string" ? data.error_message : null,
-  };
+    outputFileCount: outputFiles.length,
+    errorMessage,
+  });
+
+  return { jobState, outputFiles, errorMessage };
 }
 
 export type SarvamBatchTranscript = {
@@ -318,15 +517,31 @@ export async function downloadBatchTranscript(
   const data = await sarvamJson<{
     download_urls?: Record<string, { file_url?: unknown }>;
   }>(`${SARVAM_BATCH_PATH}/download-files`, {
+    step: "batch.download_url",
     body: { job_id: jobId, files: outputFiles },
+    context: { jobId, outputFileCount: outputFiles.length },
   });
   const fileUrl = data.download_urls?.[outputFiles[0]]?.file_url;
   if (typeof fileUrl !== "string" || !fileUrl) {
+    logSarvamError("batch.download_url_missing", {
+      jobId,
+      returnedFiles: Object.keys(data.download_urls ?? {}),
+    });
     throw new Error("Sarvam did not return a download URL for the transcript.");
   }
 
-  const fileResponse = await fetch(fileUrl);
+  const { response: fileResponse, durationMs } = await sarvamRequest({
+    step: "batch.download_get",
+    url: fileUrl,
+    method: "GET",
+    timeoutMs: CONTROL_REQUEST_TIMEOUT_MS,
+    context: { jobId },
+  });
   if (!fileResponse.ok) {
+    logSarvamError("batch.download_rejected", {
+      jobId,
+      status: fileResponse.status,
+    });
     throw new Error(
       `Failed to download transcript from Sarvam (${fileResponse.status}).`
     );
@@ -339,8 +554,21 @@ export async function downloadBatchTranscript(
   const transcript =
     typeof result.transcript === "string" ? result.transcript.trim() : "";
   if (!transcript) {
+    logSarvamError("batch.empty_transcript", {
+      jobId,
+      durationMs,
+      responseKeys: Object.keys(result),
+    });
     throw new Error("Sarvam returned an empty transcript.");
   }
+
+  logSarvam("batch.transcript_ready", {
+    jobId,
+    durationMs,
+    transcriptChars: transcript.length,
+    languageCode:
+      typeof result.language_code === "string" ? result.language_code : null,
+  });
 
   return {
     transcript,

@@ -40,6 +40,8 @@
 **/recordings/
 **/uploads/
 **/exports/
+**/.backups/
+**/backups/
 **/*.wav
 **/*.mp3
 **/*.m4a

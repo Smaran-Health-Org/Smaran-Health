@@ -9,6 +9,8 @@
     "lint": "eslint .",
     "test": "tsx --test src/tests/*.test.ts",
     "test:db": "supabase test db --local supabase/tests",
+    "sarvam:log": "tsx scripts/sarvam-log-report.ts",
+    "sarvam:diagnose": "tsx scripts/sarvam-diagnose.ts",
     "test:db:phase8-lock-order": "tsx --test scripts/test-phase8-lock-order.ts",
     "test:db:phase9-correction-race": "tsx --test scripts/test-phase9-correction-race.ts",
     "test:db:phase10-concurrency": "tsx --test scripts/test-phase10-concurrency.ts",

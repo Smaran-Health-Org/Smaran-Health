@@ -30,6 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Sarvam API diagnostic log (local development sink). Never commit: it can
+# contain internal recording IDs tied to a real consultation.
+/.logs/
+
+# Local pre-wipe data exports. Never commit: contains PHI.
+/.backups/
+
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
