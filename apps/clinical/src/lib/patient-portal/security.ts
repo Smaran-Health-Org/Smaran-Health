@@ -1,25 +1,30 @@
 import {
-  createPatientAccessToken,
+  createPatientAccessCredentials,
   createVerifiedPatientSessionCredential,
   hashPatientAccessCredential,
   isPlausiblePatientAccessToken,
 } from "@/lib/patient-access/security";
+import {
+  PATIENT_PORTAL_LINK_TTL_MS,
+  PATIENT_PORTAL_MVP_VERIFICATION_CODE,
+  PATIENT_PORTAL_SESSION_COOKIE,
+  PATIENT_PORTAL_VERIFICATION_TTL_MS,
+} from "@/lib/patient-portal/constants";
 
-export const PATIENT_PORTAL_SESSION_COOKIE = "smaran_patient_portal_session";
-export const PATIENT_PORTAL_LINK_TTL_MS = 24 * 60 * 60 * 1000;
-export const PATIENT_PORTAL_VERIFICATION_TTL_MS = 10 * 60 * 1000;
-/** This is an MVP verification gate, never evidence of phone possession. */
-export const PATIENT_PORTAL_MVP_VERIFICATION_CODE = "123456";
+export {
+  PATIENT_PORTAL_LINK_TTL_MS,
+  PATIENT_PORTAL_MVP_VERIFICATION_CODE,
+  PATIENT_PORTAL_SESSION_COOKIE,
+  PATIENT_PORTAL_VERIFICATION_TTL_MS,
+};
 
 export function createPatientPortalCredentials(now = new Date()) {
-  const accessToken = createPatientAccessToken();
-  return {
-    accessToken,
-    tokenHash: hashPatientAccessCredential(accessToken),
-    otpHash: hashPatientAccessCredential(PATIENT_PORTAL_MVP_VERIFICATION_CODE),
-    expiresAt: new Date(now.getTime() + PATIENT_PORTAL_LINK_TTL_MS).toISOString(),
-    otpExpiresAt: new Date(now.getTime() + PATIENT_PORTAL_VERIFICATION_TTL_MS).toISOString(),
-  };
+  return createPatientAccessCredentials({
+    now,
+    linkTtlMs: PATIENT_PORTAL_LINK_TTL_MS,
+    verificationTtlMs: PATIENT_PORTAL_VERIFICATION_TTL_MS,
+    verificationValue: PATIENT_PORTAL_MVP_VERIFICATION_CODE,
+  });
 }
 
 export { createVerifiedPatientSessionCredential, hashPatientAccessCredential, isPlausiblePatientAccessToken };

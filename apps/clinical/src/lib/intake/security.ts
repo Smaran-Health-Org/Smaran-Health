@@ -1,5 +1,5 @@
 import {
-  createPatientAccessToken,
+  createPatientAccessCredentials,
   createVerifiedPatientSessionCredential,
   hashPatientAccessCredential,
   isPlausiblePatientAccessToken,
@@ -9,23 +9,18 @@ export const INTAKE_CONSENT_VERSION = "preconsult-intake-consent/v1.0";
 export const INTAKE_SESSION_COOKIE = "smaran_intake_session";
 export const INTAKE_LINK_TTL_MS = 24 * 60 * 60 * 1000;
 
-export function hashIntakeCredential(value: string, pepper?: string): string {
-  return pepper ? hashPatientAccessCredential(value, pepper) : hashPatientAccessCredential(value);
+export function hashIntakeCredential(value: string): string {
+  return hashPatientAccessCredential(value);
 }
 
 export function createIntakeCredentials(now = new Date()) {
-  const accessToken = createPatientAccessToken();
-  const tokenHash = hashIntakeCredential(accessToken);
-  const expiresAt = new Date(now.getTime() + INTAKE_LINK_TTL_MS).toISOString();
-  return {
-    accessToken,
-    tokenHash,
-    // The existing access-session schema retains these legacy columns for
-    // historical records. The link itself is now the only credential.
-    otpHash: tokenHash,
-    expiresAt,
-    otpExpiresAt: new Date(now.getTime() + 10 * 60 * 1000).toISOString(),
-  };
+  // The existing access-session schema retains these legacy columns for
+  // historical records. The link itself is now the only credential.
+  return createPatientAccessCredentials({
+    now,
+    linkTtlMs: INTAKE_LINK_TTL_MS,
+    verificationTtlMs: 10 * 60 * 1000,
+  });
 }
 
 export function createVerifiedSessionCredential() {

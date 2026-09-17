@@ -1,5 +1,11 @@
 import "server-only";
-import { createHmac, randomBytes } from "node:crypto";
+import {
+  createPatientAccessCredentialsWithPepper,
+  createPatientAccessToken,
+  createPatientSessionSecret,
+  hashPatientAccessCredentialWithPepper,
+  isPlausiblePatientAccessToken,
+} from "@/lib/patient-access/primitives";
 
 /**
  * Shared, server-only credential primitives for secure patient links. Feature
@@ -13,19 +19,22 @@ function patientAccessPepper(): string {
   return value;
 }
 
-export function hashPatientAccessCredential(value: string, pepper = patientAccessPepper()): string {
-  return createHmac("sha256", pepper).update(value, "utf8").digest("hex");
+export function hashPatientAccessCredential(value: string): string {
+  return hashPatientAccessCredentialWithPepper(value, patientAccessPepper());
 }
 
-export function createPatientAccessToken(): string {
-  return randomBytes(32).toString("base64url");
+export function createPatientAccessCredentials(input: {
+  linkTtlMs: number;
+  verificationTtlMs: number;
+  verificationValue?: string;
+  now?: Date;
+}) {
+  return createPatientAccessCredentialsWithPepper({ ...input, pepper: patientAccessPepper() });
 }
 
 export function createVerifiedPatientSessionCredential() {
-  const secret = randomBytes(32).toString("base64url");
+  const secret = createPatientSessionSecret();
   return { secret, hash: hashPatientAccessCredential(secret) };
 }
 
-export function isPlausiblePatientAccessToken(value: string): boolean {
-  return /^[A-Za-z0-9_-]{40,60}$/.test(value);
-}
+export { createPatientAccessToken, isPlausiblePatientAccessToken };
