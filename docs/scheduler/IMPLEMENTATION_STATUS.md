@@ -10,7 +10,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S3 — Complete. PHASE S5 — Complete. PHASE S6 — Active (Partial): appointment detail and appointment-scoped Intake/document preparation handoff are implemented; final independent R05/security closure remains.**
+**PHASE S3 — Complete. PHASE S5 — Complete. PHASE S6 — Complete: final independent R05/security closure passed.**
 
 ## Phase tracker
 
@@ -22,7 +22,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 | S3 | Atomic lifecycle + conflicts/concurrency | Complete | AC-SCH-B*, L*, P09–P12, R* |
 | S4 | Staff Scheduler calendar + booking modal | Complete | AC-SCH-U01–U08, B01–B07, R01, R04 |
 | S5 | Schedule/settings + exceptions | Complete | AC-SCH-D*, H09–H11, M02 |
-| S6 | Unified Patient Portal scheduling | Partial | AC-SCH-P*, PP01–PP02, A09–A11 |
+| S6 | Unified Patient Portal scheduling | Complete | AC-SCH-P*, PP01–PP02, A09–A11, R02, R04–R05 |
 | S7 | Patient preparation/link/history integration | Not started | AC-SCH-PP03–PP05, H08, lifecycle preservation |
 | S8 | Security/regression/pilot hardening | Not started | All relevant AC-SCH-*; especially R* and B09 |
 
@@ -219,10 +219,11 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 - Product decisions/questions surfaced: None; S-D093 records the approved email-link/fixed-code MVP interpretation.
 - Recommended next task: Complete only the remaining S6 appointment detail and Intake/document adapter work under a separately scoped request.
 
-### Phase S6 — Patient Appointment Detail + appointment-scoped preparation handoff
+### Phase S6 — final R05/security closure
 
-- Status: Partial; implementation and local validation are complete, while final independent R05/security closure remains outstanding.
-- Work completed: Added a cookie-authorized, patient-safe Appointment detail projection and an appointment-scoped Portal-to-existing-Intake direct-link handoff. Intake access now records explicit `staff_delivery` versus `patient_portal_handoff` provenance, with Portal rows bound to their verified Portal access session and no fabricated staff actor. Staff issuance, delivery finalization, and operational status remain source-aware. Portal handoffs are hash-only, session-bounded, idempotent through immutable receipts, reuse the existing Encounter Intake and private document path, and never alter staff-send metrics or staff-issued credentials. Submitted Intakes retain the existing appointment-scoped document manager without reopening Intake editing.
-- Acceptance criteria evidenced: AC-SCH-PP01–PP02 and local AC-SCH-R05 coverage. Appointment detail/preparation implementation is complete locally, but S6 remains Partial until final independent R05/security closure completes. Patient reschedule/cancel, patient-wide document history, and S7 preparation history remain out of scope.
-- Files changed: migration/test `0092_scheduler_s6_patient_appointment_preparation.*`; Patient Portal Appointment routes/UI; existing direct-link Intake document wording/submitted state; schema, validation, and Portal DB wrapper.
-- Validation: a project-scoped Supabase stop/start repaired the stale Realtime state; debug reset applied migrations through `0092`. Focused `0092` pgTAP passed (18 assertions), legacy Intake `0009` pgTAP passed (43 assertions), the two-connection Portal→Intake handoff concurrency test passed, and full `npm run test:db` passed (39 files / 1,045 assertions). Focused `npm test -- --test-name-pattern='patient portal|intake'` passed (150 tests); `npx tsc --noEmit`, `npm run lint`, `npx next build --webpack`, and `git diff --check` passed.
+- Status: Complete.
+- Work completed: Independent R05 closure found that `get_patient_portal_context` accepted a session hash without explicitly requiring `verified_at`. Forward-only `0093_scheduler_s6_r05_portal_context_closure.sql` now requires a verified, unexpired, non-invalidated session whose patient remains canonical. The fixed authority continues to derive clinic, patient, and Portal-session identity internally; it does not accept browser-selected identifiers or introduce browser DML.
+- Acceptance criteria evidenced: AC-SCH-P01–P12, AC-SCH-PP01–PP02, AC-SCH-A09–A11, and AC-SCH-R02/R04/R05. R05 coverage proves unverified, expired, invalidated, and merged-away sessions fail closed; Clinic A cannot open Clinic B appointment detail, create Clinic B Intake preparation, or book a Clinic B doctor; cross-patient selectors remain neutral. Patient reschedule/cancel, patient-wide document history, and S7 preparation/history expansion remain out of scope.
+- Files changed: `0093_scheduler_s6_r05_portal_context_closure.sql`; `0093_scheduler_s6_r05_portal_context_closure.test.sql`; the `0088` pgTAP fixture now sets `verified_at` for rows it already describes as verified.
+- Validation: after project-scoped `supabase stop --no-backup` / `supabase start --debug` recovered stale local Realtime state, clean migrations applied through `0093`. Focused pgTAP passed: `0088` 76 assertions, `0090` 14, `0091` 27, `0092` 18, and `0093` 10. Full `npm run test:db` passed (40 files / 1,055 assertions). Both two-connection suites passed: booking (1 test) and Portal→Intake handoff (1 test). `npm test` passed (150 tests); `npx tsc --noEmit`, `npm run lint`, `npx next build --webpack`, and `git diff --check` passed.
+- Security/privacy review: service-role-only booking/detail/handoff authority, fixed `SECURITY DEFINER` paths, private/RLS-protected Portal receipt tables, hash-only credentials, patient-safe detail projections, merge-domain revalidation, staff-vs-Portal Intake provenance, submitted-Intake immutability, consent-bound private documents, and Queue/pre-consultation behavior are preserved. S7 remains Not started.
