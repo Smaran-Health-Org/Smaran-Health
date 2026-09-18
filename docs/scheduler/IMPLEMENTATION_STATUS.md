@@ -10,7 +10,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S3 — Complete. PHASE S5 — Complete. PHASE S6 — Complete: final independent R05/security closure passed.**
+**PHASE S3 — Complete. PHASE S5 — Complete. PHASE S6 — Complete: final independent R05/security closure passed. PHASE S7 — Complete: review closure and full DB validation passed.**
 
 ## Phase tracker
 
@@ -23,7 +23,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 | S4 | Staff Scheduler calendar + booking modal | Complete | AC-SCH-U01–U08, B01–B07, R01, R04 |
 | S5 | Schedule/settings + exceptions | Complete | AC-SCH-D*, H09–H11, M02 |
 | S6 | Unified Patient Portal scheduling | Complete | AC-SCH-P*, PP01–PP02, A09–A11, R02, R04–R05 |
-| S7 | Patient preparation/link/history integration | Not started | AC-SCH-PP03–PP05, H08, lifecycle preservation |
+| S7 | Patient preparation/link/history integration | Complete | AC-SCH-PP03–PP05, H08, lifecycle preservation |
 | S8 | Security/regression/pilot hardening | Not started | All relevant AC-SCH-*; especially R* and B09 |
 
 ## Current implementation truth before S1
@@ -231,15 +231,13 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 ### Phase S7 — Patient preparation, link, and history integration
 
 - Status: Complete.
-- Commit/PR: Uncommitted working tree at implementation handoff.
-- Work completed: staff Scheduler booking now completes as a durable booking followed by an explicit `Send Patient Link` action that uses the established patient-scoped Portal invitation route; existing appointment detail also exposes that same patient-scoped action. No booking or lifecycle mutation sends a link. After an authenticated patient self-books, the Portal immediately opens the existing safe appointment detail and its existing Portal → Intake preparation handoff when available. Patient history now uses a service-role-only four-field Appointment projection, and the Portal detail renders an allowlisted scheduling timeline without forwarding event payloads or audit metadata. S3 lifecycle authority and existing Intake/document/Encounter relationships were not redesigned.
-- Acceptance criteria satisfied: AC-SCH-PP03–PP05, AC-SCH-H08, AC-SCH-L02–L07 regression coverage through the existing S3 lifecycle authority/tests, and AC-SCH-R02–R04 boundaries.
-- Files changed: `apps/clinical/src/components/scheduler-workspace.tsx`; `apps/clinical/src/components/send-patient-portal-link.tsx`; `apps/clinical/src/app/patient/patient-portal-home.tsx`; `apps/clinical/src/lib/db/patient-portal.ts`; `apps/clinical/supabase/migrations/0094_scheduler_s7_patient_safe_history.sql`; `apps/clinical/supabase/tests/0094_scheduler_s7_patient_safe_history.test.sql`; `apps/clinical/src/tests/scheduler-s7-integration.test.ts`.
-- DB migrations: `0094_scheduler_s7_patient_safe_history.sql` adds no persistence table; it adds only service-role-safe history and timeline projections over existing appointments and `appointment_events`.
-- Tests/validation actually run: `npm run db:migrate` (pass, applied `0094`); focused S7 application/Portal tests (pass, 9); focused S7 pgTAP (pass, 19); focused S3 lifecycle plus S6 Portal preparation/R05 pgTAP regressions (pass, 51); `npx tsc --noEmit` (pass); `npm run lint` (pass); `npm test` (pass, 153); `npx next build --webpack` (pass; existing middleware-to-proxy deprecation warning only); `git diff --check` (pass). Full `npm run test:db` ran 41 files/1,058 assertions but did not pass because the pre-existing `0021_preconsult_phase6_5_assisted_intake.test.sql` aborts at its scalar `patient_intake_statements` subquery after the first statement is inserted. The unrelated `0090` Portal retry assertion also failed once in that aggregate run because its unqualified `LIMIT 1` selected a different row, but passed immediately when rerun in isolation. S7's focused DB test passed in both runs.
-- Security/privacy review: invitations remain authorized by the existing server-side patient Portal issuance route, are patient-scoped rather than Appointment-credential scoped, and retain existing cross-clinic enforcement. History/timeline derive patient and clinic exclusively from the verified Portal session digest, return only deliberate safe fields, exclude raw audit/event payloads, staff notes, exception/override rationale and clinical state, and are unavailable to browser roles directly. No source document, Intake consent, doctor-only clinical, confirmed-state, Queue, or automated communication authority was broadened.
-- Concurrency/idempotency review: no S7 lifecycle mutation was added. Booking, reschedule, reassignment, cancellation, manual no-show, and rebook continue through S3's guarded/idempotent authority; reschedule/reassignment/cancellation/rebook therefore retain their existing Appointment→Encounter and evidence preservation semantics. Explicit Portal invitation delivery remains the existing human-triggered S6 path.
-- Regression review against pre-consultation/Queue: focused S6 Portal→Intake preparation and S3 lifecycle tests pass. S7 does not change Intake consent/OTP, document upload/processing, private storage, Queue execution, or doctor-only clinical routes.
-- Known limitations: the repository-wide database suite is not fully green due to the unrelated existing `0021` assisted-Intake test fixture failure described above. Patient reschedule/cancel and automated appointment communications remain intentionally out of scope.
+- Original implementation commit: `f49457980ad9a9fa0f1d33ec34bf233c78c672e6`.
+- Review-fix commit: `5a1b89b518b745995d192239c0fd7d3a82695eb2`.
+- Work completed: booking confirmation now has a separate non-fatal hydration boundary, so a failed upcoming-list/detail refresh cannot claim the durable mutation failed or trigger another mutation. Explicit staff `Send Patient Link` remains the patient-scoped S6 invitation; booking and all lifecycle actions remain communication-free. `0095_scheduler_s7_portal_context_closure.sql` makes service-role-only history/timeline projections resolve identity through canonical S6 `get_patient_portal_context` rather than duplicate its session predicates.
+- Acceptance criteria evidenced: AC-SCH-PP03–PP05, H08, L02–L07, and R02–R04. Dedicated lifecycle coverage drives reschedule, reassignment, cancellation, and rebook through `scheduler_mutate_appointment_v3` while retaining the original Appointment/Encounter, Intake, document, and pre-consult provenance; the replacement gets a new Encounter and never moves original evidence.
+- DB migrations: `0094_scheduler_s7_patient_safe_history.sql`; forward-only `0095_scheduler_s7_portal_context_closure.sql` (no new tables or credentials).
+- Final validation: controlled clean baseline `863edc870adf26b0e2f276bac65ee62dbf82d4a3` through `0093` passed `npm run test:db` (40 files / 1,055 assertions). Clean current migrations through `0095` passed `npm run test:db` (42 files / 1,098 assertions); focused history (26) and lifecycle/evidence (17) pgTAP suites passed. `npm test` passed (154), as did `npx tsc --noEmit`, `npm run lint`, and `git diff --check`. The previous `0021` and aggregate `0090` reports did not reproduce under equivalent clean conditions; `0090` now deterministically selects its own fixture row.
+- Security/privacy review: verified, unexpired, non-invalidated, canonical session context is shared with S6; cross-patient and cross-clinic reads remain neutral; browser roles cannot call either projection. The allowlist still excludes payload JSON, staff notes, actor IDs, audit/override/conflict/exception data, and doctor-only clinical state. No automatic communication, new lifecycle authority, source-document exposure, or clinical authority was added.
+- Known limitations/out of scope: Patient reschedule/cancel, automated messages/reminders, and S8 hardening remain out of scope. S8 remains **Not started**.
 - Product decisions/questions surfaced: None.
 - Recommended next task: S8 security, concurrency, regression, and pilot hardening only.
