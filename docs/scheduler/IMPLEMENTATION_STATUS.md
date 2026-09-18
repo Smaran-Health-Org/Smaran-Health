@@ -10,7 +10,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S5 — Complete. S6 is partially implemented; shared S3 patient-confirmation work remains.**
+**PHASE S3 — Complete. PHASE S5 — Complete. PHASE S6 — Active (Partial): appointment detail and appointment-scoped Intake/document preparation handoff are implemented; final independent R05/security closure remains.**
 
 ## Phase tracker
 
@@ -225,4 +225,4 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 - Work completed: Added a cookie-authorized, patient-safe Appointment detail projection and an appointment-scoped Portal-to-existing-Intake direct-link handoff. Intake access now records explicit `staff_delivery` versus `patient_portal_handoff` provenance, with Portal rows bound to their verified Portal access session and no fabricated staff actor. Staff issuance, delivery finalization, and operational status remain source-aware. Portal handoffs are hash-only, session-bounded, idempotent through immutable receipts, reuse the existing Encounter Intake and private document path, and never alter staff-send metrics or staff-issued credentials. Submitted Intakes retain the existing appointment-scoped document manager without reopening Intake editing.
 - Acceptance criteria evidenced: AC-SCH-PP01–PP02 and local AC-SCH-R05 coverage. Appointment detail/preparation implementation is complete locally, but S6 remains Partial until final independent R05/security closure completes. Patient reschedule/cancel, patient-wide document history, and S7 preparation history remain out of scope.
 - Files changed: migration/test `0092_scheduler_s6_patient_appointment_preparation.*`; Patient Portal Appointment routes/UI; existing direct-link Intake document wording/submitted state; schema, validation, and Portal DB wrapper.
-- Validation: a project-scoped Supabase stop/start repaired the stale Realtime state; debug reset applied migrations through `0092`. Focused `0092` pgTAP passed (17 assertions), legacy Intake `0009` pgTAP passed (43 assertions), the two-connection Portal→Intake handoff concurrency test passed, and full `npm run test:db` passed (39 files / 1,044 assertions). Focused `npm test -- --test-name-pattern='patient portal|intake'` passed (150 tests); `npx tsc --noEmit`, `npm run lint`, `npx next build --webpack`, and `git diff --check` passed.
+- Validation: a project-scoped Supabase stop/start repaired the stale Realtime state; debug reset applied migrations through `0092`. Focused `0092` pgTAP passed (18 assertions), legacy Intake `0009` pgTAP passed (43 assertions), the two-connection Portal→Intake handoff concurrency test passed, and full `npm run test:db` passed (39 files / 1,045 assertions). Focused `npm test -- --test-name-pattern='patient portal|intake'` passed (150 tests); `npx tsc --noEmit`, `npm run lint`, `npx next build --webpack`, and `git diff --check` passed.
