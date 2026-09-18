@@ -12,20 +12,45 @@ function nullableInteger(value: string) { return value.trim() === "" ? null : Nu
 
 export function SchedulerSettings({ role, actorDoctorId }: { role: SessionContext["role"]; actorDoctorId: string }) {
   const [snapshot, setSnapshot] = useState<SchedulerConfigurationSnapshot | null>(null); const [doctorId, setDoctorId] = useState("");
-  const [error, setError] = useState<string | null>(null); const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null); const [saveError, setSaveError] = useState<string | null>(null); const [refreshError, setRefreshError] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const [reconciliation, setReconciliation] = useState<string | null>(null);
-  useEffect(() => { void json("/api/scheduler/configuration").then((data) => { setSnapshot(data); setDoctorId(data.doctors[0]?.id ?? ""); }).catch((e) => setError(e.message)); }, []);
+  async function refreshSnapshot() {
+    const fresh = await json("/api/scheduler/configuration");
+    setSnapshot(fresh); setDoctorId((currentDoctorId) => currentDoctorId || fresh.doctors[0]?.id || "");
+  }
+  useEffect(() => { void json("/api/scheduler/configuration").then((data) => { setSnapshot(data); setDoctorId(data.doctors[0]?.id ?? ""); }).catch(() => setLoadError("Scheduler settings could not be loaded. Refresh to try again.")); }, []);
   const visibleDoctors = useMemo(() => snapshot?.doctors.filter((item) => role !== "doctor" || item.id === actorDoctorId) ?? [], [snapshot, role, actorDoctorId]);
   const activeDoctorId = role === "doctor" ? actorDoctorId : doctorId;
   const doctor = useMemo(() => visibleDoctors.find((item) => item.id === activeDoctorId) ?? null, [visibleDoctors, activeDoctorId]);
-  async function preview(command: SchedulerConfigurationCommand): Promise<SchedulerConfigurationPreview> { setError(null); setBusy(true); try { return await json("/api/scheduler/configuration/impact-preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command }) }); } finally { setBusy(false); } }
-  async function save(command: SchedulerConfigurationCommand, needsConfirmation = false) {
-    try { const impact = await preview(command); const warning = schedulerConfigurationImpactWarning(impact); if (needsConfirmation && warning && !window.confirm(`${warning} Save this exact change?`)) return; setBusy(true); const result = await json("/api/scheduler/configuration", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command, previewFingerprint: impact.fingerprint }) }); const opened = Number(result.openedCount ?? 0); const resolved = Number(result.resolvedCount ?? 0); setReconciliation(`Saved. Authoritative reconciliation opened ${opened} and resolved ${resolved} attention issue${opened + resolved === 1 ? "" : "s"}. Preview was a pre-save snapshot; existing appointments were not moved or cancelled.`); const fresh = await json("/api/scheduler/configuration"); setSnapshot(fresh); } catch (e) { setError(e instanceof Error ? e.message : "Could not save settings."); } finally { setBusy(false); }
+  async function preview(command: SchedulerConfigurationCommand): Promise<SchedulerConfigurationPreview> { setBusy(true); try { return await json("/api/scheduler/configuration/impact-preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command }) }); } finally { setBusy(false); } }
+  async function retryRefresh() {
+    setRefreshError(null); setBusy(true);
+    try { await refreshSnapshot(); }
+    catch { setRefreshError("The latest settings view could not be refreshed. Try refreshing again."); }
+    finally { setBusy(false); }
   }
-  if (!snapshot) return <main className={styles.pageContent}><p className={styles.schedulerState}>{error ?? "Loading Scheduler settings…"}</p></main>;
+  async function save(command: SchedulerConfigurationCommand, needsConfirmation = false) {
+    setSaveError(null); setRefreshError(null); setReconciliation(null);
+    let impact: SchedulerConfigurationPreview;
+    try { impact = await preview(command); }
+    catch { setSaveError("Could not preview settings changes. Please try again."); return; }
+    const warning = schedulerConfigurationImpactWarning(impact);
+    if (needsConfirmation && warning && !window.confirm(`${warning} Save this exact change?`)) return;
+    setBusy(true);
+    let result: { openedCount?: number; resolvedCount?: number };
+    try { result = await json("/api/scheduler/configuration", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command, previewFingerprint: impact.fingerprint }) }); }
+    catch { setSaveError("Could not save settings. Please try again."); setBusy(false); return; }
+    const opened = Number(result.openedCount ?? 0); const resolved = Number(result.resolvedCount ?? 0);
+    setReconciliation(`Saved. Authoritative reconciliation opened ${opened} and resolved ${resolved} attention issue${opened + resolved === 1 ? "" : "s"}. Preview was a pre-save snapshot; existing appointments were not moved or cancelled.`);
+    try { await refreshSnapshot(); }
+    catch { setRefreshError("Settings were saved, but the latest settings view could not be refreshed. Refresh to try again."); }
+    finally { setBusy(false); }
+  }
+  if (!snapshot) return <main className={styles.pageContent}>{loadError ? <div className={styles.errorBanner} role="alert"><span>{loadError}</span><button type="button" disabled={busy} onClick={() => void retryRefresh()}>{busy ? "Refreshing…" : "Refresh settings"}</button></div> : <p className={styles.schedulerState} role="status">Loading Scheduler settings…</p>}</main>;
   const canManageClinic = role === "admin" || role === "assistant"; const canManageDoctor = role !== "doctor" || doctorId !== "";
-  return <main className={styles.pageContent}><div className={styles.schedulerHeader}><div><p className={styles.eyebrow}>Scheduler</p><h1>Schedule settings</h1><p>Changes affect future Scheduler availability only. They never move, cancel, resize, or change an existing appointment.</p></div><a className={styles.secondaryButton} href="/scheduler">Back to calendar</a></div>
-    {error ? <div className={styles.errorBanner} role="alert"><span>{error}</span></div> : null}
+  return <main className={styles.pageContent} aria-busy={busy}><div className={styles.schedulerHeader}><div><p className={styles.eyebrow}>Scheduler</p><h1>Schedule settings</h1><p>Changes affect future Scheduler availability only. They never move, cancel, resize, or change an existing appointment.</p></div><a className={styles.secondaryButton} href="/scheduler">Back to calendar</a></div>
+    {saveError ? <div className={styles.errorBanner} role="alert"><span>{saveError}</span></div> : null}
+    {refreshError ? <div className={styles.errorBanner} role="alert"><span>{refreshError}</span><button type="button" disabled={busy} onClick={() => void retryRefresh()}>{busy ? "Refreshing…" : "Refresh settings"}</button></div> : null}
     {reconciliation ? <p className={styles.schedulerState} role="status">{reconciliation}</p> : null}
     {canManageClinic ? <ClinicDefaults snapshot={snapshot} busy={busy} onSave={save} /> : <section className={styles.schedulerPanel}><h2>Clinic defaults</h2><p>Effective values: every {snapshot.clinic.schedulingIntervalMinutes} minutes; {snapshot.clinic.defaultDurationMinutes}-minute default duration.</p></section>}
     <section className={styles.schedulerPanel}><h2>Doctor schedule</h2><label className={styles.formField}><span>Doctor</span><select value={activeDoctorId} disabled={role === "doctor"} onChange={(event) => setDoctorId(event.target.value)}>{visibleDoctors.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}</select></label>{doctor && canManageDoctor ? <DoctorSettings key={doctor.id} doctor={doctor} role={role} busy={busy} onSave={save} /> : null}</section>

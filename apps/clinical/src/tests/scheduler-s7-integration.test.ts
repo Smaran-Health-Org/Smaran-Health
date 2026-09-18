@@ -34,6 +34,18 @@ test("S7 keeps a confirmed booking actionable when post-booking hydration fails"
   assert.doesNotMatch(portalHome, /await fetch\("\/patient\/api\/appointments\?kind=upcoming"[\s\S]{0,700}Could not confirm this appointment/);
 });
 
+test("S8.5 keeps availability errors distinct from genuinely empty availability and makes result states perceivable", () => {
+  assert.match(portalHome, /type AvailabilityState = "idle" \| "loading" \| "ready" \| "error"/);
+  assert.match(portalHome, /availabilityState === "error"[\s\S]*?role="alert"[\s\S]*?Available times could not be loaded\.[\s\S]*?Retry available times/);
+  assert.match(portalHome, /availabilityState === "ready" && !times\.length[\s\S]*?No available times for this selection\./);
+  assert.match(portalHome, /availabilityState === "loading"[\s\S]*?role="status"[\s\S]*?Loading available times/);
+  assert.match(portalHome, /request === availabilityRequest\.current/);
+  assert.match(portalHome, /controller\.signal\.aborted/);
+  assert.match(portalHome, /role="status"[\s\S]*?Appointment confirmed/);
+  assert.match(portalHome, /Confirming appointment…/);
+  assert.match(portalHome, /Opening preparation…/);
+});
+
 test("S7 history uses narrow service-only projections instead of raw Scheduler reads", () => {
   assert.match(portalAdapter, /rpc\("get_patient_portal_appointments"/);
   assert.match(portalAdapter, /rpc\("get_patient_portal_appointment_timeline"/);

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./patient-portal.module.css";
 
 type Doctor = { doctorId: string; displayName: string };
 type Appointment = { id: string; scheduledAt: string; status: string; doctorDisplayName: string };
 type AppointmentDetail = Appointment & { preparation: { intakeStatus: string; canOpenPreparation: boolean }; timeline: Array<{ eventType: string; occurredAt: string }> };
+type AvailabilityState = "idle" | "loading" | "ready" | "error";
 
 function localDateToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
@@ -26,6 +27,9 @@ export function PatientPortalHome() {
   const [doctorId, setDoctorId] = useState("");
   const [date, setDate] = useState(localDateToday);
   const [times, setTimes] = useState<string[]>([]);
+  const [availabilityState, setAvailabilityState] = useState<AvailabilityState>("idle");
+  const [availabilityRetry, setAvailabilityRetry] = useState(0);
+  const availabilityRequest = useRef(0);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [warningProof, setWarningProof] = useState<string | null>(null);
   const [bookingMessage, setBookingMessage] = useState<string | null>(null);
@@ -50,23 +54,24 @@ export function PatientPortalHome() {
     ]).then(async ([session, doctorResponse, upcomingResponse, historyResponse]) => {
       if (!session.ok || !doctorResponse.ok || !upcomingResponse.ok || !historyResponse.ok) throw new Error("Your portal session has expired.");
       const [doctorBody, upcomingBody, historyBody] = await Promise.all([doctorResponse.json(), upcomingResponse.json(), historyResponse.json()]);
-      setDoctors(doctorBody.doctors); setDoctorId(doctorBody.doctors[0]?.doctorId ?? "");
+      setDoctors(doctorBody.doctors); setDoctorId(doctorBody.doctors[0]?.doctorId ?? ""); setAvailabilityState(doctorBody.doctors[0]?.doctorId ? "loading" : "idle");
       setUpcoming(upcomingBody.appointments); setHistory(historyBody.appointments);
     }).catch((reason) => setError(reason instanceof Error ? reason.message : "Could not open the patient portal."))
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    if (!doctorId || !date) return;
+    if (!doctorId || !date) { availabilityRequest.current += 1; return; }
     const controller = new AbortController();
+    const request = ++availabilityRequest.current;
     void fetch(`/patient/api/availability?doctorId=${encodeURIComponent(doctorId)}&localDate=${encodeURIComponent(date)}`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("Available times could not be loaded.");
         const body = await response.json() as { availability: { bookableStarts?: number[] } };
-        if (!controller.signal.aborted) setTimes((body.availability.bookableStarts ?? []).map((start) => new Date(start).toISOString()));
-      }).catch(() => { if (!controller.signal.aborted) setTimes([]); });
+        if (!controller.signal.aborted && request === availabilityRequest.current) { setTimes((body.availability.bookableStarts ?? []).map((start) => new Date(start).toISOString())); setAvailabilityState("ready"); }
+      }).catch(() => { if (!controller.signal.aborted && request === availabilityRequest.current) { setTimes([]); setAvailabilityState("error"); } });
     return () => controller.abort();
-  }, [doctorId, date]);
+  }, [doctorId, date, availabilityRetry]);
 
   async function logout() {
     await fetch("/patient/api/logout", { method: "POST" });
@@ -157,20 +162,23 @@ export function PatientPortalHome() {
     return ({ created: "Booked", rescheduled: "Rescheduled", reassigned: "Doctor updated", cancelled: "Cancelled", no_show: "Marked no-show", rebooked: "Rebooked" } as Record<string, string>)[eventType] ?? "Scheduling update";
   }
 
-  if (loading) return <main className={styles.page}><section className={styles.card}><p>Opening your secure portal…</p></section></main>;
-  if (error) return <main className={styles.page}><section className={styles.card}><h1>Portal unavailable</h1><p>{error}</p></section></main>;
+  if (loading) return <main className={styles.page}><section className={styles.card}><p role="status">Opening your secure portal…</p></section></main>;
+  if (error) return <main className={styles.page}><section className={styles.card}><h1>Portal unavailable</h1><p role="alert">{error}</p></section></main>;
   return <main className={styles.page}><section className={styles.wideCard}>
-    <header className={styles.header}><div><p className={styles.brand}>Smaran Health</p><h1>Patient portal</h1></div><button className={styles.secondary} onClick={logout}>Sign out</button></header>
-    <section><h2>Book appointment</h2><p className={styles.muted}>Choose a doctor and date to see clean availability.</p>
-      <div className={styles.bookingFields}><label>Doctor<select value={doctorId} onChange={(event) => { clearBookingSelection(); setTimes([]); setDoctorId(event.target.value); }}>{doctors.map((doctor) => <option key={doctor.doctorId} value={doctor.doctorId}>{doctor.displayName}</option>)}</select></label>
-      <label>Date<input type="date" value={date} onChange={(event) => { clearBookingSelection(); setTimes([]); setDate(event.target.value); }} /></label></div>
-      {times.length ? <div className={styles.times}>{times.map((time) => <button type="button" className={selectedTime === time ? styles.selectedTime : styles.time} key={time} onClick={() => { setSelectedTime(time); setBookingKey(crypto.randomUUID()); setWarningProof(null); setBookingMessage(null); }}>{new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", timeStyle: "short" }).format(new Date(time))}</button>)}</div> : <p className={styles.muted}>No available times for this selection.</p>}
-      {selectedTime ? <div className={styles.confirm}><p>Selected: {appointmentTime(selectedTime)}</p>{bookingMessage ? <p className={styles.muted}>{bookingMessage}</p> : null}<button disabled={booking} onClick={confirmBooking}>{warningProof ? "Confirm despite existing appointment" : "Confirm appointment"}</button></div> : null}
-      {!selectedTime && bookingMessage ? <p className={styles.muted}>{bookingMessage}</p> : null}
-      {justBooked ? <div className={styles.confirm}><strong>Your new appointment</strong><p>{appointmentTime(justBooked.scheduledAt)} · {justBooked.doctorDisplayName}</p><button onClick={() => void openDetail(justBooked.id)}>View appointment details</button></div> : null}
+    <header className={styles.header}><div><p className={styles.brand}>Smaran Health</p><h1>Patient portal</h1></div><button type="button" className={styles.secondary} onClick={logout}>Sign out</button></header>
+    <section aria-busy={availabilityState === "loading"}><h2>Book appointment</h2><p className={styles.muted}>Choose a doctor and date to see clean availability.</p>
+      <div className={styles.bookingFields}><label>Doctor<select value={doctorId} onChange={(event) => { clearBookingSelection(); setTimes([]); setAvailabilityState(event.target.value && date ? "loading" : "idle"); setDoctorId(event.target.value); }}>{doctors.map((doctor) => <option key={doctor.doctorId} value={doctor.doctorId}>{doctor.displayName}</option>)}</select></label>
+      <label>Date<input type="date" value={date} onChange={(event) => { clearBookingSelection(); setTimes([]); setAvailabilityState(doctorId && event.target.value ? "loading" : "idle"); setDate(event.target.value); }} /></label></div>
+      {availabilityState === "loading" ? <p className={styles.muted} role="status">Loading available times…</p> : null}
+      {availabilityState === "error" ? <div className={styles.confirm} role="alert"><p>Available times could not be loaded.</p><button type="button" className={styles.secondary} onClick={() => { setAvailabilityState("loading"); setAvailabilityRetry((value) => value + 1); }}>Retry available times</button></div> : null}
+      {availabilityState === "ready" && times.length ? <div className={styles.times}>{times.map((time) => <button type="button" className={selectedTime === time ? styles.selectedTime : styles.time} key={time} onClick={() => { setSelectedTime(time); setBookingKey(crypto.randomUUID()); setWarningProof(null); setBookingMessage(null); }}>{new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", timeStyle: "short" }).format(new Date(time))}</button>)}</div> : null}
+      {availabilityState === "ready" && !times.length ? <p className={styles.muted}>No available times for this selection.</p> : null}
+      {selectedTime ? <div className={styles.confirm}><p>Selected: {appointmentTime(selectedTime)}</p>{bookingMessage ? <p className={styles.muted} role={warningProof ? "status" : "alert"}>{bookingMessage}</p> : null}<button type="button" disabled={booking} onClick={confirmBooking}>{booking ? "Confirming appointment…" : warningProof ? "Confirm despite existing appointment" : "Confirm appointment"}</button></div> : null}
+      {!selectedTime && bookingMessage ? <p className={styles.muted} role={justBooked ? undefined : "alert"}>{bookingMessage}</p> : null}
+      {justBooked ? <div className={styles.confirm} role="status"><strong>Appointment confirmed</strong><p>{appointmentTime(justBooked.scheduledAt)} · {justBooked.doctorDisplayName}</p><button type="button" onClick={() => void openDetail(justBooked.id)}>View appointment details</button></div> : null}
     </section>
     <section className={styles.columns}><div><h2>Upcoming</h2>{upcoming.length ? <ul>{upcoming.map((item) => <li key={item.id}><button className={styles.secondary} onClick={() => void openDetail(item.id)}>{appointmentTime(item.scheduledAt)} · {item.doctorDisplayName} · {appointmentStatusLabel(item, "upcoming")}</button></li>)}</ul> : <p className={styles.muted}>No upcoming appointments.</p>}</div>
       <div><h2>History</h2>{history.length ? <ul>{history.map((item) => <li key={item.id}><button className={styles.secondary} onClick={() => void openDetail(item.id)}>{appointmentTime(item.scheduledAt)} · {item.doctorDisplayName} · {appointmentStatusLabel(item, "history")}</button></li>)}</ul> : <p className={styles.muted}>No previous appointments.</p>}</div></section>
-    {detail ? <section className={styles.confirm}><h2>Appointment details</h2><p>{appointmentTime(detail.scheduledAt)} · {detail.doctorDisplayName}</p><p className={styles.muted}>Preparation: {detail.preparation.intakeStatus.replace("_", " ")}</p>{detail.preparation.canOpenPreparation ? <button disabled={openingPreparation} onClick={() => void openPreparation()}>{openingPreparation ? "Opening…" : "Complete details / upload documents"}</button> : null}{detail.timeline.length ? <section><h3>Scheduling updates</h3><ul>{detail.timeline.map((event, index) => <li key={`${event.eventType}-${event.occurredAt}-${index}`}>{timelineLabel(event.eventType)} · {appointmentTime(event.occurredAt)}</li>)}</ul></section> : null}{detailMessage ? <p className={styles.muted}>{detailMessage}</p> : null}</section> : detailMessage ? <p className={styles.muted}>{detailMessage}</p> : null}
+    {detail ? <section className={styles.confirm} aria-busy={openingPreparation}><h2>Appointment details</h2><p>{appointmentTime(detail.scheduledAt)} · {detail.doctorDisplayName}</p><p className={styles.muted}>Preparation: {detail.preparation.intakeStatus.replace("_", " ")}</p>{detail.preparation.canOpenPreparation ? <button type="button" disabled={openingPreparation} onClick={() => void openPreparation()}>{openingPreparation ? "Opening preparation…" : "Complete details / upload documents"}</button> : null}{detail.timeline.length ? <section><h3>Scheduling updates</h3><ul>{detail.timeline.map((event, index) => <li key={`${event.eventType}-${event.occurredAt}-${index}`}>{timelineLabel(event.eventType)} · {appointmentTime(event.occurredAt)}</li>)}</ul></section> : null}{detailMessage ? <p className={styles.muted} role="alert">{detailMessage}</p> : null}</section> : detailMessage ? <p className={styles.muted} role="alert">{detailMessage}</p> : null}
   </section></main>;
 }
