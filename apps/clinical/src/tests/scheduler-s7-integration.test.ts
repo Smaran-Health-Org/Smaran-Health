@@ -39,7 +39,7 @@ test("S8.5 keeps availability errors distinct from genuinely empty availability 
   assert.match(portalHome, /availabilityState === "error"[\s\S]*?role="alert"[\s\S]*?Available times could not be loaded\.[\s\S]*?Retry available times/);
   assert.match(portalHome, /availabilityState === "ready" && !times\.length[\s\S]*?No available times for this selection\./);
   assert.match(portalHome, /availabilityState === "loading"[\s\S]*?role="status"[\s\S]*?Loading available times/);
-  assert.match(portalHome, /request === availabilityRequest\.current/);
+  assert.match(portalHome, /request\.isCurrent\(\)/);
   assert.match(portalHome, /controller\.signal\.aborted/);
   assert.match(portalHome, /role="status"[\s\S]*?Appointment confirmed/);
   assert.match(portalHome, /Confirming appointment…/);
