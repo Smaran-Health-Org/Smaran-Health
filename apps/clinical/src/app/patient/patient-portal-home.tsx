@@ -76,6 +76,7 @@ export function PatientPortalHome() {
   async function confirmBooking() {
     if (!doctorId || !selectedTime || !bookingKey) return;
     setBooking(true); setBookingMessage(null);
+    let confirmedBooking: Pick<Appointment, "id" | "scheduledAt"> | null = null;
     try {
       const response = await fetch("/patient/api/scheduler/book", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -83,6 +84,7 @@ export function PatientPortalHome() {
       });
       const body = await response.json() as { code?: string; error?: string; warningProof?: string; booking?: Pick<Appointment, "id" | "scheduledAt"> };
       if (response.ok && body.booking) {
+        confirmedBooking = body.booking;
         setBookingMessage(`Your appointment is confirmed for ${appointmentTime(body.booking.scheduledAt)}.`);
         setJustBooked({
           ...body.booking,
@@ -91,11 +93,6 @@ export function PatientPortalHome() {
         });
         setDetail(null);
         setSelectedTime(null); setWarningProof(null); setBookingKey(null);
-        const upcomingResponse = await fetch("/patient/api/appointments?kind=upcoming", { cache: "no-store" });
-        if (upcomingResponse.ok) setUpcoming((await upcomingResponse.json() as { appointments: Appointment[] }).appointments);
-        // This keeps the verified Portal session in place and immediately
-        // reveals the existing S6 preparation handoff when it is available.
-        await openDetail(body.booking.id);
       } else if (body.code === "warning_required" && body.warningProof) {
         setWarningProof(body.warningProof);
         setBookingMessage("You already have an upcoming appointment. Confirm again if you still want this time.");
@@ -104,7 +101,28 @@ export function PatientPortalHome() {
       }
     } catch {
       setBookingMessage("Could not confirm this appointment. Please try again.");
-    } finally { setBooking(false); }
+      setBooking(false);
+      return;
+    }
+
+    if (confirmedBooking) {
+      // Booking is durable at this point. Refresh and detail hydration are
+      // deliberately non-fatal follow-up work, so neither can imply a failed
+      // mutation or encourage a duplicate booking attempt.
+      let refreshFailed = false;
+      try {
+        const upcomingResponse = await fetch("/patient/api/appointments?kind=upcoming", { cache: "no-store" });
+        if (!upcomingResponse.ok) throw new Error("Could not refresh upcoming appointments.");
+        setUpcoming((await upcomingResponse.json() as { appointments: Appointment[] }).appointments);
+      } catch {
+        refreshFailed = true;
+      }
+      // This keeps the verified Portal session in place and immediately
+      // reveals the existing S6 preparation handoff when it is available.
+      await openDetail(confirmedBooking.id);
+      if (refreshFailed) setDetailMessage("Your appointment is confirmed, but the upcoming appointment list could not be refreshed.");
+    }
+    setBooking(false);
   }
 
   async function openDetail(appointmentId: string) {
