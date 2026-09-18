@@ -657,7 +657,10 @@ export const intakeAccessSessions = pgTable(
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    source: text("source").$type<"staff_delivery" | "patient_portal_handoff">().notNull().default("staff_delivery"),
+    // Declared before the Portal table below; the database migration owns this FK.
+    portalAccessSessionId: uuid("portal_access_session_id"),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
@@ -716,6 +719,21 @@ export const patientPortalBookingReceipts = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [uniqueIndex("patient_portal_booking_receipts_session_idempotency_key_key").on(table.portalAccessSessionId, table.idempotencyKey)]
+);
+
+export const patientPortalIntakeHandoffReceipts = pgTable(
+  "patient_portal_intake_handoff_receipts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    portalAccessSessionId: uuid("portal_access_session_id").references(() => patientPortalAccessSessions.id, { onDelete: "restrict" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
+    patientIntakeId: uuid("patient_intake_id").references(() => patientIntakes.id, { onDelete: "restrict" }).notNull(),
+    intakeAccessSessionId: uuid("intake_access_session_id").references(() => intakeAccessSessions.id, { onDelete: "restrict" }).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("patient_portal_intake_handoff_receipts_session_key").on(table.portalAccessSessionId, table.idempotencyKey)]
 );
 
 export const patientDemographicChangeEvents = pgTable(

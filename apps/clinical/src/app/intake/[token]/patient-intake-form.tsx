@@ -230,6 +230,7 @@ export function PatientIntakeForm({ token }: { token: string }) {
               <h1>Thank you</h1>
               <p>Your intake has been shared with the clinic for this appointment.</p>
               <div className={styles.intakeNonBlocking}>Documents are optional and never block your consultation.</div>
+              <DocumentManager mode="patient" token={token} />
             </div>
           </div>
         ) : null}

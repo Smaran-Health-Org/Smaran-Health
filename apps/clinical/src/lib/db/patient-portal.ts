@@ -49,6 +49,13 @@ export type PatientPortalAppointment = {
   doctorDisplayName: string;
 };
 
+export type PatientPortalAppointmentDetail = PatientPortalAppointment & {
+  preparation: {
+    intakeStatus: "not_started" | "in_progress" | "submitted" | "not_available";
+    canOpenPreparation: boolean;
+  };
+};
+
 export type PatientPortalBookingRequest = {
   doctorId: string;
   scheduledAt: string;
@@ -85,6 +92,12 @@ function bookingFingerprint(context: PatientPortalContext, request: Pick<Patient
     // identity is intentionally excluded so a completed request can replay.
     v: 2, portalAccessSessionId: context.portalAccessSessionId, doctorId: request.doctorId,
     scheduledAt: new Date(request.scheduledAt).toISOString(),
+  }));
+}
+
+function handoffFingerprint(context: PatientPortalContext, appointmentId: string): string {
+  return hashPatientAccessCredential(JSON.stringify({
+    v: 1, command: "patient_portal_intake_handoff", portalAccessSessionId: context.portalAccessSessionId, appointmentId,
   }));
 }
 
@@ -274,4 +287,47 @@ export async function listPatientPortalAppointments(context: PatientPortalContex
     id: row.id, scheduledAt: row.scheduled_at, status: row.status,
     doctorDisplayName: (row.profiles as unknown as { full_name?: string } | null)?.full_name ?? "Doctor",
   }));
+}
+
+export async function getPatientPortalAppointmentDetail(appointmentId: string): Promise<PatientPortalAppointmentDetail | null> {
+  const sessionSecret = (await cookies()).get(PATIENT_PORTAL_SESSION_COOKIE)?.value;
+  if (!sessionSecret) return null;
+  const { data, error } = await createServiceRoleClient().rpc("get_patient_portal_appointment_detail", {
+    p_verified_session_hash: hashPatientAccessCredential(sessionSecret), p_appointment_id: appointmentId,
+  });
+  if (error) throw new PatientPortalError("unavailable");
+  const row = (data as Array<Record<string, unknown>> | null)?.[0];
+  if (!row) return null;
+  const status = row.status;
+  const intakeStatus = row.intake_status;
+  return {
+    id: String(row.id), scheduledAt: String(row.scheduled_at), status: status as PatientPortalAppointment["status"],
+    doctorDisplayName: String(row.doctor_display_name),
+    preparation: {
+      intakeStatus: intakeStatus === "not_started" || intakeStatus === "in_progress" || intakeStatus === "submitted" ? intakeStatus : "not_available",
+      canOpenPreparation: row.can_open_preparation === true,
+    },
+  };
+}
+
+export async function createPatientPortalIntakeHandoff(context: PatientPortalContext, appointmentId: string, idempotencyKey: string): Promise<
+  { kind: "created"; token: string } | { kind: "replayed" | "not_available" | "session_expired" | "idempotency_mismatch" }
+> {
+  const sessionSecret = (await cookies()).get(PATIENT_PORTAL_SESSION_COOKIE)?.value;
+  if (!sessionSecret) return { kind: "session_expired" };
+  const credentials = createPatientPortalCredentials();
+  const { data, error } = await createServiceRoleClient().rpc("patient_portal_create_intake_handoff", {
+    p_verified_session_hash: hashPatientAccessCredential(sessionSecret),
+    p_appointment_id: appointmentId, p_token_hash: credentials.tokenHash,
+    p_requested_expires_at: credentials.expiresAt, p_idempotency_key: idempotencyKey,
+    p_request_fingerprint: handoffFingerprint(context, appointmentId),
+  });
+  if (error) throw new PatientPortalError("unavailable");
+  const result = data as { ok?: boolean; code?: string } | null;
+  if (!result?.ok) return { kind: result?.code === "session_expired" ? "session_expired" : result?.code === "idempotency_mismatch" ? "idempotency_mismatch" : "not_available" };
+  if (result.code === "replayed") return { kind: "replayed" };
+  if (result.code !== "created") return { kind: "not_available" };
+  // The raw token is intentionally held only for the duration of this server
+  // call, then used for a redirect by the route that invoked this operation.
+  return { kind: "created", token: credentials.accessToken };
 }

@@ -260,6 +260,10 @@ export const patientPortalBookingSchema = z.object({
   warningProof: z.string().trim().min(1).max(1000).optional(),
 }).strict();
 
+export const patientPortalIntakeHandoffSchema = z.object({
+  idempotencyKey: z.string().trim().min(1).max(200),
+}).strict();
+
 const selfReportedItemSchema = z.string().trim().min(1).max(300);
 
 export const submitPatientIntakeSchema = z.object({

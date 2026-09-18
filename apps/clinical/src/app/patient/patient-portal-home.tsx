@@ -6,6 +6,7 @@ import styles from "./patient-portal.module.css";
 
 type Doctor = { doctorId: string; displayName: string };
 type Appointment = { id: string; scheduledAt: string; status: string; doctorDisplayName: string };
+type AppointmentDetail = Appointment & { preparation: { intakeStatus: string; canOpenPreparation: boolean } };
 
 function localDateToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
@@ -30,6 +31,9 @@ export function PatientPortalHome() {
   const [bookingMessage, setBookingMessage] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
+  const [detail, setDetail] = useState<AppointmentDetail | null>(null);
+  const [detailMessage, setDetailMessage] = useState<string | null>(null);
+  const [openingPreparation, setOpeningPreparation] = useState(false);
 
   function clearBookingSelection() {
     setSelectedTime(null);
@@ -93,6 +97,29 @@ export function PatientPortalHome() {
     } finally { setBooking(false); }
   }
 
+  async function openDetail(appointmentId: string) {
+    setDetailMessage(null);
+    try {
+      const response = await fetch(`/patient/api/appointments/${encodeURIComponent(appointmentId)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not load appointment details.");
+      setDetail((await response.json() as { appointment: AppointmentDetail }).appointment);
+    } catch (reason) { setDetailMessage(reason instanceof Error ? reason.message : "Could not load appointment details."); }
+  }
+
+  async function openPreparation() {
+    if (!detail) return;
+    setOpeningPreparation(true); setDetailMessage(null);
+    try {
+      const response = await fetch(`/patient/api/appointments/${encodeURIComponent(detail.id)}/intake-handoff`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idempotencyKey: crypto.randomUUID() }), redirect: "follow",
+      });
+      if (response.redirected) { window.location.assign(response.url); return; }
+      const body = await response.json().catch(() => null) as { error?: string } | null;
+      throw new Error(body?.error ?? "Could not open preparation.");
+    } catch (reason) { setDetailMessage(reason instanceof Error ? reason.message : "Could not open preparation."); }
+    finally { setOpeningPreparation(false); }
+  }
+
   if (loading) return <main className={styles.page}><section className={styles.card}><p>Opening your secure portal…</p></section></main>;
   if (error) return <main className={styles.page}><section className={styles.card}><h1>Portal unavailable</h1><p>{error}</p></section></main>;
   return <main className={styles.page}><section className={styles.wideCard}>
@@ -104,7 +131,8 @@ export function PatientPortalHome() {
       {selectedTime ? <div className={styles.confirm}><p>Selected: {appointmentTime(selectedTime)}</p>{bookingMessage ? <p className={styles.muted}>{bookingMessage}</p> : null}<button disabled={booking} onClick={confirmBooking}>{warningProof ? "Confirm despite existing appointment" : "Confirm appointment"}</button></div> : null}
       {!selectedTime && bookingMessage ? <p className={styles.muted}>{bookingMessage}</p> : null}
     </section>
-    <section className={styles.columns}><div><h2>Upcoming</h2>{upcoming.length ? <ul>{upcoming.map((item) => <li key={item.id}>{appointmentTime(item.scheduledAt)} · {item.doctorDisplayName}</li>)}</ul> : <p className={styles.muted}>No upcoming appointments.</p>}</div>
-      <div><h2>History</h2>{history.length ? <ul>{history.map((item) => <li key={item.id}>{appointmentTime(item.scheduledAt)} · {item.doctorDisplayName}</li>)}</ul> : <p className={styles.muted}>No previous appointments.</p>}</div></section>
+    <section className={styles.columns}><div><h2>Upcoming</h2>{upcoming.length ? <ul>{upcoming.map((item) => <li key={item.id}><button className={styles.secondary} onClick={() => void openDetail(item.id)}>{appointmentTime(item.scheduledAt)} · {item.doctorDisplayName}</button></li>)}</ul> : <p className={styles.muted}>No upcoming appointments.</p>}</div>
+      <div><h2>History</h2>{history.length ? <ul>{history.map((item) => <li key={item.id}><button className={styles.secondary} onClick={() => void openDetail(item.id)}>{appointmentTime(item.scheduledAt)} · {item.doctorDisplayName}</button></li>)}</ul> : <p className={styles.muted}>No previous appointments.</p>}</div></section>
+    {detail ? <section className={styles.confirm}><h2>Appointment details</h2><p>{appointmentTime(detail.scheduledAt)} · {detail.doctorDisplayName}</p><p className={styles.muted}>Preparation: {detail.preparation.intakeStatus.replace("_", " ")}</p>{detail.preparation.canOpenPreparation ? <button disabled={openingPreparation} onClick={() => void openPreparation()}>{openingPreparation ? "Opening…" : "Open preparation"}</button> : null}{detailMessage ? <p className={styles.muted}>{detailMessage}</p> : null}</section> : detailMessage ? <p className={styles.muted}>{detailMessage}</p> : null}
   </section></main>;
 }
