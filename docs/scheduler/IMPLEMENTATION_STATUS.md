@@ -10,7 +10,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S3 — Complete. PHASE S5 — Complete. PHASE S6 — Complete: final independent R05/security closure passed. PHASE S7 — Complete: review closure and full DB validation passed.**
+**PHASE S3 — Complete. PHASE S5 — Complete. PHASE S6 — Complete: final independent R05/security closure passed. PHASE S7 — Complete: review closure and full DB validation passed. PHASE S8 — In progress: S8.1 authorization, tenancy, override, and Portal privacy hardening passed.**
 
 ## Phase tracker
 
@@ -24,7 +24,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 | S5 | Schedule/settings + exceptions | Complete | AC-SCH-D*, H09–H11, M02 |
 | S6 | Unified Patient Portal scheduling | Complete | AC-SCH-P*, PP01–PP02, A09–A11, R02, R04–R05 |
 | S7 | Patient preparation/link/history integration | Complete | AC-SCH-PP03–PP05, H08, lifecycle preservation |
-| S8 | Security/regression/pilot hardening | Not started | All relevant AC-SCH-*; especially R* and B09 |
+| S8 | Security/regression/pilot hardening | In progress — S8.1 complete | AC-SCH-F03–F04, B04–B09, P04, PP05, H08, R04–R06 |
 
 ## Current implementation truth before S1
 
@@ -238,6 +238,17 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 - DB migrations: `0094_scheduler_s7_patient_safe_history.sql`; forward-only `0095_scheduler_s7_portal_context_closure.sql` (no new tables or credentials).
 - Final validation: controlled clean baseline `863edc870adf26b0e2f276bac65ee62dbf82d4a3` through `0093` passed `npm run test:db` (40 files / 1,055 assertions). Clean current migrations through `0095` passed `npm run test:db` (42 files / 1,098 assertions); focused history (26) and lifecycle/evidence (17) pgTAP suites passed. `npm test` passed (154), as did `npx tsc --noEmit`, `npm run lint`, and `git diff --check`. The previous `0021` and aggregate `0090` reports did not reproduce under equivalent clean conditions; `0090` now deterministically selects its own fixture row.
 - Security/privacy review: verified, unexpired, non-invalidated, canonical session context is shared with S6; cross-patient and cross-clinic reads remain neutral; browser roles cannot call either projection. The allowlist still excludes payload JSON, staff notes, actor IDs, audit/override/conflict/exception data, and doctor-only clinical state. No automatic communication, new lifecycle authority, source-document exposure, or clinical authority was added.
-- Known limitations/out of scope: Patient reschedule/cancel, automated messages/reminders, and S8 hardening remain out of scope. S8 remains **Not started**.
+- Known limitations/out of scope: Patient reschedule/cancel and automated messages/reminders remain out of scope. S8.1 is complete; later S8 hardening slices remain pending.
 - Product decisions/questions surfaced: None.
 - Recommended next task: S8 security, concurrency, regression, and pilot hardening only.
+
+### Phase S8.1 — Authorization, tenancy, and privacy hardening
+
+- Status: Complete. S8 overall remains **In progress**.
+- Work completed: Added `0096_scheduler_s8_1_authorization_privacy.test.sql`, a focused 36-assertion adversarial pgTAP proof suite. It establishes two clinics and exercises the existing public Scheduler lifecycle, RLS, configuration reads, doctor-only brief boundary, explicit override authority, and canonical Portal projections as Clinic A actors against Clinic B IDs. No product-code change or migration was required: current S1/S3/S6/S7 authorities already satisfy the S8.1 invariants.
+- Acceptance criteria evidenced: AC-SCH-F03–F04, B04–B08, P04, PP05, H08, R04–R06. Clinic A doctor/admin/assistant reads of Clinic B Scheduler records are neutral; Clinic A lifecycle mutations and foreign patient/doctor creation are rejected without foreign state, receipts, or events. Admin/assistant retain permitted local operational access but cannot read a seeded doctor-only pre-consult brief. Missing, forged, and stale conflict acknowledgements are rejected; the exact current admin acknowledgement succeeds and records internal override event/audit provenance.
+- Portal isolation and privacy findings: a verified canonical patient can access only its own allowlisted Appointment projection; cross-patient and cross-clinic detail lookups are neutral, and invalid sessions fail closed. Patient history remains exactly `id`, `scheduled_at`, `status`, and `doctor_display_name`; timelines exclude override events and never expose conflict fingerprints, exception notes, staff notes, actor IDs, audit payloads, or doctor-only state.
+- Files changed: `apps/clinical/supabase/tests/0096_scheduler_s8_1_authorization_privacy.test.sql`; this status ledger. No migration and no product-code files changed.
+- Final validation: focused S8.1 pgTAP passed (1 file / 36 assertions). Related S3/S6/S7 pgTAP passed (7 files / 206 assertions). Focused Scheduler/Portal app tests passed (18 tests). Full `npm run test:db` passed (43 files / 1,134 assertions); `npm test` passed (154 tests); `npx tsc --noEmit`, `npm run lint`, `npx next build --webpack`, and `git diff --check` passed. The build emitted only the existing Next.js middleware-to-proxy deprecation warning.
+- Security/privacy/clinical-safety review: the suite confirms clinic isolation and preserves the distinct internal-audit versus patient-safe-projection boundary. It adds no clinical interpretation, approval, auto-confirmation, public media access, role, or Scheduler mutation path.
+- Remaining S8 slices: S8.2 — Concurrency, idempotency and replay; later S8 configuration-impact, legacy-duration, attention, merge/Queue, Portal UX, accessibility, and time-boundary hardening remain out of scope.
