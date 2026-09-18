@@ -10,7 +10,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 
 ## Overall status
 
-**PHASE S3 — Complete. PHASE S5 — Complete. PHASE S6 — Complete: final independent R05/security closure passed. PHASE S7 — Complete: review closure and full DB validation passed. PHASE S8 — In progress: S8.1 authorization, tenancy, override, and Portal privacy hardening passed.**
+**PHASE S3 — Complete. PHASE S5 — Complete. PHASE S6 — Complete: final independent R05/security closure passed. PHASE S7 — Complete: review closure and full DB validation passed. PHASE S8 — In progress: S8.1 authorization/privacy, S8.2 concurrency, S8.3A configuration impact, and S8.3B India time-boundary hardening passed.**
 
 ## Phase tracker
 
@@ -24,7 +24,7 @@ Latest pre-Terra contract-correction head before this ledger update: `22d18e1300
 | S5 | Schedule/settings + exceptions | Complete | AC-SCH-D*, H09–H11, M02 |
 | S6 | Unified Patient Portal scheduling | Complete | AC-SCH-P*, PP01–PP02, A09–A11, R02, R04–R05 |
 | S7 | Patient preparation/link/history integration | Complete | AC-SCH-PP03–PP05, H08, lifecycle preservation |
-| S8 | Security/regression/pilot hardening | In progress — S8.1 complete | AC-SCH-F03–F04, B04–B09, P04, PP05, H08, R04–R06 |
+| S8 | Security/regression/pilot hardening | In progress — through S8.3B complete | AC-SCH-F03–F05, D11–D14, A01–A11, B04–B09, P04, PP05, H08, R04–R06 |
 
 ## Current implementation truth before S1
 
@@ -276,3 +276,14 @@ Do not mark a phase Complete solely because UI exists. Relevant database, author
 - Known validation limitation: the unchanged `npm run test:db:scheduler-s8-concurrency` fixture failed twice at the current local clock because its final 5-minute fixture Appointment begins at 23:55 Kolkata time but its all-day test working-hours end at 23:59. This is a pre-existing S8.3B India time-boundary fixture limitation, not reached by the S8.3A configuration-impact authority; no S8.3B change was made here.
 - Security/privacy/clinical-safety review: The replacement remains `SECURITY DEFINER` with a fixed safe search path, derives actor clinic identity internally, retains authenticated/service-role execute and anon/Public denial, and adds no browser DML, tables, issue types, source-data logging, or clinical state. Appointments and Encounter links are never changed by configuration save; uncertainty remains explicit and doctor/staff remediation is required for a real duration.
 - Remaining S8 work: **S8.3B — Schedule, exception and India time-boundary proof** is next. Merge/Queue, Portal UX, accessibility, and other later S8 hardening remain out of scope.
+
+### Phase S8.3B — Schedule, exception and India time-boundary hardening
+
+- Status: Complete. S8 overall remains **In progress**.
+- S8.2 fixture correction: the former clock-relative concurrency fixture could place its final five-minute operation at 23:55 Kolkata against `[00:00, 23:59)` hours. The focused proof explicitly reproduces its rejection under S-D090, so this was a test-fixture defect rather than product behavior. The S8.2 harness now selects a deterministic 09:00 Kolkata base two local dates ahead; its final operation is fully contained and all three repetitions retain the existing race/replay assertions.
+- Work completed: Added focused S2/domain and S5/S3/S6 pgTAP proof for exact recurring/session, full-duration, interval-vs-duration, patient-grid, arbitrary staff-minute, adjacent-range, block, special-working, exception-precedence, no-hours, recurring-overnight, cross-midnight exception, Kolkata-midnight, zero-notice, and 30-day boundaries. Existing authorities required no migration or product-code change.
+- Acceptance criteria evidenced: AC-SCH-F05; AC-SCH-D11–D14; AC-SCH-A01–A04 and A06–A11. Exact starts and exact end fits pass; one-minute overruns fail. Patient starts remain interval-aligned while full duration controls containment; staff remains free to use an off-grid minute if fully contained. Half-open block boundaries, date-specific exception isolation, configuration rejection of overlap/contradiction, and the no-hours explicit staff override path are retained. The patient 30-day limit is inclusive at the exact Kolkata-date edge, while one date beyond is rejected.
+- Files changed: `apps/clinical/scripts/test-scheduler-s8-concurrency.ts`; `apps/clinical/src/tests/scheduler-availability.test.ts`; `apps/clinical/supabase/tests/0098_scheduler_s8_3b_time_boundaries.test.sql`; this status ledger. No migration or production behavior change.
+- Validation: focused S8.3B pgTAP (28 assertions) passed; corrected S8.2 three-repetition harness passed. Full `npm run test:db` passed (45 files / 1,188 assertions); full `npm test` passed (157 tests); `npm run test:db:scheduler-s5-concurrency`, `npm run test:db:scheduler-s6-concurrency`, and `npm run test:db:scheduler-s6-handoff-concurrency` each passed (1 test each); `npx tsc --noEmit`, `npm run lint`, `npx next build --webpack`, and `git diff --check` passed. The production build emitted only the existing middleware-to-proxy deprecation warning.
+- Security/privacy/clinical-safety review: test-only changes preserve dynamic availability, S3 final save authority, S6 patient no-override behavior, explicit authorized staff acknowledgement, clinic scoping, private exception details, conservative unknown-duration occupancy, and the fixed `Asia/Kolkata` interpretation. No clinical state, patient source material, migration, browser write capability, or automatic scheduling behavior was introduced.
+- Remaining S8 work: **S8.4 — Merge and cross-feature regression** is next. S8 remains **In progress**; do not begin S8.4 as part of this slice.

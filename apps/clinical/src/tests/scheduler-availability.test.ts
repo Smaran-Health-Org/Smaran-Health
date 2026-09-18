@@ -66,6 +66,69 @@ test("S2 uses half-open full-duration boundaries and duration-aware doctor occup
   assertCandidateConflicts(evaluateStaffCandidate(result, at(9, 30), 5), []);
 });
 
+test("S8.3B proves exact working, duration, grid, adjacent-session, and block boundaries", () => {
+  const policy = { selfBookingEnabled: true, bookingWindowDays: 30, minimumNoticeMinutes: 0, futureBookingCap: 3, futureScheduledCount: 0 };
+  const exact = calculateAvailability(base({
+    workingHours: [{ weekday: 1, startTime: "09:00:00", endTime: "12:00:00" }],
+    patientPolicy: policy,
+  }));
+  assertCandidateConflicts(evaluateStaffCandidate(exact, at(9), 5), []);
+  assertCandidateConflicts(evaluateStaffCandidate(exact, at(11, 55), 5), []);
+  assertCandidateConflicts(evaluateStaffCandidate(exact, at(11, 56), 5), ["working_availability"]);
+
+  const durationDiffersFromInterval = calculateAvailability(base({
+    workingHours: [{ weekday: 1, startTime: "09:00:00", endTime: "10:00:00" }],
+    effectiveIntervalMinutes: 5,
+    resolvedDurationMinutes: 17,
+    patientPolicy: policy,
+  }));
+  assert.ok(durationDiffersFromInterval.patientStarts.includes(at(9, 40)));
+  assert.ok(!durationDiffersFromInterval.patientStarts.includes(at(9, 45)));
+
+  const adjacent = calculateAvailability(base({
+    workingHours: [
+      { weekday: 1, startTime: "09:00:00", endTime: "12:00:00" },
+      { weekday: 1, startTime: "12:00:00", endTime: "15:00:00" },
+    ],
+    effectiveIntervalMinutes: 10,
+  }));
+  assertCandidateConflicts(evaluateStaffCandidate(adjacent, at(11, 57), 6), []);
+  assertCandidateConflicts(evaluateStaffCandidate(adjacent, at(9, 7), 5), []);
+  assert.ok(!calculateAvailability({ ...base({ effectiveIntervalMinutes: 10, patientPolicy: policy }), workingHours: [{ weekday: 1, startTime: "09:00:00", endTime: "10:00:00" }] }).patientStarts.includes(at(9, 7)));
+
+  const blocked = calculateAvailability(base({
+    exceptions: [{ type: "blocked", startsAt: at(12), endsAt: at(13) }],
+  }));
+  assertCandidateConflicts(evaluateStaffCandidate(blocked, at(11, 55), 5), []);
+  assertCandidateConflicts(evaluateStaffCandidate(blocked, at(11, 56), 5), ["working_availability"]);
+  assertCandidateConflicts(evaluateStaffCandidate(blocked, at(13), 5), []);
+});
+
+test("S8.3B proves special-work, no-hours, Kolkata midnight, and exact 0-minute notice boundaries", () => {
+  const policy = { selfBookingEnabled: true, bookingWindowDays: 30, minimumNoticeMinutes: 0, futureBookingCap: 3, futureScheduledCount: 0 };
+  const special = calculateAvailability(base({
+    workingHours: [],
+    exceptions: [{ type: "special_working", startsAt: at(10), endsAt: at(11) }],
+    patientPolicy: policy,
+  }));
+  assertCandidateConflicts(evaluateStaffCandidate(special, at(10), 5), []);
+  assertCandidateConflicts(evaluateStaffCandidate(special, at(10, 55), 5), []);
+  assertCandidateConflicts(evaluateStaffCandidate(special, at(10, 56), 5), ["working_availability"]);
+
+  const noHours = calculateAvailability(base({ workingHours: [], patientPolicy: policy }));
+  assert.deepEqual(noHours.patientStarts, []);
+  assertCandidateConflicts(evaluateStaffCandidate(noHours, at(9), 5), ["working_availability"]);
+
+  assert.equal(localDateForInstant(Date.parse("2026-09-13T18:29:59.999Z")), "2026-09-13");
+  assert.equal(localDateForInstant(Date.parse("2026-09-13T18:30:00.000Z")), "2026-09-14");
+  assert.equal(localDateForInstant(Date.parse("2026-09-13T18:30:00.001Z")), "2026-09-14");
+
+  const now = at(9);
+  const notice = calculateAvailability(base({ asOf: now, patientPolicy: policy }));
+  assert.ok(notice.patientStarts.includes(at(9)));
+  assert.ok(!notice.patientStarts.includes(at(8, 55)));
+});
+
 test("S2 patient grid is local-midnight anchored and does not restart at boundaries", () => {
   const result = calculateAvailability(base({
     workingHours: [{ weekday: 1, startTime: "09:03:00", endTime: "10:00:00" }],

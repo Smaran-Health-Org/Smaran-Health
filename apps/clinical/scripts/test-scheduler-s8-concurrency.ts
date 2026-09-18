@@ -168,7 +168,14 @@ test("S8.2 uses independent connections to prove Scheduler lifecycle races and r
       { id: randomUUID(), patientId: patients[13], hash: hash(`portal-d-${repetition}`) },
     ];
     const setup = await connect();
-    const base = (await setup.query<{ at: Date }>("SELECT date_trunc('hour', transaction_timestamp()) + interval '4 hours' AS at")).rows[0].at;
+    // Keep every 5-minute fixture fully inside ordinary availability.  The
+    // former relative-hour base could place the final +130 minute operation at
+    // 23:55 Kolkata, where a 5-minute appointment overran the [00:00, 23:59)
+    // fixture hours.  This is intentionally a future, fixed Kolkata morning
+    // window rather than a change to production availability semantics.
+    const base = (await setup.query<{ at: Date }>(
+      "SELECT ((transaction_timestamp() AT TIME ZONE 'Asia/Kolkata')::date + 2 + time '09:00') AT TIME ZONE 'Asia/Kolkata' AS at"
+    )).rows[0].at;
     try {
       await setup.query("INSERT INTO public.clinics (id,name) VALUES ($1,'Scheduler S8.2 concurrency fixture')", [clinicId]);
       await setup.query("UPDATE public.clinic_scheduler_settings SET patient_self_booking_enabled=true, patient_future_booking_cap=3 WHERE clinic_id=$1", [clinicId]);
