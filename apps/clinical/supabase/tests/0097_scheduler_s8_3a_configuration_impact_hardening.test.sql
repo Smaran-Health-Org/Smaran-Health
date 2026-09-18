@@ -2,6 +2,12 @@ BEGIN;
 
 SELECT plan(26);
 
+SELECT set_config(
+  'scheduler.test.s8_3a_anchor',
+  (((now() AT TIME ZONE 'Asia/Kolkata')::date + 7 + time '10:00') AT TIME ZONE 'Asia/Kolkata')::text,
+  true
+);
+
 INSERT INTO public.clinics (id, name) VALUES
   ('97000000-0000-4000-8000-000000000001', 'Scheduler S8.3A Clinic');
 INSERT INTO public.profiles (id, clinic_id, email, full_name, role) VALUES
@@ -13,20 +19,20 @@ INSERT INTO public.patients (id, clinic_id, full_name) VALUES
   ('97200000-0000-4000-8000-000000000002', '97000000-0000-4000-8000-000000000001', 'S8.3A Unknown Patient'),
   ('97200000-0000-4000-8000-000000000003', '97000000-0000-4000-8000-000000000001', 'S8.3A Other Patient');
 INSERT INTO public.consultations (id, clinic_id, patient_id, doctor_id, status, operational_status, started_at) VALUES
-  ('97300000-0000-4000-8000-000000000001', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000001', '97100000-0000-4000-8000-000000000001', 'draft', 'scheduled', now() + interval '7 days');
+  ('97300000-0000-4000-8000-000000000001', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000001', '97100000-0000-4000-8000-000000000001', 'draft', 'scheduled', current_setting('scheduler.test.s8_3a_anchor')::timestamptz);
 INSERT INTO public.consultations (id, clinic_id, patient_id, doctor_id, status, operational_status, started_at) VALUES
-  ('97300000-0000-4000-8000-000000000002', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000002', '97100000-0000-4000-8000-000000000001', 'draft', 'scheduled', now() + interval '7 days'),
-  ('97300000-0000-4000-8000-000000000003', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000003', '97100000-0000-4000-8000-000000000003', 'draft', 'scheduled', now() + interval '7 days');
+  ('97300000-0000-4000-8000-000000000002', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000002', '97100000-0000-4000-8000-000000000001', 'draft', 'scheduled', current_setting('scheduler.test.s8_3a_anchor')::timestamptz),
+  ('97300000-0000-4000-8000-000000000003', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000003', '97100000-0000-4000-8000-000000000003', 'draft', 'scheduled', current_setting('scheduler.test.s8_3a_anchor')::timestamptz);
 INSERT INTO public.appointments (id, clinic_id, patient_id, doctor_id, consultation_id, scheduled_at, status, duration_minutes, created_by) VALUES
-  ('97400000-0000-4000-8000-000000000001', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000001', '97100000-0000-4000-8000-000000000001', '97300000-0000-4000-8000-000000000001', now() + interval '7 days', 'scheduled', 15, '97100000-0000-4000-8000-000000000002'),
-  ('97400000-0000-4000-8000-000000000002', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000002', '97100000-0000-4000-8000-000000000001', '97300000-0000-4000-8000-000000000002', now() + interval '7 days' + interval '1 hour', 'scheduled', NULL, '97100000-0000-4000-8000-000000000002'),
-  ('97400000-0000-4000-8000-000000000003', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000003', '97100000-0000-4000-8000-000000000003', '97300000-0000-4000-8000-000000000003', now() + interval '7 days', 'scheduled', NULL, '97100000-0000-4000-8000-000000000002');
+  ('97400000-0000-4000-8000-000000000001', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000001', '97100000-0000-4000-8000-000000000001', '97300000-0000-4000-8000-000000000001', current_setting('scheduler.test.s8_3a_anchor')::timestamptz, 'scheduled', 15, '97100000-0000-4000-8000-000000000002'),
+  ('97400000-0000-4000-8000-000000000002', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000002', '97100000-0000-4000-8000-000000000001', '97300000-0000-4000-8000-000000000002', current_setting('scheduler.test.s8_3a_anchor')::timestamptz + interval '1 hour', 'scheduled', NULL, '97100000-0000-4000-8000-000000000002'),
+  ('97400000-0000-4000-8000-000000000003', '97000000-0000-4000-8000-000000000001', '97200000-0000-4000-8000-000000000003', '97100000-0000-4000-8000-000000000003', '97300000-0000-4000-8000-000000000003', current_setting('scheduler.test.s8_3a_anchor')::timestamptz, 'scheduled', NULL, '97100000-0000-4000-8000-000000000002');
 INSERT INTO public.appointment_scheduling_issues (clinic_id, appointment_id, issue_type, status, detected_source) VALUES
   ('97000000-0000-4000-8000-000000000001', '97400000-0000-4000-8000-000000000002', 'unknown_duration', 'open', 'legacy_migration'),
   ('97000000-0000-4000-8000-000000000001', '97400000-0000-4000-8000-000000000003', 'unknown_duration', 'open', 'legacy_migration');
 INSERT INTO public.doctor_working_hours (id, clinic_id, doctor_id, weekday, start_time, end_time) VALUES
-  ('97500000-0000-4000-8000-000000000001', '97000000-0000-4000-8000-000000000001', '97100000-0000-4000-8000-000000000001', EXTRACT(DOW FROM now() + interval '7 days')::smallint, '00:00', '23:59'),
-  ('97500000-0000-4000-8000-000000000002', '97000000-0000-4000-8000-000000000001', '97100000-0000-4000-8000-000000000003', EXTRACT(DOW FROM now() + interval '7 days')::smallint, '00:00', '23:59');
+  ('97500000-0000-4000-8000-000000000001', '97000000-0000-4000-8000-000000000001', '97100000-0000-4000-8000-000000000001', EXTRACT(DOW FROM current_setting('scheduler.test.s8_3a_anchor')::timestamptz AT TIME ZONE 'Asia/Kolkata')::smallint, '00:00', '23:59'),
+  ('97500000-0000-4000-8000-000000000002', '97000000-0000-4000-8000-000000000001', '97100000-0000-4000-8000-000000000003', EXTRACT(DOW FROM current_setting('scheduler.test.s8_3a_anchor')::timestamptz AT TIME ZONE 'Asia/Kolkata')::smallint, '00:00', '23:59');
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '97100000-0000-4000-8000-000000000002', true);
@@ -92,11 +98,11 @@ $$, 'working-hour removal reconciles a current invalid schedule');
 SELECT is((SELECT count(*) FROM public.appointment_scheduling_issues WHERE appointment_id = '97400000-0000-4000-8000-000000000001' AND issue_type = 'schedule_invalid' AND status = 'open'), 1::bigint, 'working-hour removal reopens schedule-invalid attention');
 SELECT lives_ok($$
   SELECT public.scheduler_save_configuration_v5(
-    jsonb_build_object('resource', 'exception', 'operation', 'create', 'doctorId', '97100000-0000-4000-8000-000000000001', 'exceptionType', 'special_working', 'startsAt', (now() + interval '7 days' + interval '2 hours')::text, 'endsAt', (now() + interval '7 days' + interval '4 hours')::text),
-    public.scheduler_configuration_impact_preview_v5(jsonb_build_object('resource', 'exception', 'operation', 'create', 'doctorId', '97100000-0000-4000-8000-000000000001', 'exceptionType', 'special_working', 'startsAt', (now() + interval '7 days' + interval '2 hours')::text, 'endsAt', (now() + interval '7 days' + interval '4 hours')::text)) ->> 'fingerprint'
+    jsonb_build_object('resource', 'exception', 'operation', 'create', 'doctorId', '97100000-0000-4000-8000-000000000001', 'exceptionType', 'special_working', 'startsAt', (current_setting('scheduler.test.s8_3a_anchor')::timestamptz + interval '2 hours')::text, 'endsAt', (current_setting('scheduler.test.s8_3a_anchor')::timestamptz + interval '4 hours')::text),
+    public.scheduler_configuration_impact_preview_v5(jsonb_build_object('resource', 'exception', 'operation', 'create', 'doctorId', '97100000-0000-4000-8000-000000000001', 'exceptionType', 'special_working', 'startsAt', (current_setting('scheduler.test.s8_3a_anchor')::timestamptz + interval '2 hours')::text, 'endsAt', (current_setting('scheduler.test.s8_3a_anchor')::timestamptz + interval '4 hours')::text)) ->> 'fingerprint'
   )
 $$, 'special-working availability can be added without mutating the appointment');
-SELECT is((public.scheduler_mutate_appointment_v3('reschedule', '97400000-0000-4000-8000-000000000001', NULL, NULL, now() + interval '7 days' + interval '2 hours' + interval '5 minutes', 15, NULL, NULL, (SELECT updated_at FROM public.appointments WHERE id = '97400000-0000-4000-8000-000000000001'), 's83a-reschedule-valid') ->> 'ok')::boolean, true, 'rescheduling to valid availability resolves the current schedule issue');
+SELECT is((public.scheduler_mutate_appointment_v3('reschedule', '97400000-0000-4000-8000-000000000001', NULL, NULL, current_setting('scheduler.test.s8_3a_anchor')::timestamptz + interval '2 hours' + interval '5 minutes', 15, NULL, NULL, (SELECT updated_at FROM public.appointments WHERE id = '97400000-0000-4000-8000-000000000001'), 's83a-reschedule-valid') ->> 'ok')::boolean, true, 'rescheduling to valid availability resolves the current schedule issue');
 SELECT is((SELECT count(*) FROM public.appointment_scheduling_issues WHERE appointment_id = '97400000-0000-4000-8000-000000000001' AND issue_type = 'schedule_invalid' AND status = 'open'), 0::bigint, 'reschedule leaves no stale schedule-invalid issue');
 SELECT is((SELECT count(*) FROM public.appointment_scheduling_issue_history h JOIN public.appointment_scheduling_issues i ON i.id = h.issue_id WHERE i.appointment_id = '97400000-0000-4000-8000-000000000001' AND i.issue_type = 'schedule_invalid'), 4::bigint, 'open-resolve-reopen-resolve attention history is retained');
 SELECT lives_ok($$
