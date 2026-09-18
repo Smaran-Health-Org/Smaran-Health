@@ -38,20 +38,25 @@ async function clean(clinicId: string): Promise<void> {
 }
 
 test("S5 save reconciles a valid appointment committed during the preview/save race", async (t) => {
-  const clinicId = randomUUID(); const doctorId = randomUUID(); const adminId = randomUUID(); const patientId = randomUUID(); const workingId = randomUUID();
+  const clinicId = randomUUID(); const doctorId = randomUUID(); const adminId = randomUUID(); const patientId = randomUUID(); const legacyPatientId = randomUUID(); const legacyConsultationId = randomUUID(); const legacyAppointmentId = randomUUID(); const workingId = randomUUID();
   t.after(() => clean(clinicId));
   const setup = await connect();
   await setup.query("INSERT INTO public.clinics (id,name) VALUES ($1,'Scheduler S5 concurrency fixture')", [clinicId]);
   await setup.query("INSERT INTO public.profiles (id,clinic_id,email,full_name,role) VALUES ($1,$3,$4,'Scheduler Doctor','doctor'),($2,$3,$5,'Scheduler Admin','admin')", [doctorId, adminId, clinicId, `scheduler-s5-doctor-${doctorId}@example.invalid`, `scheduler-s5-admin-${adminId}@example.invalid`]);
-  await setup.query("INSERT INTO public.patients (id,clinic_id,full_name) VALUES ($1,$2,'Scheduler Patient')", [patientId, clinicId]);
+  await setup.query("INSERT INTO public.patients (id,clinic_id,full_name) VALUES ($1,$2,'Scheduler Patient'),($3,$2,'Scheduler Legacy Patient')", [patientId, clinicId, legacyPatientId]);
+  await setup.query("INSERT INTO public.consultations (id,clinic_id,patient_id,doctor_id,status,operational_status,started_at) VALUES ($1,$2,$3,$4,'draft','scheduled','2045-01-02T05:00:00Z')", [legacyConsultationId, clinicId, legacyPatientId, doctorId]);
+  await setup.query("INSERT INTO public.appointments (id,clinic_id,patient_id,doctor_id,consultation_id,scheduled_at,status,duration_minutes,created_by) VALUES ($1,$2,$3,$4,$5,'2045-01-02T05:00:00Z','scheduled',NULL,$6)", [legacyAppointmentId, clinicId, legacyPatientId, doctorId, legacyConsultationId, adminId]);
+  await setup.query("INSERT INTO public.appointment_scheduling_issues (clinic_id,appointment_id,issue_type,status,detected_source) VALUES ($1,$2,'unknown_duration','open','legacy_migration')", [clinicId, legacyAppointmentId]);
   await setup.query("INSERT INTO public.doctor_working_hours (id,clinic_id,doctor_id,weekday,start_time,end_time) VALUES ($1,$2,$3,1,'09:00','10:00')", [workingId, clinicId, doctorId]);
   await setup.end();
 
   const command = { resource: "working_hours", operation: "delete", doctorId, id: workingId };
   const previewClient = await connect();
-  const fingerprint = (await asStaff(previewClient, adminId, async () => (
-    await previewClient.query<{ result: { fingerprint: string } }>("SELECT public.scheduler_configuration_impact_preview_v5($1::jsonb) AS result", [JSON.stringify(command)])
-  ))).rows[0].result.fingerprint;
+  const preview = (await asStaff(previewClient, adminId, async () => (
+    await previewClient.query<{ result: { fingerprint: string; unknownDurationReviewCount: number } }>("SELECT public.scheduler_configuration_impact_preview_v5($1::jsonb) AS result", [JSON.stringify(command)])
+  ))).rows[0].result;
+  assert.equal(preview.unknownDurationReviewCount, 1, "preview separately surfaces the existing unresolved legacy duration for review");
+  const fingerprint = preview.fingerprint;
   await previewClient.end();
 
   const booking = await connect();
@@ -77,6 +82,13 @@ test("S5 save reconciles a valid appointment committed during the preview/save r
     assert.equal(saved.rows[0].result.openedCount, 1, "authoritative reconciliation includes the appointment committed during the race");
     const verified = await saver.query<{ count: number }>("SELECT count(*)::int AS count FROM public.appointment_scheduling_issues WHERE clinic_id=$1 AND issue_type='schedule_invalid' AND status='open'", [clinicId]);
     assert.equal(verified.rows[0].count, 1, "no raced appointment escapes schedule-invalid attention");
+    const legacy = await saver.query<{ duration_minutes: number | null; unknown_open: number; schedule_invalid: number }>(
+      "SELECT a.duration_minutes, count(i.id) FILTER (WHERE i.issue_type='unknown_duration' AND i.status='open')::int AS unknown_open, count(i.id) FILTER (WHERE i.issue_type='schedule_invalid' AND i.status='open')::int AS schedule_invalid FROM public.appointments a LEFT JOIN public.appointment_scheduling_issues i ON i.appointment_id=a.id WHERE a.id=$1 GROUP BY a.duration_minutes",
+      [legacyAppointmentId]
+    );
+    assert.equal(legacy.rows[0].duration_minutes, null, "configuration save never fabricates the raced fixture's unresolved duration");
+    assert.equal(legacy.rows[0].unknown_open, 1, "configuration reconciliation retains distinct unknown-duration attention");
+    assert.equal(legacy.rows[0].schedule_invalid, 0, "configuration reconciliation does not label unresolved duration as known-invalid");
   } finally {
     await Promise.all([booking.end(), saver.end()]);
   }

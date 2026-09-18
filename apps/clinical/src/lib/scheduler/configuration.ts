@@ -30,8 +30,17 @@ export type SchedulerConfigurationSnapshot = {
   }>;
 };
 
-export type SchedulerConfigurationPreview = { affectedCount: number; fingerprint: string };
+export type SchedulerConfigurationPreview = { affectedCount: number; unknownDurationReviewCount: number; fingerprint: string };
 export type SchedulerConfigurationSaveResult = { openedCount: number; resolvedCount: number; fingerprint: string };
+
+export function schedulerConfigurationImpactWarning(impact: SchedulerConfigurationPreview): string | null {
+  const known = Number(impact.affectedCount ?? 0);
+  const unresolved = Number(impact.unknownDurationReviewCount ?? 0);
+  if (known <= 0 && unresolved <= 0) return null;
+  const knownMessage = known > 0 ? `${known} future scheduled appointment${known === 1 ? " is" : "s are"} affected.` : "";
+  const unresolvedMessage = unresolved > 0 ? `${unresolved} additional appointment${unresolved === 1 ? " has" : "s have"} an unresolved duration and ${unresolved === 1 ? "requires" : "require"} review.` : "";
+  return `${knownMessage}${knownMessage && unresolvedMessage ? " " : ""}${unresolvedMessage} Existing appointments will not move or cancel.`;
+}
 
 export class SchedulerConfigurationTimeError extends Error {
   constructor() { super("Invalid Scheduler Kolkata time"); }

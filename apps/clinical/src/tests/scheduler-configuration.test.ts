@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeSchedulerConfigurationCommand, SchedulerConfigurationError } from "@/lib/db/scheduler-configuration";
-import { kolkataDateTimeLocalFromInstant, kolkataDateTimeLocalToInstant } from "@/lib/scheduler/configuration";
+import { kolkataDateTimeLocalFromInstant, kolkataDateTimeLocalToInstant, schedulerConfigurationImpactWarning } from "@/lib/scheduler/configuration";
 
 const doctorId = "11111111-1111-4111-8111-111111111111";
 
@@ -36,4 +36,16 @@ test("allows duplicate appointment-type labels because IDs, not names, are autho
   const command = normalizeSchedulerConfigurationCommand({ resource: "appointment_type", operation: "create", doctorId, name: "Follow-up", defaultDurationMinutes: 15, isActive: true });
   assert.equal(command.name, "Follow-up");
   assert.equal(command.defaultDurationMinutes, 15);
+});
+
+test("configuration warnings distinguish known impact from unresolved-duration review", () => {
+  assert.equal(
+    schedulerConfigurationImpactWarning({ affectedCount: 2, unknownDurationReviewCount: 1, fingerprint: "a" }),
+    "2 future scheduled appointments are affected. 1 additional appointment has an unresolved duration and requires review. Existing appointments will not move or cancel."
+  );
+  assert.equal(
+    schedulerConfigurationImpactWarning({ affectedCount: 0, unknownDurationReviewCount: 1, fingerprint: "a" }),
+    "1 additional appointment has an unresolved duration and requires review. Existing appointments will not move or cancel."
+  );
+  assert.equal(schedulerConfigurationImpactWarning({ affectedCount: 0, unknownDurationReviewCount: 0, fingerprint: "a" }), null);
 });

@@ -1,6 +1,6 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getSessionContext } from "@/lib/db/session";
-import type { SchedulerConfigurationCommand, SchedulerConfigurationSnapshot } from "@/lib/scheduler/configuration";
+import type { SchedulerConfigurationCommand, SchedulerConfigurationPreview, SchedulerConfigurationSaveResult, SchedulerConfigurationSnapshot } from "@/lib/scheduler/configuration";
 import type { SessionContext } from "@/types";
 
 type ServerClient = Awaited<ReturnType<typeof createServerClient>>;
@@ -108,7 +108,7 @@ export async function getSchedulerConfiguration() {
   return getSchedulerConfigurationWithClient(await createServerClient(), session);
 }
 
-async function rpc(supabase: ServerClient, name: string, args: Record<string, unknown>) {
+async function rpc<T>(supabase: ServerClient, name: string, args: Record<string, unknown>): Promise<T> {
   const result = await supabase.rpc(name, args as never);
   if (result.error) {
     if (result.error.code === "42501") throw new SchedulerConfigurationError("forbidden");
@@ -116,13 +116,13 @@ async function rpc(supabase: ServerClient, name: string, args: Record<string, un
     if (result.error.code === "22023") throw new SchedulerConfigurationError("stale");
     throw new SchedulerConfigurationError("invalid");
   }
-  return result.data as { affectedCount?: number; fingerprint?: string; openedCount?: number; resolvedCount?: number };
+  return result.data as T;
 }
 
 export async function previewSchedulerConfigurationWithClient(supabase: ServerClient, session: SessionContext, command: SchedulerConfigurationCommand) {
-  assertStaff(session); return rpc(supabase, "scheduler_configuration_impact_preview_v5", { p_command: command });
+  assertStaff(session); return rpc<SchedulerConfigurationPreview>(supabase, "scheduler_configuration_impact_preview_v5", { p_command: command });
 }
 export async function saveSchedulerConfigurationWithClient(supabase: ServerClient, session: SessionContext, command: SchedulerConfigurationCommand, previewFingerprint: string) {
   assertStaff(session); if (!/^[a-f0-9]{64}$/i.test(previewFingerprint)) throw new SchedulerConfigurationError("invalid");
-  return rpc(supabase, "scheduler_save_configuration_v5", { p_command: command, p_preview_fingerprint: previewFingerprint });
+  return rpc<SchedulerConfigurationSaveResult>(supabase, "scheduler_save_configuration_v5", { p_command: command, p_preview_fingerprint: previewFingerprint });
 }
