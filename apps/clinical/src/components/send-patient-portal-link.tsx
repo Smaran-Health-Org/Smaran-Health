@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export function SendPatientPortalLink({ patientId }: { patientId: string }) {
+export function SendPatientPortalLink({ patientId, label = "Send portal link" }: { patientId: string; label?: string }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -23,7 +23,7 @@ export function SendPatientPortalLink({ patientId }: { patientId: string }) {
   }
 
   return <div>
-    <button type="button" onClick={send} disabled={pending}>{pending ? "Sending…" : "Send portal link"}</button>
+    <button type="button" onClick={send} disabled={pending}>{pending ? "Sending…" : label}</button>
     {message ? <p role="status">{message}</p> : null}
   </div>;
 }

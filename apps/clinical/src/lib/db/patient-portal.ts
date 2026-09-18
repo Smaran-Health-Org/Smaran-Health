@@ -54,6 +54,10 @@ export type PatientPortalAppointmentDetail = PatientPortalAppointment & {
     intakeStatus: "not_started" | "in_progress" | "submitted" | "not_available";
     canOpenPreparation: boolean;
   };
+  timeline: Array<{
+    eventType: "created" | "rescheduled" | "reassigned" | "cancelled" | "no_show" | "rebooked";
+    occurredAt: string;
+  }>;
 };
 
 export type PatientPortalBookingRequest = {
@@ -275,17 +279,19 @@ export async function listPatientPortalDoctors(context: PatientPortalContext): P
 }
 
 export async function listPatientPortalAppointments(context: PatientPortalContext, kind: "upcoming" | "history"): Promise<PatientPortalAppointment[]> {
-  const now = new Date().toISOString();
-  let query = createServiceRoleClient().from("appointments")
-    .select("id, scheduled_at, status, profiles!appointments_doctor_id_fkey(full_name)")
-    .eq("clinic_id", context.clinicId).eq("patient_id", context.canonicalPatientId)
-    .order("scheduled_at", { ascending: kind === "upcoming" });
-  query = kind === "upcoming" ? query.gte("scheduled_at", now) : query.lt("scheduled_at", now);
-  const { data, error } = await query;
+  // Patient history is intentionally an RPC projection rather than a raw
+  // appointments query.  The verified cookie, clinic, canonical patient, and
+  // lifecycle classification are all resolved in one database boundary.
+  void context;
+  const sessionSecret = (await cookies()).get(PATIENT_PORTAL_SESSION_COOKIE)?.value;
+  if (!sessionSecret) throw new PatientPortalError("access_invalid");
+  const { data, error } = await createServiceRoleClient().rpc("get_patient_portal_appointments", {
+    p_verified_session_hash: hashPatientAccessCredential(sessionSecret), p_kind: kind,
+  });
   if (error) throw new PatientPortalError("unavailable");
-  return (data ?? []).map((row) => ({
+  return (data as Array<{ id: string; scheduled_at: string; status: PatientPortalAppointment["status"]; doctor_display_name: string }> ?? []).map((row) => ({
     id: row.id, scheduledAt: row.scheduled_at, status: row.status,
-    doctorDisplayName: (row.profiles as unknown as { full_name?: string } | null)?.full_name ?? "Doctor",
+    doctorDisplayName: row.doctor_display_name || "Doctor",
   }));
 }
 
@@ -298,6 +304,10 @@ export async function getPatientPortalAppointmentDetail(appointmentId: string): 
   if (error) throw new PatientPortalError("unavailable");
   const row = (data as Array<Record<string, unknown>> | null)?.[0];
   if (!row) return null;
+  const { data: timelineData, error: timelineError } = await createServiceRoleClient().rpc("get_patient_portal_appointment_timeline", {
+    p_verified_session_hash: hashPatientAccessCredential(sessionSecret), p_appointment_id: appointmentId,
+  });
+  if (timelineError) throw new PatientPortalError("unavailable");
   const status = row.status;
   const intakeStatus = row.intake_status;
   return {
@@ -307,6 +317,9 @@ export async function getPatientPortalAppointmentDetail(appointmentId: string): 
       intakeStatus: intakeStatus === "not_started" || intakeStatus === "in_progress" || intakeStatus === "submitted" ? intakeStatus : "not_available",
       canOpenPreparation: row.can_open_preparation === true,
     },
+    timeline: (timelineData as Array<{ event_type: PatientPortalAppointmentDetail["timeline"][number]["eventType"]; occurred_at: string }> ?? []).map((event) => ({
+      eventType: event.event_type, occurredAt: event.occurred_at,
+    })),
   };
 }
 
