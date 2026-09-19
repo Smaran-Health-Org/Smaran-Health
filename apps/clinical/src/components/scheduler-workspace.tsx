@@ -9,7 +9,7 @@ import type { SchedulerAppointmentSummary, SchedulerCalendar, SchedulerPatientHi
 import type { Patient, SessionContext } from "@/types";
 import { CALENDAR_DAY_HEIGHT_PX, CALENDAR_DAY_MINUTES, CALENDAR_LABEL_MINUTES, calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarLaneGeometry, calendarMinuteOffset } from "@/lib/scheduler/calendar-geometry";
 import { CalendarRequestGate } from "@/lib/scheduler/calendar-request";
-import { calendarAppointmentAccessibleLabel, calendarBookingMinute, calendarOperationalSummary, kolkataClock, visibleCalendarDoctors } from "@/lib/scheduler/calendar-view-model";
+import { calendarAppointmentAccessibleLabel, calendarAppointmentReadinessCue, calendarBookingMinuteForPointer, calendarOperationalSummary, kolkataClock, visibleCalendarDoctors } from "@/lib/scheduler/calendar-view-model";
 import { bookingSemanticIdentity, displayedBookingDuration, hasValidDurationOverride, optionalDurationOverride, selectedDoctorTypeId } from "@/lib/scheduler/workspace-payloads";
 
 type Conflict = { fingerprint: string; kind?: string; unresolvedDuration?: boolean; [key: string]: unknown };
@@ -158,8 +158,8 @@ function SchedulerCalendarView({ calendar, days, doctorIds, onBook, onSelect }: 
         });
         const lanes = new Map(calendarAppointmentOverlapLayout(starts).map((lane) => [lane.id, lane]));
         return <div className={styles.schedulerTimelineColumn} key={`${day}-${doctor.id}`}>
-          <button className={styles.schedulerTimePicker} aria-label={`Choose a time for ${doctor.fullName} on ${day}; availability is checked when booking`} onClick={(event) => {
-            const minute = calendarBookingMinute(event.detail, event.clientY - event.currentTarget.getBoundingClientRect().top, scrollRef.current?.scrollTop ?? 0);
+          <div className={styles.schedulerTimePicker} aria-hidden="true" onClick={(event) => {
+            const minute = calendarBookingMinuteForPointer(event.clientY - event.currentTarget.getBoundingClientRect().top);
             chooseTime(day, doctor.id, minute);
           }} />
           {dayAppointments.map((appointment, index) => {
@@ -170,7 +170,7 @@ function SchedulerCalendarView({ calendar, days, doctorIds, onBook, onSelect }: 
             const duration = appointment.durationMinutes;
             const compact = duration !== null && duration < 10;
             const small = duration !== null && duration < 15;
-            const cue = appointment.intakeStatus === "submitted" ? "Intake ready" : appointment.documentStatus === "needs_review" ? "Documents to review" : null;
+            const cue = calendarAppointmentReadinessCue(appointment);
             return <button key={appointment.id} className={styles.schedulerAppointment} data-status={appointment.status} data-unknown={geometry.isUnknownDuration} data-size={compact ? "compact" : small ? "small" : "regular"} style={{ top: geometry.topPx, height: geometry.heightPx, ...lanePosition } as CSSProperties} onClick={() => onSelect(appointment)} aria-label={calendarAppointmentAccessibleLabel(appointment, appointmentTime(appointment.scheduledAt))} title={`${appointment.patientName} · ${appointmentTime(appointment.scheduledAt)} · ${duration === null ? "Duration unknown" : `${duration} min`}`}>
               {compact ? <span className={styles.schedulerCompactText}>{appointment.patientName} · {duration}m</span> : <><strong>{appointment.patientName}</strong>{duration === null ? <span>Duration unknown</span> : small ? (cue ? <small>{cue}</small> : null) : <span>{appointment.appointmentTypeName ?? "Appointment"} · {duration}m</span>}{duration !== null && duration >= 20 && cue ? <small>{cue}</small> : null}</>}
             </button>;

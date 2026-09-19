@@ -10,12 +10,19 @@ export function calendarOperationalSummary(appointments: SchedulerAppointmentSum
   return { appointments: active.length, intakePending: active.filter((item) => item.intakeStatus !== "submitted").length };
 }
 
-export function calendarBookingMinute(eventDetail: number, pointerOffsetPx: number, viewportScrollPx: number): number {
-  return calendarMinuteAtOffset(eventDetail === 0 ? viewportScrollPx + 90 : pointerOffsetPx);
+export function calendarBookingMinuteForPointer(pointerOffsetPx: number): number {
+  return calendarMinuteAtOffset(pointerOffsetPx);
 }
 
+export function calendarAppointmentReadinessCue(appointment: SchedulerAppointmentSummary): string | null {
+  if (appointment.documentStatus === "needs_review") return "Documents to review";
+  if (appointment.intakeStatus === "submitted") return "Intake ready";
+  return null;
+}
+
+const accessibleDate = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", day: "numeric", month: "long", year: "numeric" });
 export function calendarAppointmentAccessibleLabel(appointment: SchedulerAppointmentSummary, time: string): string {
-  return `${appointment.patientName}, ${time}, ${appointment.durationMinutes === null ? "Duration unknown" : `${appointment.durationMinutes} minutes`}, ${appointment.status.replace("_", " ")}`;
+  return `${appointment.patientName}, ${appointment.doctorName}, ${accessibleDate.format(new Date(appointment.scheduledAt))}, ${time}, ${appointment.durationMinutes === null ? "Duration unknown" : `${appointment.durationMinutes} minutes`}, ${appointment.status.replace("_", " ")}`;
 }
 
 const kolkataDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" });

@@ -3,7 +3,7 @@ import test from "node:test";
 import type { SchedulerAppointmentSummary } from "../lib/db/scheduler-read";
 import { CALENDAR_PX_PER_MINUTE, calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarLaneGeometry, calendarMinuteOffset } from "../lib/scheduler/calendar-geometry";
 import { CalendarRequestGate } from "../lib/scheduler/calendar-request";
-import { calendarAppointmentAccessibleLabel, calendarBookingMinute, calendarOperationalSummary, kolkataClock, visibleCalendarDoctors } from "../lib/scheduler/calendar-view-model";
+import { calendarAppointmentAccessibleLabel, calendarAppointmentReadinessCue, calendarBookingMinuteForPointer, calendarOperationalSummary, kolkataClock, visibleCalendarDoctors } from "../lib/scheduler/calendar-view-model";
 
 function appointment(patch: Partial<SchedulerAppointmentSummary> = {}): SchedulerAppointmentSummary {
   return {
@@ -89,13 +89,24 @@ test("V2 late calendar response cannot overwrite the newer provider/date request
   assert.equal(second.isCurrent(), false);
 });
 
-test("V2 native keyboard time picker uses visible scroll position; full long names remain accessible", () => {
-  assert.equal(calendarBookingMinute(0, -999, calendarMinuteOffset(10 * 60)), 10 * 60 + Math.round(90 / CALENDAR_PX_PER_MINUTE));
-  assert.equal(calendarBookingMinute(1, calendarMinuteOffset(10 * 60 + 7), 0), 10 * 60 + 7);
+test("V2 readiness prioritizes document review over positive intake readiness", () => {
+  assert.equal(calendarAppointmentReadinessCue(appointment({ intakeStatus: "submitted", documentStatus: "needs_review" })), "Documents to review");
+  assert.equal(calendarAppointmentReadinessCue(appointment({ intakeStatus: "submitted", documentStatus: "ready" })), "Intake ready");
+});
+
+test("V2 pointer-only time picker maps an exact pointer offset without a keyboard scroll fallback", () => {
+  assert.equal(calendarBookingMinuteForPointer(calendarMinuteOffset(10 * 60 + 7)), 10 * 60 + 7);
+  assert.equal(calendarBookingMinuteForPointer(calendarMinuteOffset(23 * 60 + 59)), 23 * 60 + 59);
+});
+
+test("V2 accessible appointment labels include identity, schedule context, and duration", () => {
   const longName = "Asha ".repeat(30).trim();
   const label = calendarAppointmentAccessibleLabel(appointment({ patientName: longName, durationMinutes: 5 }), "09:30");
   assert.ok(label.startsWith(longName));
+  assert.match(label, /Dr Shah/);
+  assert.match(label, /18 September 2026/);
   assert.match(label, /5 minutes/);
+  assert.match(calendarAppointmentAccessibleLabel(appointment({ durationMinutes: null, durationState: "unknown" }), "09:30"), /Duration unknown/);
 });
 
 test("V2 operational metrics count only active appointments in the returned scope", () => {
