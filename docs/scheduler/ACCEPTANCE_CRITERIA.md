@@ -136,6 +136,22 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 
 **AC-SCH-U08** Drag-and-drop rescheduling is NOT required for MVP.
 
+## Scheduler V2 calendar and workspace
+
+**AC-SCH-V01** Day and Week MUST use a shared 5-minute visual ruler with stronger 15-minute lines and labels every 15 minutes. The ruler MUST NOT replace effective doctor/clinic scheduling-interval inheritance or restrict exact-minute staff entry.
+
+**AC-SCH-V02** Appointment cards MUST use actual known start and duration, including non-multiple-of-five durations and cross-hour placement. An unknown historical duration MUST have a distinct accessible marker; any visual envelope MUST NOT be persisted or presented as appointment duration.
+
+**AC-SCH-V03** Day MUST support multiple selected doctors. Week MUST display exactly one explicitly selected doctor, reflected in the toolbar and calendar request; hidden truncation of a multi-doctor selection MUST NOT occur.
+
+**AC-SCH-V04** Blank calendar space MUST NOT imply availability. Any working/unavailable/blocked/leave/suggested-opening display MUST be sourced from Scheduler availability authority. Client preview is advisory; final mutation validation remains authoritative.
+
+**AC-SCH-V05** Operational summary metrics MUST match the visible provider/date scope and use authoritative read data. Generic `Open slots`/capacity counts MUST NOT appear without explicit duration/type meaning; `Waiting` requires unambiguous Queue semantics and scope.
+
+**AC-SCH-V06** V2 Phase 1 MUST preserve existing booking, search/history, appointment modal/actions, exact-minute staff entry, conflict acknowledgement, stale-write handling, and scheduling-only privacy projection. Older calendar responses MUST NOT overwrite a newer date/view/provider selection.
+
+**AC-SCH-V07** Once V2 Phase 3 lands, the desktop appointment modal MUST be superseded by a persistent inspector that keeps the calendar visible, with responsive drawer/sheet access and the same authorized lifecycle mutations and privacy boundary.
+
 ## Patient self-booking
 
 **AC-SCH-P01** Patient self-booking MUST be controlled by an On/Off clinic setting and MUST default Off until the clinic explicitly enables it.

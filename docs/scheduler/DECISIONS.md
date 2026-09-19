@@ -23,7 +23,7 @@ These decisions are approved from the Scheduler refinement. Do not silently reve
 ## Interval and duration
 
 - **S-D013** Scheduling interval and appointment duration are separate concepts.
-- **S-D014** The configured scheduling interval controls patient-facing suggested starts and visual calendar grid.
+- **S-D014** The configured scheduling interval controls patient-facing suggested starts. The original MVP visual-grid requirement is superseded for Scheduler V2 by S-D094; it does not alter effective doctor/clinic interval inheritance.
 - **S-D015** Staff may choose any start minute regardless of the configured interval.
 - **S-D016** Staff may override duration for a specific appointment.
 - **S-D017** Patients cannot manually choose arbitrary duration.
@@ -42,10 +42,10 @@ These decisions are approved from the Scheduler refinement. Do not silently reve
 ## Calendar and staff UX
 
 - **S-D026** MVP Scheduler has Day and Week views; Month view is deferred.
-- **S-D027** Day view supports multi-doctor scheduling; Week view may be filtered/focused to one doctor.
+- **S-D027** Day view supports multi-doctor scheduling. Scheduler V2 requires Week view to show exactly one explicitly selected doctor (S-D098).
 - **S-D028** Appointment blocks visually reflect actual start time and duration.
 - **S-D029** Clicking empty calendar space opens a popup/modal with doctor/date/time prefilled where possible.
-- **S-D030** Clicking an appointment opens a popup/modal for details/actions.
+- **S-D030** Clicking an appointment opens a popup/modal for details/actions in MVP and Scheduler V2 Phases 1–2. The V2 inspector/drawer supersedes this requirement when Phase 3 lands (S-D097).
 - **S-D031** Drag-and-drop rescheduling is not required for MVP; explicit reschedule/change-time action is preferred.
 - **S-D032** Appointment status, intake status and document status are not editable scheduling fields.
 - **S-D033** Read-only preparation indicators may be shown in an existing-appointment modal if useful.
@@ -127,3 +127,12 @@ These decisions are approved from the Scheduler refinement. Do not silently reve
 - **S-D090** A normal appointment is valid only when its full resolved duration fits inside valid working availability. A start time that would extend beyond the available interval is not normal availability; authorized operational staff may proceed only through an explicit outside-hours/availability override where allowed.
 - **S-D091** Schedule or exception changes may create persistent scheduling-attention issues for future appointments that become inconsistent with current availability. A scheduling-interval change alone must not flag an existing appointment solely because its historical start minute no longer aligns to the new interval.
 - **S-D092** A scheduling-attention issue automatically resolves when its underlying conflict no longer exists, while preserving the issue's detection/resolution history and auditability.
+
+## Scheduler V2 decision lock
+
+- **S-D094** Day and Week use a shared 5-minute **visual** ruler with stronger 15-minute lines and 15-minute labels. It is independent of each doctor's effective scheduling interval, which continues to govern generated/patient-facing starts after doctor→clinic inheritance. Appointment duration remains independent of both; existing valid 5–60 minute, including non-multiple-of-five, durations retain their exact visual height.
+- **S-D095** Staff may enter an exact arbitrary-minute start. Interval-aligned starts may be suggested, but the V2 ruler must not impose a staff booking restriction.
+- **S-D096** Blank calendar space makes no availability claim. Working, unavailable, blocked, leave, or suggested-opening indicators require an authoritative Scheduler availability projection; client-side absence of appointments is insufficient. A preview remains advisory and final server mutation authoritative.
+- **S-D097** After V2 Phase 3 is implemented, the persistent desktop appointment inspector and responsive drawer/sheet replace the appointment-details modal requirement. Existing lifecycle mutations, eligibility, stale-write review, and scheduling-only privacy boundaries remain authoritative.
+- **S-D098** Week view represents exactly one doctor, explicitly selected in the toolbar and calendar request. Day view may represent multiple selected doctors; no hidden truncation of a multi-doctor selection is permitted.
+- **S-D099** Operational summary metrics follow the visible provider/date scope. A generic `Open slots` or open-capacity number is prohibited without explicit duration/type semantics and authoritative availability. Queue-derived `Waiting` must have unambiguous Queue and provider/date scope.
