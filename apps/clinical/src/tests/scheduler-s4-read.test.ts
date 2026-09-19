@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getSchedulerCalendarWithClient, getSchedulerPatientHistoryWithClient, SchedulerReadError, searchSchedulerPatientsWithClient } from "../lib/db/scheduler-read";
-import { calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarIntervalGridHeightPx } from "../lib/scheduler/calendar-geometry";
+import { calendarAppointmentGeometry, calendarAppointmentOverlapLayout, CALENDAR_PX_PER_MINUTE } from "../lib/scheduler/calendar-geometry";
 import { bookingSemanticIdentity, displayedBookingDuration, hasValidDurationOverride, optionalDurationOverride, selectedDoctorTypeId } from "../lib/scheduler/workspace-payloads";
 import type { SessionContext } from "../types";
 
@@ -43,13 +43,15 @@ test("S4 calendar projection is clinic-safe, duration-faithful, and excludes cli
 });
 
 test("S4 calendar geometry uses one minute scale across actual and unknown durations", () => {
-  assert.deepEqual(calendarAppointmentGeometry({ minute: 0, durationMinutes: 5 }), { topPx: 0, heightPx: 6, isUnknownDuration: false });
-  assert.deepEqual(calendarAppointmentGeometry({ minute: 5, durationMinutes: 15 }), { topPx: 6, heightPx: 18, isUnknownDuration: false });
-  assert.deepEqual(calendarAppointmentGeometry({ minute: 37, durationMinutes: 30 }), { topPx: 44.4, heightPx: 36, isUnknownDuration: false });
-  assert.deepEqual(calendarAppointmentGeometry({ minute: 59, durationMinutes: 60 }), { topPx: 70.8, heightPx: 72, isUnknownDuration: false });
-  assert.deepEqual(calendarAppointmentGeometry({ minute: 37, durationMinutes: null }), { topPx: 44.4, heightPx: 28, isUnknownDuration: true });
-  assert.equal(calendarIntervalGridHeightPx(5), 6);
-  assert.equal(calendarIntervalGridHeightPx(15), 18);
+  for (const duration of [5, 7, 10, 15, 30]) {
+    const geometry = calendarAppointmentGeometry({ startMinute: 9 * 60 + 37, durationMinutes: duration });
+    assert.equal(geometry.topPx, (9 * 60 + 37) * CALENDAR_PX_PER_MINUTE);
+    assert.equal(geometry.heightPx, duration * CALENDAR_PX_PER_MINUTE);
+    assert.equal(geometry.isUnknownDuration, false);
+  }
+  const unknown = calendarAppointmentGeometry({ startMinute: 9 * 60 + 37, durationMinutes: null });
+  assert.equal(unknown.isUnknownDuration, true);
+  assert.equal(unknown.heightPx, 26);
 });
 
 test("S4 overlap lanes preserve actual vertical geometry and use half-open intervals", () => {
@@ -70,11 +72,11 @@ test("S4 overlap lanes preserve actual vertical geometry and use half-open inter
     { id: "first", startMinute: 9 * 60, durationMinutes: 30 },
     { id: "second", startMinute: 9 * 60 + 30, durationMinutes: 30 },
   ]), [{ id: "first", laneIndex: 0, laneCount: 1 }, { id: "second", laneIndex: 0, laneCount: 1 }]);
-  const before = calendarAppointmentGeometry({ minute: 15, durationMinutes: 30 });
-  const unknown = calendarAppointmentOverlapLayout([{ id: "unknown", startMinute: 9 * 60, durationMinutes: null }, { id: "known", startMinute: 9 * 60 + 20, durationMinutes: 5 }]);
+  const before = calendarAppointmentGeometry({ startMinute: 9 * 60 + 15, durationMinutes: 30 });
+  const unknown = calendarAppointmentOverlapLayout([{ id: "unknown", startMinute: 9 * 60, durationMinutes: null }, { id: "known", startMinute: 9 * 60 + 5, durationMinutes: 5 }]);
   assert.deepEqual(unknown, [{ id: "unknown", laneIndex: 0, laneCount: 2 }, { id: "known", laneIndex: 1, laneCount: 2 }]);
   assert.equal("durationMinutes" in unknown[0], false);
-  assert.deepEqual(calendarAppointmentGeometry({ minute: 15, durationMinutes: 30 }), before);
+  assert.deepEqual(calendarAppointmentGeometry({ startMinute: 9 * 60 + 15, durationMinutes: 30 }), before);
 });
 
 test("S4 optional duration payloads preserve server-side inheritance", () => {

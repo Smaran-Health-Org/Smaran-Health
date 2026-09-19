@@ -15,10 +15,6 @@ export default async function SchedulerPage() {
   return (
     <AppShell doctorName={session.fullName} clinicName={clinicName} patientCount={patients.total} role={session.role} workspace={session.role === "doctor" ? "clinical" : "desk"}>
       <main className={styles.pageContent}>
-        <div className={styles.schedulerHeader}>
-          <div><p className={styles.eyebrow}>Scheduler</p><h1>Calendar</h1></div>
-          <a className={styles.secondaryButton} href="/scheduler/settings">Schedule settings</a>
-        </div>
         <SchedulerWorkspace initialDoctors={doctors} role={session.role} />
       </main>
     </AppShell>

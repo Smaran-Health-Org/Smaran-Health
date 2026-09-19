@@ -7,7 +7,9 @@ import styles from "@/components/clinical.module.css";
 import type { ClinicDoctor } from "@/lib/db/clinics";
 import type { SchedulerAppointmentSummary, SchedulerCalendar, SchedulerPatientHistory } from "@/lib/db/scheduler-read";
 import type { Patient, SessionContext } from "@/types";
-import { calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarIntervalGridHeightPx } from "@/lib/scheduler/calendar-geometry";
+import { CALENDAR_DAY_HEIGHT_PX, CALENDAR_DAY_MINUTES, CALENDAR_LABEL_MINUTES, calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarLaneGeometry, calendarMinuteOffset } from "@/lib/scheduler/calendar-geometry";
+import { CalendarRequestGate } from "@/lib/scheduler/calendar-request";
+import { calendarAppointmentAccessibleLabel, calendarBookingMinute, calendarOperationalSummary, kolkataClock, visibleCalendarDoctors } from "@/lib/scheduler/calendar-view-model";
 import { bookingSemanticIdentity, displayedBookingDuration, hasValidDurationOverride, optionalDurationOverride, selectedDoctorTypeId } from "@/lib/scheduler/workspace-payloads";
 
 type Conflict = { fingerprint: string; kind?: string; unresolvedDuration?: boolean; [key: string]: unknown };
@@ -19,7 +21,7 @@ type PatientSearchResult = { id: string; fullName: string; phone: string | null 
 type Prefill = { doctorId?: string; date?: string; time?: string };
 
 const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" });
-const timeFormatter = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false });
+const timeFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 function localDate(value = new Date()): string { return formatter.format(value); }
 function localStart(date: string): string { return `${date}T00:00:00+05:30`; }
 function addDays(date: string, days: number): string { const base = new Date(`${date}T00:00:00+05:30`); base.setUTCDate(base.getUTCDate() + days); return localDate(base); }
@@ -33,6 +35,7 @@ export function SchedulerWorkspace({ initialDoctors, role }: { initialDoctors: C
   const [date, setDate] = useState(localDate());
   const [view, setView] = useState<"day" | "week">("day");
   const [doctorIds, setDoctorIds] = useState<string[]>(initialDoctors.map((doctor) => doctor.id));
+  const [weekDoctorId, setWeekDoctorId] = useState(initialDoctors[0]?.id ?? "");
   const [calendar, setCalendar] = useState<SchedulerCalendar | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,51 +46,69 @@ export function SchedulerWorkspace({ initialDoctors, role }: { initialDoctors: C
   const [patientHistory, setPatientHistory] = useState<SchedulerPatientHistory | null>(null);
   const [historyPatient, setHistoryPatient] = useState<PatientSearchResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const requestGate = useRef(new CalendarRequestGate());
 
   const endDate = view === "week" ? addDays(date, 7) : addDays(date, 1);
-  const selectedDoctors = view === "week" ? doctorIds.slice(0, 1) : doctorIds;
+  const selectedDoctors = visibleCalendarDoctors(view, doctorIds, weekDoctorId);
+  function invalidateCalendar() { requestGate.current.cancel(); setCalendar(null); setLoading(true); setError(null); }
+  function changeDate(nextDate: string) { if (nextDate === date) return; invalidateCalendar(); setDate(nextDate); }
+  function changeView(nextView: "day" | "week") { if (nextView === view) return; invalidateCalendar(); setView(nextView); }
   async function loadCalendar() {
+    const request = requestGate.current.start();
     setLoading(true); setError(null);
+    if (selectedDoctors.length === 0) { setCalendar(null); setLoading(false); return; }
     try {
       const params = new URLSearchParams({ startsAt: new Date(localStart(date)).toISOString(), endsAt: new Date(localStart(endDate)).toISOString() });
       selectedDoctors.forEach((doctorId) => params.append("doctorId", doctorId));
-      const response = await fetch(`/api/scheduler/calendar?${params}`);
+      const response = await fetch(`/api/scheduler/calendar?${params}`, { signal: request.signal });
       const payload = await response.json().catch(() => null);
+      if (!request.isCurrent()) return;
       if (!response.ok) throw new Error(safeError(payload, "Could not load the Scheduler calendar."));
       setCalendar(payload as SchedulerCalendar);
-    } catch (failure) { setError(failure instanceof Error ? failure.message : "Could not load the Scheduler calendar."); }
-    finally { setLoading(false); }
+    } catch (failure) {
+      if (request.isCurrent()) setError(failure instanceof Error ? failure.message : "Could not load the Scheduler calendar.");
+    } finally { if (request.isCurrent()) setLoading(false); }
   }
-  useEffect(() => { const timer = window.setTimeout(() => void loadCalendar(), 0); return () => window.clearTimeout(timer); }, [date, view, doctorIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const gate = requestGate.current;
+    const timer = window.setTimeout(() => void loadCalendar(), 0);
+    return () => { window.clearTimeout(timer); gate.cancel(); };
+  }, [date, view, doctorIds.join(","), weekDoctorId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (search.trim().length < 2) return;
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
-      const response = await fetch(`/api/scheduler/search?q=${encodeURIComponent(search.trim())}`, { signal: controller.signal });
-      const payload = await response.json().catch(() => null) as { data?: PatientSearchResult[] } | null;
-      if (response.ok) setPatientSearchResults(payload?.data ?? []);
+      try {
+        const response = await fetch(`/api/scheduler/search?q=${encodeURIComponent(search.trim())}`, { signal: controller.signal });
+        const payload = await response.json().catch(() => null) as { data?: PatientSearchResult[] } | null;
+        if (response.ok && !controller.signal.aborted) setPatientSearchResults(payload?.data ?? []);
+      } catch { /* A later search supersedes this request. */ }
     }, 250);
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [search]);
-  function toggleDoctor(id: string) { setDoctorIds((current) => current.includes(id) ? (current.length > 1 ? current.filter((value) => value !== id) : current) : [...current, id]); }
+  function toggleDoctor(id: string) { if (doctorIds.length === 1 && doctorIds.includes(id)) return; invalidateCalendar(); setDoctorIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]); }
   const days = view === "week" ? Array.from({ length: 7 }, (_, index) => addDays(date, index)) : [date];
+  const summary = calendar ? calendarOperationalSummary(calendar.appointments) : null;
   return <>
     <header className={styles.schedulerHeader}>
-      <div><p className={styles.eyebrow}>Scheduler · Asia/Kolkata</p><h1>Appointments</h1><p>Availability guides this view; every booking is checked again when saved.</p></div>
-      <button className={styles.primaryButton} onClick={() => setBooking({ doctorId: selectedDoctors[0], date, time: "09:00" })}><Icon name="plus" /> Book appointment</button>
+      <div><h1>Appointments</h1><p>{view === "week" ? `${date} – ${addDays(date, 6)}` : date} · Asia/Kolkata</p></div>
+      <button className={styles.primaryButton} onClick={() => setBooking({ doctorId: selectedDoctors[0], date, time: "09:00" })}><Icon name="plus" /> New appointment</button>
     </header>
+    {!loading && !error && summary ? <div className={styles.schedulerSummary} aria-label="Visible appointment summary"><span><strong>{summary.appointments}</strong> Appointments</span><span><strong>{summary.intakePending}</strong> Intake pending</span></div> : null}
     <section className={styles.schedulerControls} aria-label="Scheduler controls">
-      <div className={styles.schedulerDateControls}><button className={styles.secondaryButton} onClick={() => setDate(addDays(date, view === "week" ? -7 : -1))}><Icon name="arrowLeft" /> Previous</button><button className={styles.secondaryButton} onClick={() => setDate(localDate())}>Today</button><button className={styles.secondaryButton} onClick={() => setDate(addDays(date, view === "week" ? 7 : 1))}>Next <Icon name="arrowRight" /></button><strong>{view === "week" ? `${date} – ${addDays(date, 6)}` : date}</strong></div>
-      <div className={styles.schedulerToggle} role="group" aria-label="Calendar view"><button data-active={view === "day"} onClick={() => setView("day")}>Day</button><button data-active={view === "week"} onClick={() => setView("week")}>Week</button></div>
+      <div className={styles.schedulerDateControls}><button className={styles.secondaryButton} onClick={() => changeDate(addDays(date, view === "week" ? -7 : -1))} aria-label="Previous date"><Icon name="arrowLeft" /></button><button className={styles.secondaryButton} onClick={() => changeDate(localDate())}>Today</button><button className={styles.secondaryButton} onClick={() => changeDate(addDays(date, view === "week" ? 7 : 1))} aria-label="Next date"><Icon name="arrowRight" /></button><strong>{view === "week" ? `${date} – ${addDays(date, 6)}` : date}</strong></div>
+      <div className={styles.schedulerToggle} role="group" aria-label="Calendar view"><button data-active={view === "day"} onClick={() => changeView("day")}>Day</button><button data-active={view === "week"} onClick={() => changeView("week")}>Week</button></div>
+      {view === "week" ? <label className={styles.schedulerProviderSelect}>Doctor <select aria-label="Week doctor" value={weekDoctorId} onChange={(event) => { if (event.target.value !== weekDoctorId) { invalidateCalendar(); setWeekDoctorId(event.target.value); } }}>{initialDoctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.fullName}</option>)}</select></label> : <details className={styles.schedulerProviderFilter}><summary>{doctorIds.length === initialDoctors.length ? "All doctors" : `${doctorIds.length} doctors`}</summary><div>{initialDoctors.map((doctor) => <label key={doctor.id}><input type="checkbox" checked={doctorIds.includes(doctor.id)} onChange={() => toggleDoctor(doctor.id)} /> {doctor.fullName}</label>)}</div></details>}
+      <label className={`${styles.searchField} ${styles.schedulerToolbarSearch}`}><Icon name="search" /><input value={search} onChange={(event) => { setSearch(event.target.value); if (event.target.value.trim().length < 2) { setPatientSearchResults([]); setPatientHistory(null); setHistoryPatient(null); } }} placeholder="Search patient" aria-label="Search patient scheduling history" /></label>
+      <span className={styles.schedulerRulerBadge}>5 min ruler</span>
+      <a className={styles.schedulerSettingsLink} href="/scheduler/settings">Settings</a>
     </section>
-    <div className={styles.schedulerFilters}><span>Doctors</span>{initialDoctors.map((doctor) => <label key={doctor.id}><input type="checkbox" checked={doctorIds.includes(doctor.id)} onChange={() => toggleDoctor(doctor.id)} /> {doctor.fullName}</label>)}</div>
-    <label className={styles.searchField}><Icon name="search" /><input value={search} onChange={(event) => { setSearch(event.target.value); if (event.target.value.trim().length < 2) { setPatientSearchResults([]); setPatientHistory(null); setHistoryPatient(null); } }} placeholder="Search patient name or phone" aria-label="Search patient scheduling history" /></label>
     {patientSearchResults.length ? <section className={styles.schedulerSearchResults} aria-label="Patient search results">{patientSearchResults.map((patient) => <button key={patient.id} onClick={() => void loadPatientHistory(patient)}><strong>{patient.fullName}</strong><span>{patient.phone ?? "Phone not recorded"}</span></button>)}</section> : null}
     {historyPatient ? <section className={styles.schedulerSearchResults} aria-label="Selected patient scheduling history"><strong>{historyPatient.fullName} — scheduling history</strong><PatientHistoryGroup title="Upcoming" empty="No upcoming appointments" appointments={patientHistory?.upcoming ?? []} onSelect={setSelected} /><PatientHistoryGroup title="Past" empty="No past appointments" appointments={patientHistory?.past ?? []} onSelect={setSelected} /></section> : null}
     {error ? <div className={styles.errorBanner} role="alert"><strong>Calendar unavailable.</strong><span>{error}</span><button className={styles.secondaryButton} onClick={() => void loadCalendar()}>Try again</button></div> : null}
     {notice ? <div className={styles.schedulerPreview} role="status">{notice}</div> : null}
     {loading ? <div className={styles.schedulerState} role="status">Loading appointments…</div> : null}
-    {!loading && !error && calendar && calendar.appointments.length === 0 ? <div className={styles.schedulerState}>No appointments in this range. Select a time below to book one.</div> : null}
+    {!loading && !error && calendar && calendar.appointments.length === 0 ? <div className={styles.schedulerEmptyNote}>No appointments in this range. Calendar space has not been checked for availability.</div> : null}
     {!loading && !error && calendar ? <SchedulerCalendarView calendar={calendar} days={days} doctorIds={selectedDoctors} onBook={setBooking} onSelect={setSelected} /> : null}
     {booking ? <BookingDialog doctors={calendar?.doctors ?? initialDoctors} prefill={booking} onClose={() => setBooking(null)} onBooked={() => void loadCalendar()} /> : null}
     {selected ? <AppointmentDialog appointment={selected} doctors={calendar?.doctors ?? initialDoctors} role={role} onClose={() => setSelected(null)} onChanged={(message) => { setSelected(null); setNotice(message ?? null); void loadCalendar(); }} /> : null}
@@ -107,19 +128,59 @@ function PatientHistoryGroup({ title, empty, appointments, onSelect }: { title: 
 function SchedulerCalendarView({ calendar, days, doctorIds, onBook, onSelect }: { calendar: SchedulerCalendar; days: string[]; doctorIds: string[]; onBook: (prefill: Prefill) => void; onSelect: (appointment: SchedulerAppointmentSummary) => void }) {
   const doctors = calendar.doctors.filter((doctor) => doctorIds.includes(doctor.id));
   const columns = days.flatMap((day) => doctors.map((doctor) => ({ day, doctor })));
-  const hours = Array.from({ length: 24 }, (_, index) => index);
-  return <section className={styles.schedulerCalendar} style={{ "--scheduler-columns": columns.length } as CSSProperties} aria-label="Appointment calendar">
-    <div className={styles.schedulerGridHeader}><span>Time</span>{columns.map(({ day, doctor }) => <strong key={`${day}-${doctor.id}`}>{days.length > 1 ? `${day.slice(5)} · ` : ""}{doctor.fullName}</strong>)}</div>
-    <div className={styles.schedulerGridBody}>{hours.map((hour) => <div className={styles.schedulerHour} key={hour}><time>{String(hour).padStart(2, "0")}:00</time>{columns.map(({ day, doctor }) => {
-      const dayAppointments = calendar.appointments.filter((item) => item.doctorId === doctor.id && appointmentDate(item.scheduledAt) === day);
-      const lanes = new Map(calendarAppointmentOverlapLayout(dayAppointments.map((appointment) => {
-        const [hourPart, minutePart] = appointmentTime(appointment.scheduledAt).split(":").map(Number);
-        return { id: appointment.id, startMinute: (hourPart % 24) * 60 + minutePart, durationMinutes: appointment.durationMinutes };
-      })).map((lane) => [lane.id, lane]));
-      const appointments = dayAppointments.filter((item) => Number(appointmentTime(item.scheduledAt).slice(0, 2)) % 24 === hour);
-      return <div className={styles.schedulerCell} key={`${day}-${doctor.id}-${hour}`} style={{ "--scheduler-grid-interval": `${calendarIntervalGridHeightPx(doctor.effectiveIntervalMinutes)}px` } as CSSProperties}><button className={styles.schedulerFreeSlot} aria-label={`Book ${doctor.fullName} at ${String(hour).padStart(2, "0")}:00 on ${day}`} onClick={() => onBook({ doctorId: doctor.id, date: day, time: `${String(hour).padStart(2, "0")}:00` })}>Book</button>{appointments.map((appointment) => { const geometry = calendarAppointmentGeometry({ minute: Number(appointmentTime(appointment.scheduledAt).slice(3, 5)), durationMinutes: appointment.durationMinutes }); const lane = lanes.get(appointment.id); const laneCount = lane?.laneCount ?? 1; const laneIndex = lane?.laneIndex ?? 0; return <button key={appointment.id} className={styles.schedulerAppointment} data-status={appointment.status} data-unknown={geometry.isUnknownDuration} style={{ top: geometry.topPx, height: geometry.heightPx, left: `calc(${laneIndex * (100 / laneCount)}% + ${4 - (8 * laneIndex / laneCount)}px)`, width: `calc(${100 / laneCount}% - ${8 / laneCount}px)`, right: "auto" } as CSSProperties} onClick={() => onSelect(appointment)}><strong>{appointment.patientName}</strong><span>{appointmentTime(appointment.scheduledAt)} · {appointment.durationState === "unknown" ? "Duration unknown" : `${appointment.durationMinutes} min`}</span><small>{appointment.status.replace("_", " ")} · {appointment.intakeStatus ?? "intake not started"}</small></button>; })}</div>;
-    })}</div>)}</div>
-    <p className={styles.schedulerGridHint}>Each doctor column uses its effective scheduling interval. Staff may enter an exact valid minute in the booking form.</p>
+  const scrollRef = useRef<HTMLElement>(null);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 15000); return () => window.clearInterval(timer); }, []);
+  const clock = kolkataClock(now);
+  useEffect(() => {
+    const viewport = scrollRef.current;
+    if (!viewport) return;
+    const appointmentMinutes = calendar.appointments.filter((item) => days.includes(appointmentDate(item.scheduledAt)) && doctorIds.includes(item.doctorId)).map((item) => {
+      const [hour, minute] = appointmentTime(item.scheduledAt).split(":").map(Number);
+      return (hour % 24) * 60 + minute;
+    });
+    const focusMinute = appointmentMinutes.length ? Math.min(...appointmentMinutes) : (days.includes(clock.date) ? clock.minute : 9 * 60);
+    viewport.scrollTop = Math.max(0, calendarMinuteOffset(Math.max(0, focusMinute - 25)) - 60);
+  }, [calendar, days.join(","), doctorIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const labels = Array.from({ length: CALENDAR_DAY_MINUTES / CALENDAR_LABEL_MINUTES }, (_, index) => index * CALENDAR_LABEL_MINUTES);
+  function chooseTime(day: string, doctorId: string, minute: number) {
+    onBook({ doctorId, date: day, time: `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}` });
+  }
+  return <section ref={scrollRef} className={styles.schedulerCalendar} style={{ "--scheduler-columns": columns.length } as CSSProperties} aria-label="Appointment calendar">
+    <div className={styles.schedulerGridHeader}><span>IST</span>{columns.map(({ day, doctor }) => <strong key={`${day}-${doctor.id}`}><span>{days.length > 1 ? `${day.slice(5)} · ` : ""}{doctor.fullName}</span><small>{calendar.appointments.filter((item) => item.doctorId === doctor.id && appointmentDate(item.scheduledAt) === day && item.status === "scheduled").length} appointments</small></strong>)}</div>
+    <div className={styles.schedulerTimeline} style={{ height: CALENDAR_DAY_HEIGHT_PX }}>
+      <div className={styles.schedulerTimeRuler}>{labels.map((minute) => <time key={minute} dateTime={`${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`} style={{ top: calendarMinuteOffset(minute) }}>{String(Math.floor(minute / 60)).padStart(2, "0")}:{String(minute % 60).padStart(2, "0")}</time>)}</div>
+      {columns.map(({ day, doctor }) => {
+        const dayAppointments = calendar.appointments.filter((item) => item.doctorId === doctor.id && appointmentDate(item.scheduledAt) === day);
+        const starts = dayAppointments.map((appointment) => {
+          const [hour, minute] = appointmentTime(appointment.scheduledAt).split(":").map(Number);
+          return { id: appointment.id, startMinute: (hour % 24) * 60 + minute, durationMinutes: appointment.durationMinutes };
+        });
+        const lanes = new Map(calendarAppointmentOverlapLayout(starts).map((lane) => [lane.id, lane]));
+        return <div className={styles.schedulerTimelineColumn} key={`${day}-${doctor.id}`}>
+          <button className={styles.schedulerTimePicker} aria-label={`Choose a time for ${doctor.fullName} on ${day}; availability is checked when booking`} onClick={(event) => {
+            const minute = calendarBookingMinute(event.detail, event.clientY - event.currentTarget.getBoundingClientRect().top, scrollRef.current?.scrollTop ?? 0);
+            chooseTime(day, doctor.id, minute);
+          }} />
+          {dayAppointments.map((appointment, index) => {
+            const startMinute = starts[index].startMinute;
+            const geometry = calendarAppointmentGeometry({ startMinute, durationMinutes: appointment.durationMinutes });
+            const lane = lanes.get(appointment.id);
+            const lanePosition = calendarLaneGeometry(lane?.laneIndex ?? 0, lane?.laneCount ?? 1);
+            const duration = appointment.durationMinutes;
+            const compact = duration !== null && duration < 10;
+            const small = duration !== null && duration < 15;
+            const cue = appointment.intakeStatus === "submitted" ? "Intake ready" : appointment.documentStatus === "needs_review" ? "Documents to review" : null;
+            return <button key={appointment.id} className={styles.schedulerAppointment} data-status={appointment.status} data-unknown={geometry.isUnknownDuration} data-size={compact ? "compact" : small ? "small" : "regular"} style={{ top: geometry.topPx, height: geometry.heightPx, ...lanePosition } as CSSProperties} onClick={() => onSelect(appointment)} aria-label={calendarAppointmentAccessibleLabel(appointment, appointmentTime(appointment.scheduledAt))} title={`${appointment.patientName} · ${appointmentTime(appointment.scheduledAt)} · ${duration === null ? "Duration unknown" : `${duration} min`}`}>
+              {compact ? <span className={styles.schedulerCompactText}>{appointment.patientName} · {duration}m</span> : <><strong>{appointment.patientName}</strong>{duration === null ? <span>Duration unknown</span> : small ? (cue ? <small>{cue}</small> : null) : <span>{appointment.appointmentTypeName ?? "Appointment"} · {duration}m</span>}{duration !== null && duration >= 20 && cue ? <small>{cue}</small> : null}</>}
+            </button>;
+          })}
+        </div>;
+      })}
+      {days.length === 1 && days[0] === clock.date ? <div className={styles.schedulerNowLine} style={{ top: calendarMinuteOffset(clock.minute) }} aria-label={`Current time ${clock.time}`}><span>NOW · {clock.time}</span></div> : null}
+      {days.length > 1 && columns.map(({ day, doctor }, index) => day === clock.date ? <div key={`now-${day}-${doctor.id}`} className={styles.schedulerNowLine} data-column style={{ top: calendarMinuteOffset(clock.minute), left: `calc(${index * 100 / columns.length}% + ${64 * (1 - index / columns.length)}px)`, width: `calc(${100 / columns.length}% - ${64 / columns.length}px)`, right: "auto" }} aria-label={`Current time ${clock.time}`}><span>NOW · {clock.time}</span></div> : null)}
+    </div>
+    <p className={styles.schedulerGridHint}>5-minute visual ruler. Exact-minute starts are available in booking. Empty space does not indicate availability.</p>
   </section>;
 }
 
