@@ -66,6 +66,11 @@ export type AvailabilityResult = {
   localDate: string;
   cleanIntervals: Interval[];
   normalAvailabilityIntervals: Interval[];
+  /** Scheduling configuration before occupancy; not a patient-booking assertion. */
+  workingIntervals: Interval[];
+  specialWorkingIntervals: Interval[];
+  blockedIntervals: Interval[];
+  leaveIntervals: Interval[];
   /** Normalized scheduled-doctor occupancy for staff conflict preview only. */
   doctorOccupancyIntervals: Interval[];
   diagnostics: AvailabilityDiagnostic[];
@@ -250,6 +255,7 @@ export function calculateAvailability(input: AvailabilityInput): AvailabilityRes
       localDate: input.localDate,
       cleanIntervals: [],
       normalAvailabilityIntervals: [],
+      workingIntervals: [], specialWorkingIntervals: [], blockedIntervals: [], leaveIntervals: [],
       doctorOccupancyIntervals: [],
       diagnostics: ["contradictory_exceptions"],
       configurationInvalid: true,
@@ -258,8 +264,11 @@ export function calculateAvailability(input: AvailabilityInput): AvailabilityRes
     };
   }
 
-  const positive = [...recurring, ...exceptions.filter((exception) => exception.type === "special_working").map((exception) => exception.interval)];
-  const negative = exceptions.filter((exception) => exception.type !== "special_working").map((exception) => exception.interval);
+  const specialWorkingIntervals = unionIntervals(exceptions.filter((exception) => exception.type === "special_working").map((exception) => exception.interval));
+  const blockedIntervals = unionIntervals(exceptions.filter((exception) => exception.type === "blocked").map((exception) => exception.interval));
+  const leaveIntervals = unionIntervals(exceptions.filter((exception) => exception.type === "leave").map((exception) => exception.interval));
+  const positive = [...recurring, ...specialWorkingIntervals];
+  const negative = [...blockedIntervals, ...leaveIntervals];
   const normalAvailabilityIntervals = subtractIntervals(positive, negative);
   const doctorOccupancies = input.doctorAppointments
     .map(intervalForOccupancy)
@@ -289,6 +298,7 @@ export function calculateAvailability(input: AvailabilityInput): AvailabilityRes
       localDate: input.localDate,
       cleanIntervals: [],
       normalAvailabilityIntervals: [],
+      workingIntervals: unionIntervals(recurring), specialWorkingIntervals, blockedIntervals, leaveIntervals,
       doctorOccupancyIntervals: unionIntervals(doctorOccupancies),
       diagnostics: [],
       configurationInvalid: false,
@@ -301,6 +311,7 @@ export function calculateAvailability(input: AvailabilityInput): AvailabilityRes
     localDate: input.localDate,
     cleanIntervals,
     normalAvailabilityIntervals,
+    workingIntervals: unionIntervals(recurring), specialWorkingIntervals, blockedIntervals, leaveIntervals,
     doctorOccupancyIntervals: unionIntervals(doctorOccupancies),
     diagnostics: [],
     configurationInvalid: false,
