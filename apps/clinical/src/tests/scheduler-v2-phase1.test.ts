@@ -113,5 +113,5 @@ test("V2 operational metrics count only active appointments in the returned scop
   assert.deepEqual(calendarOperationalSummary([
     appointment(), appointment({ id: "b", intakeStatus: "submitted" }),
     appointment({ id: "c", status: "cancelled" }),
-  ]), { appointments: 2, intakePending: 1 });
+  ]), { appointments: 2, intakePending: 1, waiting: 0 });
 });

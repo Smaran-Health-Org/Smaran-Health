@@ -5,9 +5,13 @@ export function visibleCalendarDoctors(view: "day" | "week", dayDoctorIds: strin
   return view === "week" ? (weekDoctorId ? [weekDoctorId] : []) : dayDoctorIds;
 }
 
-export function calendarOperationalSummary(appointments: SchedulerAppointmentSummary[]): { appointments: number; intakePending: number } {
+export function calendarOperationalSummary(appointments: SchedulerAppointmentSummary[]): { appointments: number; intakePending: number; waiting: number } {
   const active = appointments.filter((item) => item.status === "scheduled");
-  return { appointments: active.length, intakePending: active.filter((item) => item.intakeStatus !== "submitted").length };
+  return {
+    appointments: active.length,
+    intakePending: active.filter((item) => item.intakeStatus !== "submitted").length,
+    waiting: active.filter((item) => item.encounterOperationalStatus === "waiting").length,
+  };
 }
 
 export function calendarBookingMinuteForPointer(pointerOffsetPx: number): number {

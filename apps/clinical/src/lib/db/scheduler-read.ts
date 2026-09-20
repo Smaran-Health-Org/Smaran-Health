@@ -92,7 +92,11 @@ async function hydrateSchedulerAppointmentSummariesWithClient(
   const intakes = new Map((intakesResult.data ?? []).map((row: { consultation_id: string; status: string }) => [row.consultation_id, row.status]));
   const types = new Map((typesResult.data ?? []).map((row: { id: string; name: string }) => [row.id, row.name]));
   const documentStatus = new Map<string, "ready" | "needs_review">();
-  for (const row of documentsResult.data ?? [] as Array<{ consultation_id: string; status: string }>) documentStatus.set(row.consultation_id, row.status === "processed" ? "ready" : "needs_review");
+  for (const row of documentsResult.data ?? [] as Array<{ consultation_id: string; status: string }>) {
+    const next = row.status === "processed" ? "ready" : "needs_review";
+    // One unfinished document keeps the scheduling-safe aggregate in review.
+    documentStatus.set(row.consultation_id, documentStatus.get(row.consultation_id) === "needs_review" ? "needs_review" : next);
+  }
   return appointments.flatMap((row): SchedulerAppointmentSummary[] => {
     const patient = patients.get(row.patient_id);
     const doctorName = doctors.get(row.doctor_id);
@@ -169,6 +173,20 @@ export async function getSchedulerCalendar(input: { startsAt: string; endsAt: st
   const session = await getSessionContext();
   if (!session) throw new SchedulerReadError("forbidden");
   return getSchedulerCalendarWithClient(await createServerClient(), session, input);
+}
+
+/** A single clinic-scoped scheduling snapshot for the persistent inspector. */
+export async function getSchedulerAppointmentWithClient(
+  supabase: ServerClient, session: SessionContext, appointmentId: string
+): Promise<SchedulerAppointmentSummary> {
+  assertStaff(session);
+  const result = await supabase.from("appointments")
+    .select("id, patient_id, doctor_id, consultation_id, scheduled_at, duration_minutes, status, appointment_type_id, updated_at")
+    .eq("clinic_id", session.clinicId).eq("id", appointmentId).maybeSingle();
+  if (result.error || !result.data) throw new SchedulerReadError("not_found");
+  const [appointment] = await hydrateSchedulerAppointmentSummariesWithClient(supabase, session, [result.data as RawAppointment]);
+  if (!appointment) throw new SchedulerReadError("not_found");
+  return appointment;
 }
 
 export async function searchSchedulerPatientsWithClient(
