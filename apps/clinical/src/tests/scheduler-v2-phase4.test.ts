@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SchedulerAppointmentSummary } from "../lib/db/scheduler-read";
-import { agendaAppointments, agendaDay, agendaOperationalCues } from "../lib/scheduler/agenda-view-model";
+import { agendaAppointmentAccessibleLabel, agendaAppointments, agendaDay, agendaOperationalCues } from "../lib/scheduler/agenda-view-model";
 import { CalendarRequestGate } from "../lib/scheduler/calendar-request";
 import { bookingSemanticIdentity, canPreviewBooking, displayedBookingDuration, hasValidDurationOverride, optionalDurationOverride, selectedDoctorTypeId } from "../lib/scheduler/workspace-payloads";
 import { refreshPanelAppointment, selectAppointment, type SchedulerPanel } from "../lib/scheduler/panel-state";
@@ -90,4 +90,30 @@ test("Phase 4 Agenda cues use only lifecycle, readiness and operational Queue pr
     assert.deepEqual(agendaOperationalCues(appointment({ status })), [status.replaceAll("_", " ")]);
   }
   assert.ok(!JSON.stringify(agendaOperationalCues(appointment({ patientName: "Private", patientPhone: "+919000000000" }))).includes("Private"));
+});
+
+test("Phase 4 Agenda accessible label preserves scheduling-safe operational context", () => {
+  const label = agendaAppointmentAccessibleLabel(appointment());
+  for (const phrase of [
+    "Asha Patel",
+    "20 September 2026 at 10:07",
+    "Dr Shah",
+    "Follow-up",
+    "7 minutes",
+    "Lifecycle scheduled",
+    "Intake ready",
+    "Documents to review",
+    "Queue Waiting",
+  ]) assert.ok(label.includes(phrase), phrase);
+  assert.ok(!label.includes("+91"));
+  assert.ok(!label.toLowerCase().includes("clinical"));
+});
+
+test("Phase 4 Agenda accessible label handles missing type, unknown duration and non-scheduled lifecycle", () => {
+  const unknown = agendaAppointmentAccessibleLabel(appointment({ appointmentTypeName: null, durationMinutes: null, durationState: "unknown", intakeStatus: null, documentStatus: "none", encounterOperationalStatus: "scheduled" }));
+  for (const phrase of ["Type not recorded", "Duration unknown", "Lifecycle scheduled", "Intake pending", "No documents recorded", "Queue Not arrived"]) assert.ok(unknown.includes(phrase), phrase);
+
+  const noShow = agendaAppointmentAccessibleLabel(appointment({ status: "no_show", encounterOperationalStatus: "arrived" }));
+  assert.ok(noShow.includes("Lifecycle no-show"));
+  assert.ok(noShow.includes("Queue Checked in"));
 });
