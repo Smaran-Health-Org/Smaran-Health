@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SchedulerAppointmentSummary } from "../lib/db/scheduler-read";
-import { CALENDAR_PX_PER_MINUTE, calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarLaneGeometry, calendarMinuteOffset } from "../lib/scheduler/calendar-geometry";
+import { CALENDAR_PX_PER_MINUTE, CALENDAR_VISUAL_RULER_MINUTES, MINIMUM_KNOWN_APPOINTMENT_CARD_HEIGHT_PX, calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarLaneGeometry, calendarMinuteOffset } from "../lib/scheduler/calendar-geometry";
 import { CalendarRequestGate } from "../lib/scheduler/calendar-request";
-import { calendarAppointmentAccessibleLabel, calendarAppointmentReadinessCue, calendarBookingMinuteForPointer, calendarOperationalSummary, kolkataClock, visibleCalendarDoctors } from "../lib/scheduler/calendar-view-model";
+import { calendarAppointmentAccessibleLabel, calendarAppointmentReadinessCue, calendarBookingMinuteForPointer, calendarBookingRulerMinute, calendarOperationalSummary, kolkataClock, visibleCalendarDoctors } from "../lib/scheduler/calendar-view-model";
 
 function appointment(patch: Partial<SchedulerAppointmentSummary> = {}): SchedulerAppointmentSummary {
   return {
@@ -15,11 +15,12 @@ function appointment(patch: Partial<SchedulerAppointmentSummary> = {}): Schedule
   };
 }
 
-test("V2 exact duration geometry, including 7 minutes and a cross-hour appointment", () => {
+test("V2 exact starts retain a single five-minute visual card target for short appointments", () => {
+  assert.equal(MINIMUM_KNOWN_APPOINTMENT_CARD_HEIGHT_PX, CALENDAR_VISUAL_RULER_MINUTES * CALENDAR_PX_PER_MINUTE);
   for (const duration of [5, 7, 10, 15, 30]) {
     const card = calendarAppointmentGeometry({ startMinute: 9 * 60 + 55, durationMinutes: duration });
     assert.equal(card.topPx, (9 * 60 + 55) * CALENDAR_PX_PER_MINUTE);
-    assert.equal(card.heightPx, duration * CALENDAR_PX_PER_MINUTE);
+    assert.equal(card.heightPx, Math.max(duration * CALENDAR_PX_PER_MINUTE, MINIMUM_KNOWN_APPOINTMENT_CARD_HEIGHT_PX));
     assert.equal(card.clippedEnd, false);
   }
   const crossing = calendarAppointmentGeometry({ startMinute: 9 * 60 + 55, durationMinutes: 30 });
@@ -30,7 +31,7 @@ test("V2 exact duration geometry, including 7 minutes and a cross-hour appointme
   assert.equal(dayEnd.clippedEnd, true);
 });
 
-test("V2 overlapping short cards get deterministic lanes without changing duration", () => {
+test("V2 overlapping short cards get deterministic lanes using their actual durations", () => {
   const lanes = calendarAppointmentOverlapLayout([
     { id: "a", startMinute: 9 * 60, durationMinutes: 5 },
     { id: "b", startMinute: 9 * 60 + 2, durationMinutes: 7 },
@@ -94,9 +95,12 @@ test("V2 readiness prioritizes document review over positive intake readiness", 
   assert.equal(calendarAppointmentReadinessCue(appointment({ intakeStatus: "submitted", documentStatus: "ready" })), "Intake ready");
 });
 
-test("V2 pointer-only time picker maps an exact pointer offset without a keyboard scroll fallback", () => {
+test("V2 calendar clicks select a whole five-minute ruler cell while exact input remains available", () => {
   assert.equal(calendarBookingMinuteForPointer(calendarMinuteOffset(10 * 60 + 7)), 10 * 60 + 7);
   assert.equal(calendarBookingMinuteForPointer(calendarMinuteOffset(23 * 60 + 59)), 23 * 60 + 59);
+  assert.equal(calendarBookingRulerMinute(calendarMinuteOffset(10 * 60 + 4)), 10 * 60);
+  assert.equal(calendarBookingRulerMinute(calendarMinuteOffset(10 * 60 + 7)), 10 * 60 + 5);
+  assert.equal(calendarBookingRulerMinute(calendarMinuteOffset(23 * 60 + 59)), 23 * 60 + 55);
 });
 
 test("V2 accessible appointment labels include identity, schedule context, and duration", () => {

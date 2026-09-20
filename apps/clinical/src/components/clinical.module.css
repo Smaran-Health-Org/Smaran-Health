@@ -1448,9 +1448,9 @@
 .schedulerGridHeader > strong span, .schedulerGridHeader > strong small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .schedulerGridHeader > strong small { color: #66736f; font-size: .59rem; font-weight: 500; }
 .schedulerTimeline { position: relative; }
-.schedulerTimeRuler { position: relative; border-right: 1px solid #e3e8e5; background: repeating-linear-gradient(to bottom, #e3e8e5 0 1px, transparent 1px 42px); }
-.schedulerTimeRuler time { position: absolute; left: 6px; color: #66736f; font-size: .58rem; font-weight: 700; transform: translateY(3px); }
-.schedulerTimelineColumn { position: relative; min-width: 0; border-right: 1px solid #e3e8e5; background-image: repeating-linear-gradient(to bottom, #dce5e0 0 1px, transparent 1px 42px), repeating-linear-gradient(to bottom, #f1f4f2 0 1px, transparent 1px 14px); }
+.schedulerTimeRuler { position: relative; border-right: 1px solid #e3e8e5; background: repeating-linear-gradient(to bottom, #e3e8e5 0 1px, transparent 1px var(--scheduler-fifteen-minute-height)); }
+.schedulerTimeRuler time { position: absolute; left: 7px; color: #596b64; font-size: .68rem; font-weight: 800; transform: translateY(4px); }
+.schedulerTimelineColumn { position: relative; min-width: 0; border-right: 1px solid #e3e8e5; background-image: repeating-linear-gradient(to bottom, #dce5e0 0 1px, transparent 1px var(--scheduler-fifteen-minute-height)), repeating-linear-gradient(to bottom, #f1f4f2 0 1px, transparent 1px var(--scheduler-five-minute-height)); }
 .schedulerAvailabilityLayer { position: absolute; z-index: 0; inset: 0; pointer-events: none; }
 .schedulerAvailabilitySegment, .schedulerCleanInterval { position: absolute; left: 0; right: 0; overflow: hidden; }
 .schedulerAvailabilitySegment { border-left: 2px solid transparent; background: rgba(71, 143, 106, .065); }
@@ -1463,16 +1463,18 @@
 .schedulerAvailabilityStatus { position: relative; z-index: 1; display: inline-block; margin: 5px; border-radius: 4px; background: #f5f2e9; padding: 2px 5px; color: #665e49; font-size: .58rem; pointer-events: none; }
 .schedulerAvailabilityWarning { margin: .4rem 0; border-left: 3px solid #9c8062; background: #faf7f1; padding: .5rem .7rem; color: #6c5b48; font-size: .68rem; }
 .schedulerTimePicker { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; cursor: crosshair; }
-.schedulerAppointment { position: absolute; z-index: 2; display: flex; flex-direction: column; justify-content: center; gap: 0; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid #bcdccd; border-left: 3px solid #289473; border-radius: 5px; background: #eff9f4; padding: 1px 4px; color: #285847; text-align: left; font: inherit; cursor: pointer; }
+.schedulerTimeSlotPreview { position: absolute; z-index: 1; right: 3px; left: 3px; border: 1px solid #5aa98f; border-radius: 4px; background: rgba(86, 169, 137, .16); box-shadow: inset 3px 0 #17745b; pointer-events: none; }
+.schedulerTimeSlotPreview[data-selected="true"] { border-color: #17745b; background: rgba(23, 116, 91, .22); box-shadow: inset 3px 0 #0d4f40, 0 0 0 1px rgba(23, 116, 91, .14); }
+.schedulerAppointment { position: absolute; z-index: 2; display: flex; flex-direction: column; justify-content: center; gap: 0; min-width: 0; min-height: var(--scheduler-short-card-height); overflow: hidden; border: 1px solid #bcdccd; border-left: 3px solid #289473; border-radius: 5px; background: #eff9f4; padding: 1px 4px; color: #285847; text-align: left; font: inherit; cursor: pointer; }
 .schedulerAppointment:hover, .schedulerAppointment:focus-visible { z-index: 4; outline: 2px solid #17745b; outline-offset: 1px; }
 .schedulerAppointment[data-status="cancelled"], .schedulerAppointment[data-status="no_show"] { border-color: #e9d4c8; border-left-color: #a87648; background: #fff9f2; color: #79593d; }
 .schedulerAppointment[data-unknown="true"] { border-style: dashed; border-left-color: #8a692e; background: #fffbf2; }
 .schedulerAppointment strong, .schedulerAppointment span, .schedulerAppointment small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
-.schedulerAppointment strong { font-size: .65rem; }
-.schedulerAppointment span { font-size: .58rem; }
+.schedulerAppointment strong { font-size: .72rem; }
+.schedulerAppointment span { font-size: .65rem; }
 .schedulerAppointment small { color: #567368; font-size: .52rem; }
-.schedulerAppointment[data-size="compact"] { border-radius: 3px; padding: 0 3px; }
-.schedulerAppointment[data-size="compact"] .schedulerCompactText { font-size: .58rem; font-weight: 750; line-height: 1; }
+.schedulerAppointment[data-size="compact"] { border-radius: 4px; padding: 1px 4px; }
+.schedulerAppointment[data-size="compact"] .schedulerCompactText { font-size: .65rem; font-weight: 800; line-height: 1.15; }
 .schedulerNowLine { position: absolute; z-index: 3; left: 64px; right: 0; height: 1px; background: #17745b; pointer-events: none; }
 .schedulerNowLine::before { position: absolute; top: -3px; left: -3px; width: 7px; height: 7px; border-radius: 50%; background: #17745b; content: ""; }
 .schedulerNowLine span { position: absolute; top: -15px; right: 6px; border-radius: 4px; background: #eaf6f1; padding: 1px 3px; color: #0d4f40; font-size: .53rem; font-weight: 800; white-space: nowrap; }

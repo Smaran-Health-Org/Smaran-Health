@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getSchedulerCalendarWithClient, getSchedulerPatientHistoryWithClient, SchedulerReadError, searchSchedulerPatientsWithClient } from "../lib/db/scheduler-read";
-import { calendarAppointmentGeometry, calendarAppointmentOverlapLayout, CALENDAR_PX_PER_MINUTE } from "../lib/scheduler/calendar-geometry";
+import { calendarAppointmentGeometry, calendarAppointmentOverlapLayout, CALENDAR_PX_PER_MINUTE, MINIMUM_KNOWN_APPOINTMENT_CARD_HEIGHT_PX } from "../lib/scheduler/calendar-geometry";
 import { bookingSemanticIdentity, displayedBookingDuration, hasValidDurationOverride, optionalDurationOverride, selectedDoctorTypeId } from "../lib/scheduler/workspace-payloads";
 import type { SessionContext } from "../types";
 
@@ -19,6 +19,10 @@ function fakeClient(rows: Record<string, unknown[]>) {
       };
       return query;
     },
+    rpc(name: string) {
+      if (name !== "get_intake_operational_statuses") return Promise.resolve({ data: null, error: { message: "Unexpected RPC" } });
+      return Promise.resolve({ data: rows.intake_operational_statuses ?? [], error: null });
+    },
   } as never;
 }
 
@@ -29,12 +33,13 @@ test("S4 calendar projection is clinic-safe, duration-faithful, and excludes cli
     doctor_scheduler_settings: [{ doctor_id: "doctor-1", scheduling_interval_minutes: 10, default_duration_minutes: null }],
     patients: [{ id: "patient-1", full_name: "Patient One", phone: "+919999999999" }],
     consultations: [{ id: "encounter-1", operational_status: "preparing" }],
-    patient_intakes: [{ consultation_id: "encounter-1", status: "submitted" }],
+    intake_operational_statuses: [{ consultation_id: "encounter-1", intake_status: "submitted" }],
     documents: [{ consultation_id: "encounter-1", status: "uploaded" }],
   }), session, { startsAt: "2026-09-17T00:00:00.000Z", endsAt: "2026-09-18T00:00:00.000Z" });
   assert.equal(result.timezone, "Asia/Kolkata");
   assert.equal(result.appointments[0]?.durationMinutes, null);
   assert.equal(result.appointments[0]?.durationState, "unknown");
+  assert.equal(result.appointments[0]?.intakeStatus, "submitted");
   assert.equal(result.appointments[0]?.documentStatus, "needs_review");
   assert.deepEqual(Object.keys(result.appointments[0] ?? {}).sort(), ["appointmentTypeName", "doctorId", "doctorName", "documentStatus", "durationMinutes", "durationState", "encounterOperationalStatus", "id", "intakeStatus", "patientId", "patientName", "patientPhone", "scheduledAt", "status", "updatedAt"].sort());
   assert.ok(!JSON.stringify(result).includes("staffNote"));
@@ -42,11 +47,11 @@ test("S4 calendar projection is clinic-safe, duration-faithful, and excludes cli
   assert.equal(result.doctors[0]?.effectiveIntervalMinutes, 10);
 });
 
-test("S4 calendar geometry uses one minute scale across actual and unknown durations", () => {
+test("S4 calendar geometry keeps exact starts with a visible minimum for short appointments", () => {
   for (const duration of [5, 7, 10, 15, 30]) {
     const geometry = calendarAppointmentGeometry({ startMinute: 9 * 60 + 37, durationMinutes: duration });
     assert.equal(geometry.topPx, (9 * 60 + 37) * CALENDAR_PX_PER_MINUTE);
-    assert.equal(geometry.heightPx, duration * CALENDAR_PX_PER_MINUTE);
+    assert.equal(geometry.heightPx, Math.max(duration * CALENDAR_PX_PER_MINUTE, MINIMUM_KNOWN_APPOINTMENT_CARD_HEIGHT_PX));
     assert.equal(geometry.isUnknownDuration, false);
   }
   const unknown = calendarAppointmentGeometry({ startMinute: 9 * 60 + 37, durationMinutes: null });
@@ -145,6 +150,10 @@ test("S4 selected-patient history is independently bounded, patient-scoped, and 
         then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: data(), error: null }).then(resolve),
       };
       return query;
+    },
+    rpc(name: string) {
+      assert.equal(name, "get_intake_operational_statuses");
+      return Promise.resolve({ data: [], error: null });
     },
   } as never;
   const history = await getSchedulerPatientHistoryWithClient(client, session, { patientId: "patient-1", limit: 2 });

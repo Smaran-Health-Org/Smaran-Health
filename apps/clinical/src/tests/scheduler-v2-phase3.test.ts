@@ -108,6 +108,10 @@ test("Phase 3 inspector read is clinic-scoped and has an exact scheduling-only p
       };
       return query;
     },
+    rpc(name: string) {
+      assert.equal(name, "get_intake_operational_statuses");
+      return Promise.resolve({ data: [{ consultation_id: "encounter-1", intake_status: "submitted" }], error: null });
+    },
   } as never;
   const result = await getSchedulerAppointmentWithClient(client, staff, "appointment-1");
   assert.equal(result.encounterOperationalStatus, "waiting");

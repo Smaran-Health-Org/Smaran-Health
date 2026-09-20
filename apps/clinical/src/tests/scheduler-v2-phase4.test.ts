@@ -46,6 +46,7 @@ test("Phase 4 duration retains server defaults, type default, exact-minute overr
   assert.equal(displayedBookingDuration({ typeId: "followup", appointmentTypes, effectiveDefaultDurationMinutes: 5 }), 10);
   assert.equal(displayedBookingDuration({ typeId: "new", appointmentTypes, effectiveDefaultDurationMinutes: 15 }), 30);
   assert.equal(displayedBookingDuration({ typeId: "", appointmentTypes, effectiveDefaultDurationMinutes: 15 }), 15);
+  for (const duration of [5, 10, 15, 60]) assert.equal(optionalDurationOverride(String(duration)), duration);
   assert.equal(optionalDurationOverride("7"), 7);
   assert.equal(optionalDurationOverride(""), undefined);
   assert.equal(hasValidDurationOverride("7.5"), false);

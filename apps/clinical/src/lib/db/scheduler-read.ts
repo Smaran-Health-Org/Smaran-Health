@@ -81,7 +81,10 @@ async function hydrateSchedulerAppointmentSummariesWithClient(
     patientIds.length ? supabase.from("patients").select("id, full_name, phone").eq("clinic_id", session.clinicId).in("id", patientIds) : Promise.resolve({ data: [], error: null }),
     doctorIds.length ? supabase.from("profiles").select("id, full_name").eq("clinic_id", session.clinicId).eq("role", "doctor").in("id", doctorIds) : Promise.resolve({ data: [], error: null }),
     consultationIds.length ? supabase.from("consultations").select("id, operational_status").eq("clinic_id", session.clinicId).in("id", consultationIds) : Promise.resolve({ data: [], error: null }),
-    consultationIds.length ? supabase.from("patient_intakes").select("consultation_id, status").eq("clinic_id", session.clinicId).in("consultation_id", consultationIds) : Promise.resolve({ data: [], error: null }),
+    // `patient_intakes` deliberately has no direct authenticated SELECT grant:
+    // it includes self-reported clinical content. The existing narrowly scoped
+    // RPC exposes only the operational status needed by Scheduler.
+    consultationIds.length ? supabase.rpc("get_intake_operational_statuses", { p_consultation_ids: consultationIds }) : Promise.resolve({ data: [], error: null }),
     consultationIds.length ? supabase.from("documents").select("consultation_id, status").eq("clinic_id", session.clinicId).in("consultation_id", consultationIds) : Promise.resolve({ data: [], error: null }),
     typeIds.length ? supabase.from("appointment_types").select("id, name").eq("clinic_id", session.clinicId).in("id", typeIds) : Promise.resolve({ data: [], error: null }),
   ]);
@@ -89,7 +92,10 @@ async function hydrateSchedulerAppointmentSummariesWithClient(
   const patients = new Map((patientsResult.data ?? []).map((row: { id: string; full_name: string; phone: string | null }) => [row.id, row]));
   const doctors = new Map((doctorsResult.data ?? []).map((row: { id: string; full_name: string }) => [row.id, row.full_name]));
   const consultations = new Map((consultationsResult.data ?? []).map((row: { id: string; operational_status: string }) => [row.id, row.operational_status]));
-  const intakes = new Map((intakesResult.data ?? []).map((row: { consultation_id: string; status: string }) => [row.consultation_id, row.status]));
+  const intakes = new Map<string, string>(
+    ((intakesResult.data ?? []) as Array<{ consultation_id: string; intake_status: string }>)
+      .map((row) => [row.consultation_id, row.intake_status])
+  );
   const types = new Map((typesResult.data ?? []).map((row: { id: string; name: string }) => [row.id, row.name]));
   const documentStatus = new Map<string, "ready" | "needs_review">();
   for (const row of documentsResult.data ?? [] as Array<{ consultation_id: string; status: string }>) {

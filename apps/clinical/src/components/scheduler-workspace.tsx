@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { Icon } from "@/components/icons";
 import { AppointmentInspector } from "@/components/scheduler-appointment-inspector";
 import { SchedulerPatientSearch } from "@/components/scheduler-patient-search";
@@ -13,9 +13,9 @@ import { refreshPanelAppointment, selectAppointment, type SchedulerPanel } from 
 import type { StaffAvailabilityDay, StaffAvailabilityProjection } from "@/lib/scheduler/availability-projection";
 import { availabilityAccessibleDescription, availabilityIntervalGeometry, availabilityMatchesScope, availabilitySegmentLabel } from "@/lib/scheduler/availability-view-model";
 import type { SessionContext } from "@/types";
-import { CALENDAR_DAY_HEIGHT_PX, CALENDAR_DAY_MINUTES, CALENDAR_LABEL_MINUTES, calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarLaneGeometry, calendarMinuteOffset } from "@/lib/scheduler/calendar-geometry";
+import { CALENDAR_DAY_HEIGHT_PX, CALENDAR_DAY_MINUTES, CALENDAR_LABEL_MINUTES, CALENDAR_PX_PER_MINUTE, CALENDAR_VISUAL_RULER_MINUTES, calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarLaneGeometry, calendarMinuteOffset } from "@/lib/scheduler/calendar-geometry";
 import { CalendarRequestGate } from "@/lib/scheduler/calendar-request";
-import { calendarAppointmentAccessibleLabel, calendarAppointmentReadinessCue, calendarBookingMinuteForPointer, calendarOperationalSummary, kolkataClock, visibleCalendarDoctors } from "@/lib/scheduler/calendar-view-model";
+import { calendarAppointmentAccessibleLabel, calendarAppointmentReadinessCue, calendarBookingRulerMinute, calendarOperationalSummary, kolkataClock, visibleCalendarDoctors } from "@/lib/scheduler/calendar-view-model";
 type Prefill = Extract<SchedulerPanel, { kind: "booking" }>["prefill"];
 
 const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -200,6 +200,8 @@ function SchedulerCalendarView({ calendar, availability, days, doctorIds, onBook
   const columns = days.flatMap((day) => doctors.map((doctor) => ({ day, doctor })));
   const scrollRef = useRef<HTMLElement>(null);
   const [now, setNow] = useState(() => new Date());
+  const [hoveredSlot, setHoveredSlot] = useState<{ day: string; doctorId: string; minute: number } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ day: string; doctorId: string; minute: number } | null>(null);
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 15000); return () => window.clearInterval(timer); }, []);
   const clock = kolkataClock(now);
   useEffect(() => {
@@ -216,7 +218,8 @@ function SchedulerCalendarView({ calendar, availability, days, doctorIds, onBook
   function chooseTime(day: string, doctorId: string, minute: number) {
     onBook({ doctorId, date: day, time: `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}` });
   }
-  return <section ref={scrollRef} className={styles.schedulerCalendar} style={{ "--scheduler-columns": columns.length } as CSSProperties} aria-label="Appointment calendar">
+  const slotHeight = CALENDAR_VISUAL_RULER_MINUTES * CALENDAR_PX_PER_MINUTE;
+  return <section ref={scrollRef} className={styles.schedulerCalendar} style={{ "--scheduler-columns": columns.length, "--scheduler-five-minute-height": `${slotHeight}px`, "--scheduler-fifteen-minute-height": `${CALENDAR_LABEL_MINUTES * CALENDAR_PX_PER_MINUTE}px`, "--scheduler-short-card-height": `${slotHeight}px` } as CSSProperties} aria-label="Appointment calendar">
     <div className={styles.schedulerGridHeader}><span>IST</span>{columns.map(({ day, doctor }) => {
       const state = availability?.days.find((item) => item.doctorId === doctor.id && item.localDate === day)?.status;
       return <strong key={`${day}-${doctor.id}`}><span>{days.length > 1 ? `${day.slice(5)} · ` : ""}{doctor.fullName}</span><small>{calendar.appointments.filter((item) => item.doctorId === doctor.id && appointmentDate(item.scheduledAt) === day && item.status === "scheduled").length} appointments{state === "not_bookable" ? " · Not bookable" : state === "configuration_invalid" ? " · Schedule needs review" : ""}</small></strong>;
@@ -231,10 +234,14 @@ function SchedulerCalendarView({ calendar, availability, days, doctorIds, onBook
         });
         const lanes = new Map(calendarAppointmentOverlapLayout(starts).map((lane) => [lane.id, lane]));
         const dayAvailability = availability?.days.find((item) => item.doctorId === doctor.id && item.localDate === day);
+        const slotFor = (event: MouseEvent<HTMLDivElement>) => calendarBookingRulerMinute(event.clientY - event.currentTarget.getBoundingClientRect().top);
+        const previewSlot = hoveredSlot?.day === day && hoveredSlot.doctorId === doctor.id ? hoveredSlot : selectedSlot?.day === day && selectedSlot.doctorId === doctor.id ? selectedSlot : null;
         return <div className={styles.schedulerTimelineColumn} key={`${day}-${doctor.id}`}>
           {dayAvailability ? <SchedulerAvailabilityLayer day={dayAvailability} doctorName={doctor.fullName} /> : null}
-          <div className={styles.schedulerTimePicker} aria-hidden="true" onClick={(event) => {
-            const minute = calendarBookingMinuteForPointer(event.clientY - event.currentTarget.getBoundingClientRect().top);
+          {previewSlot ? <div className={styles.schedulerTimeSlotPreview} data-selected={selectedSlot?.day === day && selectedSlot.doctorId === doctor.id && selectedSlot.minute === previewSlot.minute} style={{ top: calendarMinuteOffset(previewSlot.minute), height: slotHeight }} aria-hidden="true" /> : null}
+          <div className={styles.schedulerTimePicker} aria-hidden="true" onMouseMove={(event) => setHoveredSlot({ day, doctorId: doctor.id, minute: slotFor(event) })} onMouseLeave={() => setHoveredSlot(null)} onClick={(event) => {
+            const minute = slotFor(event);
+            setSelectedSlot({ day, doctorId: doctor.id, minute });
             chooseTime(day, doctor.id, minute);
           }} />
           {dayAppointments.map((appointment, index) => {

@@ -1,9 +1,11 @@
 /** Calendar display geometry only. Scheduling intervals and booking authority live on the server. */
 export const CALENDAR_VISUAL_RULER_MINUTES = 5;
 export const CALENDAR_LABEL_MINUTES = 15;
-export const CALENDAR_PX_PER_MINUTE = 2.8;
+export const CALENDAR_PX_PER_MINUTE = 3.2;
 export const CALENDAR_DAY_MINUTES = 24 * 60;
 export const UNKNOWN_DURATION_MARKER_HEIGHT_PX = 26;
+/** A known appointment never renders shorter than one visible five-minute ruler cell. */
+export const MINIMUM_KNOWN_APPOINTMENT_CARD_HEIGHT_PX = CALENDAR_VISUAL_RULER_MINUTES * CALENDAR_PX_PER_MINUTE;
 export const CALENDAR_DAY_HEIGHT_PX = CALENDAR_DAY_MINUTES * CALENDAR_PX_PER_MINUTE;
 
 function assertMinute(minute: number): void {
@@ -29,14 +31,16 @@ export function calendarAppointmentGeometry(input: {
   if (duration !== null && (!Number.isInteger(duration) || duration < 5 || duration > 60)) {
     throw new RangeError("Calendar appointment duration must be between 5 and 60 minutes");
   }
-  const visualDuration = duration ?? UNKNOWN_DURATION_MARKER_HEIGHT_PX / CALENDAR_PX_PER_MINUTE;
+  const visualDuration = duration === null
+    ? UNKNOWN_DURATION_MARKER_HEIGHT_PX / CALENDAR_PX_PER_MINUTE
+    : Math.max(duration * CALENDAR_PX_PER_MINUTE, MINIMUM_KNOWN_APPOINTMENT_CARD_HEIGHT_PX) / CALENDAR_PX_PER_MINUTE;
   const visualEnd = input.startMinute + visualDuration;
   const visibleStart = Math.max(start, input.startMinute);
   const visibleEnd = Math.min(end, visualEnd);
   return {
     topPx: Math.max(0, input.startMinute - start) * CALENDAR_PX_PER_MINUTE,
     heightPx: visibleStart === input.startMinute && visibleEnd === visualEnd
-      ? (duration === null ? UNKNOWN_DURATION_MARKER_HEIGHT_PX : duration * CALENDAR_PX_PER_MINUTE)
+      ? (duration === null ? UNKNOWN_DURATION_MARKER_HEIGHT_PX : Math.max(duration * CALENDAR_PX_PER_MINUTE, MINIMUM_KNOWN_APPOINTMENT_CARD_HEIGHT_PX))
       : Math.max(0, visibleEnd - visibleStart) * CALENDAR_PX_PER_MINUTE,
     isUnknownDuration: duration === null,
     clippedStart: input.startMinute < start,

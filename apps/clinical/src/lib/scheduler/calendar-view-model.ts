@@ -1,5 +1,5 @@
 import type { SchedulerAppointmentSummary } from "@/lib/db/scheduler-read";
-import { calendarMinuteAtOffset } from "@/lib/scheduler/calendar-geometry";
+import { CALENDAR_DAY_MINUTES, CALENDAR_VISUAL_RULER_MINUTES, calendarMinuteAtOffset } from "@/lib/scheduler/calendar-geometry";
 
 export function visibleCalendarDoctors(view: "day" | "week", dayDoctorIds: string[], weekDoctorId: string): string[] {
   return view === "week" ? (weekDoctorId ? [weekDoctorId] : []) : dayDoctorIds;
@@ -16,6 +16,15 @@ export function calendarOperationalSummary(appointments: SchedulerAppointmentSum
 
 export function calendarBookingMinuteForPointer(pointerOffsetPx: number): number {
   return calendarMinuteAtOffset(pointerOffsetPx);
+}
+
+/** Calendar clicks select a complete visual ruler cell; the side panel retains exact-minute editing. */
+export function calendarBookingRulerMinute(pointerOffsetPx: number): number {
+  const minute = calendarBookingMinuteForPointer(pointerOffsetPx);
+  return Math.min(
+    CALENDAR_DAY_MINUTES - CALENDAR_VISUAL_RULER_MINUTES,
+    Math.floor(minute / CALENDAR_VISUAL_RULER_MINUTES) * CALENDAR_VISUAL_RULER_MINUTES
+  );
 }
 
 export function calendarAppointmentReadinessCue(appointment: SchedulerAppointmentSummary): string | null {
