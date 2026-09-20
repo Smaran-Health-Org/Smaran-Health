@@ -7,7 +7,7 @@ import styles from "@/components/clinical.module.css";
 import type { ClinicDoctor } from "@/lib/db/clinics";
 import type { SchedulerAppointmentSummary, SchedulerCalendar, SchedulerPatientHistory } from "@/lib/db/scheduler-read";
 import type { StaffAvailabilityDay, StaffAvailabilityProjection } from "@/lib/scheduler/availability-projection";
-import { availabilityIntervalGeometry, availabilityMatchesScope, availabilitySegmentLabel } from "@/lib/scheduler/availability-view-model";
+import { availabilityAccessibleDescription, availabilityIntervalGeometry, availabilityMatchesScope, availabilitySegmentLabel } from "@/lib/scheduler/availability-view-model";
 import type { Patient, SessionContext } from "@/types";
 import { CALENDAR_DAY_HEIGHT_PX, CALENDAR_DAY_MINUTES, CALENDAR_LABEL_MINUTES, calendarAppointmentGeometry, calendarAppointmentOverlapLayout, calendarLaneGeometry, calendarMinuteOffset } from "@/lib/scheduler/calendar-geometry";
 import { CalendarRequestGate } from "@/lib/scheduler/calendar-request";
@@ -183,7 +183,7 @@ function SchedulerCalendarView({ calendar, availability, days, doctorIds, onBook
         const lanes = new Map(calendarAppointmentOverlapLayout(starts).map((lane) => [lane.id, lane]));
         const dayAvailability = availability?.days.find((item) => item.doctorId === doctor.id && item.localDate === day);
         return <div className={styles.schedulerTimelineColumn} key={`${day}-${doctor.id}`}>
-          {dayAvailability ? <SchedulerAvailabilityLayer day={dayAvailability} /> : null}
+          {dayAvailability ? <SchedulerAvailabilityLayer day={dayAvailability} doctorName={doctor.fullName} /> : null}
           <div className={styles.schedulerTimePicker} aria-hidden="true" onClick={(event) => {
             const minute = calendarBookingMinuteForPointer(event.clientY - event.currentTarget.getBoundingClientRect().top);
             chooseTime(day, doctor.id, minute);
@@ -210,9 +210,10 @@ function SchedulerCalendarView({ calendar, availability, days, doctorIds, onBook
   </section>;
 }
 
-function SchedulerAvailabilityLayer({ day }: { day: StaffAvailabilityDay }) {
-  if (day.status === "configuration_invalid") return <div className={styles.schedulerAvailabilityStatus}>Schedule configuration needs review</div>;
-  return <div className={styles.schedulerAvailabilityLayer} data-status={day.status} role="img" aria-label={`Scheduling background for ${day.localDate}. ${day.status === "not_bookable" ? "Doctor not bookable. " : ""}${day.segments.map((segment) => availabilitySegmentLabel(segment.kind)).join(", ")}. Clean time is not a guaranteed appointment slot.`}>
+function SchedulerAvailabilityLayer({ day, doctorName }: { day: StaffAvailabilityDay; doctorName: string }) {
+  const description = availabilityAccessibleDescription(doctorName, day);
+  if (day.status === "configuration_invalid") return <div className={styles.schedulerAvailabilityStatus} role="img" aria-label={description}>Schedule configuration needs review</div>;
+  return <div className={styles.schedulerAvailabilityLayer} data-status={day.status} role="img" aria-label={description}>
     {day.segments.map((segment, index) => {
       const geometry = availabilityIntervalGeometry(day.localDate, segment);
       return geometry ? <div key={`segment-${index}`} className={styles.schedulerAvailabilitySegment} data-kind={segment.kind} style={{ top: geometry.top, height: geometry.height }}>

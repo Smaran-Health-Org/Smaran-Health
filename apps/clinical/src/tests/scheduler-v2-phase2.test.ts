@@ -3,7 +3,7 @@ import test from "node:test";
 import { getStaffAvailabilityProjectionWithClient, SchedulerAvailabilityError } from "../lib/db/scheduler-availability";
 import { calculateAvailability, evaluateStaffCandidate, localMidnight, type AvailabilityInput } from "../lib/scheduler/availability";
 import { projectStaffAvailabilityDay } from "../lib/scheduler/availability-projection";
-import { availabilityIntervalGeometry, availabilityMatchesScope, availabilitySegmentLabel } from "../lib/scheduler/availability-view-model";
+import { availabilityAccessibleDescription, availabilityIntervalGeometry, availabilityMatchesScope, availabilitySegmentLabel } from "../lib/scheduler/availability-view-model";
 import { CALENDAR_PX_PER_MINUTE, calendarAppointmentGeometry } from "../lib/scheduler/calendar-geometry";
 import { CalendarRequestGate } from "../lib/scheduler/calendar-request";
 import type { SessionContext } from "../types";
@@ -103,6 +103,55 @@ test("Phase 2 presentation geometry, semantics and scope never infer availabilit
   assert.ok(availabilityMatchesScope(projection, [doctor(1)], [DATE]));
   assert.ok(!availabilityMatchesScope(projection, [doctor(2)], [DATE]));
   assert.ok(!availabilityMatchesScope(projection, [doctor(1)], ["2026-09-15"]));
+});
+
+test("Phase 2 accessible description preserves every projected segment and clean interval in Kolkata time", () => {
+  const day = projectStaffAvailabilityDay(doctor(1), base({
+    workingHours: [{ weekday: 1, startTime: "09:00", endTime: "13:00" }],
+    exceptions: [
+      { type: "special_working", startsAt: at(14), endsAt: at(16) },
+      { type: "blocked", startsAt: at(10, 30), endsAt: at(11) },
+      { type: "leave", startsAt: at(12), endsAt: at(13) },
+    ],
+  }));
+  const description = availabilityAccessibleDescription("Dr Shah", day);
+  assert.ok(description.startsWith("Dr Shah, 14 September 2026."));
+  for (const phrase of [
+    "Working time 09:00 to 13:00.",
+    "Special working time 14:00 to 16:00.",
+    "Blocked 10:30 to 11:00.",
+    "Leave 12:00 to 13:00.",
+    "Clean working time 09:00 to 10:30.",
+    "Clean working time 11:00 to 12:00.",
+    "Clean working time 14:00 to 16:00.",
+    "Clean working time is advisory and is not a guaranteed appointment slot.",
+  ]) assert.ok(description.includes(phrase), phrase);
+  assert.ok(!description.includes("2026-09-14T"));
+  assert.ok(!description.includes("Z."));
+  assert.ok(!description.includes("patient"));
+  assert.ok(!description.includes("clinical"));
+  assert.ok(!description.includes(doctor(1)));
+});
+
+test("Phase 2 accessibility distinguishes unbookable and invalid configuration without inventing intervals", () => {
+  const unbookable = projectStaffAvailabilityDay(doctor(1), base({ isBookable: false }));
+  const unbookableDescription = availabilityAccessibleDescription("Dr Mehta", unbookable);
+  assert.ok(unbookableDescription.startsWith("Dr Mehta, 14 September 2026. Doctor is not bookable."));
+  assert.ok(unbookableDescription.includes("Working time 09:00 to 12:00."));
+  assert.ok(!unbookableDescription.includes("Clean working time"));
+
+  const invalid = projectStaffAvailabilityDay(doctor(1), base({ exceptions: [
+    { type: "special_working", startsAt: at(10), endsAt: at(11) },
+    { type: "leave", startsAt: at(10, 30), endsAt: at(11, 30) },
+  ] }));
+  assert.equal(availabilityAccessibleDescription("Dr Mehta", invalid), "Dr Mehta, 14 September 2026. Schedule configuration needs review.");
+});
+
+test("Phase 2 accessibility marks a Kolkata midnight boundary as the next day", () => {
+  const day = projectStaffAvailabilityDay(doctor(1), base({ workingHours: [], exceptions: [
+    { type: "special_working", startsAt: at(23, 45), endsAt: localMidnight("2026-09-15") },
+  ] }));
+  assert.ok(availabilityAccessibleDescription("Dr Shah", day).includes("Special working time 23:45 to 00:00 next day."));
 });
 
 function fakeClient(selectedIds: string[], calls: string[], appointmentRows: Array<{ doctor_id: string; scheduled_at: string; duration_minutes: number | null }> = []) {
