@@ -152,6 +152,12 @@ These are behavioral contracts. Codex should map each implemented Scheduler phas
 
 **AC-SCH-V07** Once V2 Phase 3 lands, the desktop appointment modal MUST be superseded by a persistent inspector that keeps the calendar visible, with responsive drawer/sheet access and the same authorized lifecycle mutations and privacy boundary.
 
+**AC-SCH-V08** V2 Phase 4 booking MUST use the mutually exclusive Scheduler side workspace (a non-modal drawer on desktop and an accessible overlay on narrower screens). Exact-minute staff entry, existing patient/create/duplicate flow, server-resolved duration, separate manual Patient Link action, explicit warnings, idempotency and final save-time authority MUST be retained.
+
+**AC-SCH-V09** The booking drawer MUST automatically request a duration-specific advisory preview only after valid required inputs and current doctor booking options are available. Semantic changes MUST discard stale preview results and acknowledgements; options failure MUST block booking, while preview failure MUST NOT claim availability or bypass final save authority.
+
+**AC-SCH-V10** Agenda MUST render the same clinic-scoped scheduling-only calendar read model with explicit Day multi-doctor or Week single-doctor scope, chronological deterministic ordering, truthful lifecycle/readiness/unknown-duration labels and the existing inspector. Phone MUST prefer Agenda and use an accessible full-width booking/inspection workspace without introducing a second scheduling engine or clinical data exposure.
+
 ## Patient self-booking
 
 **AC-SCH-P01** Patient self-booking MUST be controlled by an On/Off clinic setting and MUST default Off until the clinic explicitly enables it.

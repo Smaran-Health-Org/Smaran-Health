@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const workspace = readFileSync(new URL("../components/scheduler-workspace.tsx", import.meta.url), "utf8");
+const bookingPanel = readFileSync(new URL("../components/scheduler-booking-panel.tsx", import.meta.url), "utf8");
 const appointmentInspector = readFileSync(new URL("../components/scheduler-appointment-inspector.tsx", import.meta.url), "utf8");
 const portalLink = readFileSync(new URL("../components/send-patient-portal-link.tsx", import.meta.url), "utf8");
 const portalHome = readFileSync(new URL("../app/patient/patient-portal-home.tsx", import.meta.url), "utf8");
@@ -10,8 +11,9 @@ const portalAdapter = readFileSync(new URL("../lib/db/patient-portal.ts", import
 const historyMigration = readFileSync(new URL("../../supabase/migrations/0095_scheduler_s7_portal_context_closure.sql", import.meta.url), "utf8");
 
 test("S7 keeps booking and Patient Link delivery as separate explicit staff actions", () => {
-  assert.match(workspace, /The appointment is saved\. Sending a Patient Portal link is a separate manual action\./);
-  assert.match(workspace, /<SendPatientPortalLink patientId=\{booked\.patientId\} label="Send Patient Link" \/>/);
+  assert.match(bookingPanel, /The appointment is saved\. Sending a Patient Portal link is a separate manual action\./);
+  assert.match(bookingPanel, /<SendPatientPortalLink patientId=\{booked\.patientId\} label="Send Patient Link" \/>/);
+  assert.match(workspace, /<SchedulerBookingPanel/);
   assert.match(appointmentInspector, /<SendPatientPortalLink patientId=\{appointment\.patientId\} label="Send Patient Link" \/>/);
   assert.doesNotMatch(workspace, /Book & Send Link/);
   assert.doesNotMatch(workspace, /intake-handoff/);

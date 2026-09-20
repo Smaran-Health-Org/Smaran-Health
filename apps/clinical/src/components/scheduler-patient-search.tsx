@@ -7,9 +7,10 @@ import { CalendarRequestGate } from "@/lib/scheduler/calendar-request";
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
 
-export function SchedulerPatientSearch({ role, onSelectAppointment }: {
+export function SchedulerPatientSearch({ role, onSelectAppointment, onBookPatient }: {
   role: "doctor" | "admin" | "assistant";
   onSelectAppointment: (appointment: SchedulerAppointmentSummary) => void;
+  onBookPatient: (patient: SchedulerPatientSearchResult) => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SchedulerPatientSearchResult[]>([]);
@@ -89,6 +90,7 @@ export function SchedulerPatientSearch({ role, onSelectAppointment }: {
     {selectedPatient ? <section aria-label={`Scheduling history for ${selectedPatient.fullName}`} className={styles.schedulerSearchHistory}>
       <h3>{selectedPatient.fullName}</h3>
       <a href={role === "doctor" ? `/patients/${selectedPatient.id}` : `/desk/patients/${selectedPatient.id}`}>View patient</a>
+      <button type="button" className={styles.secondaryButton} onClick={() => onBookPatient(selectedPatient)}>Book appointment</button>
       {historyLoading ? <p role="status">Loading scheduling history…</p> : null}
       {history ? <>
         <HistoryGroup title="Upcoming" items={history.upcoming} onSelect={onSelectAppointment} />

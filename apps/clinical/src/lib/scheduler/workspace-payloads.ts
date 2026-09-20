@@ -32,3 +32,13 @@ export function bookingSemanticIdentity(input: {
 }): string {
   return `${input.patientId}|${input.doctorId}|${input.date}|${input.time}|${input.durationOverride}|${input.typeId}|${input.staffNote}`;
 }
+
+export function validBookingTime(date: string, time: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return false;
+  const parsed = new Date(`${date}T${time}:00+05:30`);
+  return !Number.isNaN(parsed.getTime()) && new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(parsed) === date;
+}
+
+export function canPreviewBooking(input: { patientId?: string; doctorId: string; date: string; time: string; duration: number | null; validOverride: boolean }): boolean {
+  return Boolean(input.patientId && input.doctorId && input.duration !== null && Number.isInteger(input.duration) && input.duration >= 5 && input.duration <= 60 && input.validOverride && validBookingTime(input.date, input.time));
+}

@@ -1401,7 +1401,34 @@
 .schedulerSideList button:hover, .schedulerSideList button:focus-visible { border-color: #17745b; outline: 2px solid #17745b; outline-offset: 1px; }
 .schedulerSideList button span { color: #66736f; font-size: .68rem; }
 .schedulerSearchHistory { display: grid; gap: 10px; border-top: 1px solid #e3e8e5; padding-top: 12px; }
-@media (max-width: 1080px) { .schedulerSidePanel { position: fixed; z-index: 30; top: 12px; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); max-height: none; box-shadow: 0 22px 70px rgba(20,36,30,.22); } }
+.schedulerPanelBackdrop { display: none; }
+.schedulerBookingBody { gap: 12px; }
+.schedulerBookingSection { display: grid; gap: 8px; border-bottom: 1px solid #e3e8e5; padding: 3px 0 12px; }
+.schedulerBookingSection h3 { margin: 0; color: #53655e; font-size: .7rem; text-transform: uppercase; }
+.schedulerBookingSection > p { margin: 0; }
+.schedulerBookingFields { display: grid; gap: 9px; padding-top: 8px; }
+.schedulerBookingMore { border: 1px solid #e1e9e5; border-radius: 10px; padding: 9px; }
+.schedulerBookingMore summary { cursor: pointer; color: #176b52; font-weight: 700; }
+.schedulerBookingDuration { color: #0d4f40; font-size: 1.2rem; }
+.schedulerBookingActions { position: sticky; bottom: -14px; z-index: 1; border-top: 1px solid #e3e8e5; background: #fff; padding: 10px 0 4px; }
+.schedulerBookingActions button { width: 100%; min-height: 44px; }
+.schedulerSelectedPatient { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.schedulerAgenda { min-height: 320px; border: 1px solid #dfe7e3; border-radius: 16px; background: #fff; padding: 14px; }
+.schedulerAgendaHeader { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.schedulerAgendaHeader h2 { margin: 0; font-size: 1rem; }
+.schedulerAgendaHeader p, .schedulerAgendaEmpty { color: #66736f; font-size: .75rem; }
+.schedulerAgendaDay { margin: 18px 0 8px; border-bottom: 1px solid #e3e8e5; padding-bottom: 6px; color: #53655e; font-size: .72rem; }
+.schedulerAgendaItem { display: flex; gap: 15px; width: 100%; min-height: 68px; margin-bottom: 6px; border: 1px solid #dce6e1; border-radius: 11px; background: #fff; padding: 10px 12px; color: #17201e; font: inherit; text-align: left; cursor: pointer; }
+.schedulerAgendaItem:hover, .schedulerAgendaItem:focus-visible { outline: 2px solid #17745b; outline-offset: 1px; }
+.schedulerAgendaItem[data-status="cancelled"], .schedulerAgendaItem[data-status="no_show"] { background: #f7f8f7; color: #66736f; }
+.schedulerAgendaItem[data-status="completed"] { background: #f3f8f5; }
+.schedulerAgendaItem time { flex: 0 0 48px; color: #17745b; font-size: .78rem; font-weight: 800; }
+.schedulerAgendaIdentity { display: grid; min-width: 0; gap: 4px; }
+.schedulerAgendaIdentity > span { color: #66736f; font-size: .7rem; }
+.schedulerAgendaCues { display: flex; flex-wrap: wrap; gap: 4px; }
+.schedulerAgendaCues small { border-radius: 6px; background: #edf5f1; padding: 3px 5px; color: #53655e; font-size: .63rem; text-transform: capitalize; }
+@media (max-width: 1080px) { .schedulerPanelBackdrop { display: block; position: fixed; z-index: 29; inset: 0; border: 0; background: rgba(15,30,24,.42); cursor: pointer; } .schedulerSidePanel { position: fixed; z-index: 30; top: 12px; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); max-height: none; box-shadow: 0 22px 70px rgba(20,36,30,.22); } }
+@media (max-width: 680px) { .schedulerSidePanel { inset: 0; width: 100vw; max-height: 100dvh; border-radius: 0; padding: 16px; } .schedulerAgenda { padding: 10px; } .schedulerAgendaItem { min-height: 72px; } .schedulerProviderFilter > div { position: static; max-height: 180px; border: 0; box-shadow: none; } .schedulerProviderSelect select { max-width: 100%; } }
 .schedulerControls { justify-content: flex-start; gap: .5rem; border: 1px solid #e3e8e5; border-radius: 14px; background: #fff; padding: .55rem; }
 .schedulerDateControls { gap: .3rem; }
 .schedulerDateControls strong { white-space: nowrap; }
