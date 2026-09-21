@@ -1,5 +1,6 @@
 import "server-only";
-import { logSarvam, logSarvamError } from "@/lib/ai/sarvam-log";
+import { flushSarvamLog, logSarvam, logSarvamError } from "@/lib/ai/sarvam-log";
+import { attachSarvamEventLogSink } from "@/lib/ai/sarvam-log-db";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { sarvamAudioTranscriptionAdapter } from "./transcription-sarvam";
 
@@ -23,8 +24,24 @@ function transcriptionFailureCode(error: unknown): string {
   return "provider_unavailable";
 }
 
-/** Runs only on the server against the durable, ordered chunk manifest. */
+/**
+ * Transcribes a finalized recording and persists the result.
+ *
+ * The durable event sink is attached here — this is the single ingress for the
+ * whole Sarvam flow — and flushed before returning, because this runs inside a
+ * serverless invocation (`after()`) that may be frozen the moment it settles.
+ */
 export async function transcribeDurableRecording(recordingId: string): Promise<void> {
+  attachSarvamEventLogSink();
+  try {
+    await runDurableTranscription(recordingId);
+  } finally {
+    await flushSarvamLog();
+  }
+}
+
+/** Runs only on the server against the durable, ordered chunk manifest. */
+async function runDurableTranscription(recordingId: string): Promise<void> {
   const service = createServiceRoleClient();
   const { data: audio, error: audioError } = await service.from("audio_files")
     .select("id,consultation_id,clinic_id,format,recording_status")
