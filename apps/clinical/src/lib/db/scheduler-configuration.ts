@@ -57,7 +57,9 @@ export function normalizeSchedulerConfigurationCommand(value: unknown): Schedule
   const command: SchedulerConfigurationCommand = { resource: resource as SchedulerConfigurationCommand["resource"], operation: operation as SchedulerConfigurationCommand["operation"] };
   const doctorScoped = resource !== "clinic_settings";
   if (doctorScoped) command.doctorId = validateUuid(source.doctorId, true);
-  if (operation !== "create") command.id = validateUuid(source.id, true);
+  // Clinic defaults are a singleton row resolved from the session clinic, so they
+  // have no client-supplied id. Every other non-create command targets a real row.
+  if (operation !== "create" && doctorScoped) command.id = validateUuid(source.id, true);
   if (resource === "clinic_settings" || resource === "doctor_settings") {
     const schedulingIntervalMinutes = integer(source.schedulingIntervalMinutes, 1, 60);
     const defaultDurationMinutes = integer(source.defaultDurationMinutes, 5, 60);

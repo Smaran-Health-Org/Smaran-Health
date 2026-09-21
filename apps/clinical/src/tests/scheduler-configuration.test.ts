@@ -5,6 +5,18 @@ import { kolkataDateTimeLocalFromInstant, kolkataDateTimeLocalToInstant, schedul
 
 const doctorId = "11111111-1111-4111-8111-111111111111";
 
+test("accepts a clinic-defaults update without a row id, which the database resolves from the session clinic", () => {
+  assert.deepEqual(normalizeSchedulerConfigurationCommand({
+    resource: "clinic_settings", operation: "update", schedulingIntervalMinutes: 10, defaultDurationMinutes: 20,
+  }), { resource: "clinic_settings", operation: "update", schedulingIntervalMinutes: 10, defaultDurationMinutes: 20 });
+});
+
+test("still requires an id for every doctor-scoped update or delete", () => {
+  assert.throws(() => normalizeSchedulerConfigurationCommand({ resource: "working_hours", operation: "delete", doctorId }), SchedulerConfigurationError);
+  assert.throws(() => normalizeSchedulerConfigurationCommand({ resource: "appointment_type", operation: "delete", doctorId }), SchedulerConfigurationError);
+  assert.throws(() => normalizeSchedulerConfigurationCommand({ resource: "exception", operation: "delete", doctorId }), SchedulerConfigurationError);
+});
+
 test("normalizes explicit inherit overrides without deleting a doctor settings row", () => {
   assert.deepEqual(normalizeSchedulerConfigurationCommand({
     resource: "doctor_settings", operation: "update", doctorId, id: doctorId,
