@@ -585,6 +585,35 @@ export function ConsultationWorkflow({
     }
   }
 
+  async function waitForDurableTranscript(): Promise<string | null> {
+    const maxAttempts = 24;
+    const pollIntervalMs = 2500;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        const response = await fetch(`/api/consultations/${consultationId}/transcript`, {
+          cache: "no-store",
+        });
+        if (response.ok) {
+          const data = await response.json().catch(() => null);
+          const rawText =
+            typeof data?.transcript?.rawText === "string"
+              ? data.transcript.rawText.trim()
+              : "";
+          if (rawText) return rawText;
+        }
+      } catch {
+        // Keep polling; the durable recording remains recoverable on the server.
+      }
+
+      if (attempt < maxAttempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+      }
+    }
+
+    return null;
+  }
+
   async function uploadRecordingChunk(recordingId: string, sequence: number, chunk: Blob) {
     const form = new FormData();
     form.set("sequence", String(sequence));
@@ -1142,13 +1171,21 @@ export function ConsultationWorkflow({
         setError("Audio capture could not be finalized safely. The recoverable recording is retained; write the note manually.");
         return;
       }
-      // A provider-neutral durable transcription worker is intentionally not
-      // substituted with browser text. Until an approved provider is
-      // configured, route to the existing manual-note path.
+      // Browser speech is preview-only. Wait for the server-side provider to
+      // persist the authoritative transcript before generating a draft.
       setProcessingStage(1);
+      setState("processing");
+      const durableTranscript = await waitForDurableTranscript();
+      if (durableTranscript) {
+        setTranscript(durableTranscript);
+        setProcessingStage(2);
+        await generateDraft();
+        return;
+      }
+
       setManualPath(true);
       setState("manual_review");
-      setError("Recording was saved securely. Authoritative transcription is pending approved provider configuration, so no AI draft was generated.");
+      setError("Recording was saved securely, but transcription is not available yet. Write the note manually or retry after the transcription provider is configured.");
     } finally {
       stopBusyRef.current = false;
     }
