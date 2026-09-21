@@ -15,7 +15,7 @@ export default async function SchedulerPage() {
   return (
     <AppShell doctorName={session.fullName} clinicName={clinicName} patientCount={patients.total} role={session.role} workspace={session.role === "doctor" ? "clinical" : "desk"}>
       <main className={styles.pageContent}>
-        <SchedulerWorkspace initialDoctors={doctors} role={session.role} />
+        <SchedulerWorkspace initialDoctors={doctors} role={session.role} actorDoctorId={session.profileId} />
       </main>
     </AppShell>
   );
