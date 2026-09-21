@@ -3,7 +3,7 @@ import test from "node:test";
 import type { SchedulerAppointmentSummary } from "../lib/db/scheduler-read";
 import { agendaAppointmentAccessibleLabel, agendaAppointments, agendaDay, agendaOperationalCues } from "../lib/scheduler/agenda-view-model";
 import { CalendarRequestGate } from "../lib/scheduler/calendar-request";
-import { bookingSemanticIdentity, canPreviewBooking, displayedBookingDuration, hasValidDurationOverride, optionalDurationOverride, selectedDoctorTypeId } from "../lib/scheduler/workspace-payloads";
+import { bookingEndTime, bookingSemanticIdentity, canPreviewBooking, DURATION_CHOICES, displayedBookingDuration, hasValidDurationOverride, optionalDurationOverride, selectedDoctorTypeId } from "../lib/scheduler/workspace-payloads";
 import { refreshPanelAppointment, selectAppointment, type SchedulerPanel } from "../lib/scheduler/panel-state";
 
 function appointment(patch: Partial<SchedulerAppointmentSummary> = {}): SchedulerAppointmentSummary {
@@ -52,6 +52,19 @@ test("Phase 4 duration retains server defaults, type default, exact-minute overr
   assert.equal(hasValidDurationOverride("7.5"), false);
   assert.equal(selectedDoctorTypeId("followup", ["other"]), "");
   assert.equal(selectedDoctorTypeId("followup", ["followup"]), "followup");
+});
+
+test("Phase 4 shows the resolved end time so staff never compute duration arithmetic", () => {
+  assert.equal(bookingEndTime("2026-09-21", "09:00", 5), "09:05");
+  assert.equal(bookingEndTime("2026-09-21", "09:07", 25), "09:32");
+  assert.equal(bookingEndTime("2026-09-21", "23:50", 15), "00:05");
+  assert.equal(bookingEndTime("2026-09-21", "09:00", null), null);
+  assert.equal(bookingEndTime("2026-09-21", "09:00", 4), null);
+  assert.equal(bookingEndTime("2026-09-21", "09:00", 61), null);
+  assert.equal(bookingEndTime("2026-09-21", "25:90", 15), null);
+  // Common presets stay a UI convenience, never a validation constraint.
+  assert.ok(DURATION_CHOICES.every((minutes) => optionalDurationOverride(String(minutes)) === minutes));
+  assert.equal(optionalDurationOverride("7"), 7);
 });
 
 test("Phase 4 semantic changes demand new preview/acknowledgements and discard late results", async () => {

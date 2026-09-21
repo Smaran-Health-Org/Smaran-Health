@@ -8,6 +8,21 @@ export function hasValidDurationOverride(value: string): boolean {
   return value.trim() === "" || optionalDurationOverride(value) !== undefined;
 }
 
+/** Common staff-facing durations. Any whole number from 5 to 60 remains valid. */
+export const DURATION_CHOICES = [5, 10, 15, 20, 30, 45, 60];
+
+/**
+ * Resolved end clock time in IST for a booking start plus duration, so staff can
+ * see when the visit finishes without doing the arithmetic themselves.
+ */
+export function bookingEndTime(date: string, time: string, minutes: number | null): string | null {
+  if (minutes === null || !Number.isInteger(minutes) || minutes < 5 || minutes > 60) return null;
+  if (!validBookingTime(date, time)) return null;
+  const start = new Date(`${date}T${time}:00+05:30`);
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+    .format(new Date(start.getTime() + minutes * 60_000));
+}
+
 export function selectedDoctorTypeId(currentTypeId: string, availableTypeIds: readonly string[]): string {
   return currentTypeId && !availableTypeIds.includes(currentTypeId) ? "" : currentTypeId;
 }

@@ -13,6 +13,7 @@ export function inspectorQueueLabel(status: string): string {
 export function inspectorActions(appointment: SchedulerAppointmentSummary, role: SessionContext["role"]) {
   const scheduled = appointment.status === "scheduled";
   const queue = appointment.encounterOperationalStatus;
+  const notYetSeen = ["scheduled", "preparing", "ready"].includes(queue);
   return {
     sendLink: scheduled,
     reschedule: scheduled && appointment.durationState === "known",
@@ -23,5 +24,10 @@ export function inspectorActions(appointment: SchedulerAppointmentSummary, role:
     remediate: scheduled && appointment.durationState === "unknown",
     markArrived: scheduled && ["scheduled", "preparing", "ready"].includes(queue),
     markWaiting: scheduled && queue === "arrived",
+    // Operational check-in from the schedule (patient arrived early).
+    checkIn: scheduled && notYetSeen,
+    // Doctor-only: open the encounter directly from the schedule, which also
+    // covers the patient arriving early or the doctor running ahead.
+    startConsultation: scheduled && role === "doctor",
   };
 }

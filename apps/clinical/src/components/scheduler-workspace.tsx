@@ -29,6 +29,7 @@ function safeError(payload: unknown, fallback: string): string { return typeof p
 const readableDateFormatter = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short", year: "numeric" });
 function readableDate(date: string): string { return readableDateFormatter.format(new Date(`${date}T00:00:00+05:30`)); }
 function readableRange(date: string, days: number): string { return `${readableDate(date)} – ${readableDate(addDays(date, days))}`; }
+function appointmentCountLabel(count: number): string { return count === 1 ? "1 appointment" : `${count} appointments`; }
 
 export function SchedulerWorkspace({ initialDoctors, role, actorDoctorId, workspace }: { initialDoctors: ClinicDoctor[]; role: SessionContext["role"]; actorDoctorId: string; workspace: "clinical" | "desk" }) {
   const visibleDoctors = role === "doctor" && workspace === "clinical"
@@ -253,7 +254,7 @@ function SchedulerCalendarView({ calendar, availability, days, doctorIds, onBook
   return <section ref={scrollRef} className={styles.schedulerCalendar} style={{ "--scheduler-columns": columns.length, "--scheduler-five-minute-height": `${slotHeight}px`, "--scheduler-fifteen-minute-height": `${CALENDAR_LABEL_MINUTES * CALENDAR_PX_PER_MINUTE}px`, "--scheduler-short-card-height": `${slotHeight}px` } as CSSProperties} aria-label="Appointment calendar">
     <div className={styles.schedulerGridHeader}><span>IST</span>{columns.map(({ day, doctor }) => {
       const state = availability?.days.find((item) => item.doctorId === doctor.id && item.localDate === day)?.status;
-      return <strong key={`${day}-${doctor.id}`}><span>{days.length > 1 ? `${day.slice(5)} · ` : ""}{doctor.fullName}</span><small>{calendar.appointments.filter((item) => item.doctorId === doctor.id && appointmentDate(item.scheduledAt) === day && item.status === "scheduled").length} appointments{state === "not_bookable" ? " · Not bookable" : state === "configuration_invalid" ? " · Schedule needs review" : ""}</small></strong>;
+      return <strong key={`${day}-${doctor.id}`}><span>{days.length > 1 ? `${day.slice(5)} · ` : ""}{doctor.fullName}</span><small>{appointmentCountLabel(calendar.appointments.filter((item) => item.doctorId === doctor.id && appointmentDate(item.scheduledAt) === day && item.status === "scheduled").length)}{state === "not_bookable" ? " · Not bookable" : state === "configuration_invalid" ? " · Schedule needs review" : ""}</small></strong>;
     })}</div>
     <div className={styles.schedulerTimeline} style={{ height: CALENDAR_DAY_HEIGHT_PX }}>
       <div className={styles.schedulerTimeRuler}>{labels.map((minute) => <time key={minute} dateTime={`${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`} style={{ top: calendarMinuteOffset(minute) }}>{String(Math.floor(minute / 60)).padStart(2, "0")}:{String(minute % 60).padStart(2, "0")}</time>)}</div>

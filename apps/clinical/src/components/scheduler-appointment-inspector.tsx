@@ -1,7 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SendPatientPortalLink } from "@/components/send-patient-portal-link";
+import { Icon } from "@/components/icons";
 import styles from "@/components/clinical.module.css";
 import type { ClinicDoctor } from "@/lib/db/clinics";
 import type { SchedulerAppointmentSummary } from "@/lib/db/scheduler-read";
@@ -35,7 +37,9 @@ export function AppointmentInspector({ appointment, doctors, role, onRefresh }: 
   const [futureWarning, setFutureWarning] = useState<Conflict | null>(null);
   const [futureAcknowledged, setFutureAcknowledged] = useState(false);
   const keyRef = useRef(key());
+  const router = useRouter();
   const eligibility = inspectorActions(appointment, role);
+  const isToday = day.format(new Date(appointment.scheduledAt)) === day.format(new Date());
 
   function resetCommand() {
     keyRef.current = key();
@@ -108,8 +112,41 @@ export function AppointmentInspector({ appointment, doctors, role, onRefresh }: 
     finally { setBusy(false); }
   }
 
+  // Operational check-in straight from the schedule, for a patient who arrives early.
+  async function checkIn() {
+    setBusy(true); setError(null);
+    try {
+      const response = await fetch(`/api/appointments/${appointment.id}/queue`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ operation: "check_in" }) });
+      if (!response.ok) throw new Error(errorMessage(await response.json().catch(() => null), "Check-in is no longer available for this appointment."));
+      onRefresh("Patient checked in and added to the waiting queue.");
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "Could not check the patient in."); }
+    finally { setBusy(false); }
+  }
+
+  // Doctor-only: open the encounter from the schedule. The server returns the
+  // canonical encounter id, so the doctor lands in the existing workflow.
+  async function startConsultation() {
+    setBusy(true); setError(null);
+    try {
+      const response = await fetch(`/api/appointments/${appointment.id}/queue`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ operation: "start_consultation" }) });
+      const payload = await response.json().catch(() => null) as { consultationId?: string } | null;
+      if (!response.ok || !payload?.consultationId) throw new Error(errorMessage(payload, "The consultation could not be started."));
+      router.push(`/consultations/${payload.consultationId}`);
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "The consultation could not be started."); setBusy(false); }
+  }
+
   return <div className={styles.schedulerSideBody}>
     <div className={styles.schedulerInspectorIdentity}><strong>{appointment.patientName}</strong><span>{appointment.patientPhone ?? "Phone not recorded"}</span></div>
+    {eligibility.startConsultation || eligibility.checkIn ? <section className={styles.schedulerVisitActions} aria-label="Start this visit">
+      <div>
+        <h3>Start this visit</h3>
+        <p>{appointment.encounterOperationalStatus === "in_consultation" ? "This consultation is already in progress." : isToday ? "For a patient who arrived early, or when the doctor is free." : "This appointment is not today. Starting it now still opens the same encounter."}</p>
+      </div>
+      <div className={styles.schedulerVisitActionsRow}>
+        {eligibility.startConsultation ? <button type="button" className={styles.primaryButton} disabled={busy} onClick={() => void startConsultation()}><Icon name="clipboard" /> {appointment.encounterOperationalStatus === "in_consultation" ? "Open consultation" : "Start consultation"}</button> : null}
+        {eligibility.checkIn ? <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => void checkIn()}>Check in patient</button> : null}
+      </div>
+    </section> : null}
     <section className={styles.schedulerInspectorSection} aria-label="Appointment timing">
       <h3>Appointment</h3>
       <dl className={styles.schedulerInspectorFacts}>

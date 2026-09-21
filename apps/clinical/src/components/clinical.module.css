@@ -1767,6 +1767,27 @@
 .schedulerLegend li[data-kind="clean"]::before { width: 4px; border: 0; border-radius: 2px; background: #7cbb9c; }
 .schedulerLegend li[data-kind="blocked"]::before { border-color: #e0c3b3; background: #f7ece4; }
 
+/* Start-this-visit block in the appointment inspector. */
+.schedulerVisitActions { display: grid; gap: 9px; border: 1px solid #cfe0d8; border-left: 4px solid #157058; border-radius: 8px; background: #f4faf7; padding: 12px 13px; }
+.schedulerVisitActions h3 { margin: 0; font-size: .82rem; }
+.schedulerVisitActions p { margin: 3px 0 0; color: #5b6d66; font-size: .7rem; line-height: 1.4; }
+.schedulerVisitActionsRow { display: flex; flex-wrap: wrap; gap: 7px; }
+.schedulerVisitActionsRow .primaryButton, .schedulerVisitActionsRow .secondaryButton { min-height: 36px; }
+
+/* Booking form: selected patient, search results, duration choices. */
+.schedulerSelectedPatient { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #cfe0d8; border-radius: 8px; background: #f4faf7; padding: 9px 11px; }
+.schedulerSelectedPatient > div { display: grid; gap: 2px; min-width: 0; }
+.schedulerSelectedPatient strong { font-size: .84rem; }
+.schedulerSelectedPatient span { color: #6d7b75; font-size: .7rem; }
+.schedulerPatientResults { display: grid; gap: 5px; max-height: 210px; overflow: auto; border: 1px solid #e2e9e6; border-radius: 8px; background: #fbfdfc; padding: 5px; }
+.durationChips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.durationChip { border: 1px solid #d5dfda; border-radius: 999px; background: #fff; padding: 7px 13px; color: #455750; font: inherit; font-size: .74rem; font-weight: 750; cursor: pointer; }
+.durationChip:hover:not(:disabled) { border-color: #9dbbaf; background: #f4faf7; }
+.durationChip[data-active="true"] { border-color: #157058; background: #e8f3ee; color: #0e5945; }
+.durationChip:disabled { opacity: .5; cursor: not-allowed; }
+.durationSummary { margin: 4px 0 0; color: #5f6f69; font-size: .72rem; line-height: 1.45; }
+.durationSummary strong { color: #17231f; }
+
 @media (max-width: 760px) {
   .schedulerHeaderActions { width: 100%; }
   .schedulerHeaderActions > * { flex: 1 1 0; justify-content: center; }

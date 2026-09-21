@@ -74,8 +74,15 @@ test("Phase 3 inspector keeps lifecycle, Queue and action eligibility separate",
   assert.deepEqual(inspectorActions(scheduled, "assistant"), {
     sendLink: true, reschedule: true, reassign: false, cancel: true, noShow: true,
     rebook: false, remediate: false, markArrived: true, markWaiting: false,
+    checkIn: true, startConsultation: false,
   });
   assert.equal(inspectorActions(scheduled, "doctor").reassign, true);
+  // Only a doctor may open the encounter from the schedule, and check-in is
+  // an operational action available to every permitted scheduler role.
+  assert.equal(inspectorActions(scheduled, "doctor").startConsultation, true);
+  assert.equal(inspectorActions(scheduled, "admin").startConsultation, false);
+  assert.equal(inspectorActions(appointment({ encounterOperationalStatus: "waiting" }), "doctor").checkIn, false);
+  assert.equal(inspectorActions(appointment({ status: "cancelled" }), "doctor").startConsultation, false);
   assert.equal(inspectorActions(appointment({ durationMinutes: null, durationState: "unknown" }), "doctor").reschedule, false);
   assert.equal(inspectorActions(appointment({ durationMinutes: null, durationState: "unknown" }), "doctor").remediate, true);
   assert.equal(inspectorActions(appointment({ encounterOperationalStatus: "arrived" }), "assistant").markWaiting, true);
