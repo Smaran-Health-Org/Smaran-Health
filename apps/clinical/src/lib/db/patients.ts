@@ -7,11 +7,42 @@ import {
   patientPhoneMatchKeys,
 } from "@/lib/identity";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Patient } from "@/types";
+import type { Patient, PatientDirectoryEntry } from "@/types";
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
-const PATIENT_COLUMNS =
-  "id, clinicId:clinic_id, fullName:full_name, normalizedName:normalized_name, age, dateOfBirth:date_of_birth, gender, phone, normalizedPhone:normalized_phone, email, normalizedEmail:normalized_email, address, medicalRecordNumber:medical_record_number, weightKg:weight_kg, heightCm:height_cm, bloodPressure:blood_pressure, bloodGroup:blood_group, hasDiabetes:has_diabetes, mergedIntoPatientId:merged_into_patient_id, mergedAt:merged_at, mergedBy:merged_by, createdAt:created_at, updatedAt:updated_at";
+const IDENTITY_PATIENT_COLUMNS =
+  "id, clinicId:clinic_id, fullName:full_name, normalizedName:normalized_name, age, dateOfBirth:date_of_birth, gender, phone, normalizedPhone:normalized_phone, email, normalizedEmail:normalized_email, address, medicalRecordNumber:medical_record_number, mergedIntoPatientId:merged_into_patient_id, mergedAt:merged_at, mergedBy:merged_by, createdAt:created_at, updatedAt:updated_at";
+
+const PATIENT_COLUMNS = `${IDENTITY_PATIENT_COLUMNS}, weightKg:weight_kg, heightCm:height_cm, bloodPressure:blood_pressure, bloodGroup:blood_group, hasDiabetes:has_diabetes`;
+
+/**
+ * Identity columns only, for administrative/operational (Clinic Desk) surfaces.
+ * Clinical columns are intentionally absent so admin/assistant roles cannot
+ * receive doctor-only clinical interpretation in a directory or search payload.
+ */
+export const PATIENT_DIRECTORY_COLUMNS = IDENTITY_PATIENT_COLUMNS;
+
+/** Patient fields that carry doctor-only clinical interpretation. */
+export const CLINICAL_PATIENT_FIELDS = [
+  "weightKg",
+  "heightCm",
+  "bloodPressure",
+  "bloodGroup",
+  "hasDiabetes",
+] as const;
+
+/**
+ * Strip doctor-only clinical facts before a patient record crosses to an
+ * operational surface.
+ */
+export function toPatientDirectoryEntry(patient: Patient): PatientDirectoryEntry {
+  const entry: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(patient)) {
+    if ((CLINICAL_PATIENT_FIELDS as readonly string[]).includes(key)) continue;
+    entry[key] = value;
+  }
+  return entry as PatientDirectoryEntry;
+}
 
 export type DuplicatePatientCandidate = Pick<
   Patient,
@@ -83,10 +114,13 @@ export async function findPossiblePatientDuplicates(
   return findPossiblePatientDuplicatesWithClient(supabase, clinicId, input);
 }
 
-export async function getPatients(
+export type PatientQueryOptions = { search?: string; page?: number; pageSize?: number };
+
+async function queryPatients<T>(
+  columns: string,
   clinicId: string,
-  opts?: { search?: string; page?: number; pageSize?: number }
-): Promise<{ data: Patient[]; total: number }> {
+  opts?: PatientQueryOptions
+): Promise<{ data: T[]; total: number }> {
   const supabase = await createServerClient();
   const page = opts?.page ?? 1;
   const pageSize = opts?.pageSize ?? 20;
@@ -95,7 +129,7 @@ export async function getPatients(
 
   let query = supabase
     .from("patients")
-    .select(PATIENT_COLUMNS, { count: "exact" })
+    .select(columns, { count: "exact" })
     .eq("clinic_id", clinicId)
     .is("merged_into_patient_id", null)
     .order("created_at", { ascending: false })
@@ -110,7 +144,24 @@ export async function getPatients(
 
   const { data, error, count } = await query;
   if (error) throw new Error(`Failed to fetch patients: ${error.message}`);
-  return { data: (data as Patient[]) ?? [], total: count ?? 0 };
+  return { data: (data as T[]) ?? [], total: count ?? 0 };
+}
+
+export async function getPatients(
+  clinicId: string,
+  opts?: PatientQueryOptions
+): Promise<{ data: Patient[]; total: number }> {
+  return queryPatients<Patient>(PATIENT_COLUMNS, clinicId, opts);
+}
+
+/**
+ * Patient directory/search for operational surfaces: identity fields only.
+ */
+export async function getPatientDirectory(
+  clinicId: string,
+  opts?: PatientQueryOptions
+): Promise<{ data: PatientDirectoryEntry[]; total: number }> {
+  return queryPatients<PatientDirectoryEntry>(PATIENT_DIRECTORY_COLUMNS, clinicId, opts);
 }
 
 export async function getPatient(

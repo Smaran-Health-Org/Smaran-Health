@@ -44,6 +44,16 @@ export type Clinic = InferSelectModel<typeof clinics>;
 export type Profile = InferSelectModel<typeof profiles>;
 export type ClinicMembership = InferSelectModel<typeof clinicMemberships>;
 export type Patient = InferSelectModel<typeof patients>;
+/**
+ * Patient identity fields only — deliberately excludes doctor-only clinical
+ * facts (weight, height, blood pressure, blood group, diabetes). Operational
+ * (Clinic Desk) surfaces and patient pickers must use this projection so
+ * admin/assistant roles never receive clinical interpretation.
+ */
+export type PatientDirectoryEntry = Omit<
+  Patient,
+  "weightKg" | "heightCm" | "bloodPressure" | "bloodGroup" | "hasDiabetes"
+>;
 export type PatientMergeEvent = InferSelectModel<typeof patientMergeEvents>;
 export type Consultation = InferSelectModel<typeof consultations>;
 export type Appointment = InferSelectModel<typeof appointments>;
