@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import type { Patient } from "@/types";
 import styles from "@/components/clinical.module.css";
@@ -14,32 +17,51 @@ function initials(name: string): string {
 
 export function PatientBrowser({
   patients,
-  patientHref = (patientId) => `/patients/${patientId}`,
+  patientBasePath = "/patients",
 }: {
   patients: Patient[];
-  patientHref?: (patientId: string) => string;
+  patientBasePath?: string;
 }) {
+  const [query, setQuery] = useState("");
+  const filteredPatients = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase();
+    if (!normalized) return patients;
+    return patients.filter((patient) =>
+      [patient.fullName, patient.phone, patient.medicalRecordNumber]
+        .filter(Boolean)
+        .some((value) => String(value).toLocaleLowerCase().includes(normalized))
+    );
+  }, [patients, query]);
+
   return (
     <div className={styles.pageContent}>
       <div className={styles.pageHeading}>
         <div>
           <p className={styles.eyebrow}>Patients</p>
-          <h1>Patient list</h1>
-          <p>Select a patient to view their full profile.</p>
+          <h1>Patient directory</h1>
+          <p>Find a patient by name, phone, or medical record number.</p>
         </div>
+        <span className={styles.directoryCount}>{patients.length} patients</span>
       </div>
 
-      {patients.length === 0 ? (
+      <label className={styles.directorySearch}>
+        <Icon name="search" />
+        <span className={styles.visuallyHidden}>Search patients</span>
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, phone, or record number" />
+        {query ? <button type="button" onClick={() => setQuery("")}>Clear</button> : null}
+      </label>
+
+      {filteredPatients.length === 0 ? (
         <div className={styles.emptyState}>
-          <strong>No patients yet</strong>
-          <p>Patients created for this clinic will appear here.</p>
+          <strong>{patients.length === 0 ? "No patients yet" : "No matching patients"}</strong>
+          <p>{patients.length === 0 ? "Patients created for this clinic will appear here." : "Try a different name, phone number, or record number."}</p>
         </div>
       ) : (
         <div className={styles.patientList} aria-label="Patients">
-            {patients.map((patient) => (
+            {filteredPatients.map((patient) => (
                 <Link
                   key={patient.id}
-                  href={patientHref(patient.id)}
+                  href={`${patientBasePath}/${patient.id}`}
                   className={styles.patientRow}
                 >
                   <span className={styles.avatar}>{initials(patient.fullName)}</span>
@@ -50,6 +72,7 @@ export function PatientBrowser({
                       {patient.gender ? ` · ${patient.gender}` : ""}
                     </span>
                   </span>
+                  <span className={styles.patientRowMeta}>{patient.medicalRecordNumber ?? patient.phone ?? "Record details unavailable"}</span>
                   <Icon name="chevron" />
                 </Link>
             ))}

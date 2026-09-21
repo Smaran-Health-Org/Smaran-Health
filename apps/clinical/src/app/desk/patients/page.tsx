@@ -22,7 +22,7 @@ export default async function DeskPatientsPage() {
       role={session.role}
       workspace="desk"
     >
-      <PatientBrowser patients={patients} patientHref={(patientId) => `/desk/patients/${patientId}`} />
+      <PatientBrowser patients={patients} patientBasePath="/desk/patients" />
     </AppShell>
   );
 }

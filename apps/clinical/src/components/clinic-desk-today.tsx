@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AppointmentQueue, AppointmentQueueItem, QueueOperation, QueueReorderDirection } from "@/lib/db/appointment-queue";
+import { Icon } from "@/components/icons";
 import styles from "@/components/clinical.module.css";
 
 function appointmentTime(value: string): string {
@@ -160,6 +161,10 @@ export function ClinicDeskToday({ queue }: { queue: AppointmentQueue }) {
           </div>
         </div>
         <div className={styles.deskCardActions}>
+          {waitingIndex !== undefined ? <div className={styles.deskReorderActions} aria-label="Queue position controls">
+            <button type="button" className={styles.iconButton} title="Move earlier" aria-label={`Move ${item.patientName} earlier`} disabled={busy || waitingIndex === 0} onClick={(event) => { event.stopPropagation(); void reorder(item, "earlier"); }}><Icon name="arrowLeft" /></button>
+            <button type="button" className={styles.iconButton} title="Move later" aria-label={`Move ${item.patientName} later`} disabled={busy || waitingIndex === waiting.length - 1} onClick={(event) => { event.stopPropagation(); void reorder(item, "later"); }}><Icon name="arrowRight" /></button>
+          </div> : null}
           {isExpected ? <button className={styles.primaryButton} disabled={busy} onClick={(event) => { event.stopPropagation(); void queueAction(item, "check_in"); }}>{busy ? "Checking in…" : "Check in →"}</button> : null}
           {isActive(item) ? item.isPriority ? <button className={styles.compactButton} disabled={busy} onClick={(event) => { event.stopPropagation(); void updatePriority(item, false); }}>Clear Priority</button> : <button className={styles.compactButton} disabled={busy} onClick={(event) => { event.stopPropagation(); setPriorityEditorId(item.appointmentId); }}>Mark Priority</button> : null}
         </div>
@@ -181,7 +186,7 @@ export function ClinicDeskToday({ queue }: { queue: AppointmentQueue }) {
 
   return <div className={styles.deskSections}>
     {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
-    {needsAction.length > 0 ? <details className={`${styles.panel} ${styles.needsActionPanel} ${styles.needsActionDisclosure}`}>
+    {needsAction.length > 0 ? <details open className={`${styles.panel} ${styles.needsActionPanel} ${styles.needsActionDisclosure}`}>
       <summary><div><p className={styles.eyebrow}>Exceptions only</p><h2 id="needs-action-heading">Needs your attention</h2></div><span className={styles.panelHint}>{needsAction.length}</span></summary>
       <ul className={styles.needsActionList}>{needsAction.map((item) => <li key={`action-${item.appointmentId}`}>
         <div><strong>{item.patientName}</strong><span>{item.documentStatus === "needs_review" ? "We couldn’t read a document clearly. The original is safe." : "Patient details are incomplete."}</span></div>

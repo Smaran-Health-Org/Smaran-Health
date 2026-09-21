@@ -62,6 +62,8 @@ export function AppShell({
   const isDeskHome = pathname === "/desk";
   const isScheduler = pathname.startsWith("/scheduler");
   const homeHref = workspace === "desk" ? "/desk" : "/dashboard";
+  const patientsHref = workspace === "desk" ? "/desk/patients" : "/patients";
+  const schedulerHref = workspace === "desk" ? "/scheduler?workspace=desk" : "/scheduler?workspace=clinical";
   const workspaceLabel = workspace === "desk" ? "Clinic Desk" : "Clinical";
 
   return (
@@ -77,6 +79,14 @@ export function AppShell({
           </div>
         </Link>
 
+        <div className={styles.shellClinic}>
+          <span>{initials(clinicName)}</span>
+          <div>
+            <small>Active clinic</small>
+            <strong>{clinicName}</strong>
+          </div>
+        </div>
+
         <nav className={styles.sideNav} aria-label="Primary navigation">
           <p>Workspace</p>
           {workspace === "clinical" ? (
@@ -90,12 +100,12 @@ export function AppShell({
                 <Icon name="home" />
                 <span>Today</span>
               </Link>
-              <Link href="/scheduler?workspace=clinical" className={isScheduler ? styles.activeNav : undefined} aria-label="Scheduler" title="Scheduler">
+              <Link href={schedulerHref} className={isScheduler ? styles.activeNav : undefined} aria-label="Scheduler" title="Scheduler">
                 <Icon name="calendar" />
                 <span>Scheduler</span>
               </Link>
               <Link
-                href="/patients"
+                href={patientsHref}
                 className={isPatients ? styles.activeNav : undefined}
                 aria-label="Patients"
                 title="Patients"
@@ -111,12 +121,12 @@ export function AppShell({
                 <Icon name="home" />
                 <span>Today</span>
               </Link>
-              <Link href="/desk/patients" className={isPatients ? styles.activeNav : undefined} aria-label="Patients" title="Patients">
+              <Link href={patientsHref} className={isPatients ? styles.activeNav : undefined} aria-label="Patients" title="Patients">
                 <Icon name="users" />
                 <span>Patients</span>
                 <small>{patientCount}</small>
               </Link>
-              <Link href="/scheduler?workspace=desk" className={isScheduler ? styles.activeNav : undefined} aria-label="Scheduler" title="Scheduler">
+              <Link href={schedulerHref} className={isScheduler ? styles.activeNav : undefined} aria-label="Scheduler" title="Scheduler">
                 <Icon name="calendar" />
                 <span>Scheduler</span>
               </Link>
@@ -128,6 +138,10 @@ export function AppShell({
 
       <div className={styles.appSurface}>
         <div className={styles.accountBar}>
+          <div className={styles.accountContext}>
+            <span>{workspaceLabel}</span>
+            <strong>{clinicName}</strong>
+          </div>
           <details className={styles.accountMenu} ref={accountMenuRef}>
             <summary aria-label="Open profile menu">
               <span className={styles.doctorAvatar}>{initials(doctorName)}</span>
@@ -172,6 +186,12 @@ export function AppShell({
         </div>
         {children}
       </div>
+
+      <nav className={styles.mobileNav} aria-label="Mobile navigation">
+        <Link href={homeHref} data-active={isDashboard || isDeskHome}><Icon name="home" /><span>Today</span></Link>
+        <Link href={schedulerHref} data-active={isScheduler}><Icon name="calendar" /><span>Schedule</span></Link>
+        <Link href={patientsHref} data-active={isPatients}><Icon name="users" /><span>Patients</span></Link>
+      </nav>
     </div>
   );
 }
