@@ -90,7 +90,7 @@ export function AppShell({
                 <Icon name="home" />
                 <span>Today</span>
               </Link>
-              <Link href="/scheduler" className={isScheduler ? styles.activeNav : undefined} aria-label="Scheduler" title="Scheduler">
+              <Link href="/scheduler?workspace=clinical" className={isScheduler ? styles.activeNav : undefined} aria-label="Scheduler" title="Scheduler">
                 <Icon name="calendar" />
                 <span>Scheduler</span>
               </Link>
@@ -116,7 +116,7 @@ export function AppShell({
                 <span>Patients</span>
                 <small>{patientCount}</small>
               </Link>
-              <Link href="/scheduler" className={isScheduler ? styles.activeNav : undefined} aria-label="Scheduler" title="Scheduler">
+              <Link href="/scheduler?workspace=desk" className={isScheduler ? styles.activeNav : undefined} aria-label="Scheduler" title="Scheduler">
                 <Icon name="calendar" />
                 <span>Scheduler</span>
               </Link>

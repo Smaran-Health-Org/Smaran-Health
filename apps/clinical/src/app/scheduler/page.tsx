@@ -6,16 +6,19 @@ import { AppShell } from "@/components/app-shell";
 import { SchedulerWorkspace } from "@/components/scheduler-workspace";
 import styles from "@/components/clinical.module.css";
 
-export default async function SchedulerPage() {
+export default async function SchedulerPage({ searchParams }: { searchParams: Promise<{ workspace?: string }> }) {
   const session = await getSessionContext();
   if (!session) redirect("/login?redirect=/scheduler");
+  const params = await searchParams;
+  const workspace = params.workspace === "desk" ? "desk" : "clinical";
   const [clinicName, patients, doctors] = await Promise.all([
     getClinicName(session.clinicId), getPatients(session.clinicId, { page: 1, pageSize: 1 }), getClinicDoctors(session.clinicId),
   ]);
+  const shellWorkspace = session.role === "doctor" ? workspace : "desk";
   return (
-    <AppShell doctorName={session.fullName} clinicName={clinicName} patientCount={patients.total} role={session.role} workspace={session.role === "doctor" ? "clinical" : "desk"}>
+    <AppShell doctorName={session.fullName} clinicName={clinicName} patientCount={patients.total} role={session.role} workspace={shellWorkspace}>
       <main className={styles.pageContent}>
-        <SchedulerWorkspace initialDoctors={doctors} role={session.role} actorDoctorId={session.profileId} />
+        <SchedulerWorkspace initialDoctors={doctors} role={session.role} actorDoctorId={session.profileId} workspace={shellWorkspace} />
       </main>
     </AppShell>
   );
