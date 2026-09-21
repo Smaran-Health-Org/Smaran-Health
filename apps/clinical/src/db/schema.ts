@@ -657,13 +657,83 @@ export const intakeAccessSessions = pgTable(
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    source: text("source").$type<"staff_delivery" | "patient_portal_handoff">().notNull().default("staff_delivery"),
+    // Declared before the Portal table below; the database migration owns this FK.
+    portalAccessSessionId: uuid("portal_access_session_id"),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index("intake_access_sessions_intake_created_idx").on(table.patientIntakeId, table.createdAt),
     index("intake_access_sessions_clinic_appointment_idx").on(table.clinicId, table.appointmentId),
   ]
+);
+
+// Patient Portal access is patient-scoped (unlike appointment-scoped Intake).
+// Raw access, verification, and browser-session secrets are never persisted.
+export const patientPortalAccessSessions = pgTable(
+  "patient_portal_access_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    otpHash: text("otp_hash").notNull(),
+    verifiedSessionHash: text("verified_session_hash"),
+    failedAttempts: integer("failed_attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    deliveryStatus: text("delivery_status").notNull().default("pending"),
+    deliveryChannel: text("delivery_channel"),
+    deliveryProvider: text("delivery_provider"),
+    deliveryRecipient: text("delivery_recipient"),
+    providerMessageId: text("provider_message_id"),
+    deliveryAttemptedAt: timestamp("delivery_attempted_at", { withTimezone: true }),
+    deliverySentAt: timestamp("delivery_sent_at", { withTimezone: true }),
+    deliveryFailedAt: timestamp("delivery_failed_at", { withTimezone: true }),
+    deliveryFailureCode: text("delivery_failure_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("patient_portal_access_verified_session_idx").on(table.verifiedSessionHash),
+    index("patient_portal_access_clinic_patient_idx").on(table.clinicId, table.patientId),
+  ]
+);
+
+export const patientPortalBookingReceipts = pgTable(
+  "patient_portal_booking_receipts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    portalAccessSessionId: uuid("portal_access_session_id").references(() => patientPortalAccessSessions.id, { onDelete: "restrict" }).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("patient_portal_booking_receipts_session_idempotency_key_key").on(table.portalAccessSessionId, table.idempotencyKey)]
+);
+
+export const patientPortalIntakeHandoffReceipts = pgTable(
+  "patient_portal_intake_handoff_receipts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    portalAccessSessionId: uuid("portal_access_session_id").references(() => patientPortalAccessSessions.id, { onDelete: "restrict" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
+    patientIntakeId: uuid("patient_intake_id").references(() => patientIntakes.id, { onDelete: "restrict" }).notNull(),
+    intakeAccessSessionId: uuid("intake_access_session_id").references(() => intakeAccessSessions.id, { onDelete: "restrict" }).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("patient_portal_intake_handoff_receipts_session_key").on(table.portalAccessSessionId, table.idempotencyKey)]
 );
 
 export const patientDemographicChangeEvents = pgTable(

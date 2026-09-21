@@ -14,7 +14,7 @@ export async function GET(
   const { token, id } = await params;
   try {
     const credentials = await verifiedIntakeCredentials(token);
-    if (!credentials) return unauthorized("OTP verification is required");
+    if (!credentials) return unauthorized("This intake session is invalid or expired");
     const document = await authorizePatientDocumentView(
       credentials.tokenHash,
       credentials.verifiedSessionHash,

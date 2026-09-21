@@ -7,6 +7,7 @@ import { getPatients } from "@/lib/db/patients";
 import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Icon } from "@/components/icons";
+import { SendPatientPortalLink } from "@/components/send-patient-portal-link";
 import { formatDate, formatRelativeDay } from "@/lib/status";
 import styles from "@/components/clinical.module.css";
 
@@ -103,6 +104,7 @@ export default async function PatientDetailPage({
                 <dd>{patient.address ?? "Not recorded"}</dd>
               </div>
             </dl>
+            <SendPatientPortalLink patientId={patient.id} />
           </section>
 
           <section className={styles.panel}>

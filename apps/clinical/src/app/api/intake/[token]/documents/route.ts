@@ -29,7 +29,7 @@ export async function GET(
   const { token } = await params;
   try {
     const credentials = await verifiedIntakeCredentials(token);
-    if (!credentials) return unauthorized("OTP verification is required");
+    if (!credentials) return unauthorized("This intake session is invalid or expired");
     const context = await getPatientDocumentUploadContext(
       credentials.tokenHash,
       credentials.verifiedSessionHash
@@ -54,7 +54,7 @@ export async function POST(
   const { token } = await params;
   try {
     const credentials = await verifiedIntakeCredentials(token);
-    if (!credentials) return unauthorized("OTP verification is required");
+    if (!credentials) return unauthorized("This intake session is invalid or expired");
     const upload = await parseDocumentUpload(request);
     if (!upload.documentStorageConsentAccepted) {
       return badRequest("Please agree to secure document storage before uploading.");

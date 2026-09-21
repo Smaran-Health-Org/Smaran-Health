@@ -7,12 +7,14 @@ import {
   localMidnight,
   projectPatientAvailability,
   weekdayForLocalDate,
+  SCHEDULER_TIMEZONE,
   type AvailabilityResult,
   type CandidateEvaluation,
   type PatientAvailabilityProjection,
   type PatientPolicy,
   type ScheduledOccupancy,
 } from "@/lib/scheduler/availability";
+import { projectStaffAvailabilityDay, type StaffAvailabilityProjection } from "@/lib/scheduler/availability-projection";
 import type { SessionContext } from "@/types";
 
 type ServerClient = Awaited<ReturnType<typeof createServerClient>>;
@@ -47,6 +49,92 @@ export type PatientAvailabilityRequest = {
   doctorId: string;
   localDate: string;
 };
+
+export type SchedulerBookingOptions = {
+  effectiveIntervalMinutes: number;
+  effectiveDefaultDurationMinutes: number;
+  appointmentTypes: Array<{
+    id: string;
+    name: string;
+    defaultDurationMinutes: number | null;
+    resolvedDurationMinutes: number;
+  }>;
+};
+
+export type StaffAvailabilityRangeRequest = { localDate: string; days: 1 | 7; doctorIds: string[] };
+
+/** One scheduling-only, bounded read: a day of selected doctors or a week of one doctor. */
+export async function getStaffAvailabilityProjectionWithClient(
+  supabase: ServerClient,
+  session: SessionContext,
+  request: StaffAvailabilityRangeRequest,
+  asOf = Date.now()
+): Promise<StaffAvailabilityProjection> {
+  assertOperationalStaff(session);
+  let start: number;
+  try { start = localMidnight(request.localDate); } catch { throw new SchedulerAvailabilityError("invalid"); }
+  const ids = [...new Set(request.doctorIds)];
+  if ((request.days !== 1 && request.days !== 7) || !ids.length || ids.length > 20 ||
+      (request.days === 7 && ids.length !== 1) || ids.length !== request.doctorIds.length ||
+      ids.some((id) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) {
+    throw new SchedulerAvailabilityError("invalid");
+  }
+  const localDates = Array.from({ length: request.days }, (_, index) => addLocalDays(request.localDate, index));
+  const end = localMidnight(addLocalDays(request.localDate, request.days));
+  const [doctorsResponse, clinicResponse, settingsResponse, workingResponse, exceptionsResponse, appointmentsResponse] = await Promise.all([
+    supabase.from("profiles").select("id").eq("clinic_id", session.clinicId).eq("role", "doctor").in("id", ids),
+    supabase.from("clinic_scheduler_settings").select("scheduling_interval_minutes, default_duration_minutes").eq("clinic_id", session.clinicId).maybeSingle(),
+    supabase.from("doctor_scheduler_settings").select("doctor_id, scheduling_interval_minutes, default_duration_minutes, is_bookable").eq("clinic_id", session.clinicId).in("doctor_id", ids),
+    supabase.from("doctor_working_hours").select("doctor_id, weekday, start_time, end_time", { count: "exact" }).eq("clinic_id", session.clinicId).in("doctor_id", ids).range(0, 4999),
+    supabase.from("doctor_availability_exceptions").select("doctor_id, exception_type, starts_at, ends_at", { count: "exact" }).eq("clinic_id", session.clinicId).in("doctor_id", ids).lt("starts_at", iso(end)).gt("ends_at", iso(start)).range(0, 4999),
+    // Include starts in the preceding hour: unresolved legacy duration occupies 60 minutes.
+    supabase.from("appointments").select("doctor_id, scheduled_at, duration_minutes", { count: "exact" }).eq("clinic_id", session.clinicId).in("doctor_id", ids).eq("status", "scheduled").gte("scheduled_at", iso(start - 60 * 60000)).lt("scheduled_at", iso(end)).range(0, 4999),
+  ]);
+  if (doctorsResponse.error || clinicResponse.error || settingsResponse.error || workingResponse.error ||
+      exceptionsResponse.error || appointmentsResponse.error || !clinicResponse.data ||
+      doctorsResponse.data?.length !== ids.length ||
+      [workingResponse, exceptionsResponse, appointmentsResponse].some((response) => response.count === null || response.count !== response.data?.length || response.data?.length === 5000)) {
+    throw new SchedulerAvailabilityError("not_found");
+  }
+  const clinic = clinicResponse.data;
+  const settings = new Map((settingsResponse.data ?? []).map((row) => [row.doctor_id, row]));
+  const working = workingResponse.data ?? [];
+  const exceptions = exceptionsResponse.data ?? [];
+  const appointments = appointmentsResponse.data ?? [];
+  return {
+    timezone: SCHEDULER_TIMEZONE,
+    calculatedAt: iso(asOf),
+    days: ids.flatMap((doctorId) => localDates.map((localDate) => {
+      const doctor = settings.get(doctorId);
+      const effective = resolveEffectiveSchedulerSettings({
+        clinicIntervalMinutes: clinic.scheduling_interval_minutes,
+        clinicDefaultDurationMinutes: clinic.default_duration_minutes,
+        doctorIntervalMinutes: doctor?.scheduling_interval_minutes,
+        doctorDefaultDurationMinutes: doctor?.default_duration_minutes,
+        appointmentTypeDefaultDurationMinutes: null,
+        explicitDurationMinutes: null,
+      });
+      const dayStart = localMidnight(localDate);
+      const dayEnd = localMidnight(addLocalDays(localDate, 1));
+      return projectStaffAvailabilityDay(doctorId, {
+        localDate,
+        workingHours: working.filter((row) => row.doctor_id === doctorId && row.weekday === weekdayForLocalDate(localDate)).map((row) => ({ weekday: row.weekday, startTime: row.start_time, endTime: row.end_time })),
+        exceptions: exceptions.filter((row) => row.doctor_id === doctorId && Date.parse(row.starts_at) < dayEnd && Date.parse(row.ends_at) > dayStart).map((row) => ({ type: row.exception_type, startsAt: Date.parse(row.starts_at), endsAt: Date.parse(row.ends_at) })),
+        doctorAppointments: appointments.filter((row) => row.doctor_id === doctorId && Date.parse(row.scheduled_at) >= dayStart - 60 * 60000 && Date.parse(row.scheduled_at) < dayEnd).map((row) => ({ scheduledAt: Date.parse(row.scheduled_at), durationMinutes: row.duration_minutes })),
+        effectiveIntervalMinutes: effective.effectiveIntervalMinutes,
+        resolvedDurationMinutes: effective.resolvedDurationMinutes,
+        asOf,
+        isBookable: doctor?.is_bookable ?? true,
+      });
+    })),
+  };
+}
+
+export async function getStaffAvailabilityProjection(request: StaffAvailabilityRangeRequest): Promise<StaffAvailabilityProjection> {
+  const session = await getSessionContext();
+  if (!session) throw new SchedulerAvailabilityError("forbidden");
+  return getStaffAvailabilityProjectionWithClient(await createServerClient(), session, request);
+}
 
 /**
  * This context may only be constructed by a verified patient-authentication or
@@ -102,6 +190,48 @@ function assertOperationalStaff(session: SessionContext): void {
   }
 }
 
+/**
+ * A narrow S4 read projection. Settings precedence remains centralized in
+ * resolveEffectiveSchedulerSettings rather than being reproduced by the UI.
+ */
+export async function getStaffSchedulerBookingOptionsWithClient(
+  supabase: ServerClient,
+  session: SessionContext,
+  doctorId: string
+): Promise<SchedulerBookingOptions> {
+  assertOperationalStaff(session);
+  const [doctorResponse, clinicSettingsResponse, doctorSettingsResponse, typesResponse] = await Promise.all([
+    supabase.from("profiles").select("id, role").eq("id", doctorId).eq("clinic_id", session.clinicId).eq("role", "doctor").maybeSingle(),
+    supabase.from("clinic_scheduler_settings").select("scheduling_interval_minutes, default_duration_minutes").eq("clinic_id", session.clinicId).single(),
+    supabase.from("doctor_scheduler_settings").select("scheduling_interval_minutes, default_duration_minutes").eq("clinic_id", session.clinicId).eq("doctor_id", doctorId).maybeSingle(),
+    supabase.from("appointment_types").select("id, name, default_duration_minutes").eq("clinic_id", session.clinicId).eq("doctor_id", doctorId).eq("is_active", true).order("name"),
+  ]);
+  const doctor = rowsOrThrow(doctorResponse);
+  const clinicSettings = rowsOrThrow(clinicSettingsResponse) as Pick<SchedulerSettingsRow, "scheduling_interval_minutes" | "default_duration_minutes">;
+  if (!doctor || doctor.role !== "doctor" || doctorSettingsResponse.error || typesResponse.error) {
+    throw new SchedulerAvailabilityError("not_found");
+  }
+  const resolve = (appointmentTypeDefaultDurationMinutes: number | null) => resolveEffectiveSchedulerSettings({
+    clinicIntervalMinutes: clinicSettings.scheduling_interval_minutes,
+    clinicDefaultDurationMinutes: clinicSettings.default_duration_minutes,
+    doctorIntervalMinutes: doctorSettingsResponse.data?.scheduling_interval_minutes,
+    doctorDefaultDurationMinutes: doctorSettingsResponse.data?.default_duration_minutes,
+    appointmentTypeDefaultDurationMinutes,
+    explicitDurationMinutes: undefined,
+  });
+  const defaults = resolve(null);
+  return {
+    effectiveIntervalMinutes: defaults.effectiveIntervalMinutes,
+    effectiveDefaultDurationMinutes: defaults.resolvedDurationMinutes,
+    appointmentTypes: (typesResponse.data ?? []).map((type: { id: string; name: string; default_duration_minutes: number | null }) => ({
+      id: type.id,
+      name: type.name,
+      defaultDurationMinutes: type.default_duration_minutes,
+      resolvedDurationMinutes: resolve(type.default_duration_minutes).resolvedDurationMinutes,
+    })),
+  };
+}
+
 async function resolveAvailability(
   supabase: ServerClient,
   context: Pick<SessionContext, "clinicId">,
@@ -128,7 +258,7 @@ async function resolveAvailability(
 
   const doctorSettingsResponse = await supabase
     .from("doctor_scheduler_settings")
-    .select("scheduling_interval_minutes, default_duration_minutes")
+    .select("scheduling_interval_minutes, default_duration_minutes, is_bookable")
     .eq("clinic_id", context.clinicId)
     .eq("doctor_id", request.doctorId)
     .maybeSingle();
@@ -256,6 +386,7 @@ async function resolveAvailability(
     effectiveIntervalMinutes,
     resolvedDurationMinutes,
     asOf,
+    isBookable: doctorSettings?.is_bookable ?? true,
     patientPolicy,
   });
   return { result, effectiveIntervalMinutes, resolvedDurationMinutes, patientAppointments };

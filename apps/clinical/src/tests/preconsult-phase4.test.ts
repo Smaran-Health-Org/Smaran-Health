@@ -15,7 +15,11 @@ import {
   type EmailNotificationProvider,
   NotificationDeliveryError,
 } from "../lib/notifications/intake-invitation";
-import { createIntakeCredentials, hashIntakeCredential, isPlausibleAccessToken } from "../lib/intake/security";
+import {
+  createPatientAccessCredentialsWithPepper,
+  hashPatientAccessCredentialWithPepper,
+  isPlausiblePatientAccessToken,
+} from "../lib/patient-access/primitives";
 import { createPatientSchema, submitPatientIntakeSchema } from "../lib/validation";
 
 const appointmentId = "51000000-0000-4000-8000-000000000001";
@@ -24,28 +28,25 @@ const intakeId = "71000000-0000-4000-8000-000000000001";
 
 test("intake credentials use deterministic HMAC digests without retaining raw values", () => {
   const pepper = "phase-four-test-pepper-that-is-at-least-32-characters";
-  const first = hashIntakeCredential("123456", pepper);
-  const second = hashIntakeCredential("123456", pepper);
+  const first = hashPatientAccessCredentialWithPepper("123456", pepper);
+  const second = hashPatientAccessCredentialWithPepper("123456", pepper);
   assert.equal(first, second);
   assert.match(first, /^[0-9a-f]{64}$/);
   assert.notEqual(first, "123456");
-  assert.equal(isPlausibleAccessToken("a".repeat(43)), true);
-  assert.equal(isPlausibleAccessToken("short"), false);
+  assert.equal(isPlausiblePatientAccessToken("a".repeat(43)), true);
+  assert.equal(isPlausiblePatientAccessToken("short"), false);
 });
 
 test("intake credentials make the high-entropy link the only MVP access credential", () => {
-  const environment = process.env as Record<string, string | undefined>;
-  const previousPepper = process.env.INTAKE_CREDENTIAL_PEPPER;
-  try {
-    environment.INTAKE_CREDENTIAL_PEPPER = "phase-four-test-pepper-that-is-at-least-32-characters";
-    const credentials = createIntakeCredentials(new Date("2026-09-12T00:00:00.000Z"));
-    assert.match(credentials.accessToken, /^[A-Za-z0-9_-]{40,60}$/);
-    assert.equal(credentials.otpHash, credentials.tokenHash);
-    assert.equal(credentials.expiresAt, "2026-09-13T00:00:00.000Z");
-  } finally {
-    if (previousPepper === undefined) delete environment.INTAKE_CREDENTIAL_PEPPER;
-    else environment.INTAKE_CREDENTIAL_PEPPER = previousPepper;
-  }
+  const credentials = createPatientAccessCredentialsWithPepper({
+    pepper: "phase-four-test-pepper-that-is-at-least-32-characters",
+    now: new Date("2026-09-12T00:00:00.000Z"),
+    linkTtlMs: 24 * 60 * 60 * 1000,
+    verificationTtlMs: 10 * 60 * 1000,
+  });
+  assert.match(credentials.accessToken, /^[A-Za-z0-9_-]{40,60}$/);
+  assert.equal(credentials.otpHash, credentials.tokenHash);
+  assert.equal(credentials.expiresAt, "2026-09-13T00:00:00.000Z");
 });
 
 test("patient intake validation requires consent, verbatim reason, and bounded optional lists", () => {
