@@ -10,7 +10,7 @@ const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 async function json(url: string, init?: RequestInit) { const response = await fetch(url, init); const payload = await response.json().catch(() => null); if (!response.ok) throw new Error(payload?.error ?? "Scheduler settings are unavailable."); return payload.data; }
 function nullableInteger(value: string) { return value.trim() === "" ? null : Number(value); }
 
-export function SchedulerSettings({ role, actorDoctorId }: { role: SessionContext["role"]; actorDoctorId: string }) {
+export function SchedulerSettings({ role, actorDoctorId, workspace }: { role: SessionContext["role"]; actorDoctorId: string; workspace: "clinical" | "desk" }) {
   const [snapshot, setSnapshot] = useState<SchedulerConfigurationSnapshot | null>(null); const [doctorId, setDoctorId] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null); const [saveError, setSaveError] = useState<string | null>(null); const [refreshError, setRefreshError] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const [reconciliation, setReconciliation] = useState<string | null>(null);
@@ -18,7 +18,7 @@ export function SchedulerSettings({ role, actorDoctorId }: { role: SessionContex
     const fresh = await json("/api/scheduler/configuration");
     setSnapshot(fresh); setDoctorId((currentDoctorId) => currentDoctorId || fresh.doctors[0]?.id || "");
   }
-  useEffect(() => { void json("/api/scheduler/configuration").then((data) => { setSnapshot(data); setDoctorId(data.doctors[0]?.id ?? ""); }).catch(() => setLoadError("Scheduler settings could not be loaded. Refresh to try again.")); }, []);
+  useEffect(() => { void json("/api/scheduler/configuration").then((data) => { setSnapshot(data); setDoctorId(data.doctors[0]?.id ?? ""); }).catch((reason: unknown) => setLoadError(reason instanceof Error && reason.message ? reason.message : "Scheduler settings could not be loaded. Refresh to try again.")); }, []);
   const visibleDoctors = useMemo(() => snapshot?.doctors.filter((item) => role !== "doctor" || item.id === actorDoctorId) ?? [], [snapshot, role, actorDoctorId]);
   const activeDoctorId = role === "doctor" ? actorDoctorId : doctorId;
   const doctor = useMemo(() => visibleDoctors.find((item) => item.id === activeDoctorId) ?? null, [visibleDoctors, activeDoctorId]);
@@ -48,7 +48,7 @@ export function SchedulerSettings({ role, actorDoctorId }: { role: SessionContex
   }
   if (!snapshot) return <main className={styles.pageContent}>{loadError ? <div className={styles.errorBanner} role="alert"><span>{loadError}</span><button type="button" disabled={busy} onClick={() => void retryRefresh()}>{busy ? "Refreshing…" : "Refresh settings"}</button></div> : <p className={styles.schedulerState} role="status">Loading Scheduler settings…</p>}</main>;
   const canManageClinic = role === "admin" || role === "assistant"; const canManageDoctor = role !== "doctor" || doctorId !== "";
-  return <main className={styles.pageContent} aria-busy={busy}><div className={styles.schedulerHeader}><div><p className={styles.eyebrow}>Scheduler</p><h1>Schedule settings</h1><p>Changes affect future Scheduler availability only. They never move, cancel, resize, or change an existing appointment.</p></div><a className={styles.secondaryButton} href="/scheduler">Back to calendar</a></div>
+  return <main className={styles.pageContent} aria-busy={busy}><div className={styles.schedulerHeader}><div><p className={styles.eyebrow}>Scheduler</p><h1>Schedule settings</h1><p>Changes affect future Scheduler availability only. They never move, cancel, resize, or change an existing appointment.</p></div><a className={styles.secondaryButton} href={`/scheduler?workspace=${workspace}`}>Back to calendar</a></div>
     {saveError ? <div className={styles.errorBanner} role="alert"><span>{saveError}</span></div> : null}
     {refreshError ? <div className={styles.errorBanner} role="alert"><span>{refreshError}</span><button type="button" disabled={busy} onClick={() => void retryRefresh()}>{busy ? "Refreshing…" : "Refresh settings"}</button></div> : null}
     {reconciliation ? <p className={styles.schedulerState} role="status">{reconciliation}</p> : null}

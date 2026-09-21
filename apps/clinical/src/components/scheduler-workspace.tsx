@@ -170,21 +170,46 @@ export function SchedulerWorkspace({ initialDoctors, role, actorDoctorId, worksp
   function toggleDoctor(id: string) { if (doctorIds.length === 1 && doctorIds.includes(id)) return; invalidateCalendar(); setDoctorIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]); }
   const days = range === "week" ? Array.from({ length: 7 }, (_, index) => addDays(date, index)) : [date];
   const summary = calendar ? calendarOperationalSummary(calendar.appointments) : null;
+  const isDoctorScope = role === "doctor" && workspace === "clinical";
+  const scopeLabel = isDoctorScope
+    ? "Your schedule"
+    : doctorIds.length === visibleDoctors.length
+      ? "All doctors"
+      : `${doctorIds.length} of ${visibleDoctors.length} doctors`;
+  const viewingToday = date === localDate();
   return <>
     <header className={styles.schedulerHeader}>
-      <div><h1>Appointments</h1><p>{range === "week" ? readableRange(date, 6) : readableDate(date)} · Asia/Kolkata</p></div>
-      <button className={styles.primaryButton} onClick={() => openBooking({ doctorId: selectedDoctors[0], date, time: "09:00" })}><Icon name="plus" /> New appointment</button>
+      <div>
+        <p className={styles.eyebrow}>Scheduler</p>
+        <h1>Appointments</h1>
+        <p>{range === "week" ? readableRange(date, 6) : readableDate(date)} · Asia/Kolkata · {scopeLabel}</p>
+      </div>
+      <div className={styles.schedulerHeaderActions}>
+        <a className={styles.secondaryButton} href={`/scheduler/settings?workspace=${workspace}`}><Icon name="note" /> Settings</a>
+        <button className={styles.primaryButton} onClick={() => openBooking({ doctorId: selectedDoctors[0], date, time: "09:00" })}><Icon name="plus" /> New appointment</button>
+      </div>
     </header>
-    {!loading && !error && summary ? <div className={styles.schedulerSummary} aria-label="Visible appointment summary"><span><strong>{summary.appointments}</strong> Active appointments</span><span><strong>{summary.intakePending}</strong> Intake pending</span><span><strong>{summary.waiting}</strong> Waiting</span></div> : null}
-    <section className={styles.schedulerControls} aria-label="Scheduler controls">
-      <div className={styles.schedulerDateControls}><button className={styles.secondaryButton} onClick={() => changeDate(addDays(date, range === "week" ? -7 : -1))} aria-label="Previous date"><Icon name="arrowLeft" /></button><button className={styles.secondaryButton} onClick={() => changeDate(localDate())}>Today</button><button className={styles.secondaryButton} onClick={() => changeDate(addDays(date, range === "week" ? 7 : 1))} aria-label="Next date"><Icon name="arrowRight" /></button><strong>{range === "week" ? readableRange(date, 6) : readableDate(date)}</strong></div>
-      <div className={styles.schedulerToggle} role="group" aria-label="Scheduler view"><button data-active={view === "day"} onClick={() => changeView("day")}>Day</button><button data-active={view === "week"} onClick={() => changeView("week")}>Week</button><button data-active={view === "agenda"} onClick={() => changeView("agenda")}>Agenda</button></div>
-      {view === "agenda" ? <label className={styles.schedulerProviderSelect}>Agenda range <select aria-label="Agenda range" value={agendaRange} onChange={(event) => changeAgendaRange(event.target.value as "day" | "week")}><option value="day">Day · selected doctors</option><option value="week">Week · one doctor</option></select></label> : null}
-      {range === "week" ? <label className={styles.schedulerProviderSelect}>Doctor <select aria-label="Week doctor" value={weekDoctorId} onChange={(event) => { if (event.target.value !== weekDoctorId) { invalidateCalendar(); setWeekDoctorId(event.target.value); } }}>{visibleDoctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.fullName}</option>)}</select></label> : role === "doctor" && workspace === "clinical" ? <span className={styles.schedulerRulerBadge}>Your schedule</span> : <details className={styles.schedulerProviderFilter}><summary>{doctorIds.length === visibleDoctors.length ? "All doctors" : `${doctorIds.length} doctors`}</summary><div>{visibleDoctors.map((doctor) => <label key={doctor.id}><input type="checkbox" checked={doctorIds.includes(doctor.id)} onChange={() => toggleDoctor(doctor.id)} /> {doctor.fullName}</label>)}</div></details>}
-      <button ref={searchTrigger} type="button" className={styles.secondaryButton} aria-expanded={panel.kind === "patient-search"} aria-controls="scheduler-side-panel" onClick={openSearch}><Icon name="search" /> Search patient</button>
-      {view !== "agenda" ? <span className={styles.schedulerRulerBadge}>5 min ruler</span> : null}
-      <a className={styles.schedulerSettingsLink} href={`/scheduler/settings?workspace=${workspace}`}>Settings</a>
+    {!loading && !error && summary ? <div className={styles.schedulerSummary} aria-label="Visible appointment summary"><span><strong>{summary.appointments}</strong> Active appointments</span><span><strong>{summary.intakePending}</strong> Intake pending</span><span><strong>{summary.waiting}</strong> Waiting in queue</span></div> : null}
+    <section className={styles.schedulerToolbar} aria-label="Scheduler controls">
+      <div className={styles.schedulerToolbarGroup} role="group" aria-label="Date navigation">
+        <button type="button" className={styles.iconButton} onClick={() => changeDate(addDays(date, range === "week" ? -7 : -1))} aria-label={range === "week" ? "Previous week" : "Previous day"}><Icon name="arrowLeft" /></button>
+        <button type="button" className={styles.schedulerToolbarButton} data-active={viewingToday} onClick={() => changeDate(localDate())}>Today</button>
+        <button type="button" className={styles.iconButton} onClick={() => changeDate(addDays(date, range === "week" ? 7 : 1))} aria-label={range === "week" ? "Next week" : "Next day"}><Icon name="arrowRight" /></button>
+      </div>
+      <div className={styles.schedulerToolbarGroup} role="group" aria-label="View">
+        <span className={styles.schedulerToolbarLabel}>View</span>
+        <div className={styles.schedulerToggle} role="group" aria-label="Scheduler view"><button data-active={view === "day"} onClick={() => changeView("day")}>Day</button><button data-active={view === "week"} onClick={() => changeView("week")}>Week</button><button data-active={view === "agenda"} onClick={() => changeView("agenda")}>Agenda</button></div>
+      </div>
+      {view === "agenda" ? <label className={styles.schedulerToolbarGroup}><span className={styles.schedulerToolbarLabel}>Range</span><select aria-label="Agenda range" value={agendaRange} onChange={(event) => changeAgendaRange(event.target.value as "day" | "week")}><option value="day">Day · selected doctors</option><option value="week">Week · one doctor</option></select></label> : null}
+      <div className={styles.schedulerToolbarGroup}>
+        <span className={styles.schedulerToolbarLabel}>{range === "week" ? "Doctor" : "Doctors"}</span>
+        {range === "week" ? <select aria-label="Week doctor" value={weekDoctorId} onChange={(event) => { if (event.target.value !== weekDoctorId) { invalidateCalendar(); setWeekDoctorId(event.target.value); } }}>{visibleDoctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.fullName}</option>)}</select> : isDoctorScope ? <span className={styles.schedulerScopePill}>Only you</span> : <details className={styles.schedulerProviderFilter}><summary>{scopeLabel}</summary><div>{visibleDoctors.map((doctor) => <label key={doctor.id}><input type="checkbox" checked={doctorIds.includes(doctor.id)} onChange={() => toggleDoctor(doctor.id)} /> {doctor.fullName}</label>)}</div></details>}
+      </div>
+      <div className={styles.schedulerToolbarGroupEnd}>
+        <button ref={searchTrigger} type="button" className={styles.secondaryButton} aria-expanded={panel.kind === "patient-search"} aria-controls="scheduler-side-panel" onClick={openSearch}><Icon name="search" /> Search patient</button>
+      </div>
     </section>
+    {!loading && !error && view !== "agenda" ? <ul className={styles.schedulerLegend} aria-label="Calendar legend"><li data-kind="appointment">Booked appointment</li><li data-kind="unknown">Duration unknown</li><li data-kind="working">Working hours</li><li data-kind="clean">Clean availability</li><li data-kind="blocked">Leave or blocked</li></ul> : null}
     {error ? <div className={styles.errorBanner} role="alert"><strong>Calendar unavailable.</strong><span>{error}</span><button className={styles.secondaryButton} onClick={() => void loadCalendar()}>Try again</button></div> : null}
     {!loading && !error && calendar && availabilityWarning && view !== "agenda" ? <div className={styles.schedulerAvailabilityWarning} role="status">Availability could not be loaded. Appointments and exact-time booking remain available; save checks again.</div> : null}
     {notice ? <div ref={noticeRef} tabIndex={-1} className={styles.schedulerPreview} role="status">{notice}</div> : null}

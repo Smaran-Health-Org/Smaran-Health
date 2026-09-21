@@ -7,7 +7,16 @@ import { badRequest, forbidden, internalError } from "@/lib/api/error-handler";
 function responseFor(error: unknown) {
   if (!(error instanceof SchedulerConfigurationError)) return internalError("Could not update Scheduler settings.");
   if (error.kind === "forbidden") return forbidden();
-  if (error.kind === "not_found") return badRequest("The selected Scheduler resource is unavailable.");
+  if (error.kind === "unavailable") {
+    return NextResponse.json(
+      {
+        error: "Scheduler settings are unavailable because the Scheduler database setup is incomplete in this environment. Apply the pending Scheduler migrations, then reload.",
+        code: "service_unavailable",
+      },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+  if (error.kind === "not_found") return badRequest("Scheduler settings have not been initialised for this clinic yet. Clinic defaults are created during clinic setup.");
   return badRequest(error.kind === "stale" ? "Settings changed after preview. Preview again before saving." : "Invalid Scheduler settings.");
 }
 

@@ -12,5 +12,5 @@ export default async function SchedulerSettingsPage({ searchParams }: { searchPa
   const workspace = params.workspace === "desk" ? "desk" : "clinical";
   const [clinicName, patients] = await Promise.all([getClinicName(session.clinicId), getPatients(session.clinicId, { page: 1, pageSize: 1 })]);
   const shellWorkspace = session.role === "doctor" ? workspace : "desk";
-  return <AppShell doctorName={session.fullName} clinicName={clinicName} patientCount={patients.total} role={session.role} workspace={shellWorkspace}><SchedulerSettings role={session.role} actorDoctorId={session.profileId} /></AppShell>;
+  return <AppShell doctorName={session.fullName} clinicName={clinicName} patientCount={patients.total} role={session.role} workspace={shellWorkspace}><SchedulerSettings role={session.role} actorDoctorId={session.profileId} workspace={shellWorkspace} /></AppShell>;
 }

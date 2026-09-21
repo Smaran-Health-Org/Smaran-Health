@@ -10,9 +10,20 @@ type WorkingHourRow = { id: string; doctor_id: string; weekday: number; start_ti
 type ExceptionRow = { id: string; doctor_id: string; exception_type: "leave" | "blocked" | "special_working"; starts_at: string; ends_at: string; staff_note: string | null };
 type AppointmentTypeRow = { id: string; doctor_id: string; name: string; default_duration_minutes: number | null; is_active: boolean };
 export class SchedulerConfigurationError extends Error {
-  constructor(public readonly kind: "forbidden" | "invalid" | "not_found" | "stale") {
+  constructor(public readonly kind: "forbidden" | "invalid" | "not_found" | "unavailable" | "stale") {
     super("Scheduler configuration is unavailable");
   }
+}
+
+// A missing relation/column means the Scheduler schema was never fully applied in
+// this environment. That is an operational setup problem, not a bad request, so it
+// must stay distinguishable from a clinic that simply has no settings row yet.
+const MISSING_SCHEDULER_SCHEMA_CODES = new Set(["42P01", "42703", "PGRST204", "PGRST205"]);
+
+function configurationReadFailure(error: { code?: string } | null): SchedulerConfigurationError {
+  return error && MISSING_SCHEDULER_SCHEMA_CODES.has(String(error.code))
+    ? new SchedulerConfigurationError("unavailable")
+    : new SchedulerConfigurationError("not_found");
 }
 
 function assertStaff(session: SessionContext) {
@@ -86,7 +97,9 @@ export async function getSchedulerConfigurationWithClient(supabase: ServerClient
     supabase.from("doctor_availability_exceptions").select("id, doctor_id, exception_type, starts_at, ends_at, staff_note").eq("clinic_id", session.clinicId).order("starts_at"),
     supabase.from("appointment_types").select("id, doctor_id, name, default_duration_minutes, is_active").eq("clinic_id", session.clinicId).order("name"),
   ]);
-  if (clinic.error || doctors.error || settings.error || hours.error || exceptions.error || types.error || !clinic.data) throw new SchedulerConfigurationError("not_found");
+  const failure = clinic.error ?? doctors.error ?? settings.error ?? hours.error ?? exceptions.error ?? types.error;
+  if (failure) throw configurationReadFailure(failure);
+  if (!clinic.data) throw new SchedulerConfigurationError("not_found");
   const settingByDoctor = new Map((settings.data ?? [] as DoctorSettingRow[]).map((row) => [row.doctor_id, row]));
   return {
     clinic: { schedulingIntervalMinutes: clinic.data.scheduling_interval_minutes, defaultDurationMinutes: clinic.data.default_duration_minutes },
