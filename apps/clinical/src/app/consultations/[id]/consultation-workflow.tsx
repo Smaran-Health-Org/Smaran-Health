@@ -127,6 +127,48 @@ const LEVEL_BAR_COUNT = 25;
 const LENGTH_WARN_SECONDS = 15 * 60;
 const LENGTH_HARD_STOP_SECONDS = 30 * 60;
 
+// Transcription runs on a durable server-side queue, so the browser only has to
+// wait politely. The ceiling is generous because a long consultation legitimately
+// takes minutes with the provider — the old 60-second cap reported healthy jobs
+// as failures.
+const TRANSCRIPTION_WAIT_MS = 4 * 60 * 1000;
+
+/**
+ * What the waiting period ended in.
+ * `pending` is deliberately distinct from `failed`: the job is still healthy and
+ * the doctor should not be told something broke.
+ */
+type TranscriptionWait =
+  | { kind: "ready"; text: string }
+  | { kind: "failed"; message: string }
+  | { kind: "pending"; message: string };
+
+/**
+ * Turns a persisted failure code into something a doctor can act on. The code is
+ * provider-facing, so it is never shown raw.
+ */
+function transcriptionFailureMessage(code: string | null): string {
+  switch (code) {
+    case "provider_quota_exceeded":
+      return "The speech service account has run out of credit, so the recording could not be transcribed. Retry after the account is topped up, or write the note manually.";
+    case "provider_rejected":
+      return "The speech service rejected the request, which usually means the API key is invalid or expired. Write the note manually and report this.";
+    case "provider_rate_limited":
+      return "The speech service is rate limiting requests right now. Retry in a few minutes, or write the note manually.";
+    case "provider_not_configured":
+      return "No speech-to-text provider is configured, so this recording cannot be transcribed. Write the note manually.";
+    case "empty_transcript":
+      return "No speech was detected in the recording. Check that the microphone captured audio, then retry or write the note manually.";
+    case "chunk_unavailable":
+    case "chunks_unavailable":
+      return "Part of the saved audio is missing, so the recording could not be transcribed. Write the note manually.";
+    case "provider_timeout":
+      return "The speech service did not finish in time. Retry, or write the note manually.";
+    default:
+      return "The transcript could not be prepared. Retry, or write the note manually.";
+  }
+}
+
 type MicErrorKind =
   | "unsupported"
   | "permission"
@@ -585,11 +627,14 @@ export function ConsultationWorkflow({
     }
   }
 
-  async function waitForDurableTranscript(): Promise<string | null> {
-    const maxAttempts = 24;
-    const pollIntervalMs = 2500;
+  // Waits for the durable server-side transcription, distinguishing "still
+  // working" from "failed". A missing transcript is not evidence of failure —
+  // only a parked queue item with a failure code is.
+  async function waitForTranscription(): Promise<TranscriptionWait> {
+    const startedAt = Date.now();
+    let intervalMs = 3000;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    while (Date.now() - startedAt < TRANSCRIPTION_WAIT_MS) {
       try {
         const response = await fetch(`/api/consultations/${consultationId}/transcript`, {
           cache: "no-store",
@@ -600,18 +645,77 @@ export function ConsultationWorkflow({
             typeof data?.transcript?.rawText === "string"
               ? data.transcript.rawText.trim()
               : "";
-          if (rawText) return rawText;
+          if (rawText) return { kind: "ready", text: rawText };
+
+          const recording = data?.recording ?? null;
+          // Terminal failure: the queue has stopped retrying and given up.
+          if (
+            recording?.transcriptionStatus === "retryable_failed" &&
+            recording.retryScheduled === false
+          ) {
+            return {
+              kind: "failed",
+              message: transcriptionFailureMessage(recording.transcriptionFailureCode ?? null),
+            };
+          }
         }
       } catch {
-        // Keep polling; the durable recording remains recoverable on the server.
+        // Keep waiting; the durable recording remains recoverable on the server.
       }
 
-      if (attempt < maxAttempts - 1) {
-        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      // Gentle backoff: responsive at first, quieter once it is clearly a long job.
+      intervalMs = Math.min(intervalMs + 1000, 8000);
     }
 
-    return null;
+    return {
+      kind: "pending",
+      message:
+        "Transcription is still running in the background. You can carry on and write the note manually, or check again in a moment.",
+    };
+  }
+
+  // Re-queues a terminally failed transcription, then waits for it again.
+  async function retryTranscription() {
+    setError(null);
+    setProcessingStage(1);
+    setState("processing");
+    try {
+      const response = await fetch(
+        `/api/consultations/${consultationId}/transcription/retry`,
+        { method: "POST" }
+      );
+      if (!response.ok) {
+        startManualReview();
+        setError(
+          "The transcription retry could not be started. Write the note manually instead."
+        );
+        return;
+      }
+    } catch {
+      startManualReview();
+      setError("The transcription retry could not be started. Write the note manually instead.");
+      return;
+    }
+
+    await finishPendingTranscription();
+  }
+
+  // Shared tail for both the first attempt and a retry.
+  async function finishPendingTranscription() {
+    const result = await waitForTranscription();
+    if (result.kind === "ready") {
+      setTranscript(result.text);
+      setProcessingStage(2);
+      await generateDraft();
+      return;
+    }
+
+    setManualPath(true);
+    setError(result.message);
+    // "Still running" must never look like a failure, and must never block the
+    // consultation — the doctor can proceed and write the note now.
+    setState(result.kind === "failed" ? "failed" : "manual_review");
   }
 
   async function uploadRecordingChunk(recordingId: string, sequence: number, chunk: Blob) {
@@ -1175,17 +1279,7 @@ export function ConsultationWorkflow({
       // persist the authoritative transcript before generating a draft.
       setProcessingStage(1);
       setState("processing");
-      const durableTranscript = await waitForDurableTranscript();
-      if (durableTranscript) {
-        setTranscript(durableTranscript);
-        setProcessingStage(2);
-        await generateDraft();
-        return;
-      }
-
-      setManualPath(true);
-      setState("manual_review");
-      setError("Recording was saved securely, but transcription is not available yet. Write the note manually or retry after the transcription provider is configured.");
+      await finishPendingTranscription();
     } finally {
       stopBusyRef.current = false;
     }
@@ -2075,7 +2169,7 @@ export function ConsultationWorkflow({
               <button type="button" className={styles.secondaryButton} onClick={startManualReview}>
                 Write manual note
               </button>
-              <button type="button" className={styles.primaryButton} onClick={() => { setProcessingStage(2); setState("processing"); }}>
+              <button type="button" className={styles.primaryButton} onClick={() => void retryTranscription()}>
                 Retry safely
               </button>
             </div>

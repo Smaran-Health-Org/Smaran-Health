@@ -1,82 +1,61 @@
 import "server-only";
-import { flushSarvamLog, logSarvam, logSarvamError } from "@/lib/ai/sarvam-log";
+import { flushSarvamLog } from "@/lib/ai/sarvam-log";
 import { attachSarvamEventLogSink } from "@/lib/ai/sarvam-log-db";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { sarvamAudioTranscriptionAdapter } from "./transcription-sarvam";
+import { recordTranscriptionJob, type TranscriptionWorkClaim } from "@/lib/db/transcription-work";
+import { sarvamAudioTranscriptionStepAdapter } from "./transcription-sarvam";
+import type { DurableRecording, TranscriptionStepOutcome } from "./transcription-adapter";
 
 /**
- * Maps a transcription failure to the persisted `transcription_failure_code`.
- * The previously unconditional "provider_unavailable" hid the difference
- * between a missing chunk, an auth rejection and a Sarvam timeout, which made
- * the failure impossible to diagnose after the fact.
+ * Loads the durable, ordered chunk manifest for a claimed recording. Chunks are
+ * stored raw in sequence order, so the adapter can rebuild the original stream.
  */
-function transcriptionFailureCode(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("recording_chunk_unavailable")) return "chunk_unavailable";
-  if (message.includes("recording_chunks_unavailable")) return "chunks_unavailable";
-  if (message.includes("empty_transcript")) return "empty_transcript";
-  if (message.includes("timed out") || message.includes("timeout")) return "provider_timeout";
-  if (/Sarvam returned 401|Sarvam returned 403/.test(message)) return "provider_rejected";
-  if (/Sarvam returned 429/.test(message)) return "provider_rate_limited";
-  if (/Sarvam returned 4\d\d/.test(message)) return "provider_rejected";
-  if (/Sarvam returned 5\d\d/.test(message)) return "provider_unavailable";
-  if (message.includes("transcript_persist_failed")) return "persist_failed";
-  return "provider_unavailable";
+async function loadDurableRecording(claim: TranscriptionWorkClaim): Promise<DurableRecording> {
+  const { data, error } = await createServiceRoleClient()
+    .from("audio_recording_chunks")
+    .select("sequence_number, storage_path")
+    .eq("audio_file_id", claim.audioFileId)
+    .order("sequence_number");
+  if (error) throw new Error("recording_chunks_unavailable");
+
+  return {
+    recordingId: claim.audioFileId,
+    consultationId: claim.consultationId,
+    clinicId: claim.clinicId,
+    format: claim.audioFormat,
+    chunks: (data ?? []).map((chunk) => ({
+      sequenceNumber: Number(chunk.sequence_number),
+      storagePath: String(chunk.storage_path),
+    })),
+  };
 }
 
 /**
- * Transcribes a finalized recording and persists the result.
+ * Runs one bounded step for a claimed work item and reports the outcome. The
+ * caller (`drainTranscriptionWork`) persists the result, keeping provider
+ * interaction separate from queue bookkeeping.
  *
- * The durable event sink is attached here — this is the single ingress for the
- * whole Sarvam flow — and flushed before returning, because this runs inside a
- * serverless invocation (`after()`) that may be frozen the moment it settles.
+ * The durable event sink is attached and flushed here — this is the single
+ * ingress for the whole Sarvam flow — because the invocation may be frozen as
+ * soon as this settles.
  */
-export async function transcribeDurableRecording(recordingId: string): Promise<void> {
+export async function transcribeClaimedWork(
+  claim: TranscriptionWorkClaim
+): Promise<TranscriptionStepOutcome> {
   attachSarvamEventLogSink();
   try {
-    await runDurableTranscription(recordingId);
+    const recording = await loadDurableRecording(claim);
+    const adapter = sarvamAudioTranscriptionStepAdapter();
+    return await adapter.step(
+      recording,
+      { jobId: claim.jobId, phase: claim.jobPhase, outputFiles: claim.jobOutputFiles },
+      async (progress) => {
+        // Awaited so a crash after any provider step is resumable.
+        await recordTranscriptionJob(claim.workId, progress.jobId, progress.phase, progress.outputFiles);
+      }
+    );
   } finally {
     await flushSarvamLog();
   }
 }
 
-/** Runs only on the server against the durable, ordered chunk manifest. */
-async function runDurableTranscription(recordingId: string): Promise<void> {
-  const service = createServiceRoleClient();
-  const { data: audio, error: audioError } = await service.from("audio_files")
-    .select("id,consultation_id,clinic_id,format,recording_status")
-    .eq("id", recordingId).maybeSingle();
-  if (audioError || !audio || audio.recording_status !== "finalized") throw new Error("recording_not_finalized");
-  const { data: chunks, error: chunksError } = await service.from("audio_recording_chunks")
-    .select("sequence_number,storage_path").eq("audio_file_id", recordingId).order("sequence_number");
-  if (chunksError) throw new Error("recording_chunks_unavailable");
-  await service.from("audio_files").update({ transcription_status: "processing", transcription_failure_code: null }).eq("id", recordingId);
-  try {
-    const result = await sarvamAudioTranscriptionAdapter().transcribe({
-      recordingId, consultationId: String(audio.consultation_id), clinicId: String(audio.clinic_id),
-      format: typeof audio.format === "string" ? audio.format : null,
-      chunks: (chunks ?? []).map((chunk) => ({ sequenceNumber: Number(chunk.sequence_number), storagePath: String(chunk.storage_path) })),
-    });
-    if (!result.rawText.trim()) throw new Error("empty_transcript");
-    const { data: existing, error: lookupError } = await service.from("transcripts").select("id").eq("consultation_id", audio.consultation_id).eq("clinic_id", audio.clinic_id).maybeSingle();
-    if (lookupError) throw new Error("transcript_persist_failed");
-    const transcriptWrite = existing
-      ? service.from("transcripts").update({ raw_text: result.rawText, model_version: result.modelVersion }).eq("id", existing.id).eq("clinic_id", audio.clinic_id)
-      : service.from("transcripts").insert({ consultation_id: audio.consultation_id, clinic_id: audio.clinic_id, raw_text: result.rawText, model_version: result.modelVersion });
-    const { error } = await transcriptWrite;
-    if (error) throw new Error("transcript_persist_failed");
-    await service.from("audio_files").update({ transcription_status: "completed", transcription_failure_code: null }).eq("id", recordingId);
-  } catch (error) {
-    const failureCode = transcriptionFailureCode(error);
-    logSarvamError("durable.transcription_failed", {
-      recordingId,
-      consultationId: String(audio.consultation_id),
-      failureCode,
-      errorName: error instanceof Error ? error.name : typeof error,
-      errorMessage: error instanceof Error ? error.message : String(error),
-    });
-    await service.from("audio_files").update({ transcription_status: "retryable_failed", transcription_failure_code: failureCode }).eq("id", recordingId);
-    logSarvam("durable.failure_recorded", { recordingId, failureCode });
-    throw new Error("durable_transcription_failed");
-  }
-}
