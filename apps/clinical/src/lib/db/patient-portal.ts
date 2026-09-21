@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getSessionContext } from "@/lib/db/session";
+import { logError } from "@/lib/logger";
 import {
   getPatientSchedulerAvailabilityWithTrustedContext,
   type PatientAvailabilityRequest,
@@ -73,9 +74,23 @@ export type PatientPortalBookingResult =
   | { kind: "booking_disabled" | "booking_limit_reached" | "time_unavailable" | "session_expired" | "request_invalid" };
 
 export class PatientPortalError extends Error {
-  constructor(public readonly kind: "access_invalid" | "verification_invalid" | "verification_expired" | "verification_locked" | "delivery_invalid" | "delivery_unavailable" | "unavailable") {
+  constructor(public readonly kind: "access_invalid" | "verification_invalid" | "verification_expired" | "verification_locked" | "delivery_invalid" | "delivery_unavailable" | "configuration_unavailable" | "unavailable") {
     super("Patient portal request could not be completed");
   }
+}
+
+/**
+ * Invitation link generation depends on deployment configuration (APP_URL and the
+ * patient-access pepper) that throws plain errors from the credential helpers. An
+ * unset environment variable must read as an actionable setup problem, not as an
+ * unexplained 500, so it is translated here and logged without patient detail.
+ */
+function configurationUnavailable(clinicId?: string): PatientPortalError {
+  logError("patient_portal.link_configuration_unavailable", new Error("portal_link_configuration"), {
+    ...(clinicId ? { clinicId } : {}),
+    requiredConfiguration: "APP_URL and INTAKE_CREDENTIAL_PEPPER",
+  });
+  return new PatientPortalError("configuration_unavailable");
 }
 
 function mapPortalRpcError(error: { code?: string } | null): never {
@@ -119,9 +134,15 @@ export async function issuePatientPortalInvitation(patientId: string): Promise<{
 }> {
   const session = await getSessionContext();
   if (!session) throw new PatientPortalError("access_invalid");
-  const credentials = createPatientPortalCredentials();
-  // Validate URL configuration before invalidating an existing invitation.
-  const portalUrl = patientPortalUrl(credentials.accessToken);
+  // Validate deployment configuration before invalidating an existing invitation.
+  let credentials: ReturnType<typeof createPatientPortalCredentials>;
+  let portalUrl: string;
+  try {
+    credentials = createPatientPortalCredentials();
+    portalUrl = patientPortalUrl(credentials.accessToken);
+  } catch {
+    throw configurationUnavailable(session.clinicId);
+  }
   const supabase = await createServerClient();
   const { data, error } = await supabase.rpc("issue_patient_portal_access", {
     p_patient_id: patientId,

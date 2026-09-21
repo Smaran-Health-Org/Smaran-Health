@@ -1731,6 +1731,12 @@
 .iconButton:hover:not(:disabled) { border-color: #9ab5aa; background: #eef5f2; }
 .iconButton:disabled { opacity: .35; cursor: not-allowed; }
 .iconButton svg { width: 14px; height: 14px; }
+/* Queue cards are narrow at every viewport width, so the priority editor must
+   stack. As a single row it overflowed into the next column, and the adjacent
+   column then painted over the Confirm button and swallowed its clicks. */
+.priorityEditor { flex-wrap: wrap; }
+.priorityEditor label { flex: 1 1 100%; min-width: 0; }
+.priorityEditor button { flex: 1 1 auto; justify-content: center; }
 .needsActionPanel { border-left: 4px solid #b9821b; }
 .directoryCount { border: 1px solid #dce5e1; border-radius: 6px; background: #fff; padding: 7px 10px; color: #5f6f69; font-size: .72rem; font-weight: 750; }
 .directorySearch { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-bottom: 12px; border: 1px solid #ccd9d3; border-radius: 8px; background: #fff; padding: 0 12px; color: #6e7d77; }

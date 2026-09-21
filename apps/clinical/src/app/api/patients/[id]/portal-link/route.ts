@@ -24,6 +24,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       if (error.kind === "access_invalid") return forbidden();
       if (error.kind === "delivery_invalid") return badRequest("Add a valid patient email address before sending the portal link.");
       if (error.kind === "delivery_unavailable") return apiError("Patient portal email could not be sent. Check email delivery setup and try again.", "delivery_unavailable", 503);
+      if (error.kind === "configuration_unavailable") return apiError("Patient portal links are not configured for this environment. Set APP_URL and the patient-access pepper, then try again.", "configuration_unavailable", 503);
       return badRequest("The portal link could not be sent for this patient.");
     }
     return internalError("Could not send the patient portal link.");

@@ -1,18 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { isApiRoute, isPublicRoute } from "@/lib/auth/route-access";
 
-// Public routes that don't require authentication.
-// `/api/internal` is schedulable infrastructure, not user-facing: those route
-// handlers authenticate the caller themselves with a CRON_SECRET bearer token.
-// Without this entry the middleware redirects the scheduler to /login, so the
-// durable document pipeline would silently never run.
-const PUBLIC_ROUTES = [
-  "/login",
-  "/auth/callback",
-  "/intake",
-  "/api/intake",
-  "/api/internal",
-];
+// Public routes that don't require authentication are defined in
+// `lib/auth/route-access` alongside the patient-portal rule. `/api/internal` is
+// schedulable infrastructure, not user-facing: those route handlers authenticate
+// the caller themselves with a CRON_SECRET bearer token. Without that entry the
+// middleware redirects the scheduler to /login, so the durable document pipeline
+// would silently never run.
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -46,13 +41,22 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Allow public routes regardless of auth state.
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+  // Allow public routes (including the self-authenticating patient portal)
+  // regardless of the staff auth state.
+  if (isPublicRoute(pathname)) {
     return response;
   }
 
-  // Protect all other routes: redirect unauthenticated users to /login.
+  // Protect all other routes.
   if (!user) {
+    // API callers get a JSON 401 they can act on. Returning the login page HTML
+    // with a 200 (via redirect-following fetch) hid session expiry from clients.
+    if (isApiRoute(pathname)) {
+      return NextResponse.json(
+        { error: "Sign in required.", code: "unauthorized" },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      );
+    }
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
