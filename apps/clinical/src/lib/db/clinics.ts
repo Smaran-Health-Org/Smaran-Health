@@ -1,6 +1,9 @@
+import { cache } from "react";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
-export async function getClinicName(clinicId: string): Promise<string> {
+// The clinic name is rendered by the shell on every page; cache it per request
+// so repeat calls within one render share a single round trip.
+export const getClinicName = cache(async (clinicId: string): Promise<string> => {
   const supabase = await createServerClient();
   const { data } = await supabase
     .from("clinics")
@@ -9,7 +12,7 @@ export async function getClinicName(clinicId: string): Promise<string> {
     .single();
 
   return data?.name ?? "Clinic";
-}
+});
 
 export type ClinicDoctor = { id: string; fullName: string };
 

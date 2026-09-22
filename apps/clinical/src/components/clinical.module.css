@@ -1022,6 +1022,36 @@
 .documentExtractionSection pre { overflow: auto; max-height: 260px; margin: 0.55rem 0 0; white-space: pre-wrap; color: #344a43; font: inherit; font-size: 0.65rem; line-height: 1.55; }
 .intakeSpinner { width: 34px; height: 34px; border: 3px solid #dbe8e3; border-top-color: var(--green); border-radius: 50%; animation: intakeSpin 0.8s linear infinite; }
 @keyframes intakeSpin { to { transform: rotate(360deg); } }
+
+/* ── Loading feedback ──────────────────────────────────────────────────────
+   Server-rendered surfaces resolve auth plus several clinic-scoped queries
+   before they can paint. These styles back the route-level `loading.tsx`
+   fallback and the per-control pending spinner, so a click is never silent. */
+.routeLoadingStatus { display: inline-flex; align-items: center; gap: 9px; margin: 0 0 14px; color: #17745b; font-size: 0.78rem; font-weight: 780; }
+.loadingSpinner { width: 16px; height: 16px; border: 2px solid #d3e3dd; border-top-color: #17745b; border-radius: 50%; animation: intakeSpin 0.7s linear infinite; }
+.buttonSpinner { width: 13px; height: 13px; flex: none; border: 2px solid #d3e3dd; border-top-color: #17745b; border-radius: 50%; animation: intakeSpin 0.7s linear infinite; }
+.skeletonBrandMark, .skeletonBrandText, .skeletonClinic, .skeletonNavItem, .skeletonAccount, .skeletonHeader, .skeletonCard, .skeletonPanel {
+  border-radius: 8px;
+  background: #ecf0ee;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+.skeletonBrand { display: flex; align-items: center; gap: 10px; }
+.skeletonBrandMark { width: 36px; height: 36px; }
+.skeletonBrandText { width: 92px; height: 15px; }
+.skeletonClinic { height: 53px; margin: 24px 4px 0; }
+.skeletonNav { display: grid; gap: 8px; margin-top: 30px; }
+.skeletonNavItem { height: 42px; }
+.skeletonAccount { width: 132px; height: 15px; }
+.skeletonHeader { height: 64px; border-radius: 14px; }
+.skeletonGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.skeletonCard { height: 84px; border-radius: 14px; }
+.skeletonPanel { height: 268px; margin-top: 14px; border-radius: 14px; }
+@keyframes skeletonPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@media (max-width: 780px) { .skeletonGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) {
+  .skeletonBrandMark, .skeletonBrandText, .skeletonClinic, .skeletonNavItem, .skeletonAccount, .skeletonHeader, .skeletonCard, .skeletonPanel { animation: none; }
+  .loadingSpinner, .buttonSpinner { animation-duration: 2s; }
+}
 @media (max-width: 560px) {
   .intakePage { padding-right: 0.65rem; padding-left: 0.65rem; }
   .intakeCard { border-radius: 18px; }
