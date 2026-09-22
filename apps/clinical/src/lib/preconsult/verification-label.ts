@@ -28,6 +28,7 @@ export function whyTodayProvenanceLabel(provenance: WhyTodayProvenance): string 
     case "patient":
       return "Patient-reported — unconfirmed";
     case "reception_assisted":
+      return "Reception-reported — unconfirmed";
     case "unknown":
       return "Needs Review";
   }

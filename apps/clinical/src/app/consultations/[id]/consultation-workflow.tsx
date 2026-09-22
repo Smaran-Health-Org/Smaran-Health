@@ -291,7 +291,8 @@ function initialStateFor(status: string): WorkflowState {
     case "failed":
       return "failed";
     default:
-      return "patient";
+      // The pre-consult context already surfaces history, so start a new visit at consent.
+      return "consent";
   }
 }
 
@@ -2125,7 +2126,7 @@ export function ConsultationWorkflow({
               <button
                 type="button"
                 className={styles.primaryButton}
-                onClick={() => router.push("/patients")}
+                onClick={() => router.push("/dashboard")}
               >
                 Go to next patient
               </button>

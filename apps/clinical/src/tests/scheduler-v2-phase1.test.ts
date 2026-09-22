@@ -10,7 +10,7 @@ function appointment(patch: Partial<SchedulerAppointmentSummary> = {}): Schedule
     id: "a", patientId: "p", patientName: "Asha Patel", patientPhone: null,
     doctorId: "d1", doctorName: "Dr Shah", scheduledAt: "2026-09-18T04:30:00.000Z",
     durationMinutes: 10, durationState: "known", status: "scheduled", appointmentTypeName: "Follow-up",
-    encounterOperationalStatus: "scheduled", intakeStatus: "not_started", documentStatus: "none", updatedAt: "2026-09-18T04:00:00.000Z",
+    encounterOperationalStatus: "scheduled", intakeStatus: "not_started", documentStatus: "none", origin: "clinic_booking", updatedAt: "2026-09-18T04:00:00.000Z",
     ...patch,
   };
 }

@@ -10,7 +10,7 @@ import { getClinicName } from "@/lib/db/clinics";
 import { getPatients } from "@/lib/db/patients";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { drainPreconsultBriefGeneration, getPreconsultBriefSnapshot, getPreconsultTrendGroups, recordPreconsultBriefView, type PreconsultBrief } from "@/lib/preconsult/brief";
-import { preconsultEvidenceHref, preconsultEvidenceLabel } from "@/lib/preconsult/evidence";
+import { preconsultEvidenceHref, preconsultEvidenceLabel, preconsultSourceTagLabel } from "@/lib/preconsult/evidence";
 import { getPendingClinicalStateDeltas } from "@/lib/db/clinical-state";
 import { whyTodayProvenanceLabel } from "@/lib/preconsult/verification-label";
 import { PreconsultLifecycleRefresh } from "@/components/preconsult-lifecycle-refresh";
@@ -23,7 +23,7 @@ function verificationLabel(value: string) {
 
 function Claims({ patientId, claims }: { patientId: string; claims: Array<{ id: string; text: string; verification: string; sources: PreconsultBrief["evidenceSummary"] }> }) {
   if (!claims.length) return <p className={styles.memorySummary}>No supported information is available in this section.</p>;
-  return <div className={styles.noteReadonly}>{claims.map((claim) => <div key={claim.id}><strong>{verificationLabel(claim.verification)}</strong><p>{claim.text}</p><p>{claim.sources.map((source) => <Link key={`${source.type}-${source.id}`} href={preconsultEvidenceHref(patientId, source)} className={styles.panelLink}>{preconsultEvidenceLabel(source)}</Link>)}</p></div>)}</div>;
+  return <div className={styles.noteReadonly}>{claims.map((claim) => <div key={claim.id}><strong>{verificationLabel(claim.verification)}</strong><p>{claim.text}</p><p>{claim.sources.map((source) => { const tag = preconsultSourceTagLabel(source); return tag ? <span key={`${source.type}-${source.id}`} className={styles.provenanceTag}>{tag}</span> : <Link key={`${source.type}-${source.id}`} href={preconsultEvidenceHref(patientId, source)} className={styles.panelLink} target="_blank" rel="noreferrer">{preconsultEvidenceLabel(source)}</Link>; })}</p></div>)}</div>;
 }
 
 export default async function PreconsultPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ consultation?: string }> }) {
@@ -75,6 +75,7 @@ export default async function PreconsultPage({ params, searchParams }: { params:
     <PreconsultLifecycleRefresh active={asynchronousWorkActive} />
     <Link href="/dashboard" className={styles.backLink}>Today&apos;s overview</Link>
     <header className={styles.profileHeader}><span className={styles.profileAvatar}>{patient.full_name.split(/\s+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join("").toUpperCase()}</span><div className={styles.profileHeaderMain}><p className={styles.eyebrow}>Pre-consult brief · preparation aid</p><h1>{patient.full_name}</h1><p>{meta || "Patient record"}</p>{consultation.is_priority ? <p className={styles.panelHint}>Human Priority context{consultation.priority_updated_at ? ` · set ${new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(consultation.priority_updated_at))}` : ""}{consultation.priority_reason ? ` · ${consultation.priority_reason}` : ""}</p> : null}</div></header>
+    <div className={styles.panelStack}>
     {!payload ? <section className={styles.panel}><div className={styles.panelTitle}><div><p className={styles.eyebrow}>{lifecycleLabel}</p><h2>{documentFailed ? "Document processing needs recovery" : lifecycleLabel === "Waiting for intake" ? "Waiting for patient information" : "Brief unavailable for the moment"}</h2></div></div><p className={styles.memorySummary}>{documentFailed ? "The original document remains available. An authorized staff member can retry processing; care is not delayed." : "Original intake and evidence remain available. This does not delay care."}</p></section> : <>
       {lifecycle === "updating" ? <div className={styles.errorBanner} role="status"><strong>Updating — newer information available.</strong> This brief was generated {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(brief.generatedAt))}; it remains available while the newer information is prepared.</div> : null}
       {lifecycle === "partial" ? <div className={styles.errorBanner} role="status">Partial brief: some eligible source categories are not available yet. Original evidence remains available.</div> : null}
@@ -87,5 +88,6 @@ export default async function PreconsultPage({ params, searchParams }: { params:
     {pendingDeltas.length && !payload?.needsAttention.length ? <section className={styles.panel}><div className={styles.panelTitle}><div><p className={styles.eyebrow}>Review obligations</p><h2>Proposed clinical changes</h2></div></div><p className={styles.memorySummary}>These changes remain unconfirmed until an authorized doctor reviews them.</p><Link className={styles.secondaryButton} href={`/patients/${patientId}/preconsult/review-changes?consultation=${consultationId}`}>Review {pendingDeltas.length} unresolved {pendingDeltas.length === 1 ? "change" : "changes"}</Link></section> : null}
     {lifecycle === "partial" || lifecycle === "unavailable" ? <section className={styles.panel}><div className={styles.panelTitle}><div><p className={styles.eyebrow}>Original authorized sources</p><h2>Available evidence</h2></div></div>{fallbackIntake.data?.reason_for_visit_raw ? <div className={styles.memoryCard}><strong>{fallbackIntake.data.information_source === "patient" ? "Patient statement" : "Assisted patient statement"}</strong><p className={styles.memorySummary}>{fallbackIntake.data.reason_for_visit_raw}</p></div> : <p className={styles.memorySummary}>No intake statement is available.</p>}<div className={styles.noteReadonly}>{(fallbackDocuments.data ?? []).map((document) => <div key={document.id}><strong>{document.document_type}</strong><p><Link className={styles.panelLink} href={`/api/documents/${document.id}/view`}>View original {document.original_filename}</Link></p></div>)}</div><Link href={`/patients/${patientId}`} className={styles.secondaryButton}>Open patient record</Link></section> : null}
     <section className={styles.panel}><div className={styles.panelTitle}><div><p className={styles.eyebrow}>Care is never blocked</p><h2>Ready when you are</h2></div></div><StartQueuedConsultation appointmentId={appointment.id} consultationId={consultationId} /></section>
+    </div>
   </div></AppShell>;
 }

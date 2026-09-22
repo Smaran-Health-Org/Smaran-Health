@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import type { PreconsultEvidenceSource } from "@/lib/preconsult/evidence-links";
 
-export { preconsultEvidenceHref, preconsultEvidenceLabel, type PreconsultEvidenceSource } from "@/lib/preconsult/evidence-links";
+export { preconsultEvidenceHref, preconsultEvidenceLabel, preconsultSourceTagLabel, type PreconsultEvidenceSource } from "@/lib/preconsult/evidence-links";
 
 export const preconsultEvidenceSourceTypeSchema = z.enum([
   "document",

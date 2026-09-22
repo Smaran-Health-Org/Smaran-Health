@@ -21,3 +21,14 @@ export function preconsultEvidenceLabel(source: PreconsultEvidenceSource) {
   if (source.type === "delta") return "Open proposed change source";
   return "Open confirmed-state source";
 }
+
+// Directly-entered patient information does not need a separate evidence link
+// beside every field. It is labelled by who reported it instead. Observations
+// are document-extracted (AI) and always keep their original-evidence link, so
+// they are intentionally NOT tagged as "Reception reported" here — reception
+// provenance is captured at the "why today" level via whyTodayProvenanceLabel.
+// Returns null when the source should render as a link to original evidence.
+export function preconsultSourceTagLabel(source: PreconsultEvidenceSource): string | null {
+  if (source.type === "intake_statement") return "Patient reported";
+  return null;
+}

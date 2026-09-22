@@ -41,6 +41,7 @@ export function PatientIntakeForm({ token }: { token: string }) {
   const [conditions, setConditions] = useState("");
   const [medications, setMedications] = useState("");
   const [allergies, setAllergies] = useState("");
+  const [weight, setWeight] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +55,7 @@ export function PatientIntakeForm({ token }: { token: string }) {
     setConditions(next.selfReportedConditions.join("\n"));
     setMedications(next.selfReportedMedications.join("\n"));
     setAllergies(next.selfReportedAllergies.join("\n"));
+    setWeight(next.weightKg == null ? "" : String(next.weightKg));
     setStep(next.intakeStatus === "submitted" ? "submitted" : "form");
   }
 
@@ -98,6 +100,7 @@ export function PatientIntakeForm({ token }: { token: string }) {
           fullName,
           ...(dateOfBirth ? { dateOfBirth } : {}),
           ...(gender ? { gender } : {}),
+          ...(Number.isFinite(Number(weight)) && Number(weight) > 0 ? { weightKg: Number(weight) } : {}),
         }),
       });
       if (!response.ok) throw new Error(await responseMessage(response, "The intake could not be submitted."));
@@ -182,6 +185,10 @@ export function PatientIntakeForm({ token }: { token: string }) {
               <legend>Optional medical details</legend>
               <p>Enter one item per line. These are patient-reported and remain unconfirmed until a doctor reviews them.</p>
               <label className={styles.intakeField}>
+                <span>Weight (kg) <small>optional</small></span>
+                <input type="number" inputMode="decimal" min="1" max="500" step="0.1" value={weight} onChange={(event) => setWeight(event.target.value)} placeholder="e.g. 68" />
+              </label>
+              <label className={styles.intakeField}>
                 <span>Existing conditions</span>
                 <textarea value={conditions} onChange={(event) => setConditions(event.target.value)} rows={3} maxLength={4000} placeholder="For example, one condition per line" />
               </label>
@@ -230,7 +237,6 @@ export function PatientIntakeForm({ token }: { token: string }) {
               <h1>Thank you</h1>
               <p>Your intake has been shared with the clinic for this appointment.</p>
               <div className={styles.intakeNonBlocking}>Documents are optional and never block your consultation.</div>
-              <DocumentManager mode="patient" token={token} />
             </div>
           </div>
         ) : null}

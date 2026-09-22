@@ -254,8 +254,9 @@ export async function reorderWaitingQueue(
   }
 }
 
-/** Deterministic operational order. Waiting patients use the explicit queue;
- * every other section retains scheduled-time order. Priority never participates. */
+/** Deterministic operational order. Waiting patients are ordered by human-marked
+ * priority first, then the explicit manual queue; every other section retains
+ * scheduled-time order. */
 export function orderQueueItems(items: AppointmentQueueItem[]): AppointmentQueueItem[] {
   return [...items].sort((left, right) => {
     const sectionRank = (item: AppointmentQueueItem): number => {
@@ -269,6 +270,9 @@ export function orderQueueItems(items: AppointmentQueueItem[]): AppointmentQueue
     if (rankOrder !== 0) return rankOrder;
 
     if (left.operationalStatus === "waiting" && right.operationalStatus === "waiting") {
+      const leftPriority = left.isPriority ? 0 : 1;
+      const rightPriority = right.isPriority ? 0 : 1;
+      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
       const leftOrder = left.queueOrder ?? Number.MAX_SAFE_INTEGER;
       const rightOrder = right.queueOrder ?? Number.MAX_SAFE_INTEGER;
       if (leftOrder !== rightOrder) return leftOrder - rightOrder;

@@ -118,6 +118,8 @@
 .schedulerSettingsList { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .schedulerSettingsList li { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; border: 1px solid #edf0ee; border-radius: 10px; padding: 9px 10px; font-size: .82rem; }
 .schedulerSettingsList li small { width: 100%; color: var(--muted); }
+.schedulerSettingsList .secondaryButton { min-height: 28px; border-radius: 7px; padding: 0.28rem 0.6rem; font-size: 0.66rem; font-weight: 750; white-space: nowrap; }
+.schedulerSettingsList .secondaryButton:hover { border-color: var(--green); color: var(--green-dark); }
 
 .sidebarPatient {
   display: flex;
@@ -154,6 +156,11 @@
 .accountMenu summary::-webkit-details-marker { display: none; }
 .accountMenu summary .doctorAvatar { width: 40px; height: 40px; }
 .accountPopover { position: absolute; top: 48px; right: 0; display: grid; width: 260px; gap: 12px; border: 1px solid var(--line); border-radius: 15px; background: #fff; padding: 14px; box-shadow: 0 18px 48px rgba(28, 45, 39, 0.15); }
+.accountBarRight { display: inline-flex; align-items: center; gap: 12px; }
+.accountWorkspaceSwitch { display: inline-flex; align-items: center; gap: 2px; border: 1px solid #dfe6e2; border-radius: 9px; background: #f4f7f5; padding: 3px; }
+.accountWorkspaceSwitch a { border-radius: 6px; padding: 5px 12px; color: #50605b; font-size: .72rem; font-weight: 750; white-space: nowrap; }
+.accountWorkspaceSwitch a:hover { color: #244d41; }
+.accountWorkspaceSwitch a[data-active="true"] { background: #fff; color: var(--green-dark); box-shadow: 0 1px 3px rgba(22, 41, 34, .16); }
 .accountIdentity, .workspaceDetails { display: flex; align-items: center; gap: 10px; }
 .accountIdentity > div, .workspaceDetails > div { display: grid; min-width: 0; gap: 2px; }
 .accountIdentity strong, .workspaceDetails strong { overflow: hidden; font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -851,11 +858,13 @@
   padding: 1.2rem 1.25rem;
   box-shadow: 0 6px 22px rgba(30, 45, 39, 0.03);
 }
+.panelStack { display: grid; gap: 1.15rem; align-items: start; }
 .panelTitle { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 0.9rem; }
 .panelTitle h2 { margin: 0.18rem 0 0; font-size: 1.05rem; }
 .panelLink { display: inline-flex; align-items: center; gap: 5px; color: var(--green); font-size: 0.7rem; font-weight: 800; text-decoration: none; }
 .panelLink svg { width: 13px; height: 13px; }
 .panelHint { color: #93625c; font-size: 0.62rem; font-weight: 800; }
+.provenanceTag { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #dfe6e2; border-radius: 999px; background: #f4f7f5; padding: 2px 9px; color: #5f6e69; font-size: 0.66rem; font-weight: 700; white-space: nowrap; }
 
 .activityList { list-style: none; margin: 0; padding: 0; }
 .activityList li + li { border-top: 1px solid #eef1ef; }

@@ -212,7 +212,6 @@ export function DocumentManager(props: {
               setFile(nextFile);
               setDocumentCommandId(nextFile ? crypto.randomUUID() : null);
             }}
-            required
           />
           <small>Maximum 4 MB. On mobile, you can use the camera or photo library.</small>
         </label>

@@ -151,7 +151,7 @@ export function ClinicDeskToday({ queue }: { queue: AppointmentQueue }) {
           <span>{item.visitType === "new" ? "New patient" : "Follow-up"}</span>
         </div>
         <div className={styles.deskCardHighlights}>
-          <span>{wait !== null ? `Waiting since ${appointmentTime(item.checkedInAt ?? item.scheduledAt)}` : `Expected at ${appointmentTime(item.scheduledAt)}`}</span>
+          <span>{wait !== null ? `Checked in ${appointmentTime(item.checkedInAt ?? item.scheduledAt)}` : `Expected at ${appointmentTime(item.scheduledAt)}`}</span>
           <span>{preparationSummary(item)}</span>
         </div>
         <div className={styles.deskCardFooter}>

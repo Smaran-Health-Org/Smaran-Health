@@ -33,6 +33,7 @@ export type PatientIntakeContext = {
   selfReportedConditions: string[];
   selfReportedMedications: string[];
   selfReportedAllergies: string[];
+  weightKg: number | null;
   consentVersion: string;
 };
 
@@ -208,6 +209,7 @@ export async function getPatientIntakeContextWithClient(
     selfReportedConditions: stringArray(row.self_reported_conditions),
     selfReportedMedications: stringArray(row.self_reported_medications),
     selfReportedAllergies: stringArray(row.self_reported_allergies),
+    weightKg: typeof row.weight_kg === "number" ? row.weight_kg : null,
     consentVersion: String(row.consent_version),
   };
 }
@@ -230,6 +232,7 @@ export async function submitPatientIntakeWithClient(
     fullName?: string;
     dateOfBirth?: string;
     gender?: string;
+    weightKg?: number;
   }
 ): Promise<string> {
   const { data, error } = await supabase.rpc("submit_patient_intake", {
@@ -243,6 +246,7 @@ export async function submitPatientIntakeWithClient(
     p_full_name: input.fullName ?? null,
     p_date_of_birth: input.dateOfBirth ?? null,
     p_gender: input.gender ?? null,
+    p_weight_kg: input.weightKg ?? null,
   });
   if (error) mapRpcError(error);
   if (typeof data !== "string") throw new PatientIntakeError("unavailable");

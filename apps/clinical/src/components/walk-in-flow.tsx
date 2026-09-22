@@ -7,6 +7,9 @@ import type { ClinicDoctor } from "@/lib/db/clinics";
 import styles from "@/components/clinical.module.css";
 
 type Candidate = Pick<Patient, "id" | "fullName" | "phone" | "email" | "dateOfBirth" | "age" | "gender">;
+type Conflict = { fingerprint: string; kind?: string };
+
+const clinicDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" });
 
 function hasValidEmail(email: string | null | undefined): boolean {
   return Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
@@ -20,6 +23,9 @@ export function WalkInFlow({ patients, doctors }: { patients: PatientDirectoryEn
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [doctorId, setDoctorId] = useState(doctors[0]?.id ?? "");
+  const [walkInTime, setWalkInTime] = useState("");
+  const [conflicts, setConflicts] = useState<Conflict[]>([]);
+  const [overrideConflicts, setOverrideConflicts] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [searchResults, setSearchResults] = useState<Candidate[]>([]);
   const [searching, setSearching] = useState(false);
@@ -69,16 +75,31 @@ export function WalkInFlow({ patients, doctors }: { patients: PatientDirectoryEn
       setError("A clinic doctor is required before a walk-in can be added.");
       return;
     }
+    const scheduledAt = walkInTime ? `${clinicDay.format(new Date())}T${walkInTime}:00+05:30` : undefined;
     setBusy(true);
     setError(null);
     try {
       const response = await fetch("/api/walk-ins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId, doctorId, idempotencyKey: `walk-in-${requestKey(patientId)}` }),
+        body: JSON.stringify({
+          patientId,
+          doctorId,
+          ...(scheduledAt ? { scheduledAt } : {}),
+          ...(overrideConflicts ? { conflictAcknowledgements: conflicts.map((item) => ({ fingerprint: item.fingerprint })) } : {}),
+          idempotencyKey: `walk-in-${requestKey(patientId)}`,
+        }),
       });
-      const payload = await response.json().catch(() => null) as { error?: string; appointmentId?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || "Could not add this walk-in.");
+      const payload = await response.json().catch(() => null) as { error?: string; details?: { code?: string; conflicts?: Conflict[] }; appointmentId?: string } | null;
+      if (!response.ok) {
+        const issue = payload?.details;
+        if (issue?.code === "conflict_acknowledgement_required" || issue?.code === "conflict_set_changed") {
+          setConflicts(issue.conflicts ?? []);
+          setOverrideConflicts(false);
+          throw new Error("Review the scheduling conflict before adding this walk-in.");
+        }
+        throw new Error(payload?.error || "Could not add this walk-in.");
+      }
       if (sendIntake) {
         const appointmentId = payload?.appointmentId;
         if (!appointmentId) throw new Error("Could not send the intake link for this walk-in.");
@@ -143,9 +164,11 @@ export function WalkInFlow({ patients, doctors }: { patients: PatientDirectoryEn
   return (
     <div className={styles.walkInGrid}>
       {doctors.length > 1 ? (
-        <label className={styles.formField}><span>Doctor</span><select value={doctorId} onChange={(event) => setDoctorId(event.target.value)}>{doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.fullName}</option>)}</select></label>
+        <label className={styles.formField}><span>Doctor</span><select value={doctorId} onChange={(event) => { setDoctorId(event.target.value); setConflicts([]); setOverrideConflicts(false); }}>{doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.fullName}</option>)}</select></label>
       ) : null}
+      <label className={styles.formField}><span>Time <small>optional — leave empty for now</small></span><input type="time" value={walkInTime} onChange={(event) => { setWalkInTime(event.target.value); setConflicts([]); setOverrideConflicts(false); }} /></label>
       {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
+      {conflicts.length > 0 ? <div className={styles.schedulerConflictReview} role="alert"><strong>Scheduling conflicts</strong><ul>{conflicts.map((item) => <li key={item.fingerprint}>{(item.kind ?? "conflict").replaceAll("_", " ")}</li>)}</ul><label className={styles.reviewCheck}><input type="checkbox" checked={overrideConflicts} onChange={(event) => setOverrideConflicts(event.target.checked)} /> I reviewed these conflicts and want to add this walk-in anyway.</label></div> : null}
 
       <section className={styles.panel}>
         <div className={styles.panelTitle}><div><p className={styles.eyebrow}>Step 1</p><h2>Find an existing patient</h2></div></div>

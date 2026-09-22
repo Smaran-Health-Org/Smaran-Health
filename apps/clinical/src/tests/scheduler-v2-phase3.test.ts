@@ -5,7 +5,7 @@ import { getSchedulerAppointmentWithClient, getSchedulerPatientHistoryWithClient
 import { CalendarRequestGate } from "../lib/scheduler/calendar-request";
 import { calendarOperationalSummary, visibleCalendarDoctors } from "../lib/scheduler/calendar-view-model";
 import { refreshPanelAppointment, selectAppointment, type SchedulerPanel } from "../lib/scheduler/panel-state";
-import { inspectorActions, inspectorQueueLabel } from "../lib/scheduler/inspector-view-model";
+import { inspectorActions, inspectorOriginLabel, inspectorQueueLabel } from "../lib/scheduler/inspector-view-model";
 import type { SessionContext } from "../types";
 
 const staff: SessionContext = { userId: "actor", profileId: "actor", clinicId: "clinic-a", email: "staff@example.test", fullName: "Staff", role: "assistant" };
@@ -13,7 +13,7 @@ const appointment = (patch: Partial<SchedulerAppointmentSummary> = {}): Schedule
   id: "appointment-1", patientId: "patient-1", patientName: "Asha Patel", patientPhone: null,
   doctorId: "doctor-1", doctorName: "Dr Shah", scheduledAt: "2026-09-20T04:30:00Z", durationMinutes: 15,
   durationState: "known", status: "scheduled", appointmentTypeName: "Follow-up", encounterOperationalStatus: "scheduled",
-  intakeStatus: "not_started", documentStatus: "none", updatedAt: "2026-09-20T04:00:00Z", ...patch,
+  intakeStatus: "not_started", documentStatus: "none", origin: "clinic_booking", updatedAt: "2026-09-20T04:00:00Z", ...patch,
 });
 
 test("Phase 3 panel modes are exclusive, second selection replaces the first, and refresh ignores obsolete selection", () => {
@@ -97,6 +97,9 @@ test("Phase 3 inspector keeps lifecycle, Queue and action eligibility separate",
   assert.equal(inspectorQueueLabel("arrived"), "Checked in");
   assert.equal(inspectorQueueLabel("waiting"), "Waiting");
   assert.equal(inspectorQueueLabel("in_consultation"), "With doctor");
+  assert.equal(inspectorOriginLabel("walk_in"), "Walk-in");
+  assert.equal(inspectorOriginLabel("patient_portal"), "Online booking");
+  assert.equal(inspectorOriginLabel("clinic_booking"), "Clinic booking");
 });
 
 test("Phase 3 inspector read is clinic-scoped and has an exact scheduling-only payload", async () => {
