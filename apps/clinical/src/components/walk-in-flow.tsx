@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { Patient } from "@/types";
+import type { Patient, PatientDirectoryEntry } from "@/types";
 import type { ClinicDoctor } from "@/lib/db/clinics";
 import styles from "@/components/clinical.module.css";
 
@@ -12,7 +12,7 @@ function hasValidEmail(email: string | null | undefined): boolean {
   return Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
 }
 
-export function WalkInFlow({ patients, doctors }: { patients: Patient[]; doctors: ClinicDoctor[] }) {
+export function WalkInFlow({ patients, doctors }: { patients: PatientDirectoryEntry[]; doctors: ClinicDoctor[] }) {
   const router = useRouter();
   const requestRef = useRef<{ patientId: string; doctorId: string; key: string } | null>(null);
   const [query, setQuery] = useState("");

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import {
-  getPatients,
+  getPatientDirectory,
   createPatient,
   findPossiblePatientDuplicates,
 } from "@/lib/db/patients";
@@ -41,7 +41,9 @@ export async function GET(request: NextRequest) {
 
   if (!parsed.success) return badRequest("Invalid query parameters", parsed.error.flatten());
 
-  const { data, total } = await getPatients(session.clinicId, parsed.data);
+  // Search results feed patient pickers on both workspaces. Identity fields only:
+  // operational staff must never receive doctor-only clinical columns.
+  const { data, total } = await getPatientDirectory(session.clinicId, parsed.data);
   return NextResponse.json({ data, total, page: parsed.data.page, pageSize: parsed.data.pageSize });
 }
 

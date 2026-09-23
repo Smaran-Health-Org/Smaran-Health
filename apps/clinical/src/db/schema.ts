@@ -6,6 +6,7 @@ import {
   timestamp,
   uuid,
   integer,
+  time,
   jsonb,
   boolean,
   real,
@@ -315,6 +316,14 @@ export const appointments = pgTable(
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
     status: appointmentStatusEnum("status").notNull().default("scheduled"),
     idempotencyKey: text("idempotency_key"),
+    durationMinutes: integer("duration_minutes"),
+    appointmentTypeId: uuid("appointment_type_id").references(() => appointmentTypes.id, {
+      onDelete: "restrict",
+    }),
+    rebookedFromAppointmentId: uuid("rebooked_from_appointment_id"),
+    staffNote: text("staff_note"),
+    creationRequest: jsonb("creation_request"),
+    creationRequestFingerprint: text("creation_request_fingerprint"),
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
     queueOrder: integer("queue_order"),
     createdBy: uuid("created_by").references(() => profiles.id, {
@@ -334,7 +343,187 @@ export const appointments = pgTable(
     ),
     index("appointments_patient_id_idx").on(table.patientId),
     index("appointments_doctor_id_idx").on(table.doctorId),
+    index("appointments_clinic_doctor_scheduled_active_idx").on(
+      table.clinicId,
+      table.doctorId,
+      table.scheduledAt
+    ),
+    index("appointments_clinic_patient_scheduled_active_idx").on(
+      table.clinicId,
+      table.patientId,
+      table.scheduledAt
+    ),
+    index("appointments_appointment_type_id_idx").on(table.appointmentTypeId),
   ]
+);
+
+export const clinicSchedulerSettings = pgTable("clinic_scheduler_settings", {
+  clinicId: uuid("clinic_id")
+    .references(() => clinics.id, { onDelete: "cascade" })
+    .primaryKey(),
+  timezone: text("timezone").notNull().default("Asia/Kolkata"),
+  schedulingIntervalMinutes: integer("scheduling_interval_minutes").notNull().default(5),
+  defaultDurationMinutes: integer("default_duration_minutes").notNull().default(5),
+  patientSelfBookingEnabled: boolean("patient_self_booking_enabled").notNull().default(false),
+  patientBookingWindowDays: integer("patient_booking_window_days").notNull().default(30),
+  patientMinimumNoticeMinutes: integer("patient_minimum_notice_minutes").notNull().default(0),
+  patientFutureBookingCap: integer("patient_future_booking_cap").notNull().default(3),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const doctorSchedulerSettings = pgTable("doctor_scheduler_settings", {
+  doctorId: uuid("doctor_id")
+    .references(() => profiles.id, { onDelete: "cascade" })
+    .primaryKey(),
+  clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+  schedulingIntervalMinutes: integer("scheduling_interval_minutes"),
+  defaultDurationMinutes: integer("default_duration_minutes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const doctorWorkingHours = pgTable(
+  "doctor_working_hours",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    doctorId: uuid("doctor_id").references(() => profiles.id, { onDelete: "cascade" }).notNull(),
+    weekday: integer("weekday").notNull(),
+    startTime: time("start_time").notNull(),
+    endTime: time("end_time").notNull(),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("doctor_working_hours_clinic_doctor_weekday_idx").on(
+      table.clinicId,
+      table.doctorId,
+      table.weekday,
+      table.startTime
+    ),
+  ]
+);
+
+export const doctorAvailabilityExceptions = pgTable(
+  "doctor_availability_exceptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    doctorId: uuid("doctor_id").references(() => profiles.id, { onDelete: "cascade" }).notNull(),
+    exceptionType: text("exception_type").$type<"leave" | "blocked" | "special_working">().notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    staffNote: text("staff_note"),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("doctor_availability_exceptions_clinic_doctor_starts_at_idx").on(
+      table.clinicId,
+      table.doctorId,
+      table.startsAt
+    ),
+  ]
+);
+
+export const appointmentTypes = pgTable(
+  "appointment_types",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    doctorId: uuid("doctor_id").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    name: text("name").notNull(),
+    defaultDurationMinutes: integer("default_duration_minutes"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("appointment_types_clinic_doctor_active_idx").on(
+      table.clinicId,
+      table.doctorId,
+      table.isActive,
+      table.name
+    ),
+  ]
+);
+
+export const appointmentEvents = pgTable(
+  "appointment_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
+    eventType: text("event_type").$type<"created" | "unknown_duration_resolved" | "rescheduled" | "reassigned" | "cancelled" | "no_show" | "rebooked" | "override_doctor_overlap" | "override_patient_overlap" | "override_availability" | "override_unresolved_duration" | "future_cap_acknowledged">().notNull(),
+    actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "set null" }),
+    actorRole: profileRoleEnum("actor_role"),
+    payload: jsonb("payload").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("appointment_events_appointment_created_idx").on(table.appointmentId, table.createdAt)]
+);
+
+export const appointmentLifecycleReceipts = pgTable(
+  "appointment_lifecycle_receipts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }),
+    action: text("action").$type<"create" | "reschedule" | "reassign" | "cancel" | "no_show" | "rebook">().notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    response: jsonb("response").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("appointment_lifecycle_receipts_unique").on(table.clinicId, table.idempotencyKey),
+    index("appointment_lifecycle_receipts_appointment_created_idx").on(table.appointmentId, table.createdAt),
+  ]
+);
+
+export const appointmentSchedulingIssues = pgTable(
+  "appointment_scheduling_issues",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
+    issueType: text("issue_type").$type<"unknown_duration">().notNull(),
+    status: text("status").$type<"open" | "resolved">().notNull().default("open"),
+    detectedBy: uuid("detected_by").references(() => profiles.id, { onDelete: "set null" }),
+    detectedSource: text("detected_source").notNull().default("legacy_migration"),
+    detectedAt: timestamp("detected_at", { withTimezone: true }).defaultNow().notNull(),
+    resolvedBy: uuid("resolved_by").references(() => profiles.id, { onDelete: "set null" }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolutionSource: text("resolution_source"),
+  },
+  (table) => [
+    index("appointment_scheduling_issues_clinic_status_idx").on(
+      table.clinicId,
+      table.status,
+      table.detectedAt
+    ),
+  ]
+);
+
+export const appointmentSchedulingIssueHistory = pgTable(
+  "appointment_scheduling_issue_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    issueId: uuid("issue_id")
+      .references(() => appointmentSchedulingIssues.id, { onDelete: "restrict" })
+      .notNull(),
+    action: text("action").$type<"detected" | "resolved">().notNull(),
+    actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "set null" }),
+    source: text("source").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("appointment_scheduling_issue_history_issue_created_idx").on(table.issueId, table.createdAt)]
 );
 
 export const encounterPriorityEvents = pgTable(
@@ -468,13 +657,83 @@ export const intakeAccessSessions = pgTable(
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    source: text("source").$type<"staff_delivery" | "patient_portal_handoff">().notNull().default("staff_delivery"),
+    // Declared before the Portal table below; the database migration owns this FK.
+    portalAccessSessionId: uuid("portal_access_session_id"),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index("intake_access_sessions_intake_created_idx").on(table.patientIntakeId, table.createdAt),
     index("intake_access_sessions_clinic_appointment_idx").on(table.clinicId, table.appointmentId),
   ]
+);
+
+// Patient Portal access is patient-scoped (unlike appointment-scoped Intake).
+// Raw access, verification, and browser-session secrets are never persisted.
+export const patientPortalAccessSessions = pgTable(
+  "patient_portal_access_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    originPatientId: uuid("origin_patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    otpHash: text("otp_hash").notNull(),
+    verifiedSessionHash: text("verified_session_hash"),
+    failedAttempts: integer("failed_attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "restrict" }).notNull(),
+    deliveryStatus: text("delivery_status").notNull().default("pending"),
+    deliveryChannel: text("delivery_channel"),
+    deliveryProvider: text("delivery_provider"),
+    deliveryRecipient: text("delivery_recipient"),
+    providerMessageId: text("provider_message_id"),
+    deliveryAttemptedAt: timestamp("delivery_attempted_at", { withTimezone: true }),
+    deliverySentAt: timestamp("delivery_sent_at", { withTimezone: true }),
+    deliveryFailedAt: timestamp("delivery_failed_at", { withTimezone: true }),
+    deliveryFailureCode: text("delivery_failure_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("patient_portal_access_verified_session_idx").on(table.verifiedSessionHash),
+    index("patient_portal_access_clinic_patient_idx").on(table.clinicId, table.patientId),
+  ]
+);
+
+export const patientPortalBookingReceipts = pgTable(
+  "patient_portal_booking_receipts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
+    patientId: uuid("patient_id").references(() => patients.id, { onDelete: "restrict" }).notNull(),
+    portalAccessSessionId: uuid("portal_access_session_id").references(() => patientPortalAccessSessions.id, { onDelete: "restrict" }).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("patient_portal_booking_receipts_session_idempotency_key_key").on(table.portalAccessSessionId, table.idempotencyKey)]
+);
+
+export const patientPortalIntakeHandoffReceipts = pgTable(
+  "patient_portal_intake_handoff_receipts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    portalAccessSessionId: uuid("portal_access_session_id").references(() => patientPortalAccessSessions.id, { onDelete: "restrict" }).notNull(),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "restrict" }).notNull(),
+    patientIntakeId: uuid("patient_intake_id").references(() => patientIntakes.id, { onDelete: "restrict" }).notNull(),
+    intakeAccessSessionId: uuid("intake_access_session_id").references(() => intakeAccessSessions.id, { onDelete: "restrict" }).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("patient_portal_intake_handoff_receipts_session_key").on(table.portalAccessSessionId, table.idempotencyKey)]
 );
 
 export const patientDemographicChangeEvents = pgTable(

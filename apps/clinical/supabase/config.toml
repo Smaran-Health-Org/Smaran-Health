@@ -34,6 +34,12 @@ public = false
 file_size_limit = "500MB"
 allowed_mime_types = ["audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "audio/ogg"]
 
+# Analytics/log shipping (vector) is disabled: the vector container crashes on
+# this Docker Desktop setup ("Network unreachable" when listing containers) and
+# blocks `supabase start` from completing. Log shipping is not needed for local
+# development.
+[analytics]
+enabled = false
 [storage.buckets.medical-documents]
 public = false
 file_size_limit = "4MB"

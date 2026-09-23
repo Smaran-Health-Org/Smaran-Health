@@ -7,7 +7,24 @@ import { createAdminClient } from "../lib/supabase/admin";
 // Seed script — uses service_role key, bypasses RLS intentionally.
 // Run: npx tsx src/db/seed.ts
 
+export function assertSafeLocalSeedTarget(url = process.env.NEXT_PUBLIC_SUPABASE_URL, allowLocalSeed = process.env.SMARAN_LOCAL_SEED) {
+  if (allowLocalSeed !== "1") {
+    throw new Error("Refusing to seed: set SMARAN_LOCAL_SEED=1 for an explicit local synthetic-data seed.");
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url ?? "");
+  } catch {
+    throw new Error("Refusing to seed: NEXT_PUBLIC_SUPABASE_URL must be a local Supabase URL.");
+  }
+  if (!['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)) {
+    throw new Error("Refusing to seed: synthetic accounts may only be created against localhost.");
+  }
+}
+
 async function seed() {
+  assertSafeLocalSeedTarget();
   const supabase = createAdminClient();
 
   console.log("🌱 Seeding database…\n");
@@ -75,7 +92,7 @@ async function seed() {
       console.error(`Failed to update membership for ${member.email}:`, memErr.message);
     }
 
-    console.log(`✓ ${member.role === "admin" ? "Admin" : "Doctor"}: ${member.fullName} (${member.email} / ${member.password})`);
+    console.log(`✓ ${member.role === "admin" ? "Admin" : "Doctor"}: ${member.fullName} (${member.email})`);
   }
 
   // ── 3. Create patients ────────────────────────────────────────────────────
@@ -188,15 +205,12 @@ async function seed() {
   }
 
   console.log("\n✅ Seed complete!");
-  console.log("\n📋 Login credentials:");
-  console.log("   doctor1@pilot.test / pilot123!");
-  console.log("   doctor2@pilot.test / pilot123!");
-  console.log("   doctor@test.com / test@123");
-  console.log("   admin@test.com / test@123 (admin only)");
-  console.log("\n   Run: npm run dev  →  http://localhost:3000\n");
+  console.log("\nSynthetic local seed complete. Run: npm run dev  →  http://localhost:3000\n");
 }
 
-seed().catch((err) => {
-  console.error("Seed failed:", err);
-  process.exit(1);
-});
+if (process.argv[1]?.endsWith("seed.ts")) {
+  seed().catch((err) => {
+    console.error("Seed failed:", err instanceof Error ? err.message : "unknown error");
+    process.exit(1);
+  });
+}

@@ -24,7 +24,7 @@ test("uncertain extraction is retained as Needs Review instead of clinical guess
 });
 
 test("provider unavailability and malformed provider output are mapped to stable non-PHI codes", () => {
-  const adapter = readFileSync("src/lib/documents/gemini-document-adapter.ts", "utf8");
+  const adapter = readFileSync("src/lib/documents/openai-document-adapter.ts", "utf8");
   const processor = readFileSync("src/lib/documents/process.ts", "utf8");
   assert.match(adapter, /DocumentProcessingProviderError\("provider_unavailable"\)/);
   assert.match(adapter, /DocumentProcessingProviderError\("invalid_response"\)/);
@@ -35,6 +35,7 @@ test("patient registration commits durable automatic work and recovery stays man
   const migration = readFileSync("supabase/migrations/0066_document_pipeline_durable_work.sql", "utf8");
   const claimFix = readFileSync("supabase/migrations/0067_document_pipeline_claim_scope_fix.sql", "utf8");
   const systemActorFix = readFileSync("supabase/migrations/0068_document_pipeline_system_actor_guard_fix.sql", "utf8");
+  const atomicityFix = readFileSync("supabase/migrations/0071_document_pipeline_attempt_atomicity_fix.sql", "utf8");
   assert.match(migration, /AFTER INSERT ON public\.documents/);
   assert.match(migration, /INSERT INTO public\.document_processing_work/);
   assert.match(migration, /ON CONFLICT \(document_id\) DO NOTHING/);
@@ -43,13 +44,22 @@ test("patient registration commits durable automatic work and recovery stays man
   assert.match(migration, /retry_document_processing_work/);
   assert.match(claimFix, /extraction\.document_id = d\.id/);
   assert.match(systemActorFix, /requested_by_profile_id IS NOT DISTINCT FROM/);
+  assert.match(atomicityFix, /complete_document_processing_work/);
+  assert.match(atomicityFix, /active_extraction_id IS DISTINCT FROM p_extraction_id/);
+  assert.match(atomicityFix, /failure_reason_code = historical\.failure_code/);
 });
 
 test("worker drains extraction, reconciliation, and brief generation without a Process click", () => {
   const worker = readFileSync("src/lib/documents/pipeline.ts", "utf8");
+  const processor = readFileSync("src/lib/documents/process.ts", "utf8");
   const patientUpload = readFileSync("src/app/api/intake/[token]/documents/route.ts", "utf8");
   const recoveryRoute = readFileSync("src/app/api/documents/[id]/process/route.ts", "utf8");
   assert.match(worker, /processClaimedMedicalDocument/);
+  assert.match(worker, /document_pipeline_completion_stale/);
+  assert.match(processor, /complete_document_processing_work/);
+  assert.doesNotMatch(processor, /\.rpc\("complete_document_processing"/);
+  assert.doesNotMatch(processor, /export async function processMedicalDocument\(/);
+  assert.doesNotMatch(worker, /finish_document_processing_work/);
   assert.match(worker, /drainClinicalStateReconciliation/);
   assert.match(worker, /drainPreconsultBriefGeneration/);
   assert.match(patientUpload, /wakeDocumentPipeline/);

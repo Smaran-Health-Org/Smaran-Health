@@ -4,8 +4,8 @@ import {
   AppointmentConflictError,
   AppointmentReferenceError,
   createAppointment,
+  SchedulerMutationError,
 } from "@/lib/db/appointments";
-import { createAuditLog } from "@/lib/db/audit";
 import { createAppointmentSchema } from "@/lib/validation";
 import {
   badRequest,
@@ -36,14 +36,6 @@ export async function POST(request: NextRequest) {
       doctorId,
     });
 
-    await createAuditLog(
-      session.clinicId,
-      session.profileId,
-      "appointment.created",
-      "appointment",
-      appointment.id
-    );
-
     return NextResponse.json(appointment, { status: 201 });
   } catch (error) {
     if (error instanceof AppointmentConflictError) {
@@ -51,6 +43,12 @@ export async function POST(request: NextRequest) {
     }
     if (error instanceof AppointmentReferenceError) {
       return badRequest("Patient or doctor is not available in this clinic");
+    }
+    if (error instanceof SchedulerMutationError) {
+      return conflict("Appointment booking requires updated acknowledgement", {
+        code: error.code,
+        ...error.details,
+      });
     }
     return internalError("Could not create appointment");
   }

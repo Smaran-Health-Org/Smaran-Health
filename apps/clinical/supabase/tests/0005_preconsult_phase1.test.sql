@@ -36,6 +36,11 @@ INSERT INTO public.patients (id, clinic_id, full_name, phone) VALUES
     '+91 90000 00002'
   );
 
+-- Ordinary scheduled creation now validates the full S3 availability state.
+INSERT INTO public.doctor_working_hours (clinic_id, doctor_id, weekday, start_time, end_time)
+SELECT '10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', weekday, '00:00', '23:59'
+FROM generate_series(0, 6) AS weekday;
+
 INSERT INTO public.consultations (
   id,
   clinic_id,
@@ -199,9 +204,13 @@ SELECT throws_ok(
   'merge provenance fields remain write-locked until Phase 2'
 );
 
-UPDATE public.appointments
-SET status = 'cancelled'
-WHERE idempotency_key = 'clinic-a-booking';
+SELECT public.scheduler_mutate_appointment_v3(
+  'cancel',
+  (SELECT id FROM public.appointments WHERE idempotency_key = 'clinic-a-booking'),
+  NULL, NULL, NULL, NULL, NULL, NULL,
+  (SELECT updated_at FROM public.appointments WHERE idempotency_key = 'clinic-a-booking'),
+  'phase1-cancel'
+);
 
 SELECT is(
   (

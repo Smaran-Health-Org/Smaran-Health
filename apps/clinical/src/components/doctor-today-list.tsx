@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AppointmentQueueItem } from "@/lib/db/appointment-queue";
+import { Icon } from "@/components/icons";
 import styles from "@/components/clinical.module.css";
 
 function appointmentTime(value: string): string {
@@ -57,7 +58,7 @@ function DoctorPatientRow({ item, busy, onOpen }: { item: AppointmentQueueItem; 
       </span>
       {item.isPriority ? <span className={styles.priorityPill}>Priority</span> : null}
       {item.operationalStatus === "waiting" ? (
-        <button className={styles.secondaryButton} disabled={busy} onClick={() => onOpen(item)}>{busy ? "Opening…" : "Open"}</button>
+        <button className={styles.secondaryButton} disabled={busy} onClick={() => onOpen(item)}>{busy ? "Opening…" : "Review patient"}</button>
       ) : item.operationalStatus === "in_consultation" ? (
         <Link className={styles.secondaryButton} href={`/consultations/${item.consultationId}`}>Open</Link>
       ) : (
@@ -102,15 +103,7 @@ export function DoctorTodayList({ items }: { items: AppointmentQueueItem[] }) {
   return (
     <div className={styles.doctorDaySections}>
       {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
-      {priorityItems.length > 0 ? (
-        <section className={styles.panel} aria-labelledby="priority-patients-heading">
-          <div className={styles.panelTitle}>
-            <div><p className={styles.eyebrow}>Human marked</p><h2 id="priority-patients-heading">Priority</h2></div>
-            <span className={styles.panelHint}>Queue order is unchanged</span>
-          </div>
-          <ul className={styles.doctorDayList}>{priorityItems.map((item) => <DoctorPatientRow key={`priority-${item.appointmentId}`} item={item} busy={busyId === item.appointmentId} onOpen={(patient) => void openPatient(patient)} />)}</ul>
-        </section>
-      ) : null}
+      {priorityItems.length > 0 ? <div className={styles.prioritySummary} role="status"><Icon name="alert" /><div><strong>{priorityItems.length} human-marked priority {priorityItems.length === 1 ? "patient" : "patients"}</strong><span>{priorityItems.map((item) => item.patientName).join(", ")} · Queue order is unchanged</span></div></div> : null}
 
       <section className={styles.panel} aria-labelledby="doctor-day-heading">
         <div className={styles.panelTitle}>

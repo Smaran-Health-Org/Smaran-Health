@@ -1,0 +1,47 @@
+import type { SchedulerAppointmentSummary } from "@/lib/db/scheduler-read";
+import { CALENDAR_DAY_MINUTES, CALENDAR_VISUAL_RULER_MINUTES, calendarMinuteAtOffset } from "@/lib/scheduler/calendar-geometry";
+
+export function visibleCalendarDoctors(view: "day" | "week", dayDoctorIds: string[], weekDoctorId: string): string[] {
+  return view === "week" ? (weekDoctorId ? [weekDoctorId] : []) : dayDoctorIds;
+}
+
+export function calendarOperationalSummary(appointments: SchedulerAppointmentSummary[]): { appointments: number; intakePending: number; waiting: number } {
+  const active = appointments.filter((item) => item.status === "scheduled");
+  return {
+    appointments: active.length,
+    intakePending: active.filter((item) => item.intakeStatus !== "submitted").length,
+    waiting: active.filter((item) => item.encounterOperationalStatus === "waiting").length,
+  };
+}
+
+export function calendarBookingMinuteForPointer(pointerOffsetPx: number): number {
+  return calendarMinuteAtOffset(pointerOffsetPx);
+}
+
+/** Calendar clicks select a complete visual ruler cell; the side panel retains exact-minute editing. */
+export function calendarBookingRulerMinute(pointerOffsetPx: number): number {
+  const minute = calendarBookingMinuteForPointer(pointerOffsetPx);
+  return Math.min(
+    CALENDAR_DAY_MINUTES - CALENDAR_VISUAL_RULER_MINUTES,
+    Math.floor(minute / CALENDAR_VISUAL_RULER_MINUTES) * CALENDAR_VISUAL_RULER_MINUTES
+  );
+}
+
+export function calendarAppointmentReadinessCue(appointment: SchedulerAppointmentSummary): string | null {
+  if (appointment.documentStatus === "needs_review") return "Documents to review";
+  if (appointment.intakeStatus === "submitted") return "Intake ready";
+  return null;
+}
+
+const accessibleDate = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", day: "numeric", month: "long", year: "numeric" });
+export function calendarAppointmentAccessibleLabel(appointment: SchedulerAppointmentSummary, time: string): string {
+  return `${appointment.patientName}, ${appointment.doctorName}, ${accessibleDate.format(new Date(appointment.scheduledAt))}, ${time}, ${appointment.durationMinutes === null ? "Duration unknown" : `${appointment.durationMinutes} minutes`}, ${appointment.status.replace("_", " ")}`;
+}
+
+const kolkataDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" });
+const kolkataTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+export function kolkataClock(now: Date): { date: string; time: string; minute: number } {
+  const time = kolkataTime.format(now);
+  const [hour, minute] = time.split(":").map(Number);
+  return { date: kolkataDate.format(now), time, minute: hour * 60 + minute };
+}

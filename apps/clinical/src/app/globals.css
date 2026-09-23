@@ -27,9 +27,11 @@ html {
 }
 
 body {
-  background: var(--background);
+  background:
+    linear-gradient(180deg, rgba(231, 241, 236, 0.65) 0, rgba(247, 249, 248, 0) 280px),
+    var(--background);
   color: var(--ink);
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  font-family: "Aptos", "Segoe UI Variable Text", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   /* Keep the app edge-to-edge without any horizontal scroll on phones. */
   overflow-x: hidden;

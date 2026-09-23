@@ -7,6 +7,15 @@ import type {
   patientMergeEvents,
   consultations,
   appointments,
+  clinicSchedulerSettings,
+  doctorSchedulerSettings,
+  doctorWorkingHours,
+  doctorAvailabilityExceptions,
+  appointmentTypes,
+  appointmentEvents,
+  appointmentLifecycleReceipts,
+  appointmentSchedulingIssues,
+  appointmentSchedulingIssueHistory,
   encounterPriorityEvents,
   patientIntakes,
   consents,
@@ -35,9 +44,28 @@ export type Clinic = InferSelectModel<typeof clinics>;
 export type Profile = InferSelectModel<typeof profiles>;
 export type ClinicMembership = InferSelectModel<typeof clinicMemberships>;
 export type Patient = InferSelectModel<typeof patients>;
+/**
+ * Patient identity fields only — deliberately excludes doctor-only clinical
+ * facts (weight, height, blood pressure, blood group, diabetes). Operational
+ * (Clinic Desk) surfaces and patient pickers must use this projection so
+ * admin/assistant roles never receive clinical interpretation.
+ */
+export type PatientDirectoryEntry = Omit<
+  Patient,
+  "weightKg" | "heightCm" | "bloodPressure" | "bloodGroup" | "hasDiabetes"
+>;
 export type PatientMergeEvent = InferSelectModel<typeof patientMergeEvents>;
 export type Consultation = InferSelectModel<typeof consultations>;
 export type Appointment = InferSelectModel<typeof appointments>;
+export type ClinicSchedulerSettings = InferSelectModel<typeof clinicSchedulerSettings>;
+export type DoctorSchedulerSettings = InferSelectModel<typeof doctorSchedulerSettings>;
+export type DoctorWorkingHours = InferSelectModel<typeof doctorWorkingHours>;
+export type DoctorAvailabilityException = InferSelectModel<typeof doctorAvailabilityExceptions>;
+export type AppointmentType = InferSelectModel<typeof appointmentTypes>;
+export type AppointmentEvent = InferSelectModel<typeof appointmentEvents>;
+export type AppointmentLifecycleReceipt = InferSelectModel<typeof appointmentLifecycleReceipts>;
+export type AppointmentSchedulingIssue = InferSelectModel<typeof appointmentSchedulingIssues>;
+export type AppointmentSchedulingIssueHistory = InferSelectModel<typeof appointmentSchedulingIssueHistory>;
 export type EncounterPriorityEvent = InferSelectModel<typeof encounterPriorityEvents>;
 export type PatientIntake = InferSelectModel<typeof patientIntakes>;
 export type Consent = InferSelectModel<typeof consents>;

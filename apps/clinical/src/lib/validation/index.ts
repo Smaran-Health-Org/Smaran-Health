@@ -170,16 +170,52 @@ export const appointmentStatusSchema = z.enum([
   "completed",
 ]);
 
+const schedulerConflictAcknowledgementSchema = z.object({
+  fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
+});
+
 export const createAppointmentSchema = z.object({
   patientId: z.string().uuid(),
   doctorId: z.string().uuid().optional(),
   scheduledAt: z.string().datetime({ offset: true }),
-  idempotencyKey: z.string().trim().min(1).max(200).optional(),
+  appointmentTypeId: z.string().uuid().optional(),
+  staffNote: z.string().trim().max(2000).optional(),
+  durationMinutes: z.number().int().min(5).max(60).optional(),
+  idempotencyKey: z.string().trim().min(1).max(200),
+  conflictAcknowledgements: z.array(schedulerConflictAcknowledgementSchema).max(20).optional(),
+  futureCapAcknowledgement: schedulerConflictAcknowledgementSchema.optional(),
+}).strict();
+
+const lifecycleCommandSchema = z.object({
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+  idempotencyKey: z.string().trim().min(1).max(200),
+  conflictAcknowledgements: z.array(schedulerConflictAcknowledgementSchema).max(20).optional(),
+  futureCapAcknowledgement: schedulerConflictAcknowledgementSchema.optional(),
 });
 
-export const updateAppointmentSchema = z.object({
-  status: appointmentStatusSchema,
-});
+export const updateAppointmentSchema = z.discriminatedUnion("action", [
+  lifecycleCommandSchema.extend({
+    action: z.literal("reschedule"),
+    scheduledAt: z.string().datetime({ offset: true }),
+    durationMinutes: z.number().int().min(5).max(60).optional(),
+    appointmentTypeId: z.string().uuid().nullable().optional(),
+  }).strict(),
+  lifecycleCommandSchema.extend({
+    action: z.literal("reassign"),
+    doctorId: z.string().uuid(),
+    appointmentTypeId: z.string().uuid().nullable().optional(),
+  }).strict(),
+  lifecycleCommandSchema.extend({ action: z.literal("cancel") }).strict(),
+  lifecycleCommandSchema.extend({ action: z.literal("no_show") }).strict(),
+  lifecycleCommandSchema.extend({
+    action: z.literal("rebook"),
+    doctorId: z.string().uuid().optional(),
+    scheduledAt: z.string().datetime({ offset: true }),
+    durationMinutes: z.number().int().min(5).max(60).optional(),
+    appointmentTypeId: z.string().uuid().nullable().optional(),
+    staffNote: z.string().trim().max(2000).optional(),
+  }).strict(),
+]);
 
 export const appointmentQueueOperationSchema = z.object({
   operation: z.enum(["check_in", "mark_arrived", "mark_waiting", "start_consultation"]),
@@ -205,6 +241,28 @@ export const createWalkInSchema = z.object({
 export const verifyPatientIntakeOtpSchema = z.object({
   otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
 });
+
+// ── Patient Portal (Scheduler S6) ──────────────────────────────────────────
+
+export const verifyPatientPortalCodeSchema = z.object({
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit verification code"),
+}).strict();
+
+export const patientPortalAvailabilityQuerySchema = z.object({
+  doctorId: z.string().uuid(),
+  localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+}).strict();
+
+export const patientPortalBookingSchema = z.object({
+  doctorId: z.string().uuid(),
+  scheduledAt: z.string().datetime({ offset: true }),
+  idempotencyKey: z.string().trim().min(1).max(200),
+  warningProof: z.string().trim().min(1).max(1000).optional(),
+}).strict();
+
+export const patientPortalIntakeHandoffSchema = z.object({
+  idempotencyKey: z.string().trim().min(1).max(200),
+}).strict();
 
 const selfReportedItemSchema = z.string().trim().min(1).max(300);
 

@@ -32,16 +32,19 @@ export default async function ClinicDeskPage() {
           <div>
             <p className={styles.eyebrow}>Clinic Desk</p>
             <h1>Today</h1>
-            <p>What is happening now, and what needs your attention.</p>
+            <p>Run arrivals, preparation, and the waiting queue from one operational view.</p>
           </div>
-          <Link href="/desk/walk-in" className={styles.primaryButton}><Icon name="plus" /> Add patient</Link>
+          <div className={styles.headerActions}>
+            <Link href="/scheduler?workspace=desk" className={styles.secondaryButton}><Icon name="calendar" /> Scheduler</Link>
+            <Link href="/desk/walk-in" className={styles.primaryButton}><Icon name="plus" /> Add walk-in</Link>
+          </div>
         </div>
 
         <div className={styles.doctorKpiGrid} aria-label="Clinic Desk summary">
-          <div className={styles.statCard}><div><strong>{queue.summary.total}</strong><small>Patients Today</small></div></div>
-          <div className={styles.statCard}><div><strong>{queue.summary.waiting}</strong><small>Waiting</small></div></div>
-          <div className={styles.statCard}><div><strong>{queue.summary.priority}</strong><small>Priority</small></div></div>
-          <div className={styles.statCard}><div><strong>{queue.summary.needsAction}</strong><small>Needs Action</small></div></div>
+          <div className={styles.statCard} data-tone="primary"><div><strong>{queue.summary.total}</strong><small>Visits today</small></div></div>
+          <div className={styles.statCard} data-tone="warning"><div><strong>{queue.summary.waiting}</strong><small>Waiting now</small></div></div>
+          <div className={styles.statCard} data-tone="attention"><div><strong>{queue.summary.priority}</strong><small>Human-marked priority</small></div></div>
+          <div className={styles.statCard} data-tone="danger"><div><strong>{queue.summary.needsAction}</strong><small>Needs action</small></div></div>
         </div>
 
         <ClinicDeskToday queue={queue} />

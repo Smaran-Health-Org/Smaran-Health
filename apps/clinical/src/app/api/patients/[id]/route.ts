@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
-import { getPatient, updatePatient } from "@/lib/db/patients";
+import {
+  CLINICAL_PATIENT_FIELDS,
+  getPatient,
+  toPatientDirectoryEntry,
+  updatePatient,
+} from "@/lib/db/patients";
 import { getPatientDetail } from "@/lib/db/patient-detail";
 import { createAuditLog } from "@/lib/db/audit";
 import { updatePatientSchema } from "@/lib/validation";
-import { badRequest, notFound, unauthorized } from "@/lib/api/error-handler";
+import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api/error-handler";
 
 export async function GET(
   _request: NextRequest,
@@ -13,6 +18,11 @@ export async function GET(
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) return unauthorized();
+  // The full detail payload carries clinical state, consultation notes and
+  // follow-up memory — doctor-only clinical interpretation.
+  if (session.role !== "doctor") {
+    return forbidden("Only a doctor can view a patient's full clinical record");
+  }
 
   const detail = await getPatientDetail(id, session.clinicId);
   if (!detail) return notFound("Patient not found");
@@ -32,6 +42,14 @@ export async function PATCH(
   const parsed = updatePatientSchema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid patient data", parsed.error.flatten());
 
+  const isDoctor = session.role === "doctor";
+  if (!isDoctor) {
+    const clinicalFields = CLINICAL_PATIENT_FIELDS.filter((field) => field in parsed.data);
+    if (clinicalFields.length > 0) {
+      return forbidden("Only a doctor can update clinical patient details");
+    }
+  }
+
   const existing = await getPatient(id, session.clinicId);
   if (!existing) return notFound("Patient not found");
 
@@ -39,5 +57,7 @@ export async function PATCH(
 
   await createAuditLog(session.clinicId, session.profileId, "patient.updated", "patient", patient.id);
 
-  return NextResponse.json(patient);
+  // Operational staff maintain identity details only; clinical facts never
+  // travel back to a Clinic Desk surface.
+  return NextResponse.json(isDoctor ? patient : toPatientDirectoryEntry(patient));
 }
