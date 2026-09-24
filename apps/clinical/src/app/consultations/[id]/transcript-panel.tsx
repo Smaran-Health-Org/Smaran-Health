@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import styles from "./demo.module.css";
+import styles from "./record.module.css";
 
 /**
  * The raw dialogue transcript, treated as SOURCE EVIDENCE rather than record text.

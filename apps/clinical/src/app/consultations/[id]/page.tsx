@@ -1,24 +1,33 @@
 import { notFound, redirect } from "next/navigation";
 import { after } from "next/server";
+import { AppShell } from "@/components/app-shell";
+import styles from "@/components/clinical.module.css";
 import { getSessionContext } from "@/lib/db/session";
 import { getConsultation } from "@/lib/db/consultations";
 import { getPatient, getPatients } from "@/lib/db/patients";
-import { getClinicName } from "@/lib/db/clinics";
+import { getClinicDoctors, getClinicName } from "@/lib/db/clinics";
 import { getPatientTimeline } from "@/lib/db/timeline";
 import { getClinicalNoteByConsultation } from "@/lib/db/clinical-notes";
 import { getTranscriptByConsultation } from "@/lib/db/transcripts";
+import { getConsultationAudioMeta } from "@/lib/db/audio-files";
 import { getFollowUpMemory } from "@/lib/db/follow-up-memory";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   getPreconsultBriefAtConsultationStart,
   recordPreconsultBriefViewWithClient,
 } from "@/lib/preconsult/brief";
+import { ConsultationRecordView } from "./record-view";
 import {
   ConsultationWorkflow,
   type NoteContent,
   type WorkflowPatient,
   type WorkflowTimelineEvent,
 } from "./consultation-workflow";
+
+const istDate = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  dateStyle: "medium",
+});
 
 export default async function ConsultationPage({
   params,
@@ -60,6 +69,78 @@ export default async function ConsultationPage({
       consultation.id,
       preconsultContext.briefVersionId
     ).catch(() => undefined));
+  }
+
+  // A completed visit opens as a read-only record. The live encounter workflow is
+  // deliberately left in charge of open visits so recording, review and approval
+  // are untouched — only the terminal state is replaced.
+  if (consultation.status === "approved") {
+    const [audio, doctors] = await Promise.all([
+      getConsultationAudioMeta(id, session.clinicId).catch(() => null),
+      getClinicDoctors(session.clinicId).catch(() => []),
+    ]);
+
+    return (
+      <AppShell
+        doctorName={session.fullName}
+        clinicName={clinicName}
+        patientCount={patientList.total}
+        role={session.role}
+        workspace="clinical"
+      >
+        <div className={styles.pageContent}>
+          <ConsultationRecordView
+            consultation={{
+              id: consultation.id,
+              status: consultation.status,
+              startedAt: consultation.startedAt,
+              endedAt: consultation.endedAt ?? null,
+              consentAcquired: consultation.consentAcquired,
+              consentTimestamp: consultation.consentTimestamp ?? null,
+            }}
+            patient={{
+              id: patient.id,
+              fullName: patient.fullName ?? "Patient",
+              age: patient.age ?? null,
+              gender: patient.gender ?? null,
+              phone: patient.phone ?? null,
+              medicalRecordNumber: patient.medicalRecordNumber ?? null,
+            }}
+            doctorName={
+              doctors.find((doctor) => doctor.id === consultation.doctorId)?.fullName ??
+              session.fullName
+            }
+            note={
+              note
+                ? {
+                    status: note.status,
+                    approvedAt: note.approvedAt ?? null,
+                    content: (note.content as NoteContent | null) ?? null,
+                  }
+                : null
+            }
+            transcript={
+              transcript
+                ? {
+                    rawText: transcript.rawText ?? "",
+                    modelVersion: transcript.modelVersion ?? null,
+                    createdAt: transcript.createdAt ?? null,
+                  }
+                : null
+            }
+            audio={audio}
+            timeline={timeline.map((event) => ({
+              id: event.id,
+              date: istDate.format(new Date(event.createdAt)),
+              title: event.eventType === "follow_up" ? "Follow-up note" : event.eventType,
+              detail: event.summary ?? "",
+            }))}
+            memory={memory}
+            preconsultContext={preconsultContext}
+          />
+        </div>
+      </AppShell>
+    );
   }
 
   const workflowPatient: WorkflowPatient = {

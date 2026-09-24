@@ -1,21 +1,13 @@
-/* DEMO ONLY — prototype styles for the consultation record overhaul.
-   Self-contained so the prototype can be deleted without touching app CSS. */
+/* Read-only consultation record (approved visits).
+   Ordered by clinical decision value; one hairline rule between sections
+   instead of nested cards. */
 
-/* Container so the variant-C rail can size itself to the content area rather
-   than the window (the shell sidebar already claims ~250px of the window). */
+/* Container so the rail sizes itself to the content area rather than the
+   window — the shell sidebar already claims ~250px of the window. */
 .page { display: grid; gap: 1.15rem; container-type: inline-size; }
 
 .backLink { color: #17745b; font-size: 0.74rem; font-weight: 800; text-decoration: none; }
 .backLink:hover { text-decoration: underline; }
-
-.demoBanner {
-  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
-  border: 1px dashed #c9d6d0; border-radius: 12px; background: #f7faf8; padding: 10px 12px;
-  color: #4a5b55; font-size: 0.74rem; font-weight: 700;
-}
-.demoSwitcher { display: inline-flex; gap: 4px; border: 1px solid #dfe6e2; border-radius: 9px; background: #fff; padding: 3px; }
-.demoSwitcher a { border-radius: 6px; padding: 5px 11px; color: #50605b; font-size: 0.72rem; font-weight: 750; text-decoration: none; }
-.demoSwitcher a[data-active="true"] { background: #17745b; color: #fff; }
 
 .recordHeader {
   display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; justify-content: space-between;
@@ -37,74 +29,15 @@
 .chip[data-tone="ok"] { border-color: #cfe6d8; background: #eef8f2; color: #14603f; }
 .chip[data-tone="warn"] { border-color: #f0dcc4; background: #fdf6ec; color: #86591b; }
 
-.single { display: grid; gap: 1.15rem; }
-.rail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(285px, 0.42fr); gap: 1.15rem; align-items: start; }
-.railSide { display: grid; gap: 1.15rem; position: sticky; top: 1.25rem; }
-
-.section { border: 1px solid #e3e8e5; border-radius: 16px; background: #fff; padding: 1.15rem 1.25rem; }
-.sectionHead { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; justify-content: space-between; margin-bottom: 0.9rem; }
-.sectionHead h2 { margin: 0; font-size: 1.02rem; }
-.eyebrow { margin: 0 0 3px; color: #7b8781; font-size: 0.63rem; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; }
-.hint { color: #7b8781; font-size: 0.68rem; font-weight: 700; }
-
-.transcriptMeta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.85rem; }
-.transcript {
-  margin: 0; border-left: 3px solid #d7e6df; border-radius: 0 10px 10px 0; background: #fafcfb;
-  padding: 0.9rem 1rem; color: #22322c; font-size: 0.86rem; line-height: 1.85; white-space: pre-wrap;
-}
-.transcriptEmpty { margin: 0; color: #7b8781; font-size: 0.8rem; }
-
-.factGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.fact { display: grid; gap: 3px; border: 1px solid #eaeceb; border-radius: 10px; background: #fbfcfb; padding: 9px 11px; }
-.fact dt { color: #7b8781; font-size: 0.62rem; font-weight: 850; letter-spacing: 0.06em; text-transform: uppercase; }
-.fact dd { margin: 0; color: #22322c; font-size: 0.82rem; font-weight: 700; }
-
-.fields { display: grid; gap: 0.9rem; }
-.field { display: grid; gap: 5px; }
-.fieldLabel { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: #3f4f4a; font-size: 0.7rem; font-weight: 850; letter-spacing: 0.04em; text-transform: uppercase; }
-.field p { margin: 0; color: #22322c; font-size: 0.86rem; line-height: 1.7; white-space: pre-wrap; }
-.field[data-empty="true"] p { color: #9aa49f; font-style: italic; }
-.pill { border-radius: 999px; background: #eef4f1; padding: 2px 8px; color: #52655e; font-size: 0.6rem; font-weight: 800; letter-spacing: 0; text-transform: none; }
-.uncertain { border: 1px solid #f0dcc4; border-radius: 12px; background: #fdf9f3; padding: 0.75rem 0.85rem; }
-.uncertain .fieldLabel { color: #86591b; }
-.uncertain p { margin: 0; color: #4a3a22; font-size: 0.84rem; line-height: 1.7; white-space: pre-wrap; }
-
-.log { display: grid; margin: 0; padding: 0; list-style: none; }
-.log li { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 12px; border-top: 1px solid #eef1ef; padding: 11px 0; }
-.log li:first-child { border-top: 0; padding-top: 0; }
-.log time { color: #7b8781; font-size: 0.71rem; font-weight: 750; }
-.log strong { display: block; margin-bottom: 2px; color: #22322c; font-size: 0.84rem; }
-.log p { margin: 0; color: #5c6b66; font-size: 0.78rem; line-height: 1.6; }
-.empty { margin: 0; color: #7b8781; font-size: 0.8rem; }
-
-.stack { display: grid; gap: 0.85rem; }
-
-@media (max-width: 900px) {
-  .rail { grid-template-columns: 1fr; }
-  .railSide { position: static; }
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Variant C — refined rail.
-   Principle: order the page by DECISION VALUE, not by data source.
-   Fewer containers, progressive disclosure, and no empty placeholders.
-   ───────────────────────────────────────────────────────────────────────────── */
-
-/* Section rhythm: typography-led, one hairline rule instead of nested cards. */
+.wrap { border: 1px solid #e3e8e5; border-radius: 16px; background: #fff; padding: 1.15rem 1.3rem 0.4rem; }
 .block { display: grid; gap: 0.7rem; padding: 1.05rem 0; border-top: 1px solid #e8ecea; }
 .block:first-child { border-top: 0; padding-top: 0; }
 .blockHead { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; }
 .blockHead h2 { margin: 0; font-size: 0.72rem; font-weight: 850; letter-spacing: 0.1em; text-transform: uppercase; color: #6f7d78; }
 .muted { margin: 0; color: #8b9691; font-size: 0.79rem; }
-
-.wrap { border: 1px solid #e3e8e5; border-radius: 16px; background: #fff; padding: 1.15rem 1.3rem 0.4rem; }
-
-/* The headline: the one thing a doctor reads first. */
-.headline { display: grid; gap: 0.55rem; }
 .headlineText { margin: 0; color: #17201e; font-size: 1.02rem; line-height: 1.65; }
 .headlineMeta { color: #7b8781; font-size: 0.7rem; font-weight: 750; }
 
-/* What changed: the actionable delta, given its own accent so it is findable. */
 .delta { display: grid; gap: 0.7rem; border-left: 3px solid #cfe3da; padding-left: 0.85rem; }
 .changeGroup { display: grid; gap: 6px; }
 .changeGroup + .changeGroup { border-top: 1px solid #f0f3f1; padding-top: 0.7rem; }
@@ -112,17 +45,6 @@
 
 /* Raw source material: clearly separated from the approved record. */
 .sourceNote { margin: 0 0 0.6rem; color: #8b5a22; font-size: 0.74rem; font-weight: 750; }
-.transcriptBody {
-  margin: 0; position: relative; max-height: 340px; overflow: hidden;
-  border-radius: 12px; background: #fafcfb; padding: 0.9rem 1rem;
-  color: #22322c; font-size: 0.85rem; line-height: 1.85; white-space: pre-wrap;
-}
-.transcriptBody[data-expanded="true"] { max-height: none; }
-.transcriptBody mark { border-radius: 3px; background: #fff2b8; color: #4a3d00; padding: 0 2px; }
-.transcriptFade {
-  position: absolute; right: 0; bottom: 0; left: 0; height: 74px; pointer-events: none;
-  background: linear-gradient(to bottom, rgba(250, 252, 251, 0), #fafcfb);
-}
 .transcriptTools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 0.7rem; }
 .searchBox {
   flex: 1 1 200px; min-width: 180px; border: 1px solid #dbe2df; border-radius: 8px;
@@ -135,16 +57,26 @@
   color: #4e5e59; font: inherit; font-size: 0.72rem; font-weight: 800; cursor: pointer;
 }
 .toolButton:hover { border-color: #a9bdb4; color: #14603f; }
+.transcriptBody {
+  margin: 0; position: relative; max-height: 340px; overflow: hidden;
+  border-radius: 12px; background: #fafcfb; padding: 0.9rem 1rem;
+  color: #22322c; font-size: 0.85rem; line-height: 1.85; white-space: pre-wrap;
+}
+.transcriptBody[data-expanded="true"] { max-height: none; }
+.transcriptBody mark { border-radius: 3px; background: #fff2b8; color: #4a3d00; padding: 0 2px; }
+.transcriptFade {
+  position: absolute; right: 0; bottom: 0; left: 0; height: 74px; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(250, 252, 251, 0), #fafcfb);
+}
 
-/* Compact key/value rows replace a grid of little boxes. */
+/* Compact key/value rows rather than a grid of little boxes. */
 .kv { display: grid; margin: 0; gap: 0; }
 .kv > div { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; padding: 6px 0; }
 .kv > div + div { border-top: 1px solid #f0f3f1; }
 .kv dt { color: #7b8781; font-size: 0.7rem; font-weight: 750; }
 .kv dd { margin: 0; color: #22322c; font-size: 0.78rem; font-weight: 750; text-align: right; }
 
-/* Stacked by default. The two-column rail turns on when there is genuinely
-   enough content width for it — not merely a wide enough window. */
+/* Stacked by default; two columns only when there is genuinely room. */
 .railC { display: grid; gap: 1.4rem; align-items: start; }
 .railSideC { display: grid; gap: 0.9rem; }
 @container (min-width: 880px) {
@@ -153,34 +85,35 @@
 }
 .sideCard { border: 1px solid #e3e8e5; border-radius: 14px; background: #fff; padding: 0.9rem 1rem; }
 .sideCard h2 { margin: 0 0 0.5rem; font-size: 0.66rem; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; color: #6f7d78; }
-
 .jump { display: grid; gap: 2px; }
-.jump a {
-  border-radius: 7px; padding: 6px 8px; color: #4e5e59; font-size: 0.76rem; font-weight: 750; text-decoration: none;
-}
+.jump a { border-radius: 7px; padding: 6px 8px; color: #4e5e59; font-size: 0.76rem; font-weight: 750; text-decoration: none; }
 .jump a:hover { background: #f1f6f3; color: #14603f; }
-
 .provenance { margin: 0; color: #97a29d; font-size: 0.66rem; line-height: 1.6; }
 
-/* History: compact, two lines max per visit. */
 .historyRow { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 9px 0; border-top: 1px solid #f0f3f1; }
 .historyRow:first-child { border-top: 0; }
 .historyRow time { color: #7b8781; font-size: 0.71rem; font-weight: 750; }
 .historyRow strong { display: block; margin-bottom: 1px; color: #22322c; font-size: 0.82rem; }
 .historyRow p { margin: 0; color: #66736f; font-size: 0.76rem; line-height: 1.5; }
 
-/* Optional context stays folded away until asked for. */
 .disclosure { border: 1px solid #eaeceb; border-radius: 10px; background: #fbfcfb; padding: 0.6rem 0.75rem; }
 .disclosure summary { cursor: pointer; color: #4e5e59; font-size: 0.74rem; font-weight: 800; }
 .disclosure[open] summary { margin-bottom: 0.6rem; }
+
+.fields { display: grid; gap: 1rem; }
+.field { display: grid; gap: 5px; }
+.fieldLabel { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: #3f4f4a; font-size: 0.7rem; font-weight: 850; letter-spacing: 0.04em; text-transform: uppercase; }
+.field p { margin: 0; color: #22322c; font-size: 0.86rem; line-height: 1.7; white-space: pre-wrap; }
+.uncertain { border: 1px solid #f0dcc4; border-radius: 12px; background: #fdf9f3; padding: 0.75rem 0.85rem; }
+.uncertain p { margin: 0; color: #4a3a22; font-size: 0.84rem; line-height: 1.7; white-space: pre-wrap; }
 
 /* Anchor jumps must clear the sticky header. */
 .block[id], .sideCard[id] { scroll-margin-top: 1.5rem; }
 
 /* ── Structured presentation of note text ────────────────────────────────────
-   These give visual shape to what the doctor already wrote. Nothing is
-   inferred, reordered or dropped — an unrecognised line renders verbatim, and
-   the change pill only echoes a verb the doctor typed.
+   This only changes how the doctor's own text is READ. Nothing is inferred,
+   reordered or dropped — a line is labelled only when it literally begins with
+   a change verb the doctor typed, and unrecognised text renders verbatim.
    Colour encodes DIRECTION OF CHANGE only, never severity. */
 .complaint {
   margin: 0; border-left: 3px solid #bcd9cd; border-radius: 0 10px 10px 0; background: #f7fbf9;
@@ -191,7 +124,6 @@
   border-left: 3px solid #bcd9cd; border-radius: 0 10px 10px 0; background: #f7fbf9;
   padding: 0.6rem 0.95rem; color: #17201e; font-size: 0.94rem; line-height: 1.6;
 }
-
 .medList { display: grid; margin: 0; padding: 0; list-style: none; }
 .medGroup { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 0; }
 .medGroup + .medGroup { border-top: 1px solid #f0f3f1; }
@@ -199,7 +131,7 @@
 .medGroupItems { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .medGroupItems li { color: #17201e; font-size: 0.88rem; line-height: 1.6; }
 .medChange {
-  flex: none; border: 1px solid #dfe6e2; border-radius: 999px; background: #f2f4f3;
+  border: 1px solid #dfe6e2; border-radius: 999px; background: #f2f4f3;
   padding: 2px 9px; color: #55635e; font-size: 0.63rem; font-weight: 850;
   letter-spacing: 0.05em; text-transform: uppercase;
 }

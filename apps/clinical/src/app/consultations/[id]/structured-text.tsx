@@ -1,4 +1,4 @@
-import styles from "./demo.module.css";
+import styles from "./record.module.css";
 
 /**
  * Visual structure for free-text note fields.
@@ -10,7 +10,7 @@ import styles from "./demo.module.css";
  *    a change verb the doctor typed;
  *  - nothing is dropped: the verb becomes a pill and the rest is shown in full,
  *    so the rendered text always covers the source;
- *  - nothing is reordered or merged;
+ *  - nothing is reordered or merged except ADJACENT runs of the same direction;
  *  - colour encodes direction of change (started/stopped/up/down), never
  *    severity — the product must not imply clinical priority.
  *
@@ -66,7 +66,9 @@ export function stripListMarkers(value: string | null | undefined): string {
  * mixed sequence stays in the doctor's sequence — only runs of the same verb
  * collapse, which stops "Started / Started / Started" repeating down the page.
  */
-function groupAdjacent(items: string[]): Array<{ label: string | null; tone: Tone | null; entries: string[] }> {
+function groupAdjacent(
+  items: string[]
+): Array<{ label: string | null; tone: Tone | null; entries: string[] }> {
   const groups: Array<{ label: string | null; tone: Tone | null; entries: string[] }> = [];
   for (const item of items) {
     const { label, tone, detail } = classify(item);
