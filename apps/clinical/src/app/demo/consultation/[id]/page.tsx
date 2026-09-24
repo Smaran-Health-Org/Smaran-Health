@@ -109,7 +109,7 @@ export default async function DemoConsultationRecordPage({
     >
       <div className={styles.pageContent}>
         <ConsultationRecordView
-          variant={variant === "b" ? "b" : "a"}
+          variant={variant === "a" || variant === "b" ? variant : "c"}
           consultation={{
             id: consultation.id,
             status: consultation.status,

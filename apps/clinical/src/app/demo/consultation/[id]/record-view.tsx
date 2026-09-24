@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { ConsultationPreconsultContext } from "@/app/consultations/[id]/consultation-preconsult-context";
 import type { NoteContent } from "@/lib/db/clinical-notes";
 import type { PreconsultBriefAtConsultationStart } from "@/lib/preconsult/consultation-start";
+import { TranscriptPanel } from "./transcript-panel";
 import styles from "./demo.module.css";
 
 /**
@@ -291,7 +292,7 @@ export function ConsultationRecordView({
   memory,
   preconsultContext,
 }: {
-  variant: "a" | "b";
+  variant: "a" | "b" | "c";
   consultation: RecordConsultation;
   patient: RecordPatient;
   doctorName: string;
@@ -332,14 +333,17 @@ export function ConsultationRecordView({
 
       <div className={styles.demoBanner}>
         <span>
-          Demo prototype · read-only · not linked from the app. Same data, two layouts.
+          Demo prototype · read-only · not linked from the app. Same data, three layouts.
         </span>
         <nav className={styles.demoSwitcher} aria-label="Prototype variant">
-          <Link href={`?variant=a`} data-active={variant === "a"}>
-            A · Full record
+          <Link href={`?variant=c`} data-active={variant === "c"}>
+            C · Refined
           </Link>
           <Link href={`?variant=b`} data-active={variant === "b"}>
-            B · Record + context rail
+            B · Rail v1
+          </Link>
+          <Link href={`?variant=a`} data-active={variant === "a"}>
+            A · Full record
           </Link>
         </nav>
       </div>
@@ -373,6 +377,228 @@ export function ConsultationRecordView({
       </div>
     </>
   );
+
+  // ── Variant C — refined rail ────────────────────────────────────────────────
+  // Ordered by decision value: what happened, what changed, what needs checking,
+  // the raw evidence, then background and history. Empty fields are folded into a
+  // single muted line instead of a column of "not recorded" placeholders.
+  if (variant === "c") {
+    const content = note?.content ?? null;
+    const summary = content?.summary ?? "";
+    const deltaRows = [
+      { label: "Medication changes", value: content?.medicationChanges },
+      { label: "Investigations", value: content?.investigations },
+      { label: "Follow-up plan", value: content?.followUpPlan },
+    ].filter((row) => !isBlank(row.value));
+    const unrecorded = NOTE_FIELDS.filter((field) => isBlank(content?.[field.key])).map(
+      (field) => field.label
+    );
+    // Carry-forward memory is the latest approved note, so for the most recent
+    // visit it is literally this page's summary. Showing it again just makes the
+    // doctor read the same paragraph twice.
+    const normalize = (value: string | null | undefined) =>
+      (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+    const standing = memory?.summary ?? "";
+    const hasStanding = Boolean(standing) && normalize(standing) !== normalize(summary);
+    const hasBackground =
+      !isBlank(content?.chiefComplaint) ||
+      !isBlank(content?.patientInstructions) ||
+      hasStanding;
+
+    return (
+      <div className={styles.page}>
+        {header}
+        <div className={styles.railC}>
+          <div className={styles.wrap}>
+            <section className={styles.block} id="summary">
+              <div className={styles.blockHead}>
+                <h2>Summary</h2>
+                <span className={styles.headlineMeta}>
+                  {note
+                    ? `Approved note · ${note.approvedAt ? formatIst(note.approvedAt) : note.status}`
+                    : "No approved note"}
+                </span>
+              </div>
+              {isBlank(summary) ? (
+                <p className={styles.muted}>No summary was recorded for this visit.</p>
+              ) : (
+                <p className={styles.headlineText}>{summary}</p>
+              )}
+            </section>
+
+            <section className={styles.block} id="changes">
+              <div className={styles.blockHead}>
+                <h2>What changed this visit</h2>
+              </div>
+              {deltaRows.length === 0 ? (
+                <p className={styles.muted}>
+                  No medication, investigation or plan changes were recorded.
+                </p>
+              ) : (
+                <dl className={styles.delta}>
+                  {deltaRows.map((row) => (
+                    <div className={styles.deltaRow} key={row.label}>
+                      <dt>{row.label}</dt>
+                      <dd>{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </section>
+
+            {content && !isBlank(content.uncertainItems) ? (
+              <section className={styles.block} id="verify">
+                <div className={styles.blockHead}>
+                  <h2>Needs verification</h2>
+                </div>
+                <div className={styles.uncertain}>
+                  <p>{content.uncertainItems}</p>
+                </div>
+              </section>
+            ) : null}
+
+            <TranscriptPanel
+              text={transcript?.rawText ?? ""}
+              durationLabel={audio?.durationSeconds ? duration(audio.durationSeconds) : null}
+              modelVersion={transcript?.modelVersion ?? null}
+              status={audio?.transcriptionStatus ?? null}
+            />
+
+            <section className={styles.block} id="background">
+              <div className={styles.blockHead}>
+                <h2>Background</h2>
+              </div>
+              <div className={styles.fields}>
+                {!isBlank(content?.chiefComplaint) ? (
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Chief complaint</span>
+                    <p>{content?.chiefComplaint}</p>
+                  </div>
+                ) : null}
+                {!isBlank(content?.patientInstructions) ? (
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Patient instructions</span>
+                    <p>{content?.patientInstructions}</p>
+                  </div>
+                ) : null}
+                {hasStanding && memory?.summary ? (
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Previous approved summary</span>
+                    <p>{memory.summary}</p>
+                  </div>
+                ) : null}
+                {preconsultContext ? (
+                  <div className={styles.disclosure}>
+                    <details>
+                      <summary>Known before this visit (pre-consult context)</summary>
+                      <ConsultationPreconsultContext
+                        patientId={patient.id}
+                        context={preconsultContext}
+                      />
+                    </details>
+                  </div>
+                ) : null}
+                {!hasBackground && !preconsultContext ? (
+                  <p className={styles.muted}>No background information is available for this patient.</p>
+                ) : null}
+              </div>
+            </section>
+
+            <section className={styles.block} id="history">
+              <div className={styles.blockHead}>
+                <h2>Visit history</h2>
+                <span className={styles.headlineMeta}>Approved only</span>
+              </div>
+              {timeline.length === 0 ? (
+                <p className={styles.muted}>No approved visits recorded yet.</p>
+              ) : (
+                timeline.map((event) => (
+                  <div className={styles.historyRow} key={event.id}>
+                    <time>{event.date}</time>
+                    <div>
+                      <strong>{event.title}</strong>
+                      <p>{event.detail || "No summary recorded."}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </section>
+
+            {unrecorded.length > 0 ? (
+              <section className={styles.block}>
+                <p className={styles.muted}>
+                  Reviewed but not recorded at this visit: {unrecorded.join(" · ")}
+                </p>
+              </section>
+            ) : null}
+          </div>
+
+          <aside className={styles.railSideC}>
+            <section className={styles.sideCard}>
+              <h2>This visit</h2>
+              <dl className={styles.kv}>
+                <div>
+                  <dt>Date</dt>
+                  <dd>{formatIst(consultation.startedAt)}</dd>
+                </div>
+                <div>
+                  <dt>Doctor</dt>
+                  <dd>{doctorName}</dd>
+                </div>
+                <div>
+                  <dt>Length</dt>
+                  <dd>{duration(audio?.durationSeconds ?? null)}</dd>
+                </div>
+                <div>
+                  <dt>Consent</dt>
+                  <dd>{consultation.consentAcquired ? "Recorded" : "Not recorded"}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section className={styles.sideCard}>
+              <h2>Patient</h2>
+              <dl className={styles.kv}>
+                <div>
+                  <dt>Age</dt>
+                  <dd>{patient.age != null ? `${patient.age} yrs` : "—"}</dd>
+                </div>
+                <div>
+                  <dt>Gender</dt>
+                  <dd>{patient.gender ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>MRN</dt>
+                  <dd>{patient.medicalRecordNumber ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>Phone</dt>
+                  <dd>{patient.phone ?? "—"}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <nav className={styles.sideCard} aria-label="On this page">
+              <h2>On this page</h2>
+              <div className={styles.jump}>
+                <a href="#summary">Summary</a>
+                <a href="#changes">What changed</a>
+                <a href="#transcript">Dialogue transcript</a>
+                <a href="#background">Background</a>
+                <a href="#history">Visit history</a>
+              </div>
+            </nav>
+
+            <p className={styles.provenance}>
+              Transcription {transcript?.modelVersion ?? "unavailable"}
+              {transcript?.createdAt ? ` · ${formatIst(transcript.createdAt)}` : ""}. Original audio
+              retained in private clinic storage.
+            </p>
+          </aside>
+        </div>
+      </div>
+    );
+  }
 
   if (variant === "b") {
     return (
