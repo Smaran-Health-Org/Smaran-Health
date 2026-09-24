@@ -5,6 +5,7 @@ import { ConsultationPreconsultContext } from "@/app/consultations/[id]/consulta
 import type { NoteContent } from "@/lib/db/clinical-notes";
 import type { PreconsultBriefAtConsultationStart } from "@/lib/preconsult/consultation-start";
 import { TranscriptPanel } from "./transcript-panel";
+import { BulletList, ChangeList, PresentingComplaint, stripListMarkers } from "./structured-text";
 import styles from "./demo.module.css";
 
 /**
@@ -385,14 +386,6 @@ export function ConsultationRecordView({
   if (variant === "c") {
     const content = note?.content ?? null;
     const summary = content?.summary ?? "";
-    const deltaRows = [
-      { label: "Medication changes", value: content?.medicationChanges },
-      { label: "Investigations", value: content?.investigations },
-      { label: "Follow-up plan", value: content?.followUpPlan },
-    ].filter((row) => !isBlank(row.value));
-    const unrecorded = NOTE_FIELDS.filter((field) => isBlank(content?.[field.key])).map(
-      (field) => field.label
-    );
     // Carry-forward memory is the latest approved note, so for the most recent
     // visit it is literally this page's summary. Showing it again just makes the
     // doctor read the same paragraph twice.
@@ -400,16 +393,20 @@ export function ConsultationRecordView({
       (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
     const standing = memory?.summary ?? "";
     const hasStanding = Boolean(standing) && normalize(standing) !== normalize(summary);
-    const hasBackground =
-      !isBlank(content?.chiefComplaint) ||
-      !isBlank(content?.patientInstructions) ||
-      hasStanding;
 
     return (
       <div className={styles.page}>
         {header}
         <div className={styles.railC}>
           <div className={styles.wrap}>
+            <section className={styles.block} id="complaint">
+              <div className={styles.blockHead}>
+                <h2>Presenting complaint</h2>
+                <span className={styles.headlineMeta}>Patient&apos;s stated reason</span>
+              </div>
+              <PresentingComplaint text={content?.chiefComplaint} />
+            </section>
+
             <section className={styles.block} id="summary">
               <div className={styles.blockHead}>
                 <h2>Summary</h2>
@@ -430,20 +427,29 @@ export function ConsultationRecordView({
               <div className={styles.blockHead}>
                 <h2>What changed this visit</h2>
               </div>
-              {deltaRows.length === 0 ? (
-                <p className={styles.muted}>
-                  No medication, investigation or plan changes were recorded.
-                </p>
-              ) : (
-                <dl className={styles.delta}>
-                  {deltaRows.map((row) => (
-                    <div className={styles.deltaRow} key={row.label}>
-                      <dt>{row.label}</dt>
-                      <dd>{row.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
+              <div className={styles.delta}>
+                <div className={styles.changeGroup}>
+                  <span className={styles.changeLabel}>Medication</span>
+                  <ChangeList
+                    text={content?.medicationChanges}
+                    emptyLabel="No medication changes were recorded."
+                  />
+                </div>
+                <div className={styles.changeGroup}>
+                  <span className={styles.changeLabel}>Investigations</span>
+                  <BulletList
+                    text={content?.investigations}
+                    emptyLabel="No investigations were requested."
+                  />
+                </div>
+                <div className={styles.changeGroup}>
+                  <span className={styles.changeLabel}>Follow-up plan</span>
+                  <BulletList
+                    text={content?.followUpPlan}
+                    emptyLabel="No follow-up plan was recorded."
+                  />
+                </div>
+              </div>
             </section>
 
             {content && !isBlank(content.uncertainItems) ? (
@@ -452,7 +458,7 @@ export function ConsultationRecordView({
                   <h2>Needs verification</h2>
                 </div>
                 <div className={styles.uncertain}>
-                  <p>{content.uncertainItems}</p>
+                  <p>{stripListMarkers(content.uncertainItems)}</p>
                 </div>
               </section>
             ) : null}
@@ -469,18 +475,13 @@ export function ConsultationRecordView({
                 <h2>Background</h2>
               </div>
               <div className={styles.fields}>
-                {!isBlank(content?.chiefComplaint) ? (
-                  <div className={styles.field}>
-                    <span className={styles.fieldLabel}>Chief complaint</span>
-                    <p>{content?.chiefComplaint}</p>
-                  </div>
-                ) : null}
-                {!isBlank(content?.patientInstructions) ? (
-                  <div className={styles.field}>
-                    <span className={styles.fieldLabel}>Patient instructions</span>
-                    <p>{content?.patientInstructions}</p>
-                  </div>
-                ) : null}
+                <div className={styles.field}>
+                  <span className={styles.fieldLabel}>Patient instructions</span>
+                  <BulletList
+                    text={content?.patientInstructions}
+                    emptyLabel="No patient instructions were recorded."
+                  />
+                </div>
                 {hasStanding && memory?.summary ? (
                   <div className={styles.field}>
                     <span className={styles.fieldLabel}>Previous approved summary</span>
@@ -497,9 +498,6 @@ export function ConsultationRecordView({
                       />
                     </details>
                   </div>
-                ) : null}
-                {!hasBackground && !preconsultContext ? (
-                  <p className={styles.muted}>No background information is available for this patient.</p>
                 ) : null}
               </div>
             </section>
@@ -523,14 +521,6 @@ export function ConsultationRecordView({
                 ))
               )}
             </section>
-
-            {unrecorded.length > 0 ? (
-              <section className={styles.block}>
-                <p className={styles.muted}>
-                  Reviewed but not recorded at this visit: {unrecorded.join(" · ")}
-                </p>
-              </section>
-            ) : null}
           </div>
 
           <aside className={styles.railSideC}>
@@ -581,6 +571,7 @@ export function ConsultationRecordView({
             <nav className={styles.sideCard} aria-label="On this page">
               <h2>On this page</h2>
               <div className={styles.jump}>
+                <a href="#complaint">Presenting complaint</a>
                 <a href="#summary">Summary</a>
                 <a href="#changes">What changed</a>
                 <a href="#transcript">Dialogue transcript</a>

@@ -105,10 +105,10 @@
 .headlineMeta { color: #7b8781; font-size: 0.7rem; font-weight: 750; }
 
 /* What changed: the actionable delta, given its own accent so it is findable. */
-.delta { display: grid; gap: 0.55rem; border-left: 3px solid #cfe3da; padding-left: 0.85rem; }
-.deltaRow { display: grid; gap: 2px; }
-.deltaRow dt { color: #52605b; font-size: 0.66rem; font-weight: 850; letter-spacing: 0.06em; text-transform: uppercase; }
-.deltaRow dd { margin: 0; color: #17201e; font-size: 0.88rem; line-height: 1.6; white-space: pre-wrap; }
+.delta { display: grid; gap: 0.7rem; border-left: 3px solid #cfe3da; padding-left: 0.85rem; }
+.changeGroup { display: grid; gap: 6px; }
+.changeGroup + .changeGroup { border-top: 1px solid #f0f3f1; padding-top: 0.7rem; }
+.changeLabel { color: #52605b; font-size: 0.66rem; font-weight: 850; letter-spacing: 0.06em; text-transform: uppercase; }
 
 /* Raw source material: clearly separated from the approved record. */
 .sourceNote { margin: 0 0 0.6rem; color: #8b5a22; font-size: 0.74rem; font-weight: 750; }
@@ -176,3 +176,38 @@
 
 /* Anchor jumps must clear the sticky header. */
 .block[id], .sideCard[id] { scroll-margin-top: 1.5rem; }
+
+/* ── Structured presentation of note text ────────────────────────────────────
+   These give visual shape to what the doctor already wrote. Nothing is
+   inferred, reordered or dropped — an unrecognised line renders verbatim, and
+   the change pill only echoes a verb the doctor typed.
+   Colour encodes DIRECTION OF CHANGE only, never severity. */
+.complaint {
+  margin: 0; border-left: 3px solid #bcd9cd; border-radius: 0 10px 10px 0; background: #f7fbf9;
+  padding: 0.8rem 1rem; color: #17201e; font-size: 1rem; line-height: 1.65;
+}
+.complaintList { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.complaintList li {
+  border-left: 3px solid #bcd9cd; border-radius: 0 10px 10px 0; background: #f7fbf9;
+  padding: 0.6rem 0.95rem; color: #17201e; font-size: 0.94rem; line-height: 1.6;
+}
+
+.medList { display: grid; margin: 0; padding: 0; list-style: none; }
+.medGroup { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 0; }
+.medGroup + .medGroup { border-top: 1px solid #f0f3f1; }
+.medGroup[data-labelled="false"] { grid-template-columns: minmax(0, 1fr); }
+.medGroupItems { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.medGroupItems li { color: #17201e; font-size: 0.88rem; line-height: 1.6; }
+.medChange {
+  flex: none; border: 1px solid #dfe6e2; border-radius: 999px; background: #f2f4f3;
+  padding: 2px 9px; color: #55635e; font-size: 0.63rem; font-weight: 850;
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+.medChange[data-tone="start"] { border-color: #cfe6d8; background: #eaf6f1; color: #14603f; }
+.medChange[data-tone="stop"] { border-color: #f0dcc4; background: #fdf6ec; color: #86591b; }
+.medChange[data-tone="up"] { border-color: #d3e2f2; background: #eef4fb; color: #24507f; }
+.medChange[data-tone="down"] { border-color: #ddd8f0; background: #f4f2fb; color: #4a3f7a; }
+.medChange[data-tone="swap"] { border-color: #e6d8f0; background: #faf5fd; color: #6b3f7a; }
+.bulletList { display: grid; gap: 5px; margin: 0; padding-left: 1.15rem; }
+.bulletList li { color: #22322c; font-size: 0.86rem; line-height: 1.6; }
+.plainText { margin: 0; color: #22322c; font-size: 0.86rem; line-height: 1.65; white-space: pre-wrap; }
