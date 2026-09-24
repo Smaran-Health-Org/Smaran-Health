@@ -50,3 +50,6 @@
 **/*.backup
 **/*.sqlite
 **/*.sqlite3
+
+# Throwaway local prototype screenshots
+tmp/demo-record-*.png
