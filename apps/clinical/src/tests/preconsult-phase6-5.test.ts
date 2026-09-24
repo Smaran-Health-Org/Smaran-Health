@@ -71,7 +71,7 @@ test("one-click check-in moves expected patients directly to waiting", () => {
   assert.equal(nextOperationalStatus("in_consultation", "check_in"), null);
 });
 
-test("waiting queue is FIFO/manual order and priority never participates in sorting", () => {
+test("waiting queue is priority-first then FIFO/manual order", () => {
   const laterPriority = queueItem("b", {
     operationalStatus: "waiting",
     checkedInAt: "2026-08-31T05:05:00.000Z",
@@ -83,7 +83,7 @@ test("waiting queue is FIFO/manual order and priority never participates in sort
     checkedInAt: "2026-08-31T05:00:00.000Z",
     queueOrder: 1,
   });
-  assert.deepEqual(orderQueueItems([laterPriority, earlier]).map((item) => item.appointmentId), ["a", "b"]);
+  assert.deepEqual(orderQueueItems([laterPriority, earlier]).map((item) => item.appointmentId), ["b", "a"]);
 
   const manuallyMoved = { ...laterPriority, queueOrder: 0 };
   assert.deepEqual(orderQueueItems([earlier, manuallyMoved]).map((item) => item.appointmentId), ["b", "a"]);
@@ -93,8 +93,8 @@ test("waiting queue is FIFO/manual order and priority never participates in sort
   });
   assert.deepEqual(
     orderQueueItems([laterPriority, scheduledBetween, earlier]).map((item) => item.appointmentId),
-    ["a", "b", "scheduled-between"],
-    "mixed queue states keep FIFO ordering transitive"
+    ["b", "a", "scheduled-between"],
+    "mixed queue states keep priority-first waiting order transitive"
   );
 });
 

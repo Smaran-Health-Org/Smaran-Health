@@ -41,7 +41,7 @@ test("S4 calendar projection is clinic-safe, duration-faithful, and excludes cli
   assert.equal(result.appointments[0]?.durationState, "unknown");
   assert.equal(result.appointments[0]?.intakeStatus, "submitted");
   assert.equal(result.appointments[0]?.documentStatus, "needs_review");
-  assert.deepEqual(Object.keys(result.appointments[0] ?? {}).sort(), ["appointmentTypeName", "doctorId", "doctorName", "documentStatus", "durationMinutes", "durationState", "encounterOperationalStatus", "id", "intakeStatus", "patientId", "patientName", "patientPhone", "scheduledAt", "status", "updatedAt"].sort());
+  assert.deepEqual(Object.keys(result.appointments[0] ?? {}).sort(), ["appointmentTypeName", "doctorId", "doctorName", "documentStatus", "durationMinutes", "durationState", "encounterOperationalStatus", "id", "intakeStatus", "origin", "patientId", "patientName", "patientPhone", "scheduledAt", "status", "updatedAt"].sort());
   assert.ok(!JSON.stringify(result).includes("staffNote"));
   assert.ok(!JSON.stringify(result).includes("clinicalBrief"));
   assert.equal(result.doctors[0]?.effectiveIntervalMinutes, 10);
@@ -171,6 +171,25 @@ test("S4 selected-patient history is independently bounded, patient-scoped, and 
   assert.equal("staffNote" in history.upcoming[0]!, false);
   assert.equal("clinicalBrief" in history.past[0]!, false);
   assert.equal("auditMetadata" in history.past[0]!, false);
+});
+
+test("S4 derives appointment origin from existing creation provenance", async () => {
+  const base = {
+    appointments: [{ id: "appointment-1", patient_id: "patient-1", doctor_id: "doctor-1", consultation_id: "encounter-1", scheduled_at: "2026-09-17T04:37:00.000Z", duration_minutes: 15, status: "scheduled", appointment_type_id: null, updated_at: "2026-09-17T04:00:00.000Z" }],
+    profiles: [{ id: "doctor-1", full_name: "Dr One" }],
+    doctor_scheduler_settings: [{ doctor_id: "doctor-1", scheduling_interval_minutes: 10, default_duration_minutes: null }],
+    patients: [{ id: "patient-1", full_name: "Patient One", phone: null }],
+    consultations: [{ id: "encounter-1", operational_status: "scheduled" }],
+    intake_operational_statuses: [],
+    documents: [],
+  };
+  const readOrigin = async (rows: Record<string, unknown[]>) => {
+    const result = await getSchedulerCalendarWithClient(fakeClient({ ...base, ...rows }), session, { startsAt: "2026-09-17T00:00:00.000Z", endsAt: "2026-09-18T00:00:00.000Z" });
+    return result.appointments[0]?.origin;
+  };
+  assert.equal(await readOrigin({ appointment_events: [{ appointment_id: "appointment-1" }] }), "patient_portal");
+  assert.equal(await readOrigin({ audit_logs: [{ resource_id: "encounter-1" }] }), "walk_in");
+  assert.equal(await readOrigin({}), "clinic_booking");
 });
 
 test("S4 rejects an oversized public calendar range", async () => {

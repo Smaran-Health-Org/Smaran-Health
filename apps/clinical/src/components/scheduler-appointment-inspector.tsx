@@ -9,7 +9,7 @@ import type { ClinicDoctor } from "@/lib/db/clinics";
 import type { SchedulerAppointmentSummary } from "@/lib/db/scheduler-read";
 import type { SessionContext } from "@/types";
 import { optionalDurationOverride } from "@/lib/scheduler/workspace-payloads";
-import { inspectorActions, inspectorQueueLabel } from "@/lib/scheduler/inspector-view-model";
+import { inspectorActions, inspectorOriginLabel, inspectorQueueLabel } from "@/lib/scheduler/inspector-view-model";
 
 type Conflict = { fingerprint: string; kind?: string; unresolvedDuration?: boolean };
 type Issue = { code?: string; conflicts?: Conflict[]; warning?: Conflict };
@@ -154,6 +154,7 @@ export function AppointmentInspector({ appointment, doctors, role, onRefresh }: 
         <div><dt>Duration</dt><dd>{appointment.durationMinutes === null ? "Duration unknown" : `${appointment.durationMinutes} minutes`}</dd></div>
         <div><dt>Doctor</dt><dd>{appointment.doctorName}</dd></div>
         <div><dt>Visit type</dt><dd>{appointment.appointmentTypeName ?? "Type not recorded"}</dd></div>
+        <div><dt>Booked via</dt><dd>{inspectorOriginLabel(appointment.origin)}</dd></div>
       </dl>
     </section>
     <section className={styles.schedulerInspectorSection} aria-label="Appointment lifecycle"><h3>Lifecycle</h3><p>{appointment.status === "no_show" ? "No-show" : appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}</p></section>

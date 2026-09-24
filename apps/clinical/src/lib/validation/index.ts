@@ -233,6 +233,8 @@ export const waitingQueueReorderSchema = z.object({
 export const createWalkInSchema = z.object({
   patientId: z.string().uuid(),
   doctorId: z.string().uuid(),
+  scheduledAt: z.string().datetime({ offset: true }).optional(),
+  conflictAcknowledgements: z.array(schedulerConflictAcknowledgementSchema).max(20).optional(),
   idempotencyKey: z.string().trim().min(1).max(200),
 });
 
@@ -279,6 +281,7 @@ export const submitPatientIntakeSchema = z.object({
   fullName: z.string().trim().min(1).max(200).optional(),
   dateOfBirth: isoDateSchema.optional(),
   gender: z.string().trim().min(1).max(50).optional(),
+  weightKg: z.number().positive().max(500).optional(),
 });
 
 export const submitAssistedPatientIntakeSchema = submitPatientIntakeSchema.pick({

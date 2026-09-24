@@ -350,15 +350,36 @@ async function sarvamJson<T>(
   });
   const text = await response.text().catch(() => "");
   if (!response.ok) {
+    // Sarvam's structured error code is what distinguishes "out of quota" from
+    // "bad request" from "provider unhealthy". Without it every 4xx collapsed
+    // into one opaque message.
+    const errorCode = readSarvamErrorCode(text);
     logSarvamError("control.rejected", {
       step: options.step,
       status: response.status,
+      errorCode,
       errorBody: text,
     });
-    throw new Error(`Sarvam returned ${response.status}. ${text.slice(0, 300)}`);
+    throw new Error(
+      `Sarvam returned ${response.status}${errorCode ? ` (${errorCode})` : ""}. ${text.slice(0, 300)}`
+    );
   }
   if (!text) return {} as T;
   return JSON.parse(text) as T;
+}
+
+/**
+ * Extracts `error.code` from a Sarvam error body when it is present and sane.
+ * Never throws: a diagnostic must not mask the real HTTP failure.
+ */
+function readSarvamErrorCode(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body) as { error?: { code?: unknown } };
+    const code = parsed.error?.code;
+    return typeof code === "string" && code.length <= 80 ? code : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Step 1: create a batch job. Returns the job id used by every later step. */
@@ -458,6 +479,9 @@ export type SarvamBatchStatus = {
   jobState: SarvamBatchJobState;
   outputFiles: string[];
   errorMessage: string | null;
+  /** Per-file failure detail — the only place Sarvam explains WHY a job failed. */
+  fileFailures: Array<{ state: string; errorMessage: string | null; exceptionName: string | null }>;
+  failedFilesCount: number;
 };
 
 /** Step 5: poll the job state. `outputFiles` is populated once completed. */
@@ -467,7 +491,13 @@ export async function getBatchJobStatus(
   const data = await sarvamJson<{
     job_state?: unknown;
     error_message?: unknown;
-    job_details?: Array<{ outputs?: Array<{ file_name?: unknown }> }>;
+    failed_files_count?: unknown;
+    job_details?: Array<{
+      state?: unknown;
+      error_message?: unknown;
+      exception_name?: unknown;
+      outputs?: Array<{ file_name?: unknown }>;
+    }>;
   }>(`${SARVAM_BATCH_PATH}/${jobId}/status`, {
     step: "batch.status",
     method: "GET",
@@ -487,6 +517,17 @@ export async function getBatchJobStatus(
   const errorMessage =
     typeof data.error_message === "string" ? data.error_message : null;
 
+  // Sarvam reports a per-file `state` of Success / API Error / Internal Server
+  // Error plus the underlying message. Previously we only kept output file
+  // names, so a Failed job was undiagnosable after the fact.
+  const fileFailures = (data.job_details ?? [])
+    .filter((detail) => typeof detail.state === "string" && detail.state !== "Success")
+    .map((detail) => ({
+      state: String(detail.state),
+      errorMessage: typeof detail.error_message === "string" ? detail.error_message : null,
+      exceptionName: typeof detail.exception_name === "string" ? detail.exception_name : null,
+    }));
+
   // Poll results are the highest-value diagnostic signal: a job that sits in
   // Accepted/Pending forever (quota, unreadable audio) looks identical to a
   // job that is genuinely still running until you see the raw state.
@@ -494,10 +535,20 @@ export async function getBatchJobStatus(
     jobId,
     jobState,
     outputFileCount: outputFiles.length,
+    failedFileCount: fileFailures.length,
     errorMessage,
+    fileError: fileFailures[0]?.errorMessage ?? null,
+    exceptionName: fileFailures[0]?.exceptionName ?? null,
   });
 
-  return { jobState, outputFiles, errorMessage };
+  return {
+    jobState,
+    outputFiles,
+    errorMessage,
+    fileFailures,
+    failedFilesCount:
+      typeof data.failed_files_count === "number" ? data.failed_files_count : fileFailures.length,
+  };
 }
 
 export type SarvamBatchTranscript = {

@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import type { AppointmentQueueItem } from "@/lib/db/appointment-queue";
+import { PendingLink } from "@/components/pending-link";
 import { Icon } from "@/components/icons";
 import styles from "@/components/clinical.module.css";
 
@@ -36,7 +34,7 @@ function statusLabel(item: AppointmentQueueItem): string {
   return "Not arrived yet";
 }
 
-function DoctorPatientRow({ item, busy, onOpen }: { item: AppointmentQueueItem; busy: boolean; onOpen: (item: AppointmentQueueItem) => void }) {
+function DoctorPatientRow({ item }: { item: AppointmentQueueItem }) {
   const wait = item.operationalStatus === "waiting" ? waitingMinutes(item.checkedInAt) : null;
   return (
     <li className={styles.doctorDayRow}>
@@ -58,36 +56,22 @@ function DoctorPatientRow({ item, busy, onOpen }: { item: AppointmentQueueItem; 
       </span>
       {item.isPriority ? <span className={styles.priorityPill}>Priority</span> : null}
       {item.operationalStatus === "waiting" ? (
-        <button className={styles.secondaryButton} disabled={busy} onClick={() => onOpen(item)}>{busy ? "Opening…" : "Review patient"}</button>
+        // Opening the doctor-only preparation surface must not transition the
+        // authoritative queue state. Start Consultation remains explicit there.
+        <PendingLink className={styles.secondaryButton} href={`/patients/${item.patientId}/preconsult?consultation=${item.consultationId}`}>Review patient</PendingLink>
       ) : item.operationalStatus === "in_consultation" ? (
-        <Link className={styles.secondaryButton} href={`/consultations/${item.consultationId}`}>Open</Link>
+        <PendingLink className={styles.secondaryButton} href={`/consultations/${item.consultationId}`}>Open</PendingLink>
       ) : (
-        <Link className={styles.secondaryButton} href={`/patients/${item.patientId}`}>Preview</Link>
+        <PendingLink className={styles.secondaryButton} href={`/patients/${item.patientId}`}>Preview</PendingLink>
       )}
     </li>
   );
 }
 
 export function DoctorTodayList({ items }: { items: AppointmentQueueItem[] }) {
-  const router = useRouter();
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const priorityItems = items.filter(
     (item) => item.isPriority && item.appointmentStatus === "scheduled" && item.operationalStatus !== "completed"
   );
-
-  async function openPatient(item: AppointmentQueueItem) {
-    setBusyId(item.appointmentId);
-    setError(null);
-    try {
-      // Opening the doctor-only preparation surface must not transition the
-      // authoritative queue state. Start Consultation remains explicit there.
-      router.push(`/patients/${item.patientId}/preconsult?consultation=${item.consultationId}`);
-    } catch (openError) {
-      setError(openError instanceof Error ? openError.message : "Could not open the consultation.");
-      setBusyId(null);
-    }
-  }
 
   if (items.length === 0) {
     return (
@@ -102,7 +86,6 @@ export function DoctorTodayList({ items }: { items: AppointmentQueueItem[] }) {
 
   return (
     <div className={styles.doctorDaySections}>
-      {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
       {priorityItems.length > 0 ? <div className={styles.prioritySummary} role="status"><Icon name="alert" /><div><strong>{priorityItems.length} human-marked priority {priorityItems.length === 1 ? "patient" : "patients"}</strong><span>{priorityItems.map((item) => item.patientName).join(", ")} · Queue order is unchanged</span></div></div> : null}
 
       <section className={styles.panel} aria-labelledby="doctor-day-heading">
@@ -110,7 +93,7 @@ export function DoctorTodayList({ items }: { items: AppointmentQueueItem[] }) {
           <div><p className={styles.eyebrow}>Today</p><h2 id="doctor-day-heading">Patient sequence</h2></div>
           <span className={styles.panelHint}>Operational view</span>
         </div>
-        <ul className={styles.doctorDayList}>{items.map((item) => <DoctorPatientRow key={item.appointmentId} item={item} busy={busyId === item.appointmentId} onOpen={(patient) => void openPatient(patient)} />)}</ul>
+        <ul className={styles.doctorDayList}>{items.map((item) => <DoctorPatientRow key={item.appointmentId} item={item} />)}</ul>
       </section>
     </div>
   );

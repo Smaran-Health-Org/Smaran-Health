@@ -6,7 +6,7 @@ import { Icon } from "@/components/icons";
 import styles from "@/components/clinical.module.css";
 import type { PreconsultBrief } from "@/lib/preconsult/contract";
 import type { PreconsultBriefAtConsultationStart } from "@/lib/preconsult/consultation-start";
-import { preconsultEvidenceHref, preconsultEvidenceLabel } from "@/lib/preconsult/evidence-links";
+import { preconsultEvidenceHref, preconsultEvidenceLabel, preconsultSourceTagLabel } from "@/lib/preconsult/evidence-links";
 import { preconsultVerificationLabel, whyTodayProvenanceLabel } from "@/lib/preconsult/verification-label";
 
 type ConsultationPreconsultContextProps = {
@@ -32,18 +32,31 @@ function Claims({
           <strong>{preconsultVerificationLabel(claim.verification)}</strong>
           <p>{claim.text}</p>
           <div>
-            {claim.sources.map((source) => (
-              <Link
-                className={styles.panelLink}
-                href={preconsultEvidenceHref(patientId, source)}
-                key={`${source.type}-${source.id}-${source.page ?? ""}-${source.itemIndex ?? ""}`}
-                prefetch={false}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {preconsultEvidenceLabel(source)}
-              </Link>
-            ))}
+            {claim.sources.map((source) => {
+              const tag = preconsultSourceTagLabel(source);
+              if (tag) {
+                return (
+                  <span
+                    className={styles.provenanceTag}
+                    key={`${source.type}-${source.id}-${source.page ?? ""}-${source.itemIndex ?? ""}`}
+                  >
+                    {tag}
+                  </span>
+                );
+              }
+              return (
+                <Link
+                  className={styles.panelLink}
+                  href={preconsultEvidenceHref(patientId, source)}
+                  key={`${source.type}-${source.id}-${source.page ?? ""}-${source.itemIndex ?? ""}`}
+                  prefetch={false}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {preconsultEvidenceLabel(source)}
+                </Link>
+              );
+            })}
           </div>
         </article>
       ))}

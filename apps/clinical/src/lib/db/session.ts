@@ -1,7 +1,11 @@
+import { cache } from "react";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import type { SessionContext } from "@/types";
 
-export async function getSessionContext(): Promise<SessionContext | null> {
+// `cache` dedupes the call for the lifetime of a single request, so a page and
+// any nested component that both need the session share one auth + profile
+// round trip instead of repeating it.
+export const getSessionContext = cache(async (): Promise<SessionContext | null> => {
   const supabase = await createServerClient();
 
   const {
@@ -26,4 +30,4 @@ export async function getSessionContext(): Promise<SessionContext | null> {
     fullName: profile.full_name,
     role: profile.role,
   };
-}
+});

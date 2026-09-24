@@ -150,7 +150,7 @@ test("Phase 11 keeps every verification state explicit and opens exact evidence 
 test("Phase 9 and 11 preserve why-today provenance through one cautious display mapping", () => {
   assert.deepEqual(
     (["patient", "reception_assisted", "unknown"] as const).map(whyTodayProvenanceLabel),
-    ["Patient-reported — unconfirmed", "Needs Review", "Needs Review"],
+    ["Patient-reported — unconfirmed", "Reception-reported — unconfirmed", "Needs Review"],
   );
   assert.notEqual(whyTodayProvenanceLabel("reception_assisted"), "Patient-reported — unconfirmed");
 

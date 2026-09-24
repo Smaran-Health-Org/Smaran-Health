@@ -2,6 +2,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { drainClinicalStateReconciliation } from "@/lib/db/clinical-state";
 import { drainPreconsultBriefGeneration } from "@/lib/preconsult/brief";
+import { drainTranscriptionWork } from "@/lib/audio-recording/pipeline";
 import { DOCUMENT_EXTRACTION_SCHEMA_VERSION, DOCUMENT_PIPELINE_VERSION } from "./extraction-schema";
 import { configuredDocumentProcessingAdapter } from "./openai-document-adapter";
 import { processClaimedMedicalDocument, type ClaimedDocumentProcessing } from "./process";
@@ -45,6 +46,9 @@ export async function drainDocumentPipeline(limit = 8): Promise<void> {
   }
   await drainClinicalStateReconciliation();
   await drainPreconsultBriefGeneration();
+  // Transcription shares this scheduled worker rather than adding a second cron
+  // entry point; it is a separate durable queue with its own claim/backoff.
+  await drainTranscriptionWork();
 }
 
 /** Best-effort wakeup only; correctness comes from the committed work row. */

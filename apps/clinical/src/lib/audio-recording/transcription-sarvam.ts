@@ -13,15 +13,21 @@ import {
   startBatchJob,
   uploadBatchFile,
 } from "@/lib/ai/sarvam";
+import { classifyTranscriptionFailure } from "./failure-codes";
 import { AUDIO_BUCKET } from "./storage";
-import {
-  AudioTranscriptionUnavailableError,
-  type AudioTranscriptionAdapter,
-  type DurableRecording,
+import type {
+  AudioTranscriptionStepAdapter,
+  DurableRecording,
+  TranscriptionStepOutcome,
 } from "./transcription-adapter";
 
-const TRANSCRIPTION_POLL_INTERVAL_MS = 10_000;
-const TRANSCRIPTION_POLL_TIMEOUT_MS = 5 * 60_000;
+/**
+ * How long one claim may spend waiting for a batch job, and how often it looks.
+ * The budget sits far below the route's execution limit so a slow job is
+ * released back to the durable queue rather than killed mid-flight.
+ */
+const PROBE_BUDGET_MS = 25_000;
+const PROBE_INTERVAL_MS = 5_000;
 
 async function downloadRecordingChunk(storagePath: string): Promise<Uint8Array> {
   const { data, error } = await createStorageAdminClient()
@@ -32,20 +38,66 @@ async function downloadRecordingChunk(storagePath: string): Promise<Uint8Array> 
 }
 
 /**
- * Concatenates the ordered chunk blobs into one continuous audio buffer, then
- * runs it through Sarvam's Batch STT (initiate → upload → start → poll →
- * download). Chunks are stored raw in sequence order, so byte-wise
- * concatenation reconstructs the original MediaRecorder stream.
- *
- * This is the approved server-side provider for Indian languages and
- * code-mixed Hinglish. It only runs when SARVAM_API_KEY is present; when the
- * key is missing it fails closed so the durable worker marks the recording
- * retryable instead of fabricating a transcript.
+ * Concatenates the ordered chunk blobs into one continuous audio buffer. Chunks
+ * are stored raw in sequence order, so byte-wise concatenation reconstructs the
+ * original MediaRecorder stream.
  */
-export function sarvamAudioTranscriptionAdapter(): AudioTranscriptionAdapter {
+async function assembleRecording(
+  recording: DurableRecording
+): Promise<{ audioBuffer: ArrayBuffer; totalBytes: number }> {
+  const ordered = [...recording.chunks].sort(
+    (a, b) => a.sequenceNumber - b.sequenceNumber
+  );
+  if (ordered.length === 0) throw new Error("recording_chunks_unavailable");
+
+  const parts: Uint8Array[] = [];
+  for (const chunk of ordered) {
+    try {
+      parts.push(await downloadRecordingChunk(chunk.storagePath));
+    } catch (error) {
+      // A missing or un-finalized chunk is a distinct, actionable failure that
+      // would otherwise be invisible behind a generic pipeline error.
+      logSarvamError("adapter.chunk_download_failed", {
+        traceId: recording.recordingId,
+        sequenceNumber: chunk.sequenceNumber,
+        storagePath: chunk.storagePath,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  const totalBytes = parts.reduce((sum, part) => sum + part.byteLength, 0);
+  const combined = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const part of parts) {
+    combined.set(part, offset);
+    offset += part.byteLength;
+  }
+  return { audioBuffer: combined.buffer as ArrayBuffer, totalBytes };
+}
+
+/**
+ * Sarvam Batch STT as a resumable state machine.
+ *
+ * Each `step()` call performs one bounded unit of work driven by the persisted
+ * `sarvam_phase`, so no single serverless invocation holds a long poll:
+ *
+ *   null ──initiate──▶ initiated ──upload──▶ uploaded ──start──▶ started
+ *        └─▶ started ──one status probe──▶ completed ──download──▶ transcript
+ *
+ * A healthy-but-running job returns `deferred`, which releases the claim while
+ * keeping the same job id, so the next run resumes by polling alone instead of
+ * re-uploading audio the provider would bill again.
+ *
+ * This is the approved server-side provider for Indian languages and code-mixed
+ * Hinglish. When SARVAM_API_KEY is missing it fails closed rather than
+ * fabricating a transcript.
+ */
+export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAdapter {
   return {
-    async transcribe(recording: DurableRecording) {
-      // Correlates every Sarvam log line for one consultation attempt.
+    async step(recording, resume, record): Promise<TranscriptionStepOutcome> {
+      // Correlates every Sarvam log line for one recording attempt.
       const traceId = recording.recordingId;
       const startedAt = Date.now();
 
@@ -54,128 +106,142 @@ export function sarvamAudioTranscriptionAdapter(): AudioTranscriptionAdapter {
           traceId,
           consultationId: recording.consultationId,
         });
-        throw new AudioTranscriptionUnavailableError();
-      }
-
-      const ordered = [...recording.chunks].sort(
-        (a, b) => a.sequenceNumber - b.sequenceNumber
-      );
-      if (ordered.length === 0) {
-        logSarvamError("adapter.no_chunks", {
-          traceId,
-          consultationId: recording.consultationId,
-        });
-        throw new Error("recording_chunks_unavailable");
-      }
-
-      logSarvam("adapter.start", {
-        traceId,
-        consultationId: recording.consultationId,
-        format: recording.format,
-        chunkCount: ordered.length,
-        firstSequence: ordered[0]?.sequenceNumber,
-        lastSequence: ordered[ordered.length - 1]?.sequenceNumber,
-      });
-
-      const parts: Uint8Array[] = [];
-      for (const chunk of ordered) {
-        try {
-          parts.push(await downloadRecordingChunk(chunk.storagePath));
-        } catch (error) {
-          // A missing/!finalized chunk is a distinct, actionable failure that
-          // is invisible in the generic pipeline error.
-          logSarvamError("adapter.chunk_download_failed", {
-            traceId,
-            sequenceNumber: chunk.sequenceNumber,
-            storagePath: chunk.storagePath,
-            errorMessage: error instanceof Error ? error.message : String(error),
-          });
-          throw error;
-        }
-      }
-
-      const totalBytes = parts.reduce((sum, part) => sum + part.byteLength, 0);
-      const combined = new Uint8Array(totalBytes);
-      let offset = 0;
-      for (const part of parts) {
-        combined.set(part, offset);
-        offset += part.byteLength;
+        return {
+          kind: "failed",
+          code: "provider_not_configured",
+          message: "No speech-to-text provider is configured.",
+        };
       }
 
       const mimeType = recording.format ?? "audio/webm";
       const fileName = `recording-${recording.recordingId}.${mimeTypeToExtension(mimeType)}`;
 
-      logSarvam("adapter.assembled", {
-        traceId,
-        mimeType,
-        totalBytes,
-        downloadMs: Date.now() - startedAt,
-      });
+      try {
+        // ── Step 1: ensure a job exists ──────────────────────────────────────
+        let jobId = resume.jobId;
+        if (!jobId) {
+          logSarvam("adapter.start", {
+            traceId,
+            consultationId: recording.consultationId,
+            format: mimeType,
+            chunkCount: recording.chunks.length,
+          });
+          jobId = await initiateBatchJob({ mode: "codemix" });
+          // Persisted before anything billable follows, so a crash here leaves a
+          // resumable job id rather than an orphaned, paid-for job.
+          await record({ jobId, phase: "initiated" });
+        } else {
+          logSarvam("adapter.resuming", { traceId, jobId, phase: resume.phase });
+        }
 
-      const jobId = await initiateBatchJob({ mode: "codemix" });
-      await uploadBatchFile({
-        jobId,
-        fileName,
-        audioBuffer: combined.buffer as ArrayBuffer,
-        mimeType,
-      });
-      await startBatchJob(jobId);
+        // ── Step 2: get the audio to Sarvam ──────────────────────────────────
+        if (resume.phase === null || resume.phase === "initiated") {
+          const { audioBuffer, totalBytes } = await assembleRecording(recording);
+          await uploadBatchFile({ jobId, fileName, audioBuffer, mimeType });
+          logSarvam("adapter.assembled", {
+            traceId,
+            mimeType,
+            totalBytes,
+            downloadMs: Date.now() - startedAt,
+          });
+          await record({ jobId, phase: "uploaded" });
+        }
 
-      const pollStartedAt = Date.now();
-      const deadline = pollStartedAt + TRANSCRIPTION_POLL_TIMEOUT_MS;
-      let pollAttempt = 1;
-      let status = await getBatchJobStatus(jobId);
-      while (
-        (status.jobState === "Accepted" ||
-          status.jobState === "Pending" ||
-          status.jobState === "Running") &&
-        Date.now() < deadline
-      ) {
-        logSarvam("adapter.poll_wait", {
+        // ── Step 3: start processing ─────────────────────────────────────────
+        if (resume.phase !== "started" && resume.phase !== "completed") {
+          await startBatchJob(jobId);
+          await record({ jobId, phase: "started" });
+        }
+
+        // ── Step 4: bounded status probing ───────────────────────────────────
+        // Deliberately bounded (~25 s) rather than the old 5-minute poll. The
+        // job id is already persisted, so being killed here costs nothing: the
+        // next claim resumes by polling the same job instead of re-uploading.
+        let outputFiles = resume.outputFiles ?? [];
+        if (resume.phase !== "completed") {
+          const probeStartedAt = Date.now();
+          let status = await getBatchJobStatus(jobId);
+          let probes = 1;
+
+          while (
+            (status.jobState === "Accepted" ||
+              status.jobState === "Pending" ||
+              status.jobState === "Running") &&
+            Date.now() - probeStartedAt < PROBE_BUDGET_MS
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, PROBE_INTERVAL_MS));
+            status = await getBatchJobStatus(jobId);
+            probes += 1;
+          }
+
+          if (status.jobState === "Failed") {
+            const detail =
+              status.fileFailures[0]?.errorMessage ??
+              status.fileFailures[0]?.exceptionName ??
+              status.errorMessage ??
+              "Sarvam reported the job failed.";
+            logSarvamError("adapter.job_failed", {
+              traceId,
+              jobId,
+              jobState: status.jobState,
+              failedFileCount: status.failedFilesCount,
+              fileError: status.fileFailures[0]?.errorMessage ?? null,
+              exceptionName: status.fileFailures[0]?.exceptionName ?? null,
+            });
+            return { kind: "failed", code: "provider_job_failed", message: detail };
+          }
+          if (status.jobState !== "Completed") {
+            logSarvam("adapter.still_running", {
+              traceId,
+              jobId,
+              jobState: status.jobState,
+              probes,
+              probeMs: Date.now() - probeStartedAt,
+              totalMs: Date.now() - startedAt,
+            });
+            // Not a failure: the claim is released and the same job is polled
+            // again shortly, so a long consultation never looks like an error.
+            return {
+              kind: "deferred",
+              delaySeconds: 15,
+              message: `Sarvam job is ${status.jobState}.`,
+            };
+          }
+          outputFiles = status.outputFiles;
+          await record({ jobId, phase: "completed", outputFiles });
+        }
+
+        // ── Step 5: collect the transcript ───────────────────────────────────
+        const { transcript, languageCode } = await downloadBatchTranscript(jobId, outputFiles);
+        if (!transcript.trim()) {
+          logSarvamError("adapter.empty_transcript", { traceId, jobId });
+          return {
+            kind: "failed",
+            code: "empty_transcript",
+            message: "The provider returned no speech for this recording.",
+          };
+        }
+
+        logSarvam("adapter.completed", {
           traceId,
           jobId,
-          pollAttempt,
-          jobState: status.jobState,
-          elapsedMs: Date.now() - pollStartedAt,
-        });
-        await new Promise((resolve) => setTimeout(resolve, TRANSCRIPTION_POLL_INTERVAL_MS));
-        pollAttempt += 1;
-        status = await getBatchJobStatus(jobId);
-      }
-
-      if (status.jobState !== "Completed") {
-        logSarvamError("adapter.job_not_completed", {
-          traceId,
-          jobId,
-          jobState: status.jobState,
-          pollAttempts: pollAttempt,
-          pollMs: Date.now() - pollStartedAt,
+          languageCode,
           totalMs: Date.now() - startedAt,
-          errorMessage: status.errorMessage,
+          transcriptChars: transcript.length,
         });
-        throw new Error(
-          status.errorMessage
-            ? `sarvam_transcription_failed: ${status.errorMessage}`
-            : "sarvam_transcription_timeout"
-        );
+        return { kind: "completed", rawText: transcript, modelVersion: SARVAM_STT_MODEL };
+      } catch (error) {
+        const { code, message } = classifyTranscriptionFailure(error);
+        logSarvamError("adapter.step_failed", {
+          traceId,
+          failureCode: code,
+          durationMs: Date.now() - startedAt,
+          errorName: error instanceof Error ? error.name : typeof error,
+          errorMessage: message,
+        });
+        return { kind: "failed", code, message };
       }
-
-      const { transcript } = await downloadBatchTranscript(jobId, status.outputFiles);
-      if (!transcript.trim()) {
-        logSarvamError("adapter.empty_transcript", { traceId, jobId });
-        throw new Error("empty_transcript");
-      }
-
-      logSarvam("adapter.completed", {
-        traceId,
-        jobId,
-        pollAttempts: pollAttempt,
-        totalMs: Date.now() - startedAt,
-        totalBytes,
-        transcriptChars: transcript.length,
-      });
-
-      return { rawText: transcript, modelVersion: SARVAM_STT_MODEL };
     },
   };
 }
+

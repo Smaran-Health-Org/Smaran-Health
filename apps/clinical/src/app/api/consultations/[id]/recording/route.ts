@@ -2,7 +2,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import { getConsultation } from "@/lib/db/consultations";
 import { createRecordingSession, finalizeRecordingSession, interruptRecordingSession, setRecordingSessionState } from "@/lib/db/recordings";
-import { transcribeDurableRecording } from "@/lib/audio-recording/process";
+import { wakeTranscriptionWorker } from "@/lib/audio-recording/pipeline";
 import { badRequest, conflict, forbidden, notFound, unauthorized } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
@@ -32,7 +32,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const durationSeconds = body?.durationSeconds;
     if (body?.action === "finalize" && typeof body.recordingId === "string" && typeof expectedChunks === "number" && Number.isInteger(expectedChunks) && expectedChunks >= 0 && expectedChunks <= 10_000 && typeof durationSeconds === "number" && Number.isInteger(durationSeconds) && durationSeconds >= 0) {
       const recording = await finalizeRecordingSession({ recordingId: body.recordingId, consultationId: id, expectedChunks, durationSeconds });
-      after(() => transcribeDurableRecording(recording.id).catch(() => undefined));
+      // The work item was committed by the same transaction that finalized the
+      // recording, so it survives even if this invocation dies. This call is only
+      // an optimistic wakeup to avoid waiting for the next scheduled tick.
+      after(() => wakeTranscriptionWorker());
       return NextResponse.json({ recording }, { headers: { "Cache-Control": "no-store" } });
     }
     return badRequest("Invalid recording request");

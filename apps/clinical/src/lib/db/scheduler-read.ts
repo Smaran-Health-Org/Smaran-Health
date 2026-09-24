@@ -20,6 +20,8 @@ export type SchedulerAppointmentSummary = {
   encounterOperationalStatus: string;
   intakeStatus: string | null;
   documentStatus: "none" | "ready" | "needs_review";
+  /** How the appointment was originally created, derived from existing provenance. */
+  origin: "walk_in" | "patient_portal" | "clinic_booking";
   updatedAt: string;
 };
 
@@ -76,8 +78,9 @@ async function hydrateSchedulerAppointmentSummariesWithClient(
   const patientIds = [...new Set(appointments.map((row) => row.patient_id))];
   const doctorIds = [...new Set(appointments.map((row) => row.doctor_id))];
   const consultationIds = [...new Set(appointments.map((row) => row.consultation_id))];
+  const appointmentIds = [...new Set(appointments.map((row) => row.id))];
   const typeIds = [...new Set(appointments.flatMap((row) => row.appointment_type_id ? [row.appointment_type_id] : []))];
-  const [patientsResult, doctorsResult, consultationsResult, intakesResult, documentsResult, typesResult] = await Promise.all([
+  const [patientsResult, doctorsResult, consultationsResult, intakesResult, documentsResult, typesResult, portalEventsResult, walkInAuditResult] = await Promise.all([
     patientIds.length ? supabase.from("patients").select("id, full_name, phone").eq("clinic_id", session.clinicId).in("id", patientIds) : Promise.resolve({ data: [], error: null }),
     doctorIds.length ? supabase.from("profiles").select("id, full_name").eq("clinic_id", session.clinicId).eq("role", "doctor").in("id", doctorIds) : Promise.resolve({ data: [], error: null }),
     consultationIds.length ? supabase.from("consultations").select("id, operational_status").eq("clinic_id", session.clinicId).in("id", consultationIds) : Promise.resolve({ data: [], error: null }),
@@ -87,8 +90,14 @@ async function hydrateSchedulerAppointmentSummariesWithClient(
     consultationIds.length ? supabase.rpc("get_intake_operational_statuses", { p_consultation_ids: consultationIds }) : Promise.resolve({ data: [], error: null }),
     consultationIds.length ? supabase.from("documents").select("consultation_id, status").eq("clinic_id", session.clinicId).in("consultation_id", consultationIds) : Promise.resolve({ data: [], error: null }),
     typeIds.length ? supabase.from("appointment_types").select("id, name").eq("clinic_id", session.clinicId).in("id", typeIds) : Promise.resolve({ data: [], error: null }),
+    // Origin provenance: patient-portal creation records a `source` marker on
+    // its `created` event; walk-ins record a `walk_in` source on their check-in
+    // audit. Neither projection selects event/audit payloads or metadata — only
+    // the ids needed to classify the origin.
+    appointmentIds.length ? supabase.from("appointment_events").select("appointment_id").eq("clinic_id", session.clinicId).eq("event_type", "created").eq("payload->>source", "patient_portal").in("appointment_id", appointmentIds) : Promise.resolve({ data: [], error: null }),
+    consultationIds.length ? supabase.from("audit_logs").select("resource_id").eq("clinic_id", session.clinicId).eq("action", "patient_checked_in").eq("resource_type", "consultation").eq("metadata->>source", "walk_in").in("resource_id", consultationIds) : Promise.resolve({ data: [], error: null }),
   ]);
-  if (patientsResult.error || doctorsResult.error || consultationsResult.error || intakesResult.error || documentsResult.error || typesResult.error) throw new SchedulerReadError("not_found");
+  if (patientsResult.error || doctorsResult.error || consultationsResult.error || intakesResult.error || documentsResult.error || typesResult.error || portalEventsResult.error || walkInAuditResult.error) throw new SchedulerReadError("not_found");
   const patients = new Map((patientsResult.data ?? []).map((row: { id: string; full_name: string; phone: string | null }) => [row.id, row]));
   const doctors = new Map((doctorsResult.data ?? []).map((row: { id: string; full_name: string }) => [row.id, row.full_name]));
   const consultations = new Map((consultationsResult.data ?? []).map((row: { id: string; operational_status: string }) => [row.id, row.operational_status]));
@@ -97,6 +106,8 @@ async function hydrateSchedulerAppointmentSummariesWithClient(
       .map((row) => [row.consultation_id, row.intake_status])
   );
   const types = new Map((typesResult.data ?? []).map((row: { id: string; name: string }) => [row.id, row.name]));
+  const portalAppointments = new Set((portalEventsResult.data ?? []).map((row: { appointment_id: string }) => row.appointment_id));
+  const walkInConsultations = new Set((walkInAuditResult.data ?? []).map((row: { resource_id: string }) => row.resource_id));
   const documentStatus = new Map<string, "ready" | "needs_review">();
   for (const row of documentsResult.data ?? [] as Array<{ consultation_id: string; status: string }>) {
     const next = row.status === "processed" ? "ready" : "needs_review";
@@ -114,7 +125,9 @@ async function hydrateSchedulerAppointmentSummariesWithClient(
       status: row.status, appointmentTypeName: row.appointment_type_id ? types.get(row.appointment_type_id) ?? null : null,
       encounterOperationalStatus: consultations.get(row.consultation_id) ?? "scheduled",
       intakeStatus: intakes.get(row.consultation_id) ?? null,
-      documentStatus: documentStatus.get(row.consultation_id) ?? "none", updatedAt: row.updated_at,
+      documentStatus: documentStatus.get(row.consultation_id) ?? "none",
+      origin: portalAppointments.has(row.id) ? "patient_portal" : walkInConsultations.has(row.consultation_id) ? "walk_in" : "clinic_booking",
+      updatedAt: row.updated_at,
     }];
   });
 }

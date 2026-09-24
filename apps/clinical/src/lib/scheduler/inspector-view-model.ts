@@ -10,6 +10,12 @@ export function inspectorQueueLabel(status: string): string {
   return "Status unavailable";
 }
 
+export function inspectorOriginLabel(origin: SchedulerAppointmentSummary["origin"]): string {
+  if (origin === "walk_in") return "Walk-in";
+  if (origin === "patient_portal") return "Online booking";
+  return "Clinic booking";
+}
+
 export function inspectorActions(appointment: SchedulerAppointmentSummary, role: SessionContext["role"]) {
   const scheduled = appointment.status === "scheduled";
   const queue = appointment.encounterOperationalStatus;

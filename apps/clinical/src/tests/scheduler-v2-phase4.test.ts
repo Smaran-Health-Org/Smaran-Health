@@ -11,7 +11,7 @@ function appointment(patch: Partial<SchedulerAppointmentSummary> = {}): Schedule
     id: "a", patientId: "p", patientName: "Asha Patel", patientPhone: null, doctorId: "d", doctorName: "Dr Shah",
     scheduledAt: "2026-09-20T04:37:00Z", durationMinutes: 7, durationState: "known", status: "scheduled",
     appointmentTypeName: "Follow-up", encounterOperationalStatus: "waiting", intakeStatus: "submitted",
-    documentStatus: "needs_review", updatedAt: "2026-09-20T04:00:00Z", ...patch,
+    documentStatus: "needs_review", origin: "clinic_booking", updatedAt: "2026-09-20T04:00:00Z", ...patch,
   };
 }
 

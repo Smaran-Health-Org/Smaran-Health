@@ -142,7 +142,14 @@ export function AppShell({
             <span>{workspaceLabel}</span>
             <strong>{clinicName}</strong>
           </div>
-          <details className={styles.accountMenu} ref={accountMenuRef}>
+          <div className={styles.accountBarRight}>
+            {role === "doctor" ? (
+              <nav className={styles.accountWorkspaceSwitch} aria-label="Switch workspace">
+                <Link href="/desk" data-active={workspace === "desk"} title="Reception workspace">Reception</Link>
+                <Link href="/dashboard" data-active={workspace === "clinical"} title="Doctor workspace">Doctor</Link>
+              </nav>
+            ) : null}
+            <details className={styles.accountMenu} ref={accountMenuRef}>
             <summary aria-label="Open profile menu">
               <span className={styles.doctorAvatar}>{initials(doctorName)}</span>
             </summary>
@@ -161,17 +168,6 @@ export function AppShell({
                   <strong>{clinicName}</strong>
                 </div>
               </div>
-              <div className={styles.workspaceSwitch}>
-                <small>Workspace</small>
-                {role === "doctor" ? (
-                  <div>
-                    <Link data-active={workspace === "clinical"} href="/dashboard">Doctor</Link>
-                    <Link data-active={workspace === "desk"} href="/desk">Receptionist</Link>
-                  </div>
-                ) : (
-                  <strong>Clinic Desk</strong>
-                )}
-              </div>
               <button
                 type="button"
                 className={styles.accountSignOut}
@@ -183,6 +179,7 @@ export function AppShell({
               </button>
             </div>
           </details>
+          </div>
         </div>
         {children}
       </div>

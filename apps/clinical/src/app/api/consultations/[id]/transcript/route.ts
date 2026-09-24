@@ -5,6 +5,7 @@ import {
   getTranscriptByConsultation,
   upsertTranscript,
 } from "@/lib/db/transcripts";
+import { getConsultationRecordingStatus } from "@/lib/db/transcription-work";
 import { createAuditLog } from "@/lib/db/audit";
 import { saveTranscriptSchema } from "@/lib/validation";
 import { logEvent, logError } from "@/lib/logger";
@@ -22,8 +23,15 @@ export async function GET(
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) return notFound("Consultation not found");
 
-  const transcript = await getTranscriptByConsultation(id, session.clinicId);
-  return NextResponse.json({ transcript });
+  // The workflow polls this while it waits. Returning the queue state alongside
+  // the transcript is what lets it tell "still transcribing" from "failed" —
+  // previously it only knew whether text existed yet, so a healthy but slow job
+  // was reported to the doctor as a failure after 60 seconds.
+  const [transcript, recording] = await Promise.all([
+    getTranscriptByConsultation(id, session.clinicId),
+    getConsultationRecordingStatus(id, session.clinicId),
+  ]);
+  return NextResponse.json({ transcript, recording });
 }
 
 export async function POST(
