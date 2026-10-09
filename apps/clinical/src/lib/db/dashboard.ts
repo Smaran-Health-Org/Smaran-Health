@@ -1,4 +1,5 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { logWarn } from "@/lib/logger";
 import {
   getAppointmentQueue,
   type AppointmentQueue,
@@ -53,7 +54,17 @@ export async function getDashboardOverview(clinicId: string): Promise<DashboardO
       .eq("clinic_id", clinicId),
     // One extra row is the cheapest way to tell "exactly N" from "at least N"
     // without issuing a second counting query on every dashboard load.
-    getPendingConsultations(clinicId, PENDING_REVIEW_LIMIT + 1),
+    //
+    // Non-fatal by design. Today's queue is why the doctor opened this page; an
+    // optional backlog panel must not be able to blank the whole surface. Logged
+    // rather than swallowed, because a silent [] is indistinguishable from
+    // "nothing pending" — the exact trap the background draft sweep fell into.
+    getPendingConsultations(clinicId, PENDING_REVIEW_LIMIT + 1).catch((error) => {
+      logWarn("dashboard.pending_review_unavailable", {
+        message: error instanceof Error ? error.message : "unknown",
+      });
+      return [];
+    }),
   ]);
 
   if (patientCountResult.error) {
