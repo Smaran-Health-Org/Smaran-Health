@@ -127,7 +127,7 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
             format: mimeType,
             chunkCount: recording.chunks.length,
           });
-          jobId = await initiateBatchJob({ mode: "codemix" });
+          jobId = await initiateBatchJob({ mode: "codemix", withDiarization: true });
           // Persisted before anything billable follows, so a crash here leaves a
           // resumable job id rather than an orphaned, paid-for job.
           await record({ jobId, phase: "initiated" });
@@ -219,7 +219,7 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
         }
 
         // ── Step 5: collect the transcript ───────────────────────────────────
-        const { transcript, languageCode, languageProbability } =
+        const { transcript, languageCode, languageProbability, diarizedTurns } =
           await downloadBatchTranscript(jobId, outputFiles);
         if (!transcript.trim()) {
           logSarvamError("adapter.empty_transcript", { traceId, jobId });
@@ -243,6 +243,7 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
           rawText: transcript,
           modelVersion: SARVAM_STT_MODEL,
           languageCode,
+          diarizedTurns: diarizedTurns.length > 0 ? diarizedTurns : undefined,
         };
       } catch (error) {
         const { code, message } = classifyTranscriptionFailure(error);

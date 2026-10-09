@@ -9,6 +9,7 @@ import {
   type TranscriptionWorkClaim,
 } from "@/lib/db/transcription-work";
 import { transcribeClaimedWork } from "./process";
+import { inferSpeakerRoles, type DiarizedTurn } from "./speaker-roles";
 
 /**
  * Durable transcription worker.
@@ -28,7 +29,8 @@ async function persistTranscript(
   claim: TranscriptionWorkClaim,
   rawText: string,
   modelVersion: string,
-  languageCode: string | null
+  languageCode: string | null,
+  diarizedTurns: DiarizedTurn[]
 ): Promise<void> {
   const service = createServiceRoleClient();
   const { data: existing, error: lookupError } = await service
@@ -45,10 +47,18 @@ async function persistTranscript(
   // when the provider reported one, so a later pass cannot blank an earlier value.
   const languageFields = languageCode ? { language_codes: [languageCode] } : {};
 
+  // Roles are inferred once, here, rather than on every render: every reader then
+  // sees the same attribution, and the doctor's correction is stored alongside it
+  // instead of being re-derived. Left untouched when the provider returned no
+  // diarization, so a later pass cannot blank an earlier attribution.
+  const diarizationFields = diarizedTurns.length
+    ? { diarized_turns: diarizedTurns, speaker_roles: inferSpeakerRoles(diarizedTurns) }
+    : {};
+
   const write = existing
     ? service
         .from("transcripts")
-        .update({ raw_text: rawText, model_version: modelVersion, ...languageFields })
+        .update({ raw_text: rawText, model_version: modelVersion, ...languageFields, ...diarizationFields })
         .eq("id", existing.id)
         .eq("clinic_id", claim.clinicId)
     : service.from("transcripts").insert({
@@ -57,6 +67,7 @@ async function persistTranscript(
         raw_text: rawText,
         model_version: modelVersion,
         ...languageFields,
+        ...diarizationFields,
       });
 
   const { error } = await write;
@@ -84,7 +95,8 @@ export async function drainTranscriptionWork(limit = 3): Promise<void> {
           claim,
           outcome.rawText,
           outcome.modelVersion,
-          outcome.languageCode ?? null
+          outcome.languageCode ?? null,
+          outcome.diarizedTurns ?? []
         );
         await finishTranscriptionWork(claim.workId);
         logSarvam("worker.completed", {

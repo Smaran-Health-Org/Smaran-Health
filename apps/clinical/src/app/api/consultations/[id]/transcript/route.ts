@@ -3,8 +3,13 @@ import { getSessionContext } from "@/lib/db/session";
 import { getConsultation } from "@/lib/db/consultations";
 import {
   getTranscriptByConsultation,
+  updateTranscriptSpeakerRoles,
   upsertTranscript,
 } from "@/lib/db/transcripts";
+import {
+  parseSpeakerRoleMap,
+  swapSpeakerRoles,
+} from "@/lib/audio-recording/speaker-roles";
 import { getConsultationRecordingStatus } from "@/lib/db/transcription-work";
 import { wakeTranscriptionWorker } from "@/lib/audio-recording/pipeline";
 import { createAuditLog } from "@/lib/db/audit";
@@ -98,4 +103,56 @@ export async function POST(
   });
 
   return NextResponse.json({ transcript }, { status: 201 });
+}
+
+/**
+ * Records the doctor's correction to the inferred speaker roles.
+ *
+ * Deliberately narrow: a swap is the only accepted action, because a
+ * mis-attribution is nearly always "these two are the wrong way round". The
+ * result is stored as doctor-confirmed rather than re-derived, and provider
+ * evidence (`diarized_turns`) is never rewritten by a correction.
+ *
+ * Doctor-only, like every other write on this route: a receptionist must not be
+ * able to change how a clinical conversation is attributed.
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await getSessionContext();
+  if (!session) return unauthorized();
+  if (session.role !== "doctor") return forbidden("Only doctors can correct speaker roles");
+
+  const consultation = await getConsultation(id, session.clinicId);
+  if (!consultation) return notFound("Consultation not found");
+
+  const body = (await request.json().catch(() => null)) as { action?: unknown } | null;
+  if (body?.action !== "swap_speaker_roles") return badRequest("Unsupported transcript update");
+
+  const transcript = await getTranscriptByConsultation(id, session.clinicId);
+  const current = parseSpeakerRoleMap(transcript?.speakerRoles ?? null);
+  if (!transcript || !current) {
+    return badRequest("This transcript has no speaker roles to correct");
+  }
+
+  const swapped = swapSpeakerRoles(current);
+  await updateTranscriptSpeakerRoles(transcript.id, swapped, session.clinicId);
+
+  await createAuditLog(
+    session.clinicId,
+    session.profileId,
+    "transcript.speaker_roles_corrected",
+    "transcript",
+    transcript.id,
+    { previousRoles: current.roles, correctedRoles: swapped.roles }
+  ).catch(() => undefined);
+
+  logEvent("transcript.speaker_roles_corrected", { consultationId: id });
+
+  return NextResponse.json(
+    { speakerRoles: swapped },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }

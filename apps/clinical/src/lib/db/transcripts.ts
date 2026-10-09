@@ -4,7 +4,7 @@ import type { Transcript } from "@/types";
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
 const TRANSCRIPT_COLUMNS =
-  "id, consultationId:consultation_id, clinicId:clinic_id, rawText:raw_text, cleanedText:cleaned_text, languageCodes:language_codes, modelVersion:model_version, createdAt:created_at";
+  "id, consultationId:consultation_id, clinicId:clinic_id, rawText:raw_text, cleanedText:cleaned_text, languageCodes:language_codes, modelVersion:model_version, diarizedTurns:diarized_turns, speakerRoles:speaker_roles, createdAt:created_at";
 
 // `client` lets background workers supply a service-role connection. Callers that
 // omit it keep the request-scoped RLS client. Either way `clinic_id` is filtered
@@ -24,6 +24,28 @@ export async function getTranscriptByConsultation(
 
   if (error) throw new Error(`Failed to fetch transcript: ${error.message}`);
   return (data as Transcript) ?? null;
+}
+
+/**
+ * Persists a doctor's correction to the inferred speaker roles.
+ *
+ * Writes only the role mapping. `diarized_turns` is provider evidence and is
+ * never rewritten by a correction, so a later reader can always see what the
+ * provider actually said and what the doctor decided it meant.
+ */
+export async function updateTranscriptSpeakerRoles(
+  transcriptId: string,
+  speakerRoles: unknown,
+  clinicId: string
+): Promise<void> {
+  const supabase = await createServerClient();
+  const { error } = await supabase
+    .from("transcripts")
+    .update({ speaker_roles: speakerRoles })
+    .eq("id", transcriptId)
+    .eq("clinic_id", clinicId);
+
+  if (error) throw new Error(`Failed to update speaker roles: ${error.message}`);
 }
 
 export async function upsertTranscript(

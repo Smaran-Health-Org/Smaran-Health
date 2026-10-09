@@ -1023,6 +1023,10 @@ export const transcripts = pgTable("transcripts", {
   cleanedText: text("cleaned_text"),
   languageCodes: jsonb("language_codes"),
   modelVersion: text("model_version"),
+  /** Provider speaker-attributed turns. Source evidence; never rewritten. */
+  diarizedTurns: jsonb("diarized_turns"),
+  /** Inferred and/or doctor-confirmed speaker id -> role mapping. */
+  speakerRoles: jsonb("speaker_roles"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

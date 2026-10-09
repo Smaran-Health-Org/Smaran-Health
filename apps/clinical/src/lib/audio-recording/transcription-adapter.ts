@@ -1,3 +1,5 @@
+import type { DiarizedTurn } from "./speaker-roles";
+
 /** Provider-neutral boundary; browser live speech is never clinical truth. */
 export type DurableRecording = { recordingId: string; consultationId: string; clinicId: string; format: string | null; chunks: Array<{ sequenceNumber: number; storagePath: string }> };
 
@@ -51,6 +53,11 @@ export type TranscriptionStepOutcome =
       modelVersion: string;
       /** BCP-47 language the provider detected, when it reports one. */
       languageCode?: string | null;
+      /**
+       * Speaker-attributed segments, when the provider supports diarization.
+       * Absent or empty means the reader falls back to the flat transcript.
+       */
+      diarizedTurns?: DiarizedTurn[];
     }
   /** Healthy but not finished: release the claim and try again shortly. */
   | { kind: "deferred"; delaySeconds: number; message: string }

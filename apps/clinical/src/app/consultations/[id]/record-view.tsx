@@ -46,6 +46,10 @@ export type RecordTranscript = {
   rawText: string;
   modelVersion: string | null;
   createdAt: Instant | null;
+  /** Provider speaker attribution, when this visit was diarized. */
+  diarizedTurns?: unknown;
+  /** Inferred and/or doctor-confirmed speaker roles. */
+  speakerRoles?: unknown;
 } | null;
 
 export type RecordAudio = {
@@ -237,6 +241,9 @@ export function ConsultationRecordView({
             durationLabel={audio?.durationSeconds ? duration(audio.durationSeconds) : null}
             modelVersion={transcript?.modelVersion ?? null}
             status={audio?.transcriptionStatus ?? null}
+            consultationId={consultation.id}
+            diarizedTurns={transcript?.diarizedTurns}
+            speakerRoles={transcript?.speakerRoles}
           />
 
           <section className={styles.block} id="background">
