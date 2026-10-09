@@ -29,7 +29,13 @@ export type TranscriptionProgressRecorder = (progress: {
 }) => Promise<void>;
 
 export type TranscriptionStepOutcome =
-  | { kind: "completed"; rawText: string; modelVersion: string }
+  | {
+      kind: "completed";
+      rawText: string;
+      modelVersion: string;
+      /** BCP-47 language the provider detected, when it reports one. */
+      languageCode?: string | null;
+    }
   /** Healthy but not finished: release the claim and try again shortly. */
   | { kind: "deferred"; delaySeconds: number; message: string }
   | { kind: "failed"; code: string; message: string };

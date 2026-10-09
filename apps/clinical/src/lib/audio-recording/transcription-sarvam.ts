@@ -212,7 +212,8 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
         }
 
         // ── Step 5: collect the transcript ───────────────────────────────────
-        const { transcript, languageCode } = await downloadBatchTranscript(jobId, outputFiles);
+        const { transcript, languageCode, languageProbability } =
+          await downloadBatchTranscript(jobId, outputFiles);
         if (!transcript.trim()) {
           logSarvamError("adapter.empty_transcript", { traceId, jobId });
           return {
@@ -226,10 +227,16 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
           traceId,
           jobId,
           languageCode,
+          languageProbability,
           totalMs: Date.now() - startedAt,
           transcriptChars: transcript.length,
         });
-        return { kind: "completed", rawText: transcript, modelVersion: SARVAM_STT_MODEL };
+        return {
+          kind: "completed",
+          rawText: transcript,
+          modelVersion: SARVAM_STT_MODEL,
+          languageCode,
+        };
       } catch (error) {
         const { code, message } = classifyTranscriptionFailure(error);
         logSarvamError("adapter.step_failed", {

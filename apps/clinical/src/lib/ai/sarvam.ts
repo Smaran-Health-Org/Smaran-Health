@@ -554,6 +554,8 @@ export async function getBatchJobStatus(
 export type SarvamBatchTranscript = {
   transcript: string;
   languageCode: string | null;
+  /** Present only when Sarvam reports it; the batch API may omit it. */
+  languageProbability: number | null;
 };
 
 /** Steps 6–7: download and parse the transcript JSON for a completed job. */
@@ -601,6 +603,7 @@ export async function downloadBatchTranscript(
   const result = (await fileResponse.json()) as {
     transcript?: unknown;
     language_code?: unknown;
+    language_probability?: unknown;
   };
   const transcript =
     typeof result.transcript === "string" ? result.transcript.trim() : "";
@@ -619,11 +622,19 @@ export async function downloadBatchTranscript(
     transcriptChars: transcript.length,
     languageCode:
       typeof result.language_code === "string" ? result.language_code : null,
+    languageProbability:
+      typeof result.language_probability === "number"
+        ? result.language_probability
+        : null,
   });
 
   return {
     transcript,
     languageCode:
       typeof result.language_code === "string" ? result.language_code : null,
+    languageProbability:
+      typeof result.language_probability === "number"
+        ? result.language_probability
+        : null,
   };
 }

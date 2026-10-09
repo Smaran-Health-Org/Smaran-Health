@@ -27,7 +27,8 @@ import { transcribeClaimedWork } from "./process";
 async function persistTranscript(
   claim: TranscriptionWorkClaim,
   rawText: string,
-  modelVersion: string
+  modelVersion: string,
+  languageCode: string | null
 ): Promise<void> {
   const service = createServiceRoleClient();
   const { data: existing, error: lookupError } = await service
@@ -38,10 +39,16 @@ async function persistTranscript(
     .maybeSingle();
   if (lookupError) throw new Error("transcript_persist_failed");
 
+  // The detected language is recorded so a mis-detection stays auditable — it
+  // was previously logged and then thrown away, leaving no way to answer
+  // "was this consultation transcribed as the right language?". Only written
+  // when the provider reported one, so a later pass cannot blank an earlier value.
+  const languageFields = languageCode ? { language_codes: [languageCode] } : {};
+
   const write = existing
     ? service
         .from("transcripts")
-        .update({ raw_text: rawText, model_version: modelVersion })
+        .update({ raw_text: rawText, model_version: modelVersion, ...languageFields })
         .eq("id", existing.id)
         .eq("clinic_id", claim.clinicId)
     : service.from("transcripts").insert({
@@ -49,6 +56,7 @@ async function persistTranscript(
         clinic_id: claim.clinicId,
         raw_text: rawText,
         model_version: modelVersion,
+        ...languageFields,
       });
 
   const { error } = await write;
@@ -72,7 +80,12 @@ export async function drainTranscriptionWork(limit = 3): Promise<void> {
       const outcome = await transcribeClaimedWork(claim);
 
       if (outcome.kind === "completed") {
-        await persistTranscript(claim, outcome.rawText, outcome.modelVersion);
+        await persistTranscript(
+          claim,
+          outcome.rawText,
+          outcome.modelVersion,
+          outcome.languageCode ?? null
+        );
         await finishTranscriptionWork(claim.workId);
         logSarvam("worker.completed", {
           workId: claim.workId,
