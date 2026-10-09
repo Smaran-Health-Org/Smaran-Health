@@ -1,4 +1,5 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClinicalNote } from "@/types";
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
@@ -17,9 +18,10 @@ export type NoteContent = {
 
 export async function getClinicalNoteByConsultation(
   consultationId: string,
-  clinicId: string
+  clinicId: string,
+  client?: SupabaseClient
 ): Promise<ClinicalNote | null> {
-  const supabase = await createServerClient();
+  const supabase = (client ?? (await createServerClient())) as SupabaseClient;
   const { data, error } = await supabase
     .from("clinical_notes")
     .select(NOTE_COLUMNS)
@@ -38,10 +40,11 @@ export async function upsertClinicalNote(
     content: NoteContent;
     status: "ai_draft" | "edited" | "approved" | "rejected";
   },
-  clinicId: string
+  clinicId: string,
+  client?: SupabaseClient
 ): Promise<ClinicalNote> {
-  const supabase = await createServerClient();
-  const existing = await getClinicalNoteByConsultation(input.consultationId, clinicId);
+  const supabase = (client ?? (await createServerClient())) as SupabaseClient;
+  const existing = await getClinicalNoteByConsultation(input.consultationId, clinicId, client);
 
   const now = new Date().toISOString();
   const approved = input.status === "approved";

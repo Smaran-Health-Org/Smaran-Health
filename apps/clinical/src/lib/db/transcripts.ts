@@ -1,15 +1,20 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Transcript } from "@/types";
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
 const TRANSCRIPT_COLUMNS =
   "id, consultationId:consultation_id, clinicId:clinic_id, rawText:raw_text, cleanedText:cleaned_text, languageCodes:language_codes, modelVersion:model_version, createdAt:created_at";
 
+// `client` lets background workers supply a service-role connection. Callers that
+// omit it keep the request-scoped RLS client. Either way `clinic_id` is filtered
+// explicitly, so tenant isolation does not depend on RLS being enabled.
 export async function getTranscriptByConsultation(
   consultationId: string,
-  clinicId: string
+  clinicId: string,
+  client?: SupabaseClient
 ): Promise<Transcript | null> {
-  const supabase = await createServerClient();
+  const supabase = (client ?? (await createServerClient())) as SupabaseClient;
   const { data, error } = await supabase
     .from("transcripts")
     .select(TRANSCRIPT_COLUMNS)

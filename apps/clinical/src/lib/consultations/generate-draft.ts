@@ -6,6 +6,7 @@ import { getClinicalNoteByConsultation, upsertClinicalNote } from "@/lib/db/clin
 import { getTranscriptByConsultation } from "@/lib/db/transcripts";
 import { createAuditLog } from "@/lib/db/audit";
 import { logEvent, logWarn, logError } from "@/lib/logger";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NoteContent } from "@/lib/db/clinical-notes";
 import { DRAFT_SWEEP_AFTER_SECONDS, DRAFT_SWEEP_LOOKBACK_HOURS } from "./draft-policy";
 
@@ -27,6 +28,20 @@ import { DRAFT_SWEEP_AFTER_SECONDS, DRAFT_SWEEP_LOOKBACK_HOURS } from "./draft-p
 /** Consultations that are finished — never regenerate over a settled record. */
 const SETTLED_STATUSES = ["approved", "rejected"];
 
+/**
+ * A skip is routine on the doctor-initiated path (usually "note_already_exists"),
+ * but on the background path it almost always means the sweep is broken. Logging
+ * it is what stops a total no-op from looking like a healthy 200 response.
+ */
+function skipped(
+  source: "doctor" | "background",
+  reason: string,
+  consultationId: string
+): GenerateDraftResult {
+  if (source === "background") logWarn("draft.skipped", { consultationId, reason, source });
+  return { kind: "skipped", reason };
+}
+
 export type GenerateDraftResult =
   | { kind: "created"; noteId: string; draft: NoteContent }
   | { kind: "fallback"; noteId: string; draft: NoteContent; reason: string }
@@ -45,27 +60,35 @@ export async function generateDraftForConsultation(input: {
   clinicId: string;
   actorId: string | null;
   source: "doctor" | "background";
+  /**
+   * Service-role connection for the background sweep. The cron worker runs with
+   * no user session, so the request-scoped client would be anonymous and RLS
+   * would hide every row — the sweep would silently match nothing. Every query
+   * below still filters on `clinicId` explicitly, so scoping does not rest on RLS.
+   */
+  client?: SupabaseClient;
 }): Promise<GenerateDraftResult> {
   const { consultationId, clinicId, actorId, source } = input;
+  const db = input.client;
 
-  const consultation = await getConsultation(consultationId, clinicId);
-  if (!consultation) return { kind: "skipped", reason: "consultation_not_found" };
+  const consultation = await getConsultation(consultationId, clinicId, db);
+  if (!consultation) return skipped(source, "consultation_not_found", consultationId);
   if (SETTLED_STATUSES.includes(consultation.status)) {
-    return { kind: "skipped", reason: "consultation_settled" };
+    return skipped(source, "consultation_settled", consultationId);
   }
 
   // The clobber guard. A note of any status means a human is already in the loop.
-  const existingNote = await getClinicalNoteByConsultation(consultationId, clinicId);
-  if (existingNote) return { kind: "skipped", reason: "note_already_exists" };
+  const existingNote = await getClinicalNoteByConsultation(consultationId, clinicId, db);
+  if (existingNote) return skipped(source, "note_already_exists", consultationId);
 
-  const transcript = await getTranscriptByConsultation(consultationId, clinicId);
+  const transcript = await getTranscriptByConsultation(consultationId, clinicId, db);
   const rawText = transcript?.rawText?.trim();
-  if (!rawText) return { kind: "skipped", reason: "no_transcript" };
+  if (!rawText) return skipped(source, "no_transcript", consultationId);
 
   // A draft is attributed to the consultation's own doctor. A background sweep
   // has no authenticated actor, so it never impersonates one.
   const doctorId = consultation.doctorId;
-  if (!doctorId) return { kind: "skipped", reason: "no_doctor" };
+  if (!doctorId) return skipped(source, "no_doctor", consultationId);
 
   const auditActor = actorId ?? doctorId;
 
@@ -73,9 +96,10 @@ export async function generateDraftForConsultation(input: {
     const extraction = await extractClinicalDraft(rawText);
     const note = await upsertClinicalNote(
       { consultationId, doctorId, content: extraction.draft, status: "ai_draft" },
-      clinicId
+      clinicId,
+      db
     );
-    await updateConsultation(consultationId, { status: "draft_ready" }, clinicId);
+    await updateConsultation(consultationId, { status: "draft_ready" }, clinicId, db);
     await createAuditLog(clinicId, auditActor, "clinical_note.ai_generated", "clinical_note", note.id, {
       provider: extraction.provider,
       model: extraction.model,
@@ -119,9 +143,10 @@ export async function generateDraftForConsultation(input: {
 
     const note = await upsertClinicalNote(
       { consultationId, doctorId, content: fallbackDraft, status: "ai_draft" },
-      clinicId
+      clinicId,
+      db
     );
-    await updateConsultation(consultationId, { status: "draft_ready" }, clinicId);
+    await updateConsultation(consultationId, { status: "draft_ready" }, clinicId, db);
     await createAuditLog(clinicId, auditActor, "clinical_note.ai_fallback_created", "clinical_note", note.id, {
       reason,
       source,
@@ -191,6 +216,7 @@ export async function drainDraftGeneration(limit = 3): Promise<void> {
       clinicId: String(row.clinic_id),
       actorId: null,
       source: "background",
+      client: service,
     }).catch((sweepError) => {
       logError("draft.sweep_item_failed", sweepError, { consultationId: String(embedded.id) });
       return null;
