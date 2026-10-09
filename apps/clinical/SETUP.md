@@ -97,6 +97,9 @@ npx vercel deploy --prod --yes --token <vercel-token> \
 | Mic doesn't start | localhost is a secure context — allow the mic permission prompt |
 | AI draft 500s | confirm `DEEPSEEK_API_KEY` is set in `.env.local` |
 | Port 3000 busy | `npm run dev -- -p 3001` and update `APP_URL` |
+| `supabase start` fails with `ports are not available … bind: An attempt was made to access a socket in a way forbidden by its access permissions` (Windows) | Windows has reserved a TCP range overlapping Supabase's 54321–54324. Inspect with `netsh int ipv4 show excludedportrange protocol=tcp`. From an **Administrator** terminal: `net stop winnat`, `netsh int ipv4 add excludedportrange protocol=tcp startport=54321 numberport=10 store=persistent`, `net start winnat`. Restart Docker Desktop afterwards. |
+| `GET /api/internal/document-pipeline` returns 401 locally | `.env.local` has no `CRON_SECRET`; it exists only in the deployed environment. Export a throwaway value for the session before starting the dev server — `$env:CRON_SECRET='local-dev-test-secret'` — then send it as `Authorization: Bearer local-dev-test-secret`. |
+| A scheduled sweep appears to run but does nothing | Background workers run with no user session, so the request-scoped Supabase client is anonymous and RLS hides every row. Background paths must use the service-role client **and** filter on `clinic_id` explicitly, because the service role removes RLS as a safety net. Skips on those paths log `draft.skipped`. A `200` from the worker route does not by itself mean work happened. |
 
 ## 6. Safety reminders
 

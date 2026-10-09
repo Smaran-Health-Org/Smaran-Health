@@ -7,6 +7,8 @@ Baseline commit reviewed: `bbf2a07`
 
 **PHASE 11 COMPLETE — immutable consultation-start context integration implemented, validated, and approved by final Sol closure re-review.**
 
+**Post-Phase-12 addition — consultation capture reliability and dashboard discoverability (`dev-keshav`).** Recorded in the section at the end of this document. This work sits on `dev-keshav` at `73433c5`, not on the Phase 1–12 baseline `dev-neelesh` (`bbf2a07`). It introduces no phase, changes no Phase 1–12 acceptance-criteria status, and does not alter the Phase 12 pilot-readiness gates.
+
 ## Phase tracker
 
 | Phase | Scope | Status | Acceptance criteria | Notes |

@@ -8,7 +8,8 @@
 | --- | --- |
 | Clinical app (live) | **https://smaran-health.vercel.app** |
 | Vercel project | `kshav99s-projects/smaran-health` (deployed via CLI from `dev-keshav` branch) |
-| Supabase project | `fkdfhojrlbdckrodufkj` (region: user's choice, see Supabase dashboard) |
+| Supabase project | `fkdfhojrlbdckrodufkj` (region: **`ap-south-1` / Mumbai**) |
+| Vercel function region | **`bom1` (Mumbai)**, pinned in `apps/clinical/vercel.json` — co-located with Supabase `ap-south-1`. Measured database round trip ~23 ms versus ~217 ms from the previous default region. |
 | Supabase auth | signups disabled; seed accounts `doctor1@pilot.test` / `pilot123!`, `doctor2@pilot.test` / `pilot123!` |
 | Storage | private `audio` bucket (50 MB file cap — free tier) |
 | Remaining config | set Supabase Auth → URL Configuration → Site URL + redirect URL to the live URL (optional for password login, required for email links) |
@@ -18,6 +19,21 @@
 - **`dev-local`** — local development & fast UI iteration (local Supabase via Docker, `SETUP.md`).
 - **`dev-keshav`** — the deployable branch; deploy it with the Vercel CLI command below.
 - Flow: iterate on `dev-local` → sync `apps/clinical` into `dev-keshav` → `vercel deploy --prod`.
+
+### Deploying with the Vercel CLI — required flags
+
+Run from `apps/clinical`. The `--scope` flag is **not optional**: without it the deploy fails with `Error: Not authorized` even when `.vercel/project.json` is correct.
+
+```bash
+cd apps/clinical
+npx vercel deploy --prod --yes --scope kshav99s-projects
+```
+
+Do not run `vercel link --confirm` from the repository root or under a guessed name — it silently creates a second project (`kshav99s-projects/clinical`) instead of linking the real one. Remove a stray project with `npx vercel project rm <name> --non-interactive`.
+
+### Function region
+
+`apps/clinical/vercel.json` pins serverless functions to `bom1`, next to Supabase `ap-south-1`. If that file is dropped or its region changed, every database round trip crosses the Pacific and page latency multiplies. Confirm the region is still applied after any change to deployment configuration.
 
 This document explains how to host this project **entirely on free-tier cloud services**, and exactly how to do it step by step. It matches the architecture decision already locked in `PROJECT_MEMORY.md` (Next.js App Router + Supabase Postgres/Auth/Storage) and the stack recommended in `AGENTS.md` (Vercel deployment).
 
