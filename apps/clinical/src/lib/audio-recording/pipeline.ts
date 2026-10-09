@@ -140,10 +140,22 @@ export async function drainTranscriptionWork(limit = 3): Promise<void> {
 }
 
 /**
- * Best-effort wakeup after a recording is finalized, so the first steps
- * (initiate → upload → start) begin immediately instead of waiting for the next
- * cron tick. Correctness comes from the committed work row, never from this call.
+ * Best-effort wakeup so provider steps do not have to wait for the next cron
+ * tick. Called from two places:
+ *   • after a recording is finalized (the first steps start within seconds), and
+ *   • from the transcript poll the workflow already makes every few seconds
+ *     while it waits.
+ *
+ * That second caller is the important one. The durable queue is normally drained
+ * once a minute by the document-pipeline cron, so a provider job that needs
+ * several status polls used to advance at one poll per minute — turning a
+ * 30-second provider job into minutes of doctor-facing waiting. Letting the
+ * client's own poll drive the drain means progress is paced by how often the
+ * doctor's screen refreshes, not by the cron.
+ *
+ * Correctness never depends on this call: the committed work row is the source
+ * of truth, and claiming is atomic, so concurrent callers cannot double-process.
  */
-export function wakeTranscriptionWorker(): void {
-  void drainTranscriptionWork(1).catch(() => undefined);
+export function wakeTranscriptionWorker(limit = 1): void {
+  void drainTranscriptionWork(limit).catch(() => undefined);
 }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import { getConsultation } from "@/lib/db/consultations";
 import {
@@ -6,6 +6,7 @@ import {
   upsertTranscript,
 } from "@/lib/db/transcripts";
 import { getConsultationRecordingStatus } from "@/lib/db/transcription-work";
+import { wakeTranscriptionWorker } from "@/lib/audio-recording/pipeline";
 import { createAuditLog } from "@/lib/db/audit";
 import { saveTranscriptSchema } from "@/lib/validation";
 import { logEvent, logError } from "@/lib/logger";
@@ -23,10 +24,16 @@ export async function GET(
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) return notFound("Consultation not found");
 
-  // The workflow polls this while it waits. Returning the queue state alongside
-  // the transcript is what lets it tell "still transcribing" from "failed" —
-  // previously it only knew whether text existed yet, so a healthy but slow job
-  // was reported to the doctor as a failure after 60 seconds.
+  // The workflow polls this while it waits, so this is the fastest signal the
+  // system gets that someone is actually waiting on the transcript. Nudging the
+  // durable queue here removes the cron from the doctor's critical path; it runs
+  // after the response, so it never delays the poll itself.
+  after(() => wakeTranscriptionWorker(2));
+
+  // Returning the queue state alongside the transcript is what lets the workflow
+  // tell "still transcribing" from "failed" — previously it only knew whether
+  // text existed yet, so a healthy but slow job was reported to the doctor as a
+  // failure after 60 seconds.
   const [transcript, recording] = await Promise.all([
     getTranscriptByConsultation(id, session.clinicId),
     getConsultationRecordingStatus(id, session.clinicId),

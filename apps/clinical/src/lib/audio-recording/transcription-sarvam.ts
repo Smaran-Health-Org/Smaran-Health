@@ -15,10 +15,11 @@ import {
 } from "@/lib/ai/sarvam";
 import { classifyTranscriptionFailure } from "./failure-codes";
 import { AUDIO_BUCKET } from "./storage";
-import type {
-  AudioTranscriptionStepAdapter,
-  DurableRecording,
-  TranscriptionStepOutcome,
+import {
+  TRANSCRIPTION_REPOLL_SECONDS,
+  type AudioTranscriptionStepAdapter,
+  type DurableRecording,
+  type TranscriptionStepOutcome,
 } from "./transcription-adapter";
 
 /**
@@ -203,7 +204,7 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
             // again shortly, so a long consultation never looks like an error.
             return {
               kind: "deferred",
-              delaySeconds: 15,
+              delaySeconds: TRANSCRIPTION_REPOLL_SECONDS,
               message: `Sarvam job is ${status.jobState}.`,
             };
           }
