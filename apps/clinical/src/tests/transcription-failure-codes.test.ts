@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   RETRYABLE_TRANSCRIPTION_FAILURE_CODES,
   classifyTranscriptionFailure,
+  isAlreadyStartedJobError,
   isRetryableTranscriptionFailure,
 } from "../lib/audio-recording/failure-codes";
 
@@ -52,6 +53,39 @@ test("quota and auth failures are never retried, transient faults are", () => {
   }
   for (const code of RETRYABLE_TRANSCRIPTION_FAILURE_CODES) {
     assert.equal(isRetryableTranscriptionFailure(code), true, `${code} must retry automatically`);
+  }
+});
+
+/**
+ * A resumed attempt can ask Sarvam to start a job an earlier attempt already
+ * started. The provider answers 4xx, and the classifier above would call that
+ * `provider_rejected` — terminal — for a job whose transcript was already
+ * finished and waiting to be downloaded. This predicate is what keeps a
+ * completed job from being reported as a rejected one.
+ */
+test("an already-started job reads as benign rather than a rejection", () => {
+  const alreadyStarted = [
+    "Sarvam returned 400 (job_not_in_accepted_state). Job 20260928_abc is not in ACCEPTED state. Current state: Completed",
+    "Sarvam returned 400. Job 20260928_abc is not in ACCEPTED state. Current state: Running",
+    "Sarvam returned 400. job 20260101_x IS NOT IN accepted state.",
+  ];
+  for (const message of alreadyStarted) {
+    assert.equal(isAlreadyStartedJobError(message), true, `should be benign: ${message}`);
+    // Pinned deliberately: without the predicate the classifier still calls this
+    // terminal, which is exactly the defect being guarded.
+    if (/Sarvam returned 4\d\d/.test(message)) {
+      assert.equal(classifyTranscriptionFailure(new Error(message)).code, "provider_rejected");
+    }
+  }
+
+  const genuineFailures = [
+    "Sarvam returned 403 (invalid_api_key_error).",
+    "Sarvam returned 400. bad audio",
+    "Sarvam returned 429 (rate_limit_exceeded_error).",
+    "Sarvam returned 503. Service Overloaded",
+  ];
+  for (const message of genuineFailures) {
+    assert.equal(isAlreadyStartedJobError(message), false, `must stay a failure: ${message}`);
   }
 });
 

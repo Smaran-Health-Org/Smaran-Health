@@ -150,7 +150,13 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
 
         // ── Step 3: start processing ─────────────────────────────────────────
         if (resume.phase !== "started" && resume.phase !== "completed") {
-          await startBatchJob(jobId);
+          // A resumed attempt can ask to start a job an earlier attempt already
+          // started. That is not a rejection; the status probe below is what
+          // decides the outcome.
+          const start = await startBatchJob(jobId);
+          if (start.alreadyStarted) {
+            logSarvam("adapter.start_already_applied", { traceId, jobId });
+          }
           await record({ jobId, phase: "started" });
         }
 

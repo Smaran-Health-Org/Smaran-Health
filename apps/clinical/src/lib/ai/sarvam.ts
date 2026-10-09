@@ -22,6 +22,7 @@ import {
   logSarvamError,
   type SarvamLogFields,
 } from "./sarvam-log";
+import { isAlreadyStartedJobError } from "@/lib/audio-recording/failure-codes";
 
 const SARVAM_BASE_URL = "https://api.sarvam.ai";
 const SARVAM_STT_PATH = "/speech-to-text";
@@ -465,14 +466,30 @@ export async function uploadBatchFile(input: {
   });
 }
 
-/** Step 4: start processing the uploaded audio. */
-export async function startBatchJob(jobId: string): Promise<void> {
-  await sarvamJson(`${SARVAM_BATCH_PATH}/${jobId}/start`, {
-    step: "batch.start",
-    method: "POST",
-    context: { jobId },
-  });
+/**
+ * Step 4: start processing the uploaded audio.
+ *
+ * `alreadyStarted` means Sarvam refused because the job already left ACCEPTED —
+ * the work is done or in flight, not rejected. Reporting that as a throw failed
+ * jobs whose output was already waiting to be downloaded.
+ */
+export async function startBatchJob(jobId: string): Promise<{ alreadyStarted: boolean }> {
+  try {
+    await sarvamJson(`${SARVAM_BATCH_PATH}/${jobId}/start`, {
+      step: "batch.start",
+      method: "POST",
+      context: { jobId },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (isAlreadyStartedJobError(message)) {
+      logSarvam("batch.start_already_applied", { jobId });
+      return { alreadyStarted: true };
+    }
+    throw error;
+  }
   logSarvam("batch.started", { jobId });
+  return { alreadyStarted: false };
 }
 
 export type SarvamBatchStatus = {
