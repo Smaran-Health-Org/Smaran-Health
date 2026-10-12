@@ -133,6 +133,13 @@ const LENGTH_HARD_STOP_SECONDS = 30 * 60;
 // as failures.
 const TRANSCRIPTION_WAIT_MS = 4 * 60 * 1000;
 
+/** Compact "1m 12s" elapsed label. */
+function elapsedLabel(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return minutes > 0 ? `${minutes}m ${rest}s` : `${rest}s`;
+}
+
 /**
  * What the waiting period ended in.
  * `pending` is deliberately distinct from `failed`: the job is still healthy and
@@ -419,6 +426,10 @@ export function ConsultationWorkflow({
   const [processingStage, setProcessingStage] = useState(() =>
     initialStatus === "processing" || initialStatus === "uploading" ? 2 : 0
   );
+  // What the server is actually doing, and how long the doctor has been waiting.
+  // Both are needed: the phase names the step, the clock proves the page is alive.
+  const [transcriptionPhase, setTranscriptionPhase] = useState<string | null>(null);
+  const [processingSeconds, setProcessingSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -477,11 +488,33 @@ export function ConsultationWorkflow({
             : 8;
   const draftReady = processingStage >= 4;
 
+  // Plain-language name for the server's actual step, derived from the durable
+  // job record rather than guessed on the client.
+  const liveStatus = generating
+    ? "Asking the AI to structure the note"
+    : transcriptionPhase === "initiated"
+      ? "Sending the audio to the transcription service"
+      : transcriptionPhase === "uploaded"
+        ? "Audio received — starting transcription"
+        : transcriptionPhase === "started"
+          ? "Transcribing the consultation"
+          : transcriptionPhase === "completed"
+            ? "Preparing the transcript"
+            : "Uploading the recording";
+
   useEffect(() => {
     if (state !== "recording" || isRecordingPaused) return;
     const timer = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
     return () => clearInterval(timer);
   }, [state, isRecordingPaused]);
+
+  // The processing screen previously had no clock at all, so a legitimate
+  // 80-second wait was indistinguishable from a hung page.
+  useEffect(() => {
+    if (state !== "processing" || draftReady) return;
+    const timer = setInterval(() => setProcessingSeconds((value) => value + 1), 1000);
+    return () => clearInterval(timer);
+  }, [state, draftReady]);
 
   // Recording length safeguard: the 15-minute warning is derived from the
   // timer; the 30-minute auto-stop fires exactly once via a deferred call so
@@ -582,6 +615,13 @@ export function ConsultationWorkflow({
           if (rawText) return { kind: "ready", text: rawText };
 
           const recording = data?.recording ?? null;
+          // Names the server's current step. Previously this response was read
+          // only for failure detection and the progress it carried was dropped.
+          if (recording) {
+            setTranscriptionPhase(
+              typeof recording.jobPhase === "string" ? recording.jobPhase : null
+            );
+          }
           // Terminal failure: the queue has stopped retrying and given up.
           if (
             recording?.transcriptionStatus === "retryable_failed" &&
@@ -1694,6 +1734,16 @@ export function ConsultationWorkflow({
               />
             </div>
 
+            {/* The wait is real and can exceed a minute. A ticking clock plus the
+                server's actual step is the difference between "working" and
+                "hung": previously nothing on this screen changed while the
+                pipeline ran. */}
+            {!draftReady && (
+              <p className={styles.generatingHint} role="status" aria-live="polite">
+                {elapsedLabel(processingSeconds)} · {liveStatus}
+              </p>
+            )}
+
             <div className={styles.processingSteps}>
               <span className={processingStage >= 1 ? styles.stepDone : undefined}>
                 {processingStage >= 1 ? "✓ Recording received" : "Recording received"}
@@ -1723,7 +1773,7 @@ export function ConsultationWorkflow({
 
             {generating && (
               <p className={styles.generatingHint} role="status">
-                Drafting the clinical note — this usually takes a few seconds.
+                Structuring the transcript into a note. This can take up to a minute.
               </p>
             )}
             {draftReady && (
