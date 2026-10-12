@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/transcription-work";
 import { transcribeClaimedWork } from "./process";
 import { inferSpeakerRoles, type DiarizedTurn } from "./speaker-roles";
+import { debugEvent, debugError, summariseTranscript } from "@/lib/debug-log";
 
 /**
  * Durable transcription worker.
@@ -54,7 +55,6 @@ async function persistTranscript(
   const diarizationFields = diarizedTurns.length
     ? { diarized_turns: diarizedTurns, speaker_roles: inferSpeakerRoles(diarizedTurns) }
     : {};
-
   const write = existing
     ? service
         .from("transcripts")
@@ -71,7 +71,29 @@ async function persistTranscript(
       });
 
   const { error } = await write;
-  if (error) throw new Error("transcript_persist_failed");
+  if (error) {
+    debugError("db", "transcript.persist_failed", error, {
+      consultationId: claim.consultationId,
+      clinicId: claim.clinicId,
+      updatingExistingRow: Boolean(existing),
+    });
+    throw new Error("transcript_persist_failed");
+  }
+
+  // Confirms what actually reached the row rather than what we intended to
+  // write. If the dialogue view is ever blank, this line says whether the turns
+  // were absent, unparsed, or simply not persisted.
+  debugEvent("db", "transcript.persisted", {
+    consultationId: claim.consultationId,
+    clinicId: claim.clinicId,
+    mode: existing ? "updated" : "inserted",
+    modelVersion,
+    languageCode,
+    textChars: rawText.length,
+    ...summariseTranscript(diarizedTurns),
+    inferredRoles: (diarizationFields as { speaker_roles?: { roles?: unknown } }).speaker_roles?.roles ?? null,
+    roleConfidence: (diarizationFields as { speaker_roles?: { confidence?: unknown } }).speaker_roles?.confidence ?? null,
+  });
 }
 
 /** Runs a bounded, idempotent slice. Durable DB work remains if this process dies. */

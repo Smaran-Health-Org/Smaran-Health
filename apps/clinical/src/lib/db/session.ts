@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { debugWarn } from "@/lib/debug-log";
 import type { SessionContext } from "@/types";
 
 // `cache` dedupes the call for the lifetime of a single request, so a page and
@@ -20,7 +21,13 @@ export const getSessionContext = cache(async (): Promise<SessionContext | null> 
     .eq("id", user.id)
     .single();
 
-  if (!profile) return null;
+  if (!profile) {
+    // Distinguishes "not signed in" from "signed in but has no profile or clinic
+    // membership". The second renders as an empty or broken workspace and is
+    // otherwise completely invisible — there is no error, just nothing.
+    debugWarn("auth", "session.profile_missing", { userId: user.id });
+    return null;
+  }
 
   return {
     userId: user.id,
