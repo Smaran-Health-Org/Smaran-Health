@@ -131,7 +131,13 @@ const LENGTH_HARD_STOP_SECONDS = 30 * 60;
 // wait politely. The ceiling is generous because a long consultation legitimately
 // takes minutes with the provider — the old 60-second cap reported healthy jobs
 // as failures.
-const TRANSCRIPTION_WAIT_MS = 4 * 60 * 1000;
+// How long the client will wait before giving up on the transcript. Processing
+// runs at roughly 1.3-2.3x the recording length, so a 10-minute consultation can
+// genuinely take 20+ minutes; the old 4-minute budget abandoned work that the
+// server then completed successfully, which looked like a failure to the doctor.
+// Because generation continues server-side and a background sweep drafts the
+// visit, leaving the page is now safe.
+const TRANSCRIPTION_WAIT_MS = 25 * 60 * 1000;
 
 /** Compact "1m 12s" elapsed label. */
 function elapsedLabel(seconds: number): string {
@@ -1773,7 +1779,9 @@ export function ConsultationWorkflow({
 
             {generating && (
               <p className={styles.generatingHint} role="status">
-                Structuring the transcript into a note. This can take up to a minute.
+                Structuring the transcript into a note. On a long consultation this can take several
+                minutes. You can leave this page — the draft is prepared on the server and will be
+                waiting on your Today screen.
               </p>
             )}
             {draftReady && (

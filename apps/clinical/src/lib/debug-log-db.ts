@@ -23,9 +23,24 @@ export const DEBUG_EVENT_RETENTION_DAYS = 3;
 let sinkChain: Promise<void> = Promise.resolve();
 let attached = false;
 
+/**
+ * One client for the process, not one per event.
+ *
+ * `createServiceRoleClient()` builds a fresh client, and each insert therefore
+ * paid for a new HTTPS connection. With a row per event, and the flush awaited on
+ * the consultation path, that added roughly 9–25 seconds before the transcript
+ * could be written. Reusing the client removes almost all of it.
+ */
+let client: ReturnType<typeof createServiceRoleClient> | null = null;
+
+function db(): ReturnType<typeof createServiceRoleClient> {
+  if (!client) client = createServiceRoleClient();
+  return client;
+}
+
 async function persist(entry: DebugEntry): Promise<void> {
   try {
-    const { error } = await createServiceRoleClient().from(TABLE).insert(toDebugEventRow(entry));
+    const { error } = await db().from(TABLE).insert(toDebugEventRow(entry));
     if (error) throw error;
   } catch {
     // Never surface: diagnostics must not be able to break a code path.
@@ -68,7 +83,7 @@ export async function pruneDebugEvents(): Promise<number> {
     const cutoff = new Date(
       Date.now() - DEBUG_EVENT_RETENTION_DAYS * 24 * 60 * 60 * 1000
     ).toISOString();
-    const { error, count } = await createServiceRoleClient()
+    const { error, count } = await db()
       .from(TABLE)
       .delete({ count: "exact" })
       .lt("occurred_at", cutoff);

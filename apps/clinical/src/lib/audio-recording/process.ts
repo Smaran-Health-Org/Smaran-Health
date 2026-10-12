@@ -1,5 +1,4 @@
 import "server-only";
-import { flushSarvamLog } from "@/lib/ai/sarvam-log";
 import { attachSarvamEventLogSink } from "@/lib/ai/sarvam-log-db";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { recordTranscriptionJob, type TranscriptionWorkClaim } from "@/lib/db/transcription-work";
@@ -8,7 +7,6 @@ import {
   debugEvent,
   debugWarn,
   debugError,
-  flushDebugLog,
   summariseTranscript,
 } from "@/lib/debug-log";
 import { attachDebugEventLogSink } from "@/lib/debug-log-db";
@@ -125,9 +123,6 @@ export async function transcribeClaimedWork(
       durationMs: Date.now() - startedAt,
     });
     throw error;
-  } finally {
-    await flushSarvamLog();
-    await flushDebugLog();
   }
 }
 

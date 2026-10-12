@@ -66,6 +66,16 @@ const ringBuffer: DebugEntry[] = [];
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
+/**
+ * Running byte count for this process.
+ *
+ * The first version re-read the entire file on every single event to decide
+ * whether it had grown too large, which is a read-modify-write per log line and
+ * put unbounded file I/O on the consultation path. Tracking the size in memory
+ * makes the cap a cheap per-process approximation, which is all it needs to be.
+ */
+let appendedBytes = 0;
+
 export function debugLogFilePath(): string {
   const configured = process.env.DEBUG_LOG_FILE?.trim();
   if (configured) return configured;
@@ -95,13 +105,12 @@ export function registerDebugLogSink(sink: DebugLogSink | null): void {
 }
 
 async function appendToFile(line: string): Promise<void> {
-  const target = debugLogFilePath();
+  if (appendedBytes > MAX_FILE_BYTES) return;
   try {
-    const existing = await readFile(target, "utf8").catch(() => "");
-    // Bounded so a long test session cannot fill /tmp or the repo.
-    if (existing.length > MAX_FILE_BYTES) return;
+    const target = debugLogFilePath();
     await mkdir(dirname(target), { recursive: true });
     await appendFile(target, `${line}\n`, "utf8");
+    appendedBytes += line.length + 1;
   } catch {
     // A read-only filesystem must never affect an application code path.
   }

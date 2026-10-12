@@ -25,6 +25,42 @@ import { debugEvent, debugError, summariseTranscript } from "@/lib/debug-log";
  * second scheduled entry point.
  */
 
+/**
+ * True when the visit already has both a transcript and a note.
+ *
+ * Observed in production: a work item kept calling the provider for five minutes
+ * after the note had already been created and approved, and then recorded a
+ * failure. Once the doctor's record exists and the transcript is stored, further
+ * provider work cannot improve anything — it only spends money and produces
+ * alarming logs about a consultation that is already finished.
+ *
+ * Deliberately requires BOTH: a note without a transcript still needs one, since
+ * the transcript is reference evidence the doctor may want later.
+ */
+async function consultationAlreadyDocumented(
+  consultationId: string,
+  clinicId: string
+): Promise<boolean> {
+  const service = createServiceRoleClient();
+  const [note, transcript] = await Promise.all([
+    service
+      .from("clinical_notes")
+      .select("id")
+      .eq("consultation_id", consultationId)
+      .eq("clinic_id", clinicId)
+      .limit(1)
+      .maybeSingle(),
+    service
+      .from("transcripts")
+      .select("id")
+      .eq("consultation_id", consultationId)
+      .eq("clinic_id", clinicId)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  return Boolean(note.data && transcript.data);
+}
+
 /** Writes the transcript, replacing any earlier attempt for the consultation. */
 async function persistTranscript(
   claim: TranscriptionWorkClaim,
@@ -110,6 +146,16 @@ export async function drainTranscriptionWork(limit = 3): Promise<void> {
     if (!claim) return;
 
     try {
+      if (await consultationAlreadyDocumented(claim.consultationId, claim.clinicId)) {
+        await finishTranscriptionWork(claim.workId);
+        debugEvent("worker", "skipped_already_documented", {
+          consultationId: claim.consultationId,
+          clinicId: claim.clinicId,
+          workId: claim.workId,
+        });
+        continue;
+      }
+
       const outcome = await transcribeClaimedWork(claim);
 
       if (outcome.kind === "completed") {

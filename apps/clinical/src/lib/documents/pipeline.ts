@@ -5,7 +5,8 @@ import { drainPreconsultBriefGeneration } from "@/lib/preconsult/brief";
 import { drainTranscriptionWork } from "@/lib/audio-recording/pipeline";
 import { drainDraftGeneration } from "@/lib/consultations/generate-draft";
 import { attachDebugEventLogSink, pruneDebugEvents } from "@/lib/debug-log-db";
-import { debugEvent } from "@/lib/debug-log";
+import { debugEvent, flushDebugLog } from "@/lib/debug-log";
+import { flushSarvamLog } from "@/lib/ai/sarvam-log";
 import { DOCUMENT_EXTRACTION_SCHEMA_VERSION, DOCUMENT_PIPELINE_VERSION } from "./extraction-schema";
 import { configuredDocumentProcessingAdapter } from "./openai-document-adapter";
 import { processClaimedMedicalDocument, type ClaimedDocumentProcessing } from "./process";
@@ -52,6 +53,11 @@ export async function drainDocumentPipeline(limit = 8): Promise<void> {
   // Transcription shares this scheduled worker rather than adding a second cron
   // entry point; it is a separate durable queue with its own claim/backoff.
   await drainTranscriptionWork();
+  // Flushed here, after every outcome has been persisted, rather than inside the
+  // adapter. Awaiting the log sinks before the transcript was written cost the
+  // doctor 9-25 seconds of extra waiting for diagnostics they never asked for.
+  await flushSarvamLog();
+  await flushDebugLog();
   // Recovery path for consultations that were transcribed after the doctor left
   // the progress screen: without this they kept a transcript and never got a
   // draft, because only the browser ever triggered generation.
