@@ -124,8 +124,8 @@ SELECT throws_ok(
 SELECT set_config('request.jwt.claim.sub', '26000000-0000-4000-8000-000000000001', true);
 SELECT is((SELECT count(*) FROM public.clinical_notes WHERE id = '66000000-0000-4000-8000-000000000001'), 1::bigint, 'doctor retains clinical note access');
 SELECT lives_ok(
-  $$ UPDATE public.consultations SET status = 'approved' WHERE id = '46000000-0000-4000-8000-000000000001' $$,
-  'doctor approval completes operational visit'
+  $$ SELECT public.review_clinical_note('46000000-0000-4000-8000-000000000001', '16000000-0000-4000-8000-000000000001', '{"summary":"synthetic"}'::jsonb, 'approved', 'synthetic', 1) $$,
+  'atomic doctor approval completes operational visit'
 );
 SELECT is((SELECT status::text FROM public.appointments WHERE id = '56000000-0000-4000-8000-000000000001'), 'completed', 'Clinic Desk completion follows doctor completion automatically');
 

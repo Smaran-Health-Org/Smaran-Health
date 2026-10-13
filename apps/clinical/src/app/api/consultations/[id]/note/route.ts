@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
-import { getConsultation, updateConsultation } from "@/lib/db/consultations";
-import { getPatient } from "@/lib/db/patients";
+import { getConsultation } from "@/lib/db/consultations";
 import {
   getClinicalNoteByConsultation,
-  upsertClinicalNote,
+  reviewClinicalNote,
+  ClinicalNoteWriteError,
 } from "@/lib/db/clinical-notes";
-import { createTimelineEvent } from "@/lib/db/timeline";
-import { createAuditLog } from "@/lib/db/audit";
 import { saveClinicalNoteSchema } from "@/lib/validation";
-import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api/error-handler";
+import { badRequest, conflict, forbidden, internalError, notFound, unauthorized } from "@/lib/api/error-handler";
 
 export async function GET(
   _request: NextRequest,
@@ -43,49 +41,19 @@ export async function POST(
   const parsed = saveClinicalNoteSchema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid clinical note", parsed.error.flatten());
 
-  const { status, content, summary } = parsed.data;
-
-  const note = await upsertClinicalNote(
-    {
-      consultationId: id,
-      doctorId: session.profileId,
-      content,
-      status,
-    },
-    session.clinicId
-  );
-
-  // Approval is the only path that writes to clinical memory.
-  if (status === "approved") {
-    const patient = await getPatient(consultation.patientId, session.clinicId);
-    if (patient) {
-      await createTimelineEvent(
-        {
-          patientId: patient.id,
-          consultationId: id,
-          clinicalNoteId: note.id,
-          eventType: "follow_up",
-          summary: summary || content.summary,
-        },
-        session.clinicId
-      );
+  try {
+    const note = await reviewClinicalNote({
+      consultationId: id, clinicId: session.clinicId, ...parsed.data,
+    });
+    return NextResponse.json({ note }, { status: 201 });
+  } catch (error) {
+    if (error instanceof ClinicalNoteWriteError) {
+      if (error.code === "42501") return forbidden("Only the consultation doctor can review this note");
+      if (error.code === "P0002") return notFound("Consultation not found");
+      if (error.code === "40001") return conflict("The note changed. Reload and review it before saving. Your current text has not been saved.");
+      if (error.code === "55000") return conflict("This record is approved. Ordinary saves cannot amend it.");
+      if (error.code === "22023") return badRequest("Invalid clinical note");
     }
-    await updateConsultation(id, { status: "approved" }, session.clinicId);
-  } else if (status === "rejected") {
-    await updateConsultation(id, { status: "rejected" }, session.clinicId);
-  } else {
-    // ai_draft / edited → keep the note editable and surface it for review.
-    await updateConsultation(id, { status: "draft_ready" }, session.clinicId);
+    return internalError("The save result could not be confirmed. Retry the same request.");
   }
-
-  await createAuditLog(
-    session.clinicId,
-    session.profileId,
-    "clinical_note.updated",
-    "clinical_note",
-    note.id,
-    { status }
-  );
-
-  return NextResponse.json({ note }, { status: 201 });
 }

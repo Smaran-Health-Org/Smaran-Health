@@ -67,6 +67,7 @@ type ConsultationWorkflowProps = {
   patientCount: number;
   timeline: WorkflowTimelineEvent[];
   initialNote: NoteContent | null;
+  initialNoteRevision: number | null;
   initialStatus: string;
   initialTranscript: string | null;
   memory?: WorkflowMemory | null;
@@ -395,6 +396,7 @@ export function ConsultationWorkflow({
   patientCount,
   timeline,
   initialNote,
+  initialNoteRevision,
   initialStatus,
   initialTranscript,
   memory,
@@ -408,6 +410,8 @@ export function ConsultationWorkflow({
     ...(initialNote ?? {}),
     summary: initialNote?.summary ?? initialTranscript ?? "",
   }));
+  const draftEditVersionRef = useRef(0);
+  const [noteRevision, setNoteRevision] = useState<number | null>(initialNoteRevision);
   const [transcript, setTranscript] = useState<string>(initialTranscript ?? "");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
@@ -760,6 +764,7 @@ export function ConsultationWorkflow({
         body: JSON.stringify({
           status,
           content: draftFields,
+          expectedRevision: noteRevision,
           summary: draftFields.summary,
         }),
       });
@@ -767,6 +772,8 @@ export function ConsultationWorkflow({
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? "Could not save the note");
       }
+      const saved = await res.json();
+      setNoteRevision(saved.note.revision);
       if (status === "approved") setState("approved");
       else setState("rejected");
     } catch (err) {
@@ -786,6 +793,7 @@ export function ConsultationWorkflow({
         body: JSON.stringify({
           status: "edited",
           content: draftFields,
+          expectedRevision: noteRevision,
           summary: draftFields.summary,
         }),
       });
@@ -793,6 +801,8 @@ export function ConsultationWorkflow({
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? "Could not save the draft");
       }
+      const saved = await res.json();
+      setNoteRevision(saved.note.revision);
       setDraftSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save the draft");
@@ -802,12 +812,14 @@ export function ConsultationWorkflow({
   }
 
   function updateField(field: keyof NoteContent, value: string) {
+    draftEditVersionRef.current += 1;
     setDraftFields((current) => ({ ...current, [field]: value }));
     setReviewConfirmed(false);
     setDraftSaved(false);
   }
 
   function startManualReview() {
+    draftEditVersionRef.current += 1;
     setManualPath(true);
     setDraftFields(BLANK_NOTE);
     setReviewConfirmed(false);
@@ -1164,6 +1176,7 @@ export function ConsultationWorkflow({
   async function generateDraft() {
     if (generateBusyRef.current) return;
     generateBusyRef.current = true;
+    const editVersionAtStart = draftEditVersionRef.current;
     setError(null);
     setFallbackNotice(null);
     setGenerating(true);
@@ -1177,6 +1190,16 @@ export function ConsultationWorkflow({
         throw new Error(body?.error ?? "AI draft generation failed.");
       }
       const data = await res.json();
+      // A late response must also preserve unsaved text in the browser.
+      if (draftEditVersionRef.current !== editVersionAtStart) return;
+      if (data?.note) {
+        setNoteRevision(data.note.revision);
+        if (data.note.status === "approved" || data.note.status === "rejected") {
+          setState(data.note.status);
+          router.refresh();
+          return;
+        }
+      }
       if (data?.draft) {
         setDraftFields((current) => ({ ...current, ...data.draft }));
       }
@@ -1192,6 +1215,7 @@ export function ConsultationWorkflow({
       await new Promise((resolve) => setTimeout(resolve, 550));
       setState("review");
     } catch (err) {
+      if (draftEditVersionRef.current !== editVersionAtStart) return;
       setError(
         err instanceof Error
           ? `${err.message} You can write the note manually instead.`

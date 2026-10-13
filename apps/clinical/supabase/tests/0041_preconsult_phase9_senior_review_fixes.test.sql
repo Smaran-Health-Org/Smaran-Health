@@ -64,7 +64,7 @@ SELECT ok((SELECT count(*) > 0 FROM public.preconsult_brief_generation_work WHER
 DELETE FROM public.preconsult_brief_generation_work WHERE patient_id = '94300000-0000-4000-8000-000000000001';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '94200000-0000-4000-8000-000000000001', true);
-SELECT lives_ok($$ UPDATE public.clinical_notes SET status = 'approved', approved_by = '94200000-0000-4000-8000-000000000001', approved_at = now() WHERE id = '94700000-0000-4000-8000-000000000001' $$, 'authenticated doctor approved-note path commits with Phase 9 trigger active');
+SELECT lives_ok($$ SELECT public.review_clinical_note('94400000-0000-4000-8000-000000000001', '94100000-0000-4000-8000-000000000001', '{"summary":"Synthetic approved note"}'::jsonb, 'approved', 'Synthetic approved note', 1) $$, 'authenticated doctor approved-note path commits with Phase 9 trigger active');
 RESET ROLE;
 SELECT is((SELECT status::text FROM public.clinical_notes WHERE id = '94700000-0000-4000-8000-000000000001'), 'approved', 'approved-note source write committed');
 SELECT ok((SELECT count(*) > 0 FROM public.preconsult_brief_generation_work WHERE consultation_id = '94400000-0000-4000-8000-000000000001'), 'approved-note path enqueued Phase 9 work');
