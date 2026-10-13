@@ -1,0 +1,2 @@
+WARN: config section [inbucket] is deprecated. Please use [local_smtp] instead.
+{"project_id_filter":"smaran-engineering-oct13","backup":false,"message":"Stopped supabase local development setup."}

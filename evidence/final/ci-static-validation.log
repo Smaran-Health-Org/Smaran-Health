@@ -1,0 +1,1 @@
+PASS: Clinical CI YAML parses; dev-neelesh and clinical PR triggers; application, behavioral DB, lifecycle concurrency, and full pgTAP checks; no secret references or deployment step.
