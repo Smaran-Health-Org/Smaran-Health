@@ -214,6 +214,10 @@ test('consultation approval cannot bypass note review, and a malformed foreign n
     for (const actor of [f.assistant, f.admin, f.colleague, f.foreignDoctor]) {
       await assert.rejects(() => asActor(c, actor, () => draft(c, f, 'Unauthorized')), e => code(e) === '42501');
     }
+    const foreignScope = { ...f, clinic: f.foreignClinic };
+    await assert.rejects(() => asActor(c, f.foreignDoctor, () => draft(c, foreignScope, 'Foreign lookup')), e => code(e) === 'P0002');
+    await assert.rejects(() => asActor(c, f.foreignDoctor, () => review(c, foreignScope, 'approved', 'Foreign lookup', null)), e => code(e) === 'P0002');
+    await assert.rejects(() => asActor(c, null, () => draft(c, foreignScope, 'Foreign lookup', 'background'), 'service_role'), e => code(e) === 'P0002');
     await asActor(c, f.assistant, async () => assert.equal((await c.query('SELECT id FROM public.clinical_notes WHERE consultation_id=$1', [f.visit])).rowCount, 0));
     await c.query("INSERT INTO public.clinical_notes(consultation_id,clinic_id,doctor_id,content) VALUES($1,$2,$3,$4)", [f.visit, f.foreignClinic, f.foreignDoctor, content('Synthetic foreign content')]);
     await assert.rejects(() => asActor(c, f.doctor, () => draft(c, f, 'AI')), e => code(e) === '42501');
