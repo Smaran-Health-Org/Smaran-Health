@@ -1,0 +1,109 @@
+[
+  {
+    "surface": "tabletPriorityKeyboard",
+    "editorPresent": true,
+    "font": "16px",
+    "input": {
+      "bottom": 709.6640625,
+      "height": 44,
+      "left": 461.1953125,
+      "right": 693.8046875,
+      "top": 665.6640625,
+      "width": 232.609375,
+      "x": 461.1953125,
+      "y": 665.6640625
+    },
+    "reasonLength": 200,
+    "scrollWidth": 768,
+    "url": "/desk",
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "cardEnterNavigation",
+    "url": "http://smaran-auth-qa.localhost:56731/desk/patients/2193b2c6-4670-445c-a3fa-8d7a6468e3c6"
+  },
+  {
+    "surface": "longOperationalEmailBefore",
+    "overflow": [
+      {
+        "length": 12,
+        "right": 1225.1640625,
+        "scrollWidth": 1181,
+        "width": 1180.96875,
+        "x": 44.1953125
+      },
+      {
+        "length": 12,
+        "right": 1225.1640625,
+        "scrollWidth": 1181,
+        "width": 1180.96875,
+        "x": 44.1953125
+      },
+      {
+        "length": 12,
+        "right": 1225.1640625,
+        "scrollWidth": 1181,
+        "width": 1180.96875,
+        "x": 44.1953125
+      },
+      {
+        "length": 175,
+        "right": 1225.1640625,
+        "scrollWidth": 1181,
+        "width": 1180.96875,
+        "x": 44.1953125
+      },
+      {
+        "length": 1,
+        "right": 1225.1640625,
+        "scrollWidth": 1181,
+        "width": 1180.96875,
+        "x": 44.1953125
+      }
+    ],
+    "scrollWidth": 1236,
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "longOperationalEmailAfter",
+    "overflows": [],
+    "scrollWidth": 320,
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "longOperationalEmailAfter",
+    "overflows": [],
+    "scrollWidth": 390,
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "longOperationalEmailAfter",
+    "overflows": [],
+    "scrollWidth": 768,
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "longOperationalEmailAfter",
+    "overflows": [],
+    "scrollWidth": 1280,
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  }
+]

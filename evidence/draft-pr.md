@@ -1,39 +1,18 @@
-Title: Protect staff authority and preserve clinical notes under retries and races
+Title: Protect clinical note integrity and fix responsive clinic workflows
 Base: dev-keshav
 Head: dev-neelesh
-State: prepared text only; remote PR creation deferred by user
 
-Existing staff could change their own role, and late AI generation could replace
-a doctor's saved note or create duplicate notes. Approval used separate writes,
-so retries duplicated history and failures could leave mixed clinical state.
+Existing staff could change their own role, late AI generation could replace a saved human note or create duplicate notes, and separate approval writes allowed replayed history or partially approved state. Restrict own-profile editing to display name, persist generated notes only when no note exists, and transact assigned-doctor review with note uniqueness, revision checks and exact approval replay. Preserve historical content; stop migration on existing duplicate notes instead of choosing a winner. Approved-record amendments remain blocked pending a separately approved workflow.
 
-Restrict own-profile editing to display name, make AI persistence insert-only,
-and move assigned-doctor review into one authorized transaction. Add note uniqueness
-and revision checks, exact approval replay, protected approved records, and a shared
-browser/background generation path. Preserve historical content and stop migration
-on existing duplicate notes instead of choosing a winner. Add clinical CI using only
-local disposable databases and mock providers.
+Preserve walk-in receipt identity after patient merge, reject retries with changed chosen times, and correct stale SQL signatures without weakening assertions. Add disposable-database clinical CI and route-handler journeys with injected Auth/storage/providers. CI selects the existing non-speech QA scripts while speech work remains paused.
 
-Preserve walk-in receipt retries after patient merge and reject changed chosen
-times. Correct stale SQL call signatures without weakening assertions, and add
-four persisted synthetic clinic journeys to the database CI job.
+Fix phone booking actions obscured by floating navigation, bound and wrap reception exceptions and patient details, keep all four journey stages reachable, and replace the large Doctor Today schedule action with a compact secondary link. Preserve keyboard input in nested queue controls, restore modal/menu focus and retain browser zoom.
 
-Latest validation under CI's Node 22: 215 non-speech application tests, lint,
-TypeScript, default production build, clean migrations through 0107, 45 SQL files
-/ 1,239 assertions, 16 genuine PostgreSQL authority/race/atomicity regressions,
-four actual route-handler/DB clinic journeys with injected auth/storage/providers,
-and the Scheduler concurrency harness pass. The 15 baseline walk-in failures and
-four aborted SQL files are resolved. A supported browser check of the real manual
-note component passes with mocked HTTP; this is not full authenticated browser E2E.
-Speech suites are paused by user; hosted GitHub Actions has not run because
-publication is deferred. Exact commands, tested SHAs, coverage levels and logs are
-in docs/engineering/2026-10-14-clinic-qa.md; the October 13 report retains the original baseline.
+Validation:
+- Node 22: 215 non-speech application tests, lint, typecheck and production build passed. Eight responsive source hashes match the tested worktree; the subsequent CI-only edit parses and selects the intended scripts.
+- Clean local migrations through 0107; 45 SQL files / 1,239 assertions; 16 PostgreSQL authorization/race/transaction regressions; four real route-handler/DB journeys with injected boundaries; Scheduler concurrency harness passed.
+- Actual synthetic browser checks covered phone/tablet/desktop layouts, booking persistence and retry, check-in, human Priority editing and unconfirmed assisted-intake provenance. Saved-layout evidence contains 77 observations / 220 consistency assertions; those assertions do not automate a fresh browser run.
 
-A later real local Auth browser attempt passed receptionist sign-in and Clinic
-Desk rendering. The computer-use tool connection closed during the next
-navigation, so full authenticated clinic E2E remains unverified. Evidence and the
-exact blocker are in docs/engineering/2026-10-14-authenticated-browser-qa.md.
+Remaining browser coverage: actual 200% zoom, Safari/physical devices and keyboards, complete exception/long-field Preview interactions, document upload (extension permission blocked and left unchanged), and the full doctor manual-note/approval/history journey. Route/SQL tests are not full authenticated browser E2E. Existing build warnings in unchanged speech/debug files remain.
 
-No production credentials, provider calls, real-patient tests, migrations, deployment,
-merge, or branch/security settings changes were performed. Ordinary signed-note
-amendments remain blocked; a separate explicit amendment workflow is out of scope.
+Exact commands, source SHA256 values, results and limitations are recorded in docs/engineering/2026-10-14-clinic-qa.md and docs/engineering/2026-10-14-responsive-qa.md. No production credentials, real-patient data or provider calls were used, and no production migration, deployment, merge or security-setting change was performed.

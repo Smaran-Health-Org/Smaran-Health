@@ -1,0 +1,38 @@
+{
+  "branch": "dev-neelesh",
+  "baseSHA": "a91c230701d2dfc1634b734a3b09096965c57e0c",
+  "files": [
+    {
+      "path": "apps/clinical/src/app/dashboard/page.tsx",
+      "sha256": "a616b238a50dac7f74f25fb5011fc37453dda22b2eb46590ad5c7040200a5841"
+    },
+    {
+      "path": "apps/clinical/src/app/globals.css",
+      "sha256": "b039d1b3f8fae0ac61e49a53caba81b3cd3701158168655a8b20ffb9c4acc1d0"
+    },
+    {
+      "path": "apps/clinical/src/app/layout.tsx",
+      "sha256": "88752e5778cca809b6cd7cc8dc7ded121746573758e1e15991047482ea1730e6"
+    },
+    {
+      "path": "apps/clinical/src/components/app-shell.tsx",
+      "sha256": "1def44fb8e20a586645100fa8ba6a86a3276138f7860f0655f5d24572d1cb610"
+    },
+    {
+      "path": "apps/clinical/src/components/clinic-desk-today.tsx",
+      "sha256": "6d822515be18364c7f606018cd91b422c763cd98c463cb7553a7fa54effb4141"
+    },
+    {
+      "path": "apps/clinical/src/components/clinical.module.css",
+      "sha256": "51735a67f04d236ce187c12c613413e0de8c516b19cc19ee985bba0d7391d7d0"
+    },
+    {
+      "path": "apps/clinical/src/components/doctor-today-list.tsx",
+      "sha256": "2f6263cf29e54ab25b193cf70477b58fa5bc2f7b501f1ff1c0df689a17de08b1"
+    },
+    {
+      "path": "apps/clinical/src/components/scheduler-workspace.tsx",
+      "sha256": "ddd80739edf0a671d2cf7988359e2ab3beeb28f3fbf22046f98cbcd950f69cdc"
+    }
+  ]
+}

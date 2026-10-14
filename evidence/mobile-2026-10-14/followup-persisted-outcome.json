@@ -1,0 +1,22 @@
+{
+  "intakes": [
+    {
+      "consultation_id": "f8af8159-4a25-4179-8cfd-19bb9045ded9",
+      "status": "submitted",
+      "verification_state": "unconfirmed",
+      "reason_length": 200
+    }
+  ],
+  "statements": [
+    {
+      "kind": "original",
+      "information_source": "patient",
+      "entered_by_role": "assistant",
+      "entered_via": "clinic_staff_assisted",
+      "verification_state": "unconfirmed",
+      "reason_length": 200
+    }
+  ],
+  "documentCount": 0,
+  "originalSyntheticEmailRestored": true
+}
