@@ -1,0 +1,23 @@
+Connecting to local database...
+/Users/Neelesh/Documents/Codex/2026-10-13/task/smaran/evidence/disposable/supabase/qa-tests/0107_walk_in_retry_identity.test.sql ..
+# Failed test 3: "changed chosen time cannot silently replay a different request"
+#       caught: no exception
+#       wanted: 22023
+# Failed test 6: "lost-response retry still succeeds after patient merge"
+#     died: P0002: Patient not found in clinic
+#         CONTEXT:
+#             PL/pgSQL function create_walk_in_with_consultation(uuid,uuid,timestamp with time zone,jsonb,text) line 27 at RAISE
+#             SQL statement " SELECT * FROM public.create_walk_in_with_consultation(
+#              p_patient_id=>'a1072000-0000-4000-8000-000000000001',p_doctor_id=>'a1071000-0000-4000-8000-000000000001',
+#              p_scheduled_at=>'2051-01-09T03:30:00Z',p_idempotency_key=>'qa-explicit-walk-in') "
+#             PL/pgSQL function lives_ok(text,text) line 14 at EXECUTE
+# Looks like you failed 2 tests of 14
+Failed 2/14 subtests
+
+Test Summary Report
+-------------------
+/Users/Neelesh/Documents/Codex/2026-10-13/task/smaran/evidence/disposable/supabase/qa-tests/0107_walk_in_retry_identity.test.sql (Wstat: 0 Tests: 14 Failed: 2)
+  Failed tests:  3, 6
+Files=1, Tests=14,  0 wallclock secs ( 0.01 usr  0.00 sys +  0.01 cusr  0.00 csys =  0.02 CPU)
+Result: FAIL
+error running container: exit 1

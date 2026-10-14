@@ -14,13 +14,20 @@ browser/background generation path. Preserve historical content and stop migrati
 on existing duplicate notes instead of choosing a winner. Add clinical CI using only
 local disposable databases and mock providers.
 
-Validation: 250 application tests, lint, TypeScript, default production build,
-clean migrations through 0106, 16 genuine PostgreSQL authority/race/atomicity
-regressions, and the existing scheduler concurrency harness pass. Full pgTAP still
-fails with the same 15 baseline walk-in assertion failures and four aborted files
-at stale three-argument walk-in calls; these failures are retained and the full DB
-CI job is expected to fail until separately corrected. GitHub Actions has not run yet.
-Exact commands, tested SHAs and logs are in docs/engineering/2026-10-13-clinical-integrity.md.
+Preserve walk-in receipt retries after patient merge and reject changed chosen
+times. Correct stale SQL call signatures without weakening assertions, and add
+four persisted synthetic clinic journeys to the database CI job.
+
+Latest validation under CI's Node 22: 215 non-speech application tests, lint,
+TypeScript, default production build, clean migrations through 0107, 45 SQL files
+/ 1,239 assertions, 16 genuine PostgreSQL authority/race/atomicity regressions,
+four actual route-handler/DB clinic journeys with injected auth/storage/providers,
+and the Scheduler concurrency harness pass. The 15 baseline walk-in failures and
+four aborted SQL files are resolved. A supported browser check of the real manual
+note component passes with mocked HTTP; this is not full authenticated browser E2E.
+Speech suites are paused by user; hosted GitHub Actions has not run because
+publication is deferred. Exact commands, tested SHAs, coverage levels and logs are
+in docs/engineering/2026-10-14-clinic-qa.md; the October 13 report retains the original baseline.
 
 No production credentials, provider calls, real-patient tests, migrations, deployment,
 merge, or branch/security settings changes were performed. Ordinary signed-note

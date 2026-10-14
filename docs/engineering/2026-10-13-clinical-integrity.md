@@ -1,5 +1,10 @@
 # Clinical integrity work — 13 October 2026
 
+Follow-up: the historical walk-in SQL failures described below were resolved in
+the [14 October QA package](2026-10-14-clinic-qa.md). Its final non-speech SQL suite
+passes 45 files / 1,239 assertions and includes persisted clinic journeys. This
+document retains the original dated baseline evidence.
+
 Work is on `dev-neelesh` only. The isolated checkout fast-forwarded from
 `a6b0df57f96c92a2fb7d32a4a9a9b92841976eb6` to current `dev-keshav`
 `43569a42915289776f7100072a1b75cdee55cf6e`. The original checkout's

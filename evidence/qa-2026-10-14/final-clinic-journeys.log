@@ -1,0 +1,40 @@
+
+> clinical@0.1.0 test:db:clinic-journeys
+> TSX_TSCONFIG_PATH=scripts/qa/tsconfig.json node --experimental-test-module-mocks --import tsx --test scripts/test-clinic-journeys.ts
+
+TAP version 13
+# (node:85450) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: synthetic new-patient journey: desk registration, walk-in, direct-link intake, document, manual review, approval and memory
+ok 1 - synthetic new-patient journey: desk registration, walk-in, direct-link intake, document, manual review, approval and memory
+  ---
+  duration_ms: 782.068334
+  type: 'test'
+  ...
+# Subtest: interrupted direct start and note save recover without duplicate visits, and failed document processing does not block care
+ok 2 - interrupted direct start and note save recover without duplicate visits, and failed document processing does not block care
+  ---
+  duration_ms: 362.208
+  type: 'test'
+  ...
+# Subtest: stale document workers cannot overwrite a recovered attempt; immutable originals survive retries
+ok 3 - stale document workers cannot overwrite a recovered attempt; immutable originals survive retries
+  ---
+  duration_ms: 275.859041
+  type: 'test'
+  ...
+# Subtest: returning-patient scheduled journey preserves approved memory, intake and originals across reschedule and repeated check-in
+ok 4 - returning-patient scheduled journey preserves approved memory, intake and originals across reschedule and repeated check-in
+  ---
+  duration_ms: 553.891167
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2268.507667

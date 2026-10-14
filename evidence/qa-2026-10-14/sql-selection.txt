@@ -1,0 +1,3 @@
+Paused speech/recording suites excluded: 0059_consultation_recording_reliability.test.sql, 0064_consultation_recording_interruption_recovery.test.sql, 0097_sarvam_api_event_log.test.sql, 0098_transcription_durable_work.test.sql
+Selected SQL files: 44
+Final selection: 45 SQL files after adding 0107_walk_in_retry_identity.test.sql.

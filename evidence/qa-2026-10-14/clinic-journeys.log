@@ -1,0 +1,14 @@
+(node:84360) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ synthetic new-patient journey: desk registration, walk-in, direct-link intake, document, manual review, approval and memory (942.955708ms)
+✔ interrupted direct start and note save recover without duplicate visits, and failed document processing does not block care (288.831542ms)
+✔ stale document workers cannot overwrite a recovered attempt; immutable originals survive retries (277.000417ms)
+✔ returning-patient scheduled journey preserves approved memory, intake and originals across reschedule and repeated check-in (494.973875ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2340.776333
