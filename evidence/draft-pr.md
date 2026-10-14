@@ -29,6 +29,11 @@ Speech suites are paused by user; hosted GitHub Actions has not run because
 publication is deferred. Exact commands, tested SHAs, coverage levels and logs are
 in docs/engineering/2026-10-14-clinic-qa.md; the October 13 report retains the original baseline.
 
+A later real local Auth browser attempt passed receptionist sign-in and Clinic
+Desk rendering. The computer-use tool connection closed during the next
+navigation, so full authenticated clinic E2E remains unverified. Evidence and the
+exact blocker are in docs/engineering/2026-10-14-authenticated-browser-qa.md.
+
 No production credentials, provider calls, real-patient tests, migrations, deployment,
 merge, or branch/security settings changes were performed. Ordinary signed-note
 amendments remain blocked; a separate explicit amendment workflow is out of scope.
