@@ -56,7 +56,7 @@ DELETE FROM public.preconsult_brief_generation_work WHERE patient_id = '94300000
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '94200000-0000-4000-8000-000000000001', true);
-SELECT lives_ok($$ SELECT * FROM public.create_walk_in_with_consultation('94300000-0000-4000-8000-000000000001', '94200000-0000-4000-8000-000000000001', 'phase9-trigger-walk-in') $$, 'authenticated doctor can create a consultation through the permitted walk-in path');
+SELECT lives_ok($$ SELECT * FROM public.create_walk_in_with_consultation(p_patient_id => '94300000-0000-4000-8000-000000000001', p_doctor_id => '94200000-0000-4000-8000-000000000001', p_idempotency_key => 'phase9-trigger-walk-in') $$, 'authenticated doctor can create a consultation through the permitted walk-in path');
 RESET ROLE;
 SELECT is((SELECT count(*) FROM public.appointments WHERE idempotency_key = 'phase9-trigger-walk-in'), 1::bigint, 'authoritative walk-in consultation creation committed');
 SELECT ok((SELECT count(*) > 0 FROM public.preconsult_brief_generation_work WHERE clinic_id = '94100000-0000-4000-8000-000000000001' AND patient_id = '94300000-0000-4000-8000-000000000001'), 'consultation creation enqueued clinic-scoped Phase 9 work');

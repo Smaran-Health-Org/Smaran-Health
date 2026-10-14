@@ -24,7 +24,10 @@
     "db:reset": "npx supabase db reset --local",
     "bootstrap": "npm run db:migrate && npm run db:seed",
     "typecheck": "tsc --noEmit",
-    "test:db:clinical-integrity": "tsx --test scripts/test-clinical-integrity.ts"
+    "test:db:clinical-integrity": "tsx --test scripts/test-clinical-integrity.ts",
+    "test:qa": "node scripts/run-qa-checks.mjs unit",
+    "test:db:qa": "node scripts/run-qa-checks.mjs db",
+    "test:db:clinic-journeys": "TSX_TSCONFIG_PATH=scripts/qa/tsconfig.json node --experimental-test-module-mocks --import tsx --test scripts/test-clinic-journeys.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

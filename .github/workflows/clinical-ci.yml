@@ -55,6 +55,8 @@ jobs:
         run: npx supabase start > /tmp/clinical-supabase-start.log 2>&1
       - name: Behavioral authorization, race and transaction regressions
         run: npm run test:db:clinical-integrity
+      - name: Synthetic clinic route-handler journeys
+        run: npm run test:db:clinic-journeys
       - name: Scheduler lifecycle and merge concurrency
         run: npm run test:db:scheduler-s8-concurrency
       - name: Full existing pgTAP suite

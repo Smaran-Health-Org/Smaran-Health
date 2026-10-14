@@ -95,7 +95,7 @@ SELECT is(
 );
 
 SELECT is((SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.doctor_working_hours'::regclass AND tgname = 'scheduler_working_hours_lock_v3' AND NOT tgisinternal), 1::bigint, 'working-hour writers use the documented common scheduling lock trigger');
-SELECT ok(position('scheduler_lock_domains_v3' IN pg_get_functiondef('public.create_walk_in_with_consultation(uuid,uuid,text)'::regprocedure)) > 0, 'Queue-owned walk-in creation joins doctor and patient occupancy serialization');
+SELECT ok(position('scheduler_lock_domains_v3' IN pg_get_functiondef('public.create_walk_in_with_consultation(uuid,uuid,timestamp with time zone,jsonb,text)'::regprocedure)) > 0, 'Queue-owned walk-in creation joins doctor and patient occupancy serialization');
 SELECT ok(position('scheduler_lock_domains_v3' IN pg_get_functiondef('public.scheduler_mutate_appointment_v3(text,uuid,uuid,uuid,timestamp with time zone,integer,uuid,text,timestamp with time zone,text,jsonb,jsonb)'::regprocedure)) > 0, 'ordinary lifecycle mutation uses the same advisory lock helper');
 
 SELECT * FROM finish();
