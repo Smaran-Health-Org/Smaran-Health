@@ -40,6 +40,7 @@ export function ClinicDeskToday({ queue }: { queue: AppointmentQueue }) {
   const [priorityReason, setPriorityReason] = useState("");
   const [draggedAppointmentId, setDraggedAppointmentId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [mobileStage, setMobileStage] = useState<"expected" | "waiting" | "doctor" | "completed">("expected");
   const waiting = queue.items.filter((item) => isActive(item) && item.operationalStatus === "waiting");
   const notArrived = queue.items.filter((item) => isActive(item) && ["scheduled", "preparing", "ready", "arrived"].includes(item.operationalStatus));
   const withDoctor = queue.items.filter((item) => isActive(item) && item.operationalStatus === "in_consultation");
@@ -200,6 +201,19 @@ export function ClinicDeskToday({ queue }: { queue: AppointmentQueue }) {
         {renderBoardColumn("waiting-heading", "Waiting", "Checked in and queued", waiting, "waiting")}
         {renderBoardColumn("with-doctor-heading", "With doctor", "Consultation in progress", withDoctor, "doctor")}
         {renderBoardColumn("completed-heading", "Completed", "Visit complete", completed, "completed")}
+      </div>
+      <div className={styles.mobileJourney}>
+        <div className={styles.mobileJourneyStages} role="group" aria-label="Patient journey stages">
+          {([
+            ["expected", "Expected", notArrived.length],
+            ["waiting", "Waiting", waiting.length],
+            ["doctor", "With doctor", withDoctor.length],
+            ["completed", "Done", completed.length],
+          ] as const).map(([stage, label, count]) => <button key={stage} type="button" aria-pressed={mobileStage === stage} aria-controls="mobile-journey-stage" className={styles.mobileJourneyStage} onClick={() => setMobileStage(stage)}><span>{label}</span><strong>{count}</strong></button>)}
+        </div>
+        <section id="mobile-journey-stage" className={styles.mobileJourneyPanel} aria-label={`${mobileStage === "expected" ? "Expected" : mobileStage === "waiting" ? "Waiting" : mobileStage === "doctor" ? "With doctor" : "Done"} patients`}>
+          {renderBoardColumn("mobile-journey-heading", mobileStage === "expected" ? "Expected" : mobileStage === "waiting" ? "Waiting" : mobileStage === "doctor" ? "With doctor" : "Done", "", mobileStage === "expected" ? notArrived : mobileStage === "waiting" ? waiting : mobileStage === "doctor" ? withDoctor : completed, mobileStage)}
+        </section>
       </div>
     </section> : null}
     {queue.items.length === 0 ? <div className={styles.panel}><div className={styles.emptyState}><strong>No visits today</strong><p>Add a walk-in when the first patient arrives.</p></div></div> : null}

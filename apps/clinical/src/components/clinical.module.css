@@ -1467,7 +1467,7 @@
 .schedulerAgendaCues { display: flex; flex-wrap: wrap; gap: 4px; }
 .schedulerAgendaCues small { border-radius: 6px; background: #edf5f1; padding: 3px 5px; color: #53655e; font-size: .63rem; text-transform: capitalize; }
 @media (max-width: 1080px) { .schedulerPanelBackdrop { display: block; position: fixed; z-index: 29; inset: 0; border: 0; background: rgba(15,30,24,.42); cursor: pointer; } .schedulerSidePanel { position: fixed; z-index: 30; top: 12px; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); max-height: none; box-shadow: 0 22px 70px rgba(20,36,30,.22); } }
-@media (max-width: 680px) { .schedulerSidePanel { inset: 0; width: 100vw; max-height: 100dvh; border-radius: 0; padding: 16px; } .schedulerAgenda { padding: 10px; } .schedulerAgendaItem { min-height: 72px; } .schedulerProviderFilter > div { position: static; max-height: 180px; border: 0; box-shadow: none; } .schedulerProviderSelect select { max-width: 100%; } }
+@media (max-width: 680px) { .schedulerSidePanel { z-index: 60; inset: 0; width: 100vw; max-height: 100dvh; border-radius: 0; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px)); scroll-padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); } .schedulerAgenda { padding: 10px; } .schedulerAgendaItem { min-height: 72px; } .schedulerProviderFilter > div { position: static; max-height: 180px; border: 0; box-shadow: none; } .schedulerProviderSelect select { max-width: 100%; } }
 .schedulerControls { justify-content: flex-start; gap: .5rem; border: 1px solid #e3e8e5; border-radius: 14px; background: #fff; padding: .55rem; }
 .schedulerDateControls { gap: .3rem; }
 .schedulerDateControls strong { white-space: nowrap; }
@@ -1579,6 +1579,7 @@
 .deskBoardIntro h2 { margin: 0.18rem 0 0; font-size: 1.05rem; }
 .deskBoardIntro > p { max-width: 410px; margin: 0; color: #71807a; font-size: 0.68rem; line-height: 1.45; text-align: right; }
 .deskBoardColumns { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; overflow-x: auto; padding-bottom: 0.15rem; }
+.mobileJourney { display: none; }
 .deskBoardColumn { min-width: 220px; border: 1px solid #e5eae7; border-radius: 14px; background: #f8faf9; padding: 0.7rem; }
 .deskBoardColumnHeader { display: flex; align-items: start; justify-content: space-between; gap: 0.5rem; border-bottom: 1px solid #e8edeb; padding: 0.05rem 0.05rem 0.65rem; }
 .deskBoardColumnHeader > div { position: relative; padding-left: 0.8rem; }
@@ -1816,6 +1817,7 @@
 .schedulerControls { border-block: 1px solid #dfe6e2; background: rgba(255, 255, 255, .68); padding: 10px 0; }
 .schedulerToggle, .schedulerSidePanel, .schedulerAppointment, .schedulerState { border-radius: 7px; }
 .mobileNav { display: none; }
+.mobileTopHeading { display: none; }
 
 /* Scheduler toolbar: grouped control clusters with an explicit operational hierarchy. */
 .schedulerHeaderActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -1874,13 +1876,65 @@
 }
 
 @media (max-width: 760px) {
-  .appSurface { padding: 8px 10px 84px; }
-  .accountBar { height: 44px; }
+  .shell { min-height: 100dvh; }
+  .appSurface { padding: calc(8px + env(safe-area-inset-top, 0px)) 10px calc(88px + env(safe-area-inset-bottom, 0px)); }
+  .accountBar { position: relative; z-index: 25; height: 52px; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .mobileTopHeading { display: flex; min-width: 0; flex: 1 1 auto; align-items: center; gap: 9px; }
+  .mobileTopHeading > strong { overflow: hidden; color: #23332d; font-size: .93rem; font-weight: 780; letter-spacing: -.015em; text-overflow: ellipsis; white-space: nowrap; }
+  .mobileBrand { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border-radius: 8px; background: #125f4b; color: #fff; }
+  .mobileBrand svg { width: 19px; height: 19px; }
+  .accountContext { display: none; }
+  .accountBarRight { flex: 0 0 auto; gap: 0; }
   .accountContext strong { max-width: 58vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .mobileNav { position: fixed; z-index: 50; right: 10px; bottom: max(10px, env(safe-area-inset-bottom)); left: 10px; display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #cfdad5; border-radius: 10px; background: rgba(253, 254, 253, .96); padding: 5px; box-shadow: 0 12px 34px rgba(20, 41, 33, .18); backdrop-filter: blur(18px); }
-  .mobileNav a { display: grid; min-height: 48px; place-items: center; gap: 2px; border-radius: 7px; color: #65736e; font-size: .65rem; font-weight: 750; }
+  .accountMenu summary { min-width: 44px; min-height: 44px; place-items: center; }
+  .accountMenu summary .doctorAvatar { width: 36px; height: 36px; }
+  .accountPopover { top: 48px; right: 0; width: min(280px, calc(100vw - 20px)); }
+  .accountSignOut { min-height: 44px; }
+  .mobileNav { position: fixed; z-index: 50; right: 10px; bottom: max(10px, env(safe-area-inset-bottom, 0px)); left: 10px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid #cfdad5; border-radius: 10px; background: rgba(253, 254, 253, .97); padding: 5px; box-shadow: 0 12px 34px rgba(20, 41, 33, .18); backdrop-filter: blur(18px); }
+  .mobileNav a { display: grid; min-width: 0; min-height: 50px; place-items: center; gap: 2px; border-radius: 7px; color: #65736e; font-size: .67rem; font-weight: 750; }
   .mobileNav a[data-active="true"] { background: #e6f1ec; color: #0e5a45; }
   .mobileNav svg { width: 18px; height: 18px; }
+  .dashboardScheduleLink { display: none; }
+  .doctorDayRow { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 7px 10px; padding: 13px 0; }
+  .doctorDayRow time { grid-column: 1 / -1; color: #6c7b74; font-size: .67rem; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; }
+  .doctorDayRow time::before { content: "TODAY · "; color: #17705a; }
+  .doctorDayRow > div { min-width: 0; grid-column: 1 / -1; gap: 2px; }
+  .doctorDayRow > div strong { overflow-wrap: anywhere; color: #20352d; font-size: 1rem; line-height: 1.25; }
+  .doctorDayRow > div span { font-size: .7rem; line-height: 1.35; overflow-wrap: anywhere; }
+  .doctorDayRow > .statusBadge { grid-column: 1; align-self: center; justify-self: start; white-space: normal; }
+  .doctorDayRow > .priorityPill { grid-column: 2; justify-self: end; }
+  .doctorDayRow > .secondaryButton { grid-column: 1 / -1; justify-self: stretch; min-height: 44px; text-align: center; }
+  .needsActionDisclosure > summary { min-width: 0; gap: .55rem; padding: .85rem; }
+  .needsActionDisclosure > summary > div { min-width: 0; }
+  .needsActionDisclosure h2 { overflow-wrap: anywhere; font-size: .98rem; }
+  .needsActionDisclosure .needsActionList { padding-inline: .85rem; }
+  .needsActionList li { min-width: 0; gap: .65rem; }
+  .needsActionList li > div:first-child { min-width: 0; }
+  .needsActionList strong, .needsActionList span { overflow-wrap: anywhere; }
+  .needsActionList li > div:last-child { width: 100%; justify-content: stretch; }
+  .needsActionList li > div:last-child > * { flex: 1 1 140px; min-width: 0; min-height: 44px; justify-content: center; text-align: center; overflow-wrap: anywhere; }
+  .deskBoard { min-width: 0; padding: 12px; }
+  .deskBoardIntro h2 { font-size: 1rem; }
+  .deskBoardColumns { display: none; }
+  .mobileJourney { display: block; min-width: 0; }
+  .mobileJourneyStages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: .8rem 0; padding: 4px; border: 1px solid #e0e8e4; border-radius: 10px; background: #f5f8f6; }
+  .mobileJourneyStage { display: grid; min-width: 0; min-height: 48px; place-content: center; gap: 2px; border: 0; border-radius: 7px; background: transparent; padding: 4px 2px; color: #5d6c65; font: inherit; font-size: .61rem; font-weight: 720; cursor: pointer; }
+  .mobileJourneyStage span { overflow-wrap: anywhere; line-height: 1.12; text-align: center; }
+  .mobileJourneyStage strong { color: #34483f; font-size: .7rem; text-align: center; }
+  .mobileJourneyStage[aria-pressed="true"] { background: #fff; color: #0e5a45; box-shadow: 0 1px 4px rgba(26, 55, 44, .12); }
+  .mobileJourneyStage[aria-pressed="true"] strong { color: #0e5a45; }
+  .mobileJourneyPanel, .mobileJourneyPanel .deskBoardColumn { min-width: 0; }
+  .mobileJourneyPanel .deskBoardColumn { border: 0; border-radius: 0; background: transparent; padding: 0; }
+  .mobileJourneyPanel .deskBoardColumnHeader { align-items: center; padding: .25rem 0 .65rem; }
+  .mobileJourneyPanel .deskBoardColumnHeader h2 { font-size: .94rem; }
+  .mobileJourneyPanel .deskBoardColumnHeader p { display: none; }
+  .mobileJourneyPanel .deskBoardList { margin-top: .55rem; }
+  .mobileJourneyPanel .deskBoardCard { min-width: 0; overflow-wrap: anywhere; padding: .85rem; }
+  .mobileJourneyPanel .deskCardActions { min-width: 0; }
+  .mobileJourneyPanel .deskCardActions > button { min-height: 44px; }
+  .mobileJourneyPanel .deskCardActions > .primaryButton { flex: 1 1 100%; }
+  .mobileJourneyPanel .deskCardIdentity strong { overflow-wrap: anywhere; font-size: .98rem; }
+  .mobileJourneyPanel .deskCardHighlights { overflow-wrap: anywhere; font-size: .7rem; }
   .overviewHeader, .pageHeading { align-items: stretch; flex-direction: column; }
   .overviewHeader .headerActions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   .overviewHeader .primaryButton { width: 100%; }

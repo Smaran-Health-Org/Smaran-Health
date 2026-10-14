@@ -44,7 +44,7 @@ export default async function DashboardPage() {
             </h1>
             <p>Your consultations, queue, and patient context in one place.</p>
           </div>
-          <Link href="/scheduler?workspace=clinical" className={styles.primaryButton}><Icon name="calendar" /> Open schedule</Link>
+          <Link href="/scheduler?workspace=clinical" className={`${styles.primaryButton} ${styles.dashboardScheduleLink}`}><Icon name="calendar" /> Open schedule</Link>
         </div>
 
         <div className={styles.doctorKpiGrid} aria-label="Today summary">

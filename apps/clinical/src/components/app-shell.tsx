@@ -18,6 +18,17 @@ function initials(name: string): string {
     .join("");
 }
 
+function mobilePageTitle(pathname: string): string {
+  if (pathname.startsWith("/scheduler/settings")) return "Schedule settings";
+  if (pathname.startsWith("/scheduler")) return "Schedule";
+  if (pathname.startsWith("/desk/walk-in")) return "Walk-in patient";
+  if (pathname.startsWith("/patients/") || pathname.startsWith("/desk/patients/")) return "Patient";
+  if (pathname.startsWith("/patients") || pathname.startsWith("/desk/patients")) return "Patients";
+  if (pathname.startsWith("/consultations/")) return "Consultation";
+  if (pathname === "/new-consultation") return "New consultation";
+  return "Today";
+}
+
 export function AppShell({
   doctorName,
   clinicName,
@@ -65,6 +76,7 @@ export function AppShell({
   const patientsHref = workspace === "desk" ? "/desk/patients" : "/patients";
   const schedulerHref = workspace === "desk" ? "/scheduler?workspace=desk" : "/scheduler?workspace=clinical";
   const workspaceLabel = workspace === "desk" ? "Clinic Desk" : "Clinical";
+  const pageTitle = mobilePageTitle(pathname);
 
   return (
     <div className={styles.shell}>
@@ -138,6 +150,12 @@ export function AppShell({
 
       <div className={styles.appSurface}>
         <div className={styles.accountBar}>
+          <div className={styles.mobileTopHeading}>
+            <Link href={homeHref} className={styles.mobileBrand} aria-label="Smaran home">
+              <Icon name="sparkle" />
+            </Link>
+            <strong title={pageTitle}>{pageTitle}</strong>
+          </div>
           <div className={styles.accountContext}>
             <span>{workspaceLabel}</span>
             <strong>{clinicName}</strong>
@@ -185,9 +203,9 @@ export function AppShell({
       </div>
 
       <nav className={styles.mobileNav} aria-label="Mobile navigation">
-        <Link href={homeHref} data-active={isDashboard || isDeskHome}><Icon name="home" /><span>Today</span></Link>
-        <Link href={schedulerHref} data-active={isScheduler}><Icon name="calendar" /><span>Schedule</span></Link>
-        <Link href={patientsHref} data-active={isPatients}><Icon name="users" /><span>Patients</span></Link>
+        <Link href={homeHref} data-active={isDashboard || isDeskHome} aria-current={isDashboard || isDeskHome ? "page" : undefined}><Icon name="home" /><span>Today</span></Link>
+        <Link href={schedulerHref} data-active={isScheduler} aria-current={isScheduler ? "page" : undefined}><Icon name="calendar" /><span>Schedule</span></Link>
+        <Link href={patientsHref} data-active={isPatients} aria-current={isPatients ? "page" : undefined}><Icon name="users" /><span>Patients</span></Link>
       </nav>
     </div>
   );
