@@ -1568,18 +1568,18 @@
 .needsActionDisclosure[open] > summary { border-bottom: 1px solid #efe5d5; }
 .needsActionDisclosure[open] > summary::after { transform: rotate(225deg) translate(-1px, -2px); }
 .needsActionDisclosure .needsActionList { padding: 0 1rem 0.2rem; }
-.needsActionList li { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.75rem 0; border-top: 1px solid #efe5d5; }
+.needsActionList li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.8rem; padding: 0.75rem 0; border-top: 1px solid #efe5d5; }
 .needsActionList li:first-child { border-top: 0; }
 .needsActionList li > div:first-child { display: grid; gap: 0.2rem; }
 .needsActionList strong { font-size: 0.76rem; }
 .needsActionList span { color: #7f6d50; font-size: 0.66rem; }
 .secondaryDeskSection { opacity: 0.78; }
-.deskBoard { border: 1px solid #dfe6e2; border-radius: 18px; background: #fff; padding: 1rem; box-shadow: 0 12px 34px rgba(34, 54, 47, 0.05); }
+.deskBoard { container-type: inline-size; border: 1px solid #dfe6e2; border-radius: 18px; background: #fff; padding: 1rem; box-shadow: 0 12px 34px rgba(34, 54, 47, 0.05); }
 .deskBoardIntro { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin: 0.15rem 0 1rem; }
 .deskBoardIntro h2 { margin: 0.18rem 0 0; font-size: 1.05rem; }
 .deskBoardIntro > p { max-width: 410px; margin: 0; color: #71807a; font-size: 0.68rem; line-height: 1.45; text-align: right; }
-.deskBoardColumns { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; overflow-x: auto; padding-bottom: 0.15rem; }
-.deskBoardColumn { min-width: 220px; border: 1px solid #e5eae7; border-radius: 14px; background: #f8faf9; padding: 0.7rem; }
+.deskBoardColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.deskBoardColumn { min-width: 0; border: 1px solid #e5eae7; border-radius: 14px; background: #f8faf9; padding: 0.7rem; }
 .deskBoardColumnHeader { display: flex; align-items: start; justify-content: space-between; gap: 0.5rem; border-bottom: 1px solid #e8edeb; padding: 0.05rem 0.05rem 0.65rem; }
 .deskBoardColumnHeader > div { position: relative; padding-left: 0.8rem; }
 .deskBoardColumnHeader > div::before { position: absolute; top: 0.34rem; left: 0; width: 0.38rem; height: 0.38rem; border-radius: 50%; background: #83929c; content: ""; }
@@ -1647,7 +1647,6 @@
   .deskQueueActions { justify-content: flex-start; }
   .deskBoardIntro { align-items: start; flex-direction: column; }
   .deskBoardIntro > p { max-width: none; text-align: left; }
-  .deskBoardColumns { grid-template-columns: repeat(4, minmax(220px, 1fr)); }
   .operationalDetails { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operationalDetailsForm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .walkInGrid { grid-template-columns: 1fr; }
@@ -1895,4 +1894,154 @@
   .patientEntryBody { padding: 12px; }
   .patientFacts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
   .patientEntryBody > .primaryButton { justify-self: stretch; width: 100%; }
+}
+
+/* Responsive operational surfaces: contain content rather than clipping it. */
+.appSurface, .pageContent, .deskSections, .panel, .deskBoard,
+.doctorDaySections, .doctorDayRow > div, .profileHeaderMain, .profileGrid,
+.needsActionList, .needsActionList li, .needsActionList li > div,
+.operationalDetails, .operationalDetails > div, .operationalDetailsForm,
+.intakeStatement, .intakeStatement dl, .intakeStatement dl > div,
+.schedulerHeader > div, .schedulerSideBody, .schedulerBookingSection {
+  min-width: 0;
+  max-width: 100%;
+}
+.needsActionList strong, .needsActionList span, .deskCardIdentity strong,
+.deskCardHighlights, .doctorDayRow > div, .profileHeaderMain h1,
+.operationalDetails dd, .intakeStatement p, .intakeStatement dd {
+  overflow-wrap: anywhere;
+}
+.infoList dd { min-width: 0; max-width: 65%; overflow-wrap: anywhere; }
+.operationalDetailsActions { flex-wrap: wrap; }
+.sequenceHeaderActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 12px; min-width: 0; }
+.doctorSequencePanel .panelTitle { flex-wrap: wrap; gap: 12px; }
+.doctorSequencePanel .secondaryButton { width: fit-content; max-width: 100%; min-height: 44px; }
+.doctorSequencePanel .emptyState { min-height: 0; padding: 24px 16px; }
+.deskCardFooter { flex-wrap: wrap; gap: 8px; }
+.needsActionList li > div:last-child { min-width: 0; max-width: 100%; }
+.priorityEditor { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.priorityEditor label { min-width: 0; }
+.priorityEditor input { width: 100%; min-width: 0; max-width: 100%; height: 44px; }
+
+@container (min-width: 768px) {
+  .deskBoardColumns { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+}
+@container (max-width: 503px) {
+  .deskBoardColumns { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .deskBoardColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1199px) {
+  .priorityEditor input { font-size: 16px; }
+  .brand, .sideNav a { min-height: 44px; min-width: 44px; }
+  .accountBar { height: auto; min-height: 56px; }
+  .accountWorkspaceSwitch a { display: inline-flex; align-items: center; min-height: 44px; }
+  .accountMenu > summary { display: grid; width: 44px; height: 44px; place-items: center; }
+  .appSurface button, .appSurface select, .appSurface input:not([type="checkbox"]):not([type="radio"]),
+  .appSurface .primaryButton, .appSurface .secondaryButton { min-height: 44px; }
+  .appSurface button { min-width: 44px; }
+  .appSurface .iconButton { width: 44px; height: 44px; }
+}
+
+@media (max-width: 1080px) {
+  .schedulerSidePanel {
+    top: calc(var(--scheduler-viewport-top, 0px) + 12px);
+    bottom: auto;
+    height: calc(var(--scheduler-viewport-height, 100dvh) - 24px);
+    max-height: calc(var(--scheduler-viewport-height, 100dvh) - 24px);
+    overscroll-behavior: contain;
+    scroll-padding-block: 64px 72px;
+  }
+  .schedulerSidePanel input, .schedulerSidePanel select, .schedulerSidePanel textarea {
+    font-size: 16px;
+    scroll-margin-block: 64px 72px;
+  }
+  .schedulerSideHeader { top: -14px; }
+}
+
+@media (max-width: 767px) {
+  .shell { display: block; }
+  .sidebar { display: none; }
+  .appSurface { padding: 8px 16px calc(var(--mobile-navigation-space, 70px) + 16px); }
+  .mobileNav { display: grid; z-index: 20; }
+  .shell:has(.schedulerSidePanel[aria-modal="true"]) .mobileNav { display: none; }
+  .mobileNav a { min-height: 48px; min-width: 0; font-size: 14px; }
+  .appSurface a, .appSurface button, .appSurface input, .appSurface select, .appSurface textarea, .appSurface summary {
+    scroll-margin-bottom: calc(var(--mobile-navigation-space, 70px) + 16px);
+  }
+  .appSurface input:not([type="checkbox"]):not([type="radio"]), .appSurface select, .appSurface textarea {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+  }
+  .accountBar { height: auto; min-height: 48px; flex-wrap: wrap; gap: 8px; padding-bottom: 8px; }
+  .accountContext { flex: 1 1 130px; min-width: 0; }
+  .accountBarRight { margin-left: auto; min-width: 0; }
+  .accountWorkspaceSwitch a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 10px; font-size: 14px; }
+  .accountMenu > summary { display: grid; width: 44px; height: 44px; place-items: center; }
+  .accountPopover { max-width: calc(100vw - 32px); }
+  .overviewHeader, .pageHeading { flex-direction: column; align-items: stretch; gap: 12px; }
+  .overviewHeader h1, .pageHeading h1 { font-size: 26px; overflow-wrap: anywhere; }
+  .panel { padding: 16px; }
+  .needsActionDisclosure { padding: 0; }
+  .panelTitle { flex-wrap: wrap; gap: 8px; }
+  .panelTitle h2 { font-size: 20px; }
+  .doctorKpiGrid { gap: 8px; }
+  .doctorKpiGrid .statCard small { font-size: 14px; overflow-wrap: anywhere; }
+  .sequenceHeaderActions { justify-content: flex-start; }
+  .doctorDayRow { grid-template-columns: minmax(0, 1fr); gap: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 12px; }
+  .doctorDayRow:first-child { border-top: 1px solid var(--line); }
+  .doctorDayRow > div { grid-row: 1; }
+  .doctorDayRow time { grid-row: 2; grid-column: 1; font-size: 14px; }
+  .doctorDayRow > div strong { font-size: 16px; }
+  .doctorDayRow > div span { font-size: 14px; }
+  .doctorDayRow > .statusBadge, .doctorDayRow > .priorityPill, .doctorDayRow > a { justify-self: start; max-width: 100%; white-space: normal; }
+  .doctorDayRow > a { width: fit-content; min-height: 44px; }
+  .needsActionList li { grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 12px; }
+  .needsActionList strong, .deskCardIdentity strong { font-size: 16px; }
+  .needsActionList span, .deskCardIdentity span, .deskCardHighlights { font-size: 14px; line-height: 1.45; }
+  .needsActionList li > div:last-child { justify-content: flex-start; gap: 8px; }
+  .needsActionList .secondaryButton { max-width: 100%; white-space: normal; }
+  .deskBoardColumns { grid-template-columns: minmax(0, 1fr); }
+  .deskBoardColumnHeader h2 { font-size: 16px; }
+  .deskBoardColumnHeader p, .deskBoardEmpty { font-size: 14px; }
+  .deskCardActions { flex-wrap: wrap; gap: 8px; }
+  .priorityEditor label { font-size: 14px; }
+  .profileHeader { gap: 12px; }
+  .profileAvatar { width: 52px; height: 52px; flex-shrink: 0; }
+  .profileHeaderMain h1 { font-size: 26px; }
+  .profileGrid { grid-template-columns: minmax(0, 1fr); }
+  .infoList dd { min-width: 0; max-width: 65%; overflow-wrap: anywhere; }
+  .schedulerHeader { flex-direction: column; align-items: stretch; }
+  .schedulerHeaderActions { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: start; width: 100%; }
+  .schedulerHeaderActions > .primaryButton { width: 100%; }
+  .schedulerToolbar { flex-direction: column; align-items: stretch; min-width: 0; }
+  .schedulerToolbarGroup { flex-wrap: wrap; min-width: 0; gap: 8px; }
+  .schedulerToolbarGroup select { min-width: 0; max-width: 100%; }
+  .schedulerToolbarGroupEnd { margin-left: 0; }
+}
+
+@media (max-width: 767px) {
+  .schedulerSidePanel {
+    top: var(--scheduler-viewport-top, 0px);
+    left: 0;
+    right: 0;
+    bottom: auto;
+    width: 100%;
+    height: var(--scheduler-viewport-height, 100dvh);
+    max-height: var(--scheduler-viewport-height, 100dvh);
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    border-radius: 0;
+  }
+  .schedulerSideHeader { top: env(safe-area-inset-top, 0px); }
+  .schedulerBookingActions { position: static; padding-bottom: 8px; }
+}
+
+@media (max-width: 359px) {
+  .doctorKpiGrid { grid-template-columns: minmax(0, 1fr); }
+  .needsActionList li > div:last-child { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .needsActionList .secondaryButton { width: 100%; }
 }

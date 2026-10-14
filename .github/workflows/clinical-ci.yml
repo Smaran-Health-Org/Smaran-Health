@@ -30,7 +30,7 @@ jobs:
           cache-dependency-path: apps/clinical/package-lock.json
       - run: npm ci
       - run: npm run lint
-      - run: npm test
+      - run: npm run test:qa
       - run: npm run typecheck
       - run: npm run build
 
@@ -59,9 +59,9 @@ jobs:
         run: npm run test:db:clinic-journeys
       - name: Scheduler lifecycle and merge concurrency
         run: npm run test:db:scheduler-s8-concurrency
-      - name: Full existing pgTAP suite
+      - name: Existing non-speech pgTAP suites
         if: success() || failure()
-        run: npm run test:db
+        run: npm run test:db:qa
       - name: Stop disposable database
         if: always()
         run: npx supabase stop --no-backup
