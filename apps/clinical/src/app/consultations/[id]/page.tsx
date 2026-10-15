@@ -166,6 +166,7 @@ export default async function ConsultationPage({
   return (
     <ConsultationWorkflow
       consultationId={id}
+      canReviewNote={consultation.doctorId === session.profileId}
       patient={workflowPatient}
       doctorName={session.fullName}
       clinicName={clinicName}

@@ -7,6 +7,7 @@ import { Icon } from "@/components/icons";
 import { formatDate } from "@/lib/status";
 import type { PreconsultBriefAtConsultationStart } from "@/lib/preconsult/brief";
 import styles from "@/components/clinical.module.css";
+import { NoteReviewAccess } from "./note-review-access";
 import { ConsultationPreconsultContext } from "./consultation-preconsult-context";
 
 export type WorkflowState =
@@ -61,6 +62,7 @@ export type WorkflowMemory = {
 
 type ConsultationWorkflowProps = {
   consultationId: string;
+  canReviewNote: boolean;
   patient: WorkflowPatient;
   doctorName: string;
   clinicName: string;
@@ -390,6 +392,7 @@ function RecordingRail({
 
 export function ConsultationWorkflow({
   consultationId,
+  canReviewNote,
   patient,
   doctorName,
   clinicName,
@@ -755,6 +758,7 @@ export function ConsultationWorkflow({
   }
 
   async function saveNote(status: "approved" | "rejected") {
+    if (!canReviewNote) return;
     setSaving(status === "approved" ? "approve" : "reject");
     setError(null);
     try {
@@ -784,6 +788,7 @@ export function ConsultationWorkflow({
   }
 
   async function saveDraft() {
+    if (!canReviewNote) return;
     setSaving("draft");
     setError(null);
     try {
@@ -1832,7 +1837,52 @@ export function ConsultationWorkflow({
         )}
 
         {(state === "review" || state === "manual_review") && (
-          <>
+          <NoteReviewAccess
+            canReviewNote={canReviewNote}
+            messageClassName={styles.warningBanner}
+            actions={<>
+            <label className={styles.reviewCheck}>
+              <input
+                type="checkbox"
+                checked={reviewConfirmed}
+                onChange={(event) => setReviewConfirmed(event.target.checked)}
+              />
+              <span>
+                {isManualReview
+                  ? "I wrote and reviewed this consultation note, and approve it for clinical memory."
+                  : "I reviewed this draft and approve it for clinical memory."}
+              </span>
+            </label>
+            <div className={styles.reviewActions}>
+              {!draftSaved && (
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  disabled={saving !== null}
+                  onClick={saveDraft}
+                >
+                  {saving === "draft" ? "Saving…" : "Save draft"}
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.rejectButton}
+                disabled={saving !== null}
+                onClick={() => saveNote("rejected")}
+              >
+                Reject draft
+              </button>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                disabled={!reviewConfirmed || saving !== null}
+                onClick={() => saveNote("approved")}
+              >
+                {saving === "approve" ? "Saving…" : "Approve note"}
+              </button>
+            </div>
+            </>}
+          >
             {fallbackNotice && !isManualReview && (
               <div className={styles.warningBanner} role="status">
                 <strong>AI was unavailable</strong>
@@ -1919,47 +1969,8 @@ export function ConsultationWorkflow({
               </section>
             </div>
 
-            <label className={styles.reviewCheck}>
-              <input
-                type="checkbox"
-                checked={reviewConfirmed}
-                onChange={(event) => setReviewConfirmed(event.target.checked)}
-              />
-              <span>
-                {isManualReview
-                  ? "I wrote and reviewed this consultation note, and approve it for clinical memory."
-                  : "I reviewed this draft and approve it for clinical memory."}
-              </span>
-            </label>
-            <div className={styles.reviewActions}>
-              {!draftSaved && (
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  disabled={saving !== null}
-                  onClick={saveDraft}
-                >
-                  {saving === "draft" ? "Saving…" : "Save draft"}
-                </button>
-              )}
-              <button
-                type="button"
-                className={styles.rejectButton}
-                disabled={saving !== null}
-                onClick={() => saveNote("rejected")}
-              >
-                Reject draft
-              </button>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                disabled={!reviewConfirmed || saving !== null}
-                onClick={() => saveNote("approved")}
-              >
-                {saving === "approve" ? "Saving…" : "Approve note"}
-              </button>
-            </div>
-          </>
+
+          </NoteReviewAccess>
         )}
 
         {state === "approved" && (

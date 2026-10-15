@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   if (session.role !== "doctor") redirect("/desk");
 
   const [overview, clinicName] = await Promise.all([
-    getDashboardOverview(session.clinicId),
+    getDashboardOverview(session.clinicId, session.profileId),
     getClinicName(session.clinicId),
   ]);
 
