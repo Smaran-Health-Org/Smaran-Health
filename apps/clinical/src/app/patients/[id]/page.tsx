@@ -8,6 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Icon } from "@/components/icons";
 import { SendPatientPortalLink } from "@/components/send-patient-portal-link";
+import { StartConsultationButton } from "@/components/start-consultation";
 import { formatDate, formatRelativeDay } from "@/lib/status";
 import styles from "@/components/clinical.module.css";
 
@@ -105,6 +106,13 @@ export default async function PatientDetailPage({
               </div>
             </dl>
             <SendPatientPortalLink patientId={patient.id} />
+            {/* A doctor can reach any patient from the directory, but previously
+                had no way to begin a visit from here — they had to leave for the
+                New consultation flow and find the same patient again. This
+                reuses the established start path, which stays server-authorized
+                and idempotent through the button's command id, so a double click
+                cannot create two consultations. */}
+            <StartConsultationButton patientId={patient.id} />
           </section>
 
           <section className={styles.panel}>

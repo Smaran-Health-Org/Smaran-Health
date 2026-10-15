@@ -35,7 +35,7 @@ SELECT set_config('request.jwt.claim.sub', '26000000-0000-4000-8000-000000000002
 
 SELECT has_function('public', 'set_encounter_priority', ARRAY['uuid', 'boolean', 'text'], 'human Priority function exists');
 SELECT has_function('public', 'reorder_waiting_queue', ARRAY['uuid', 'text'], 'manual queue reorder function exists');
-SELECT has_function('public', 'create_walk_in_with_consultation', ARRAY['uuid', 'uuid', 'text'], 'atomic walk-in function exists');
+SELECT has_function('public', 'create_walk_in_with_consultation', ARRAY['uuid', 'uuid', 'timestamp with time zone', 'jsonb', 'text'], 'atomic walk-in function exists');
 SELECT ok(NOT has_column_privilege('authenticated', 'public.appointments', 'checked_in_at', 'UPDATE'), 'authenticated callers cannot set check-in time directly');
 SELECT ok(NOT has_column_privilege('authenticated', 'public.appointments', 'queue_order', 'UPDATE'), 'authenticated callers cannot set queue order directly');
 SELECT ok(NOT has_column_privilege('authenticated', 'public.appointments', 'status', 'UPDATE'), 'authenticated callers cannot bypass Scheduler lifecycle guards with direct status updates');
@@ -94,7 +94,7 @@ SELECT throws_ok(
 );
 
 SELECT lives_ok(
-  $$ SELECT * FROM public.create_walk_in_with_consultation('36000000-0000-4000-8000-000000000004', '26000000-0000-4000-8000-000000000001', 'phase65-walk-in') $$,
+  $$ SELECT * FROM public.create_walk_in_with_consultation(p_patient_id => '36000000-0000-4000-8000-000000000004', p_doctor_id => '26000000-0000-4000-8000-000000000001', p_idempotency_key => 'phase65-walk-in') $$,
   'walk-in creates and checks in the visit atomically'
 );
 SELECT is((SELECT operational_status::text FROM public.consultations WHERE patient_id = '36000000-0000-4000-8000-000000000004'), 'waiting', 'walk-in Encounter begins Waiting');
@@ -105,7 +105,7 @@ SET scheduled_at = scheduled_at - interval '1 minute'
 WHERE idempotency_key = 'phase65-walk-in';
 SET LOCAL ROLE authenticated;
 SELECT lives_ok(
-  $$ SELECT * FROM public.create_walk_in_with_consultation('36000000-0000-4000-8000-000000000004', '26000000-0000-4000-8000-000000000001', 'phase65-walk-in') $$,
+  $$ SELECT * FROM public.create_walk_in_with_consultation(p_patient_id => '36000000-0000-4000-8000-000000000004', p_doctor_id => '26000000-0000-4000-8000-000000000001', p_idempotency_key => 'phase65-walk-in') $$,
   'walk-in retry returns the existing visit even when request time changes'
 );
 SELECT is((SELECT count(*) FROM public.appointments WHERE idempotency_key = 'phase65-walk-in'), 1::bigint, 'walk-in retry does not create a second visit');
@@ -115,7 +115,7 @@ SET idempotency_key = 'phase65-scheduled-key'
 WHERE id = '56000000-0000-4000-8000-000000000002';
 SET LOCAL ROLE authenticated;
 SELECT throws_ok(
-  $$ SELECT * FROM public.create_walk_in_with_consultation('36000000-0000-4000-8000-000000000002', '26000000-0000-4000-8000-000000000001', 'phase65-scheduled-key') $$,
+  $$ SELECT * FROM public.create_walk_in_with_consultation(p_patient_id => '36000000-0000-4000-8000-000000000002', p_doctor_id => '26000000-0000-4000-8000-000000000001', p_idempotency_key => 'phase65-scheduled-key') $$,
   '22023',
   'Idempotency key was already used with different walk-in details',
   'walk-in retry cannot claim an unrelated checked-in appointment'
@@ -124,8 +124,8 @@ SELECT throws_ok(
 SELECT set_config('request.jwt.claim.sub', '26000000-0000-4000-8000-000000000001', true);
 SELECT is((SELECT count(*) FROM public.clinical_notes WHERE id = '66000000-0000-4000-8000-000000000001'), 1::bigint, 'doctor retains clinical note access');
 SELECT lives_ok(
-  $$ UPDATE public.consultations SET status = 'approved' WHERE id = '46000000-0000-4000-8000-000000000001' $$,
-  'doctor approval completes operational visit'
+  $$ SELECT public.review_clinical_note('46000000-0000-4000-8000-000000000001', '16000000-0000-4000-8000-000000000001', '{"summary":"synthetic"}'::jsonb, 'approved', 'synthetic', 1) $$,
+  'atomic doctor approval completes operational visit'
 );
 SELECT is((SELECT status::text FROM public.appointments WHERE id = '56000000-0000-4000-8000-000000000001'), 'completed', 'Clinic Desk completion follows doctor completion automatically');
 

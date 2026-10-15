@@ -1,0 +1,110 @@
+
+> clinical@0.1.0 test:db:clinical-integrity
+> tsx --test scripts/test-clinical-integrity.ts
+
+TAP version 13
+# Subtest: staff cannot change authority; own display-name editing and clinic isolation remain
+ok 1 - staff cannot change authority; own display-name editing and clinic isolation remain
+  ---
+  duration_ms: 185.912916
+  type: 'test'
+  ...
+# Subtest: late AI preserves a human edited note
+ok 2 - late AI preserves a human edited note
+  ---
+  duration_ms: 57.812
+  type: 'test'
+  ...
+# Subtest: late fallback preserves a human edited note
+ok 3 - late fallback preserves a human edited note
+  ---
+  duration_ms: 61.116375
+  type: 'test'
+  ...
+# Subtest: late AI preserves a human approved note
+ok 4 - late AI preserves a human approved note
+  ---
+  duration_ms: 60.925
+  type: 'test'
+  ...
+# Subtest: late fallback preserves a human approved note
+ok 5 - late fallback preserves a human approved note
+  ---
+  duration_ms: 72.036125
+  type: 'test'
+  ...
+# Subtest: late AI preserves a human rejected note
+ok 6 - late AI preserves a human rejected note
+  ---
+  duration_ms: 72.108
+  type: 'test'
+  ...
+# Subtest: late fallback preserves a human rejected note
+ok 7 - late fallback preserves a human rejected note
+  ---
+  duration_ms: 94.974084
+  type: 'test'
+  ...
+# Subtest: two generators serialize at an observed lock and create one intended note
+ok 8 - two generators serialize at an observed lock and create one intended note
+  ---
+  duration_ms: 104.609125
+  type: 'test'
+  ...
+# Subtest: manual save holds the lock against an already-started generator
+ok 9 - manual save holds the lock against an already-started generator
+  ---
+  duration_ms: 159.109833
+  type: 'test'
+  ...
+# Subtest: concurrent approval retry has one timeline/audit effect; amendments and unauthorized actors are blocked
+ok 10 - concurrent approval retry has one timeline/audit effect; amendments and unauthorized actors are blocked
+  ---
+  duration_ms: 151.382709
+  type: 'test'
+  ...
+# Subtest: a timeline failure rolls back all approval effects and the same request can be retried
+ok 11 - a timeline failure rolls back all approval effects and the same request can be retried
+  ---
+  duration_ms: 153.587166
+  type: 'test'
+  ...
+# Subtest: a consultation failure rolls back all approval effects and the same request can be retried
+ok 12 - a consultation failure rolls back all approval effects and the same request can be retried
+  ---
+  duration_ms: 165.887458
+  type: 'test'
+  ...
+# Subtest: a audit failure rolls back all approval effects and the same request can be retried
+ok 13 - a audit failure rolls back all approval effects and the same request can be retried
+  ---
+  duration_ms: 144.881708
+  type: 'test'
+  ...
+# Subtest: stale human saves cannot overwrite a newer edit; identical successful draft save replays
+ok 14 - stale human saves cannot overwrite a newer edit; identical successful draft save replays
+  ---
+  duration_ms: 69.630542
+  type: 'test'
+  ...
+# Subtest: duplicate-note migration preflight fails without choosing or deleting historical notes
+ok 15 - duplicate-note migration preflight fails without choosing or deleting historical notes
+  ---
+  duration_ms: 63.540459
+  type: 'test'
+  ...
+# Subtest: consultation approval cannot bypass note review, and a malformed foreign note is not returned
+ok 16 - consultation approval cannot bypass note review, and a malformed foreign note is not returned
+  ---
+  duration_ms: 63.7065
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1885.255208

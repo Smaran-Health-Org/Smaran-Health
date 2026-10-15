@@ -1,11 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import { getConsultation } from "@/lib/db/consultations";
 import {
   getTranscriptByConsultation,
+  updateTranscriptSpeakerRoles,
   upsertTranscript,
 } from "@/lib/db/transcripts";
+import {
+  parseSpeakerRoleMap,
+  swapSpeakerRoles,
+} from "@/lib/audio-recording/speaker-roles";
 import { getConsultationRecordingStatus } from "@/lib/db/transcription-work";
+import { wakeTranscriptionWorker } from "@/lib/audio-recording/pipeline";
 import { createAuditLog } from "@/lib/db/audit";
 import { saveTranscriptSchema } from "@/lib/validation";
 import { logEvent, logError } from "@/lib/logger";
@@ -23,10 +29,16 @@ export async function GET(
   const consultation = await getConsultation(id, session.clinicId);
   if (!consultation) return notFound("Consultation not found");
 
-  // The workflow polls this while it waits. Returning the queue state alongside
-  // the transcript is what lets it tell "still transcribing" from "failed" —
-  // previously it only knew whether text existed yet, so a healthy but slow job
-  // was reported to the doctor as a failure after 60 seconds.
+  // The workflow polls this while it waits, so this is the fastest signal the
+  // system gets that someone is actually waiting on the transcript. Nudging the
+  // durable queue here removes the cron from the doctor's critical path; it runs
+  // after the response, so it never delays the poll itself.
+  after(() => wakeTranscriptionWorker(2));
+
+  // Returning the queue state alongside the transcript is what lets the workflow
+  // tell "still transcribing" from "failed" — previously it only knew whether
+  // text existed yet, so a healthy but slow job was reported to the doctor as a
+  // failure after 60 seconds.
   const [transcript, recording] = await Promise.all([
     getTranscriptByConsultation(id, session.clinicId),
     getConsultationRecordingStatus(id, session.clinicId),
@@ -91,4 +103,56 @@ export async function POST(
   });
 
   return NextResponse.json({ transcript }, { status: 201 });
+}
+
+/**
+ * Records the doctor's correction to the inferred speaker roles.
+ *
+ * Deliberately narrow: a swap is the only accepted action, because a
+ * mis-attribution is nearly always "these two are the wrong way round". The
+ * result is stored as doctor-confirmed rather than re-derived, and provider
+ * evidence (`diarized_turns`) is never rewritten by a correction.
+ *
+ * Doctor-only, like every other write on this route: a receptionist must not be
+ * able to change how a clinical conversation is attributed.
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await getSessionContext();
+  if (!session) return unauthorized();
+  if (session.role !== "doctor") return forbidden("Only doctors can correct speaker roles");
+
+  const consultation = await getConsultation(id, session.clinicId);
+  if (!consultation) return notFound("Consultation not found");
+
+  const body = (await request.json().catch(() => null)) as { action?: unknown } | null;
+  if (body?.action !== "swap_speaker_roles") return badRequest("Unsupported transcript update");
+
+  const transcript = await getTranscriptByConsultation(id, session.clinicId);
+  const current = parseSpeakerRoleMap(transcript?.speakerRoles ?? null);
+  if (!transcript || !current) {
+    return badRequest("This transcript has no speaker roles to correct");
+  }
+
+  const swapped = swapSpeakerRoles(current);
+  await updateTranscriptSpeakerRoles(transcript.id, swapped, session.clinicId);
+
+  await createAuditLog(
+    session.clinicId,
+    session.profileId,
+    "transcript.speaker_roles_corrected",
+    "transcript",
+    transcript.id,
+    { previousRoles: current.roles, correctedRoles: swapped.roles }
+  ).catch(() => undefined);
+
+  logEvent("transcript.speaker_roles_corrected", { consultationId: id });
+
+  return NextResponse.json(
+    { speakerRoles: swapped },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }

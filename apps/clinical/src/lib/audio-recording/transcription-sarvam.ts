@@ -15,10 +15,11 @@ import {
 } from "@/lib/ai/sarvam";
 import { classifyTranscriptionFailure } from "./failure-codes";
 import { AUDIO_BUCKET } from "./storage";
-import type {
-  AudioTranscriptionStepAdapter,
-  DurableRecording,
-  TranscriptionStepOutcome,
+import {
+  TRANSCRIPTION_REPOLL_SECONDS,
+  type AudioTranscriptionStepAdapter,
+  type DurableRecording,
+  type TranscriptionStepOutcome,
 } from "./transcription-adapter";
 
 /**
@@ -126,7 +127,7 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
             format: mimeType,
             chunkCount: recording.chunks.length,
           });
-          jobId = await initiateBatchJob({ mode: "codemix" });
+          jobId = await initiateBatchJob({ mode: "codemix", withDiarization: true });
           // Persisted before anything billable follows, so a crash here leaves a
           // resumable job id rather than an orphaned, paid-for job.
           await record({ jobId, phase: "initiated" });
@@ -149,7 +150,13 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
 
         // ── Step 3: start processing ─────────────────────────────────────────
         if (resume.phase !== "started" && resume.phase !== "completed") {
-          await startBatchJob(jobId);
+          // A resumed attempt can ask to start a job an earlier attempt already
+          // started. That is not a rejection; the status probe below is what
+          // decides the outcome.
+          const start = await startBatchJob(jobId);
+          if (start.alreadyStarted) {
+            logSarvam("adapter.start_already_applied", { traceId, jobId });
+          }
           await record({ jobId, phase: "started" });
         }
 
@@ -203,7 +210,7 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
             // again shortly, so a long consultation never looks like an error.
             return {
               kind: "deferred",
-              delaySeconds: 15,
+              delaySeconds: TRANSCRIPTION_REPOLL_SECONDS,
               message: `Sarvam job is ${status.jobState}.`,
             };
           }
@@ -212,7 +219,8 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
         }
 
         // ── Step 5: collect the transcript ───────────────────────────────────
-        const { transcript, languageCode } = await downloadBatchTranscript(jobId, outputFiles);
+        const { transcript, languageCode, languageProbability, diarizedTurns } =
+          await downloadBatchTranscript(jobId, outputFiles);
         if (!transcript.trim()) {
           logSarvamError("adapter.empty_transcript", { traceId, jobId });
           return {
@@ -226,10 +234,17 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
           traceId,
           jobId,
           languageCode,
+          languageProbability,
           totalMs: Date.now() - startedAt,
           transcriptChars: transcript.length,
         });
-        return { kind: "completed", rawText: transcript, modelVersion: SARVAM_STT_MODEL };
+        return {
+          kind: "completed",
+          rawText: transcript,
+          modelVersion: SARVAM_STT_MODEL,
+          languageCode,
+          diarizedTurns: diarizedTurns.length > 0 ? diarizedTurns : undefined,
+        };
       } catch (error) {
         const { code, message } = classifyTranscriptionFailure(error);
         logSarvamError("adapter.step_failed", {

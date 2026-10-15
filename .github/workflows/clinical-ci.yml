@@ -1,0 +1,67 @@
+name: Clinical CI
+
+on:
+  push:
+    branches: [dev-neelesh]
+    paths: ['apps/clinical/**', '.github/workflows/clinical-ci.yml']
+  pull_request:
+    paths: ['apps/clinical/**', '.github/workflows/clinical-ci.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/clinical
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/clinical/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test:qa
+      - run: npm run typecheck
+      - run: npm run build
+
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/clinical
+    env:
+      SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/clinical/package-lock.json
+      - run: npm ci
+      # CLI-generated local credentials stay in a temporary runner file.
+      - name: Start disposable database and replay migrations
+        run: npx supabase start > /tmp/clinical-supabase-start.log 2>&1
+      - name: Behavioral authorization, race and transaction regressions
+        run: npm run test:db:clinical-integrity
+      - name: Synthetic clinic route-handler journeys
+        run: npm run test:db:clinic-journeys
+      - name: Scheduler lifecycle and merge concurrency
+        run: npm run test:db:scheduler-s8-concurrency
+      - name: Existing non-speech pgTAP suites
+        if: success() || failure()
+        run: npm run test:db:qa
+      - name: Stop disposable database
+        if: always()
+        run: npx supabase stop --no-backup

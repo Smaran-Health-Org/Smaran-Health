@@ -27,9 +27,23 @@ const TABLE = "sarvam_api_events";
 let sinkChain: Promise<void> = Promise.resolve();
 let attached = false;
 
+/**
+ * One client for the process, not one per event.
+ *
+ * Building a client per insert meant a new HTTPS connection per log row, and
+ * because the flush is awaited on the consultation path this was paid directly
+ * by the doctor waiting for a transcript.
+ */
+let client: ReturnType<typeof createServiceRoleClient> | null = null;
+
+function db(): ReturnType<typeof createServiceRoleClient> {
+  if (!client) client = createServiceRoleClient();
+  return client;
+}
+
 async function persist(entry: SarvamLogEntry): Promise<void> {
   try {
-    const { error } = await createServiceRoleClient().from(TABLE).insert(toSarvamEventRow(entry));
+    const { error } = await db().from(TABLE).insert(toSarvamEventRow(entry));
     if (error) throw error;
   } catch {
     // Diagnostics must never break transcription: when the database is

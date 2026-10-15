@@ -1,0 +1,13 @@
+
+> clinical@0.1.0 test:db:scheduler-s8-concurrency
+> tsx --test scripts/test-scheduler-s8-concurrency.ts
+
+✔ S8.2 uses independent connections to prove Scheduler lifecycle races and replay safety (2080.682958ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2541.745041

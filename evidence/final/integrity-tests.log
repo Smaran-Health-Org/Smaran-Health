@@ -1,0 +1,28 @@
+
+> clinical@0.1.0 test:db:clinical-integrity
+> tsx --test scripts/test-clinical-integrity.ts
+
+✔ staff cannot change authority; own display-name editing and clinic isolation remain (176.302209ms)
+✔ late AI preserves a human edited note (76.216417ms)
+✔ late fallback preserves a human edited note (62.120083ms)
+✔ late AI preserves a human approved note (65.354792ms)
+✔ late fallback preserves a human approved note (78.273959ms)
+✔ late AI preserves a human rejected note (61.91375ms)
+✔ late fallback preserves a human rejected note (54.25275ms)
+✔ two generators serialize at an observed lock and create one intended note (99.867417ms)
+✔ manual save holds the lock against an already-started generator (88.6495ms)
+✔ concurrent approval retry has one timeline/audit effect; amendments and unauthorized actors are blocked (107.762125ms)
+✔ a timeline failure rolls back all approval effects and the same request can be retried (94.188917ms)
+✔ a consultation failure rolls back all approval effects and the same request can be retried (87.42925ms)
+✔ a audit failure rolls back all approval effects and the same request can be retried (88.947375ms)
+✔ stale human saves cannot overwrite a newer edit; identical successful draft save replays (82.644ms)
+✔ duplicate-note migration preflight fails without choosing or deleting historical notes (76.520125ms)
+✔ consultation approval cannot bypass note review, and a malformed foreign note is not returned (83.672417ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1645.258583

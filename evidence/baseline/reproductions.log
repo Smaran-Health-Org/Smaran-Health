@@ -1,0 +1,7 @@
+REPRODUCED: existing assistant self-promotes to doctor
+NOT REPRODUCED: clinic switch rejected by RLS (SQLSTATE 42501)
+REPRODUCED: late AI overwrites human edit
+REPRODUCED: two generators can insert two notes
+REPRODUCED: approval replay duplicates timeline
+REPRODUCED: separate saves leave approved note with draft consultation if later write fails
+REPRODUCED: ordinary save mutates approved record

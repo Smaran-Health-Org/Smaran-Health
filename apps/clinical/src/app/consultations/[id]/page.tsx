@@ -172,6 +172,7 @@ export default async function ConsultationPage({
       patientCount={patientList.total}
       timeline={workflowTimeline}
       initialNote={initialNote}
+      initialNoteRevision={note?.revision ?? null}
       initialStatus={consultation.status}
       initialTranscript={transcript?.rawText ?? null}
       memory={memory}

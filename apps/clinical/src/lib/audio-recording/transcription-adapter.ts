@@ -1,5 +1,23 @@
+import type { DiarizedTurn } from "./speaker-roles";
+
 /** Provider-neutral boundary; browser live speech is never clinical truth. */
 export type DurableRecording = { recordingId: string; consultationId: string; clinicId: string; format: string | null; chunks: Array<{ sequenceNumber: number; storagePath: string }> };
+
+/**
+ * How long a healthy-but-unfinished provider job is parked before it may be
+ * polled again.
+ *
+ * This is a pacing contract, not a tuning knob. The durable queue is also drained
+ * by a once-a-minute cron, so a long re-poll delay would make the doctor's
+ * waiting time depend on the cron. The workflow already polls the transcript
+ * every few seconds while it waits, and that poll now advances the queue too, so
+ * this value must stay below the client's poll cadence for the wakeup to land
+ * while the doctor is still watching.
+ *
+ * Keep it >= 1 (do not hammer the provider) and <= 10 (stay inside the client's
+ * cadence). `transcription-pacing.test.ts` enforces both bounds.
+ */
+export const TRANSCRIPTION_REPOLL_SECONDS = 8;
 
 export class AudioTranscriptionUnavailableError extends Error {
   constructor() { super("No approved audio transcription provider is configured"); }
@@ -29,7 +47,18 @@ export type TranscriptionProgressRecorder = (progress: {
 }) => Promise<void>;
 
 export type TranscriptionStepOutcome =
-  | { kind: "completed"; rawText: string; modelVersion: string }
+  | {
+      kind: "completed";
+      rawText: string;
+      modelVersion: string;
+      /** BCP-47 language the provider detected, when it reports one. */
+      languageCode?: string | null;
+      /**
+       * Speaker-attributed segments, when the provider supports diarization.
+       * Absent or empty means the reader falls back to the flat transcript.
+       */
+      diarizedTurns?: DiarizedTurn[];
+    }
   /** Healthy but not finished: release the claim and try again shortly. */
   | { kind: "deferred"; delaySeconds: number; message: string }
   | { kind: "failed"; code: string; message: string };

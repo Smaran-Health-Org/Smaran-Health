@@ -1,11 +1,12 @@
+import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
 import { getDashboardOverview } from "@/lib/db/dashboard";
 import { AppShell } from "@/components/app-shell";
 import { DoctorTodayList } from "@/components/doctor-today-list";
-import { Icon } from "@/components/icons";
-import Link from "next/link";
+import { PendingReviewList } from "@/components/pending-review-list";
 import styles from "@/components/clinical.module.css";
 
 function greeting(): string {
@@ -73,6 +74,11 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Renders nothing when there is no backlog, so today's surface is
+            unchanged on a normal day. Placed above the queue because a draft
+            nobody knows about is the failure this panel exists to fix. */}
+        <PendingReviewList items={overview.pendingReview} hasMore={overview.pendingReviewHasMore} />
 
         <DoctorTodayList items={overview.todayQueue.items} />
       </div>

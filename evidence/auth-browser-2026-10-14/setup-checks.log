@@ -1,0 +1,3 @@
+PASS: node --check provision.cjs, launch.cjs, network-guard.cjs.
+PASS: disposable clinical source snapshot tsc --noEmit, exit 0.
+No product source changed; completed regression suites were not redundantly rerun.

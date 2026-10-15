@@ -1,9 +1,15 @@
 import "server-only";
-import { flushSarvamLog } from "@/lib/ai/sarvam-log";
 import { attachSarvamEventLogSink } from "@/lib/ai/sarvam-log-db";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { recordTranscriptionJob, type TranscriptionWorkClaim } from "@/lib/db/transcription-work";
 import { sarvamAudioTranscriptionStepAdapter } from "./transcription-sarvam";
+import {
+  debugEvent,
+  debugWarn,
+  debugError,
+  summariseTranscript,
+} from "@/lib/debug-log";
+import { attachDebugEventLogSink } from "@/lib/debug-log-db";
 import type { DurableRecording, TranscriptionStepOutcome } from "./transcription-adapter";
 
 /**
@@ -43,19 +49,80 @@ export async function transcribeClaimedWork(
   claim: TranscriptionWorkClaim
 ): Promise<TranscriptionStepOutcome> {
   attachSarvamEventLogSink();
+  attachDebugEventLogSink();
+
+  const startedAt = Date.now();
+  // Resume state is logged because it is the difference between "the provider is
+  // slow" and "we are restarting and paying for the same audio twice".
+  debugEvent("worker", "step.start", {
+    workId: claim.workId,
+    consultationId: claim.consultationId,
+    clinicId: claim.clinicId,
+    audioFileId: claim.audioFileId,
+    attemptNumber: claim.attemptNumber,
+    resumePhase: claim.jobPhase,
+    resumeJobId: claim.jobId,
+    resumeOutputFiles: claim.jobOutputFiles?.length ?? 0,
+  });
+
   try {
     const recording = await loadDurableRecording(claim);
+    debugEvent("worker", "recording.loaded", {
+      consultationId: claim.consultationId,
+      chunkCount: recording.chunks.length,
+      format: recording.format,
+    });
+
     const adapter = sarvamAudioTranscriptionStepAdapter();
-    return await adapter.step(
+    const outcome = await adapter.step(
       recording,
       { jobId: claim.jobId, phase: claim.jobPhase, outputFiles: claim.jobOutputFiles },
       async (progress) => {
         // Awaited so a crash after any provider step is resumable.
         await recordTranscriptionJob(claim.workId, progress.jobId, progress.phase, progress.outputFiles);
+        debugEvent("worker", "job.phase_recorded", {
+          consultationId: claim.consultationId,
+          jobId: progress.jobId,
+          phase: progress.phase,
+          outputFiles: progress.outputFiles?.length ?? 0,
+        });
       }
     );
-  } finally {
-    await flushSarvamLog();
+
+    if (outcome.kind === "completed") {
+      // The diarization summary is the point of this line: turn and speaker
+      // counts confirm the parser understood the provider, WITHOUT putting a
+      // clinical transcript into a diagnostic log.
+      debugEvent("worker", "step.completed", {
+        consultationId: claim.consultationId,
+        durationMs: Date.now() - startedAt,
+        modelVersion: outcome.modelVersion,
+        languageCode: outcome.languageCode ?? null,
+        textChars: outcome.rawText.length,
+        ...summariseTranscript(outcome.diarizedTurns),
+      });
+    } else if (outcome.kind === "deferred") {
+      debugWarn("worker", "step.deferred", {
+        consultationId: claim.consultationId,
+        delaySeconds: outcome.delaySeconds,
+        message: outcome.message,
+        durationMs: Date.now() - startedAt,
+      });
+    } else {
+      debugError("worker", "step.failed", outcome.message, {
+        consultationId: claim.consultationId,
+        failureCode: outcome.code,
+        durationMs: Date.now() - startedAt,
+      });
+    }
+
+    return outcome;
+  } catch (error) {
+    debugError("worker", "step.threw", error, {
+      consultationId: claim.consultationId,
+      durationMs: Date.now() - startedAt,
+    });
+    throw error;
   }
 }
 

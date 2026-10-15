@@ -8,6 +8,22 @@
 
 ## Progress Log
 
+### 9 Oct 2026 — Consultation capture reliability + dashboard discoverability (`dev-keshav`)
+
+Records the `dev-keshav` reliability set `b08fcaf..73433c5` (11 commits). Full detail is in `docs/pre-consultation/IMPLEMENTATION_STATUS.md` under "Post-Phase-12". This is not part of the Phase 1–12 baseline `dev-neelesh`, and no Phase 1–12 acceptance criterion changed state.
+
+- [x] **Latency:** Vercel functions pinned to `bom1` (Mumbai) to co-locate with Supabase `ap-south-1`; measured round trip ~217 ms → ~23 ms. Dashboard reduced from ~15 clinic-scoped queries to 2, plus request dedupe, per-route `loading.tsx` boundaries, and `staleTimes`. Buttons now report their own pending state, so a click never looks inert.
+- [x] **Consultation record:** completed visits open a read-only record ordered by clinical decision value, including the original dialogue transcript as source evidence (`D-058`).
+- [x] **Structured complaint/medication display:** free text given visual structure without reinterpretation. Colour encodes direction of change only, never severity.
+- [x] **Removed browser live transcription:** the Web Speech API path hard-coded `en-IN`, so Marathi failed invisibly — nothing reached the server, so it never appeared in Vercel logs. Server-side Sarvam already auto-detects Indic languages, so the browser path was deleted rather than reconfigured (`D-057`).
+- [x] **Indic language detection now persisted** to `transcripts.language_codes`; it had been computed, logged, then discarded for all 8 of 8 rows.
+- [x] **Cron off the doctor's critical path:** the transcript poll the workflow already makes now advances the transcription queue, with the 1-minute cron retained as the safety net.
+- [x] **Background draft recovery:** a visit transcribed after the doctor left is now drafted by a bounded background sweep instead of stalling with no note (`D-059`).
+- [x] **Fixed a defect in that recovery:** the sweep used the request-scoped Supabase client, so with no session RLS hid every row and it returned `skipped: consultation_not_found` — a `200` with no log and no draft, in production as well as locally. Found only by running it against a real database, not by reading it.
+- [x] **Dashboard panel:** `Drafts ready for review` now surfaces those drafts, giving `getPendingConsultations()` its first consumer (`D-060`). Bounded, and non-fatal so an optional panel cannot blank the queue.
+- [x] **Validation:** 231/231 tests, `npx tsc --noEmit` clean, lint clean, Webpack production build green, deployed, and locally verified end-to-end against a real database.
+- [ ] **Still open:** latency for a real multi-minute consultation is unmeasured (every available recording is ~30 s); the dashboard panel's populated state is not visually verified; one pre-24 h stranded consultation is intentionally not backfilled; a latent `batch.start` already-completed misclassification remains.
+
 ### 17–18 Aug 2026 — Deployment + AI Structured Notes + Follow-Up Memory ✅
 
 - [x] **Deployed to free-tier cloud:** Vercel (`https://smaran-health.vercel.app`) + Supabase cloud (`fkdfhojrlbdckrodufkj`). Migrations applied, private `audio` bucket, signups disabled, seeded. See `DEPLOYMENT.md`.

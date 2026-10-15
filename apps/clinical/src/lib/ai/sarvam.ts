@@ -22,6 +22,8 @@ import {
   logSarvamError,
   type SarvamLogFields,
 } from "./sarvam-log";
+import { isAlreadyStartedJobError } from "@/lib/audio-recording/failure-codes";
+import type { DiarizedTurn } from "@/lib/audio-recording/speaker-roles";
 
 const SARVAM_BASE_URL = "https://api.sarvam.ai";
 const SARVAM_STT_PATH = "/speech-to-text";
@@ -306,6 +308,14 @@ export type SarvamBatchJobState =
 export type SarvamBatchJobParams = {
   mode?: SarvamSttMode;
   languageCode?: string;
+  /** Batch API only — the REST endpoint does not support diarization. */
+  withDiarization?: boolean;
+  /**
+   * Omitted by default. A consultation often has an accompanying family member,
+   * and pinning this to 2 would merge that third voice into one of the two real
+   * participants and mislabel the transcript.
+   */
+  numSpeakers?: number;
 };
 
 function requireSarvamApiKey(): string {
@@ -393,9 +403,11 @@ export async function initiateBatchJob(
         model: SARVAM_STT_MODEL,
         mode: params.mode ?? "codemix",
         language_code: params.languageCode ?? "unknown",
+        with_diarization: params.withDiarization ?? false,
+        ...(params.numSpeakers ? { num_speakers: params.numSpeakers } : {}),
       },
     },
-    context: { mode: params.mode ?? "codemix" },
+    context: { mode: params.mode ?? "codemix", withDiarization: params.withDiarization ?? false },
   });
   if (typeof data.job_id !== "string" || !data.job_id) {
     logSarvamError("batch.initiate_missing_job_id", { responseShape: Object.keys(data) });
@@ -465,14 +477,30 @@ export async function uploadBatchFile(input: {
   });
 }
 
-/** Step 4: start processing the uploaded audio. */
-export async function startBatchJob(jobId: string): Promise<void> {
-  await sarvamJson(`${SARVAM_BATCH_PATH}/${jobId}/start`, {
-    step: "batch.start",
-    method: "POST",
-    context: { jobId },
-  });
+/**
+ * Step 4: start processing the uploaded audio.
+ *
+ * `alreadyStarted` means Sarvam refused because the job already left ACCEPTED —
+ * the work is done or in flight, not rejected. Reporting that as a throw failed
+ * jobs whose output was already waiting to be downloaded.
+ */
+export async function startBatchJob(jobId: string): Promise<{ alreadyStarted: boolean }> {
+  try {
+    await sarvamJson(`${SARVAM_BATCH_PATH}/${jobId}/start`, {
+      step: "batch.start",
+      method: "POST",
+      context: { jobId },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (isAlreadyStartedJobError(message)) {
+      logSarvam("batch.start_already_applied", { jobId });
+      return { alreadyStarted: true };
+    }
+    throw error;
+  }
   logSarvam("batch.started", { jobId });
+  return { alreadyStarted: false };
 }
 
 export type SarvamBatchStatus = {
@@ -554,7 +582,44 @@ export async function getBatchJobStatus(
 export type SarvamBatchTranscript = {
   transcript: string;
   languageCode: string | null;
+  /** Present only when Sarvam reports it; the batch API may omit it. */
+  languageProbability: number | null;
+  /** Empty unless the job was created with `with_diarization`. */
+  diarizedTurns: DiarizedTurn[];
 };
+
+/**
+ * Reads `diarized_transcript.entries`, which uses snake_case timings and a
+ * string `speaker_id` ("0", "1"). Tolerates a missing or malformed block —
+ * diarization is beta, so its absence must degrade to a plain transcript rather
+ * than fail an otherwise successful job.
+ */
+function readDiarizedTurns(value: unknown): DiarizedTurn[] {
+  if (!value || typeof value !== "object") return [];
+  const entries = (value as { entries?: unknown }).entries;
+  if (!Array.isArray(entries)) return [];
+  const turns: DiarizedTurn[] = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") continue;
+    const row = entry as Record<string, unknown>;
+    const transcript = typeof row.transcript === "string" ? row.transcript.trim() : "";
+    const speakerId =
+      typeof row.speaker_id === "string"
+        ? row.speaker_id
+        : typeof row.speaker_id === "number"
+          ? String(row.speaker_id)
+          : null;
+    if (!speakerId || !transcript) continue;
+    turns.push({
+      speakerId,
+      transcript,
+      startTimeSeconds:
+        typeof row.start_time_seconds === "number" ? row.start_time_seconds : null,
+      endTimeSeconds: typeof row.end_time_seconds === "number" ? row.end_time_seconds : null,
+    });
+  }
+  return turns;
+}
 
 /** Steps 6–7: download and parse the transcript JSON for a completed job. */
 export async function downloadBatchTranscript(
@@ -601,6 +666,8 @@ export async function downloadBatchTranscript(
   const result = (await fileResponse.json()) as {
     transcript?: unknown;
     language_code?: unknown;
+    language_probability?: unknown;
+    diarized_transcript?: unknown;
   };
   const transcript =
     typeof result.transcript === "string" ? result.transcript.trim() : "";
@@ -613,17 +680,30 @@ export async function downloadBatchTranscript(
     throw new Error("Sarvam returned an empty transcript.");
   }
 
+  const diarizedTurns = readDiarizedTurns(result.diarized_transcript);
+
   logSarvam("batch.transcript_ready", {
     jobId,
     durationMs,
     transcriptChars: transcript.length,
+    diarizedTurnCount: diarizedTurns.length,
+    diarizedSpeakerCount: new Set(diarizedTurns.map((turn) => turn.speakerId)).size,
     languageCode:
       typeof result.language_code === "string" ? result.language_code : null,
+    languageProbability:
+      typeof result.language_probability === "number"
+        ? result.language_probability
+        : null,
   });
 
   return {
     transcript,
     languageCode:
       typeof result.language_code === "string" ? result.language_code : null,
+    languageProbability:
+      typeof result.language_probability === "number"
+        ? result.language_probability
+        : null,
+    diarizedTurns,
   };
 }

@@ -1,0 +1,46 @@
+- button "Open Next.js Dev Tools":
+- alert
+- complementary:
+  - link "Smaran Clinic Desk workspace":
+    - /url: /desk
+    - strong: Smaran
+    - generic: Clinic Desk workspace
+  - generic: SB
+  - generic: Active clinic
+  - strong: Synthetic Browser QA Clinic
+  - navigation "Primary navigation":
+    - paragraph: Workspace
+    - link "Today":
+      - /url: /desk
+      - generic: Today
+    - link "Patients":
+      - /url: /desk/patients
+      - generic: Patients
+      - generic: "0"
+    - link "Scheduler":
+      - /url: /scheduler?workspace=desk
+      - generic: Scheduler
+- generic: Clinic Desk
+- strong: Synthetic Browser QA Clinic
+- generic "Open profile menu":
+  - generic: SB
+- paragraph: Clinic Desk
+- heading "Today" [level=1]
+- paragraph: Run arrivals, preparation, and the waiting queue from one operational view.
+- link "Scheduler":
+  - /url: /scheduler?workspace=desk
+  - text: Scheduler
+- link "Add walk-in":
+  - /url: /desk/walk-in
+  - text: Add walk-in
+- generic "Clinic Desk summary":
+  - strong: "0"
+  - generic: Visits today
+  - strong: "0"
+  - generic: Waiting now
+  - strong: "0"
+  - generic: Human-marked priority
+  - strong: "0"
+  - generic: Needs action
+- strong: No visits today
+- paragraph: Add a walk-in when the first patient arrives.

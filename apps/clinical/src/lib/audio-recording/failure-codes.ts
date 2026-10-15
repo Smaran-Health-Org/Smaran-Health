@@ -57,3 +57,22 @@ export function classifyTranscriptionFailure(error: unknown): { code: string; me
   // attempt on the durable queue's backoff.
   return { code: "provider_unavailable", message };
 }
+
+/**
+ * Distinguishes a benign "the job already moved on" provider response from a
+ * genuine rejection.
+ *
+ * Sarvam answers `POST /job/{id}/start` with a 4xx when the job has already left
+ * ACCEPTED — most often `Job ... is not in ACCEPTED state. Current state:
+ * Completed`. That happens when an earlier attempt started the job and it then
+ * finished before this attempt could record that progress, so a resumed run asks
+ * to start a job that has already succeeded.
+ *
+ * Treated as a rejection, this failed work whose transcript was sitting ready to
+ * download, and it was retryable, so the queue kept re-failing an already-done
+ * job. The caller must treat this as "start is a no-op" and continue to read the
+ * results, which is where a genuinely Failed or unusable job is still caught.
+ */
+export function isAlreadyStartedJobError(message: string): boolean {
+  return /is not in ACCEPTED state/i.test(message);
+}

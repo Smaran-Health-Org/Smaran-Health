@@ -1,0 +1,13 @@
+{
+  "staffAuth": {
+    "role": "assistant",
+    "intended_clinic": true,
+    "auth_sign_in_recorded": true
+  },
+  "clinicRecords": {
+    "patients": 0,
+    "consultations": 0
+  },
+  "databasePort": 56522,
+  "signupChanged": false
+}

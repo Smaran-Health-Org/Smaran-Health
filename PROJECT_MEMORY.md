@@ -1,6 +1,6 @@
 # Smaran Health Project Memory
 
-Last updated: 12 August 2026
+Last updated: 9 October 2026
 
 ## Architecture Decision (Locked — 12 Aug 2026)
 
@@ -14,6 +14,8 @@ Last updated: 12 August 2026
 | ORM | Drizzle ORM — schema + migrations + seed ONLY | Admin connection; not used for app queries |
 | App queries | supabase-js via @supabase/ssr | Goes through PostgREST with user JWT → RLS enforced |
 | Storage | Supabase Storage (private audio bucket, RLS) | Signed URLs for audio access |
+| Transcription | Server-side Sarvam `saaras:v3` batch, post-visit, on the durable `transcription_work` queue | No browser speech recognition (`D-057`); audio is persisted during the visit and transcribed after it |
+| AI note draft | DeepSeek extraction into `ai_draft`, never auto-approved | AI proposes, doctor confirms (`D-035`, `D-059`) |
 | Styling | Tailwind CSS 4 | Utility-first, fast prototyping |
 | Validation | Zod 4.4.3 | API input schemas |
 | Seed | tsx + dotenv + service_role key | Admin-created test data for pilot dev
@@ -80,6 +82,10 @@ Defer autonomous clinical decision support, billing, patient apps, deep hospital
 - Patient-facing content and sharing require doctor approval.
 - Recording, clinical processing, sharing, and secondary/model-improvement use require separate and appropriately scoped consent.
 - Uncertain speech or clinical content is preserved and surfaced for verification, never silently guessed or normalized.
+- A consultation transcript is source evidence, never clinical content: retained for doctor reference and provenance, never part of the approved note (`D-058`).
+- A transcribed visit is never left without a draft, and a failed AI draft never loses the visit (`D-059`, `D-061`).
+- Background workers bypass RLS by design, so explicit `clinic_id` filtering is the tenant boundary on those paths and is pinned by regression test rather than assumed.
+- A background routine that silently does nothing is indistinguishable from a healthy one. Recovery and sweep paths must log their skips.
 
 ## Review findings to resolve before production implementation
 
@@ -150,6 +156,18 @@ Fifty consultations may validate workflow usability but must not be presented as
 - Branch strategy: `dev-local` (local iteration) and `dev-keshav` (deployable).
 - Not yet built: audio persistence, print/PDF export, patient-facing consent script, feedback form, pending-investigations tracker, data export/deletion (see `ROADMAP.md`).
 - The repository is therefore at the **technical MVP / working-prototype stage**, ahead of a controlled real-patient pilot (which still requires the safety gates below).
+
+### Current repository position on 9 October 2026
+
+Supersedes the 18 August snapshot only where the two differ. The Phase 1–12 pre-consultation, Clinic Desk, and Scheduler-boundary work landed on `dev-neelesh`; the reliability set below is on `dev-keshav`.
+
+- Still deployed at https://smaran-health.vercel.app, with Vercel functions pinned to `bom1` (Mumbai) so they co-locate with Supabase `ap-south-1`. Measured round trip improved from ~217 ms to ~23 ms.
+- **Live transcription no longer exists.** It was removed (`D-057`) after it silently forced English-India recognition onto Marathi. Nothing about that failure reached the server, so it never appeared in any log or in `sarvam_api_events`.
+- **Audio persistence is built**, which corrects the "not yet built" item in the August snapshot. Recording stores audio; transcription runs after the visit on the server-side Sarvam pipeline, on a durable queue with claim, backoff, and retry semantics.
+- **Indic languages are supported** through server-side Sarvam auto-detection, and the detected language code is now persisted on the transcript. It had previously been computed, logged, and then discarded.
+- **Draft generation is durable rather than browser-dependent.** A visit transcribed after the doctor left is drafted by a bounded background sweep (`D-059`), and the Doctor Dashboard surfaces those drafts (`D-060`).
+- **Consultation latency for real visits is the largest remaining unknown.** Every recording available for measurement is roughly 30 seconds, so the observed 2–26 s range is not evidence for a 10-minute consultation.
+- Not yet built, still: print/PDF export, patient-facing consent script, feedback form, pending-investigations tracker, data export/deletion (see `ROADMAP.md`).
 
 ## Regulatory memory
 

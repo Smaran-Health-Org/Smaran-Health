@@ -48,6 +48,31 @@ export function AppShell({
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const accountMenuRef = useRef<HTMLDetailsElement>(null);
+  const mobileNavigationRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const navigation = mobileNavigationRef.current;
+    if (!navigation) return;
+    const root = document.documentElement;
+    const previous = root.style.getPropertyValue("--mobile-navigation-space");
+    const measure = () => {
+      const height = navigation.getBoundingClientRect().height;
+      // The rendered height includes any padding. The computed bottom offset
+      // includes the safe-area gap, so neither is counted twice.
+      const bottom = height > 0 ? Number.parseFloat(getComputedStyle(navigation).bottom) || 0 : 0;
+      root.style.setProperty("--mobile-navigation-space", `${Math.ceil(height + bottom)}px`);
+    };
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    observer?.observe(navigation);
+    window.addEventListener("resize", measure);
+    measure();
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+      if (previous) root.style.setProperty("--mobile-navigation-space", previous);
+      else root.style.removeProperty("--mobile-navigation-space");
+    };
+  }, []);
 
   useEffect(() => {
     function closeAccountMenu(event: PointerEvent) {
@@ -56,8 +81,19 @@ export function AppShell({
         menu.removeAttribute("open");
       }
     }
+    function closeOnEscape(event: KeyboardEvent) {
+      const menu = accountMenuRef.current;
+      if (event.key === "Escape" && menu?.open) {
+        menu.removeAttribute("open");
+        menu.querySelector("summary")?.focus();
+      }
+    }
     document.addEventListener("pointerdown", closeAccountMenu);
-    return () => document.removeEventListener("pointerdown", closeAccountMenu);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeAccountMenu);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, []);
 
   async function handleSignOut() {
@@ -202,7 +238,7 @@ export function AppShell({
         {children}
       </div>
 
-      <nav className={styles.mobileNav} aria-label="Mobile navigation">
+      <nav ref={mobileNavigationRef} className={styles.mobileNav} aria-label="Mobile navigation">
         <Link href={homeHref} data-active={isDashboard || isDeskHome} aria-current={isDashboard || isDeskHome ? "page" : undefined}><Icon name="home" /><span>Today</span></Link>
         <Link href={schedulerHref} data-active={isScheduler} aria-current={isScheduler ? "page" : undefined}><Icon name="calendar" /><span>Schedule</span></Link>
         <Link href={patientsHref} data-active={isPatients} aria-current={isPatients ? "page" : undefined}><Icon name="users" /><span>Patients</span></Link>

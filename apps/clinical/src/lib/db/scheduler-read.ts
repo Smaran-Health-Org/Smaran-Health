@@ -137,6 +137,16 @@ async function hydrateSchedulerAppointmentSummariesWithClient(
  * clinical notes, briefs, deltas, confirmed state, document filenames, or
  * audit/event metadata.
  */
+/**
+ * Mirrors the column defaults declared on `clinic_scheduler_settings`
+ * (scheduling_interval_minutes 5, default_duration_minutes 5). Used only when a
+ * clinic has no configuration row at all.
+ */
+export const DEFAULT_CLINIC_SCHEDULER_SETTINGS = {
+  scheduling_interval_minutes: 5,
+  default_duration_minutes: 5,
+} as const;
+
 export async function getSchedulerCalendarWithClient(
   supabase: ServerClient,
   session: SessionContext,
@@ -164,11 +174,20 @@ export async function getSchedulerCalendarWithClient(
     supabase.from("clinic_scheduler_settings").select("scheduling_interval_minutes, default_duration_minutes").eq("clinic_id", session.clinicId).maybeSingle(),
     supabase.from("doctor_scheduler_settings").select("doctor_id, scheduling_interval_minutes, default_duration_minutes").eq("clinic_id", session.clinicId),
   ]);
-  if (appointmentsResult.error || doctorsResult.error || settingsResult.error || doctorSettingsResult.error || !settingsResult.data) throw new SchedulerReadError("not_found");
+  if (appointmentsResult.error || doctorsResult.error || settingsResult.error || doctorSettingsResult.error) throw new SchedulerReadError("not_found");
   const appointments = (appointmentsResult.data ?? []) as RawAppointment[];
   const doctors = (doctorsResult.data ?? []) as Array<{ id: string; full_name: string }>;
   const doctorSettings = new Map((doctorSettingsResult.data ?? []).map((row: { doctor_id: string; scheduling_interval_minutes: number | null; default_duration_minutes: number | null }) => [row.doctor_id, row]));
-  const clinicSettings = settingsResult.data as { scheduling_interval_minutes: number; default_duration_minutes: number };
+  // A missing configuration row is NOT a missing calendar. A clinic that has
+  // never opened Scheduler settings still has patients on its list, and treating
+  // absent configuration as `not_found` rendered a blanket "Calendar
+  // unavailable" with no way forward. Fall back to the same values the columns
+  // themselves declare as defaults.
+  const clinicSettings =
+    (settingsResult.data as {
+      scheduling_interval_minutes: number;
+      default_duration_minutes: number;
+    } | null) ?? DEFAULT_CLINIC_SCHEDULER_SETTINGS;
   return {
     appointments: await hydrateSchedulerAppointmentSummariesWithClient(supabase, session, appointments),
     doctors: doctors.map((row) => {

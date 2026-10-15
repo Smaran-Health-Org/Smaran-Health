@@ -29,6 +29,12 @@ export type ConsultationRecordingStatus = {
   transcriptionFailureCode: string | null;
   /** False once the queue has stopped trying and only a doctor retry can resume it. */
   retryScheduled: boolean;
+  /**
+   * How far the provider flow has actually got. Surfaced so the doctor's screen
+   * can name the current step instead of sitting motionless — a 24-second
+   * recording took 89 seconds end to end, and none of that was visible.
+   */
+  jobPhase: TranscriptionJobPhase | null;
 };
 
 function asPhase(value: unknown): TranscriptionJobPhase | null {
@@ -145,7 +151,7 @@ export async function getConsultationRecordingStatus(
   // the doctor's point of view rather than something worth waiting for.
   const { data: work } = await createServiceRoleClient()
     .from("transcription_work")
-    .select("status")
+    .select("status, sarvam_phase")
     .eq("audio_file_id", String(data.id))
     .maybeSingle();
 
@@ -157,5 +163,6 @@ export async function getConsultationRecordingStatus(
     transcriptionFailureCode:
       typeof data.transcription_failure_code === "string" ? data.transcription_failure_code : null,
     retryScheduled: workStatus === null || workStatus === "pending" || workStatus === "processing",
+    jobPhase: asPhase(work?.sarvam_phase),
   };
 }

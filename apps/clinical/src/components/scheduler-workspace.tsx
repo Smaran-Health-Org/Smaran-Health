@@ -103,7 +103,7 @@ export function SchedulerWorkspace({ initialDoctors, role, actorDoctorId, worksp
     const media = window.matchMedia("(max-width: 1080px)");
     const update = () => setOverlay(media.matches);
     update(); media.addEventListener("change", update);
-    const phone = window.matchMedia("(max-width: 680px)");
+    const phone = window.matchMedia("(max-width: 767px)");
     const preferAgenda = () => { if (phone.matches) setView("agenda"); };
     phone.addEventListener("change", preferAgenda);
     const timer = window.setTimeout(preferAgenda, 0);
@@ -111,13 +111,41 @@ export function SchedulerWorkspace({ initialDoctors, role, actorDoctorId, worksp
   }, []);
   useEffect(() => { if (notice) noticeRef.current?.focus(); }, [notice]);
   useEffect(() => {
+    if (panel.kind === "none" || !overlay) return;
+    const node = document.getElementById("scheduler-side-panel");
+    if (!node) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const viewport = window.visualViewport;
+    const fitVisibleViewport = () => {
+      node.style.setProperty("--scheduler-viewport-height", `${viewport?.height ?? window.innerHeight}px`);
+      node.style.setProperty("--scheduler-viewport-top", `${viewport?.offsetTop ?? 0}px`);
+    };
+    fitVisibleViewport();
+    viewport?.addEventListener("resize", fitVisibleViewport);
+    viewport?.addEventListener("scroll", fitVisibleViewport);
+    window.addEventListener("resize", fitVisibleViewport);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      viewport?.removeEventListener("resize", fitVisibleViewport);
+      viewport?.removeEventListener("scroll", fitVisibleViewport);
+      window.removeEventListener("resize", fitVisibleViewport);
+    };
+  }, [panel.kind, overlay]);
+  useEffect(() => {
     if (panel.kind === "none") return;
     if (overlay && panel.kind === "appointment") document.querySelector<HTMLElement>("#scheduler-side-panel .scheduler-panel-close")?.focus();
     const onEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") closePanel();
       if (event.key !== "Tab" || !overlay) return;
       const node = document.getElementById("scheduler-side-panel");
-      const focusable = [...(node?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), summary, [tabindex="0"]') ?? [])];
+      const focusable = [...(node?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex="0"]') ?? [])].filter((element) => {
+        if (!element.getClientRects().length || getComputedStyle(element).visibility !== "visible") return false;
+        // Closed details may retain child geometry, but their inputs cannot
+        // receive focus. Only the disclosure's summary belongs in the cycle.
+        const closedDetails = element.closest("details:not([open])");
+        return !closedDetails || closedDetails.querySelector("summary") === element;
+      });
       if (!focusable.length) return;
       if (node && !node.contains(document.activeElement)) { event.preventDefault(); focusable[0].focus(); return; }
       if (event.shiftKey && document.activeElement === focusable[0]) { event.preventDefault(); focusable.at(-1)?.focus(); }

@@ -1,4 +1,5 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Consultation } from "@/types";
 
 // PostgREST column aliases map snake_case DB columns → camelCase TS fields.
@@ -123,7 +124,8 @@ export async function getRecentConsultations(
 }
 
 export async function getPendingConsultations(
-  clinicId: string
+  clinicId: string,
+  limit = 20
 ): Promise<ConsultationWithPatient[]> {
   const supabase = await createServerClient();
   const { data, error } = await supabase
@@ -131,7 +133,8 @@ export async function getPendingConsultations(
     .select(CONSULTATION_WITH_NOTE_SELECT)
     .eq("clinic_id", clinicId)
     .eq("status", "draft_ready")
-    .order("started_at", { ascending: false });
+    .order("started_at", { ascending: false })
+    .limit(limit);
 
   if (error) throw new Error(`Failed to fetch pending consultations: ${error.message}`);
 
@@ -147,9 +150,10 @@ export async function getPendingConsultations(
 
 export async function getConsultation(
   id: string,
-  clinicId: string
+  clinicId: string,
+  client?: SupabaseClient
 ): Promise<Consultation | null> {
-  const supabase = await createServerClient();
+  const supabase = (client ?? (await createServerClient())) as SupabaseClient;
   const { data, error } = await supabase
     .from("consultations")
     .select(CONSULTATION_COLUMNS)
@@ -211,9 +215,10 @@ export async function updateConsultation(
     consentVersion?: string;
     endedAt?: string;
   },
-  clinicId: string
+  clinicId: string,
+  client?: SupabaseClient
 ): Promise<Consultation> {
-  const supabase = await createServerClient();
+  const supabase = (client ?? (await createServerClient())) as SupabaseClient;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: Record<string, any> = {};
   if (input.status !== undefined) updateData.status = input.status;
