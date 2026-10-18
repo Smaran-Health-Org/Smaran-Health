@@ -195,24 +195,24 @@ job actually takes.
 
 Every run is stored in this browser, so a benchmark costs nothing to keep:
 
-- **History** — one row per run: recording length, audio size, model, total, ratio, and
+- **History** ï¿½ one row per run: recording length, audio size, model, total, ratio, and
   Sarvam's own provider wait. Click a row for its per-step breakdown.
-- **Benchmarks** — runs grouped by **recording length** with median total, ratio,
+- **Benchmarks** ï¿½ runs grouped by **recording length** with median total, ratio,
   provider wait and *our overhead* (total - provider wait). Grouping by length is the
   only honest basis for before/after, because the wait scales with the audio.
-- **Log** — timestamped lifecycle events (initiate, upload, start, each status probe,
+- **Log** ï¿½ timestamped lifecycle events (initiate, upload, start, each status probe,
   download, errors). Downloadable as JSON.
 
-Export JSON or CSV from the History section to compare across machines — the data is
+Export JSON or CSV from the History section to compare across machines ï¿½ the data is
 localStorage, not a database, so nothing leaves your browser unless you export it.
 
 **The log and history never contain transcript text or audio**, only timings, sizes,
 counts and job ids. Benchmarking must not become a PHI leak.
 ## A/B compare: diarization on vs off
 
-Tick **A/B compare diarization** before recording (or before uploading a clip). The page
-then runs **two batch jobs on the same bytes, at the same moment** — one with
-diarization, one without — and shows a side-by-side table: total, provider wait, our
+Choose **A/B â€” both** in the Diarization selector before recording (or before uploading a
+clip). The page then runs **two batch jobs on the same bytes, at the same moment** â€” one
+with diarization, one without â€” and shows a side-by-side table: total, provider wait, our
 overhead, status probes, transcript chars, speaker turns, and the delta.
 
 Why concurrent instead of one after another: running them sequentially lets the
@@ -225,11 +225,11 @@ is therefore symmetric and cancels out of the delta.
 
 What the numbers mean:
 
-- **provider wait delta** — Sarvam's own extra work for diarization. This is the cost the
+- **provider wait delta** ï¿½ Sarvam's own extra work for diarization. This is the cost the
   hybrid pays for its labelling pass.
-- **transcript chars delta** — non-zero is expected and worth reading: diarization can
+- **transcript chars delta** ï¿½ non-zero is expected and worth reading: diarization can
   re-segment the text.
-- **speaker turns** — 0 means the diarized job returned no usable diarized_transcript
+- **speaker turns** ï¿½ 0 means the diarized job returned no usable diarized_transcript
   block (it is beta), which would break any label-grafting design.
 
-Pre-initiate is disabled in A/B mode — one pre-initiated job cannot be reused for two.
+Pre-initiate is disabled in A/B mode ï¿½ one pre-initiated job cannot be reused for two.

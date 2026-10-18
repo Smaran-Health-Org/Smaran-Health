@@ -29,12 +29,7 @@
         </div>
         <label class="check">
           <input type="checkbox" id="pre-initiate" checked />
-          Pre-initiate the job when recording starts <span class="muted">(E2 — ignored in A/B mode)</span>
-        </label>
-        <label class="check">
-          <input type="checkbox" id="ab-compare" />
-          <strong>A/B compare diarization</strong> &nbsp;— run two jobs on the same audio,
-          diarization on and off, in parallel
+          Pre-initiate the job when recording starts <span class="muted">(E2 — skipped in A/B)</span>
         </label>
         <div class="record-row">
           <input type="file" id="file-input" accept="audio/*" />
@@ -53,10 +48,11 @@
           <label>Model <select id="model"></select></label>
           <label>Mode <select id="mode"></select></label>
           <label>Language <select id="language"></select></label>
-          <label>Diarization <span class="muted">— ignored in A/B mode</span>
+          <label>Diarization
             <select id="diarization">
-              <option value="1" selected>on</option>
-              <option value="0">off</option>
+              <option value="on" selected>on — speaker labels (₹45/hr)</option>
+              <option value="off">off — no labels, cheaper (₹30/hr)</option>
+              <option value="ab">A/B — both, same audio (2 jobs)</option>
             </select>
           </label>
           <label>Poll interval (ms) <span class="muted">— ≥3000 stays under the 20 req/min batch limit</span>

@@ -161,14 +161,14 @@ async function startRecording() {
   }, 250);
 
   state.preJob = null;
-  const comparing = el("ab-compare").checked;
+  const comparing = el("diarization").value === "ab";
   if (el("pre-initiate").checked && !comparing) {
     el("level").textContent = "pre-initiating job…";
     try {
       const response = await fetch("/api/job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...settings(), diarization: el("diarization").value === "1" }),
+        body: JSON.stringify({ ...settings(), diarization: el("diarization").value !== "off" }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "initiate failed");
@@ -231,7 +231,6 @@ function settings() {
     model: el("model").value,
     mode: el("mode").value,
     language: el("language").value,
-    diarization: el("diarization").value === "1",
   };
 }
 
@@ -492,7 +491,7 @@ async function runPipeline(blob, mimeType, durationSec) {
   const host = el("run-panel");
   host.innerHTML = "";
   const label = el("label").value.trim();
-  const comparing = el("ab-compare").checked;
+  const comparing = el("diarization").value === "ab";
 
   try {
     if (!comparing) {
@@ -501,7 +500,7 @@ async function runPipeline(blob, mimeType, durationSec) {
         blob,
         mimeType,
         durationSec,
-        diarization: el("diarization").value === "1",
+        diarization: el("diarization").value !== "off",
         variant: "single",
         card,
         reuseJob: state.preJob,
