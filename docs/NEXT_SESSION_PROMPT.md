@@ -129,23 +129,34 @@ about unmeasured numbers, and on implementation detail. This is the reconciled p
 | pyannote/WeSpeaker diarization sidecar, ~2 s for 10 min, cuts ₹75→₹30/hr | B | **Defer.** It is a second system touching clinical audio (DPA, retention, GPU hosting, monitoring), and ~2 s for a 10-min diarization is optimistic by roughly 3–5×. The ₹30/hr saving ignores the GPU bill. Park it as option C. |
 | "Total wait becomes 3–5 s" | B | **An estimate presented as a result.** Replace with measurements (§11). |
 
-### Third review — the implementation code
+### Third review — the implementation code (two iterations)
 
-A third pass supplied working code (an `AudioWorklet` silence cutter, a client-side
-window scheduler, and a `node:https` TLS-breakdown harness). The direction matches §8
-and it is a usable starting point, but four defects would cost accuracy or hang the run.
-Take the shape, not the code.
+A third pass supplied working code: an `AudioWorklet` silence cutter, a client-side
+window scheduler, a `node:https` TLS-breakdown harness, and a presigned-PUT CORS probe.
+Iteration 1 had four run-breaking defects; iteration 2 fixed all four. **The code is now
+a faithful implementation of §8 — adopt it**, with the gaps listed below.
 
-| Proposed | Verdict |
+| Iteration 1 defect | Status |
 | --- | --- |
-| 48 kHz → 16 kHz by incrementing an accumulator and dropping samples | **Reject — accuracy bug.** Decimation without a low-pass filter aliases high frequencies into the speech band and degrades ASR, worst on English words inside codemix. Create the context at 16 kHz (`new AudioContext({ sampleRate: 16000 })`) and let the browser resample, or resample once with `OfflineAudioContext` at stop. |
-| Silence detection by peak sample `|x| < 0.008` (−42 dBFS), labelled "RMS" | **Reject — fails in the real room.** A ceiling fan or AC keeps every sample above the threshold, so silence is never detected, every window becomes a hard-cap cut, and you get the overlap path you were trying to avoid. Use RMS over ~50 ms windows and calibrate the noise floor during the existing pre-flight mic check. |
-| Reading `data.timestamps` as objects with `start_s` / `end_s` | **Bug.** Sarvam returns parallel arrays — `{words[], start_time_seconds[], end_time_seconds[]}` — so that mapping silently yields `NaN`. |
-| "Byte offset ÷ 32 000 = seconds" combined with its own 1.75 s overlap copy | **Only true without overlap.** A header overlap duplicates samples, so absolute time must come from the window's `start_s` + `(byteOffset / 2) / 16000`. Pick one rule and state it once. |
-| Scheduler with `maxInFlight = 2` and per-window retry | **Adopt, with two fixes.** (1) No `AbortController`/timeout: a 504 leaves `inFlight` occupied forever and `checkDone` never fires, so the run looks hung. (2) Retry without de-duplication: a lost response followed by a retry duplicates that window's text. Key retries by window index. |
-| TLS breakdown via `socket.once('lookup' | 'connect' | 'secureConnect')` + `req.reusedSocket` | **Adopt.** This is the right way to settle the cold-TLS question instead of guessing about DNS ordering. |
-| Loop one 60 s clip ×2/×5/×10 to synthesise the 2/5/10 min benchmark files | **Adopt — for provider timing only.** It is meaningless for accuracy; label it as such so nobody scores WER on it. |
-| "Interactive pipeline latency & rate-limit explorer" | **Did not arrive.** Nothing was delivered — do not plan around it. |
+| 48 kHz → 16 kHz by dropping samples | **Fixed** — context created at 16 kHz, with an `OfflineAudioContext` fallback if the browser refuses |
+| Peak-sample threshold labelled "RMS" | **Fixed** — 50 ms RMS blocks with a calibrated noise floor |
+| Timestamps read as objects with `start_s` | **Fixed** — parallel arrays zipped correctly |
+| Byte ÷ 32 000 used as global time alongside an overlap copy | **Fixed** — the window's own `start_s` is the clock |
+| No request timeout; retries could duplicate text | **Fixed** — `AbortController` + overwrite-by-index |
+| TLS breakdown from socket lifecycle events + `reusedSocket` | **Adopt as-is.** Settles the cold-TLS question by measurement instead of guessing |
+| Looping a 60 s clip ×2/×5/×10 for the benchmark | **Adopt for provider timing only** — never score WER on it |
+| "Interactive pipeline latency explorer" | **Never delivered** — do not plan around it |
+
+Remaining gaps in iteration 2 — close these before trusting its output:
+
+| Gap | Why it matters |
+| --- | --- |
+| **The overlap is measured but never de-duplicated.** Windows carry `hasOverlap` / `overlap_s` and the scheduler stores them, but nothing removes the repeated 1.75 s of text. | Every hard-cap window silently repeats ~2 s of speech in the transcript. De-duplicate at assembly (longest normalised suffix/prefix match) or drop the overlap and accept the seam. |
+| **`markRecordingStopped()` can race the tail window.** The worklet emits `stop-tail` over `postMessage`, which arrives asynchronously; if the scheduler is told to stop first, `checkDone` fires on an empty queue and the tail is discarded. | The last window of **every** visit would be missing. Gate the stop on the tail being enqueued. |
+| **Noise-floor calibration runs over the first 500 ms of the visit** — usually the doctor starting to speak, or the mic's opening click. A speech-level floor clamps the threshold to its maximum, and a threshold that is too high cuts *inside* speech. | That failure is worse than the overlap path it was meant to avoid. Calibrate during the existing **pre-flight mic check** (room tone, doctor silent) and clamp tightly around the measured floor. |
+| The threshold is clamped only on the calibration path, not in the constructor default. | Two code paths with two rules is how this bug comes back. |
+| `abort(new Error(…))` rejects with that error, so `err.name === 'AbortError'` never matches. | Harmless today (the message is right) but misleading — check `signal.reason`, or call `abort()` with no argument. |
+| Sarvam's `words` array is **phrase-level**, not word-level. | Speaker-label grafting therefore works at phrase granularity. Fine — just do not assume per-word timing anywhere. |
 
 ## 7. Deployment reality on Vercel — what all three analyses missed
 
@@ -223,10 +234,15 @@ Rejected without new data:
    Also decide here whether the same capture feeds the WS path, and remember mobile
    browsers suspend `AudioContext` when the tab is backgrounded — the existing wake lock
    is what keeps that from silently truncating a visit.
-2. **Batch timing measurement** (see §11) — do this before step 4.
+   **Calibrate the silence threshold during the pre-flight mic check**, never during the
+   first 500 ms of the consultation.
+2. **Batch timing measurement** (see §11) — do this before step 4. Run the §11 CORS
+   probe here too: it decides whether uploads can bypass Vercel at all (§7.11).
 3. **`chunked-rest` mode.** Windows cut on silence with a 25 s hard cap; keep a 1.5–2 s
    overlap **only** for the hard-cap case, since a silence cut needs no dedupe; ≤2 in
-   flight; per-window latency; a failed window retries alone.
+   flight; per-window latency; a failed window retries alone. **Actually de-duplicate the
+   overlap** — recording `overlap_s` is not the same as removing the repeated text, and
+   the supplied code never does it.
 4. **`stream` mode** (ceiling only). One long-lived WS per session — never one per chunk,
    bursts are rejected. `model=saaras:v4`, `mode=codemix`, `language_code=auto`,
    `endpointing=vad`, `return_timestamps=true`. On stop send `end`, record
