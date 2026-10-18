@@ -181,3 +181,13 @@ Everything is plain Node + browser JavaScript. No build step, no framework.
 wins, port that single change into `apps/clinical` on the main branch and re-measure
 there with the `debug_events` query — this app decides *what* to change, it does not
 prove the production app changed.
+### Deployed instances
+
+| App | URL | Notes |
+| --- | --- | --- |
+| Tester (this branch) | https://smaran-audio-tester.vercel.app | stateless cloud path, SARVAM_API_KEY set in the project |
+| Clinical app | https://www.smaranhealth.com | production, dev-keshav |
+
+The tester answers the two open questions the moment someone records a clip: whether
+browser-direct upload to Sarvam's storage is allowed (CORS), and how long a whole batch
+job actually takes.

@@ -1,6 +1,9 @@
 {
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": "public",
   "cleanUrls": true,
-  "rewrites": [{ "source": "/", "destination": "/cloud.html" }],
+  "redirects": [{ "source": "/", "destination": "/cloud", "permanent": false }],
   "functions": {
     "api/*.js": { "maxDuration": 30 }
   }
