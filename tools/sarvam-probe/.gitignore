@@ -1,0 +1,4 @@
+# Local runs contain transcripts of real audio — never commit.
+runs/
+runs.jsonl
+.env
