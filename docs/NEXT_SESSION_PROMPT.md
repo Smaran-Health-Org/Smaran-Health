@@ -34,7 +34,7 @@ stays unconfirmed until an authorised doctor confirms it. Read the root `AGENTS.
 | `README.md` | how the tester runs (`cp .env.example .env`, `npm start`, port 8787) |
 | `AGENTS.md` | hard rules for this branch (zero dependencies, no audio on disk) |
 | `docs/EXPERIMENTS.md` | existing E2/E3/E5 procedures and the results log |
-| `server.mjs` | whole backend: Sarvam batch/REST calls, timings, SSE, run registry |
+| `local-server.mjs` | whole backend: Sarvam batch/REST calls, timings, SSE, run registry |
 | `public/app.js` | MediaRecorder capture → POST → live step stream |
 
 Production protocol reference (source of truth): `apps/clinical/src/lib/ai/sarvam.ts`
@@ -315,7 +315,7 @@ Minimum three data points each, same recording length, ratio recorded.
 
 ## 13. Definition of done
 
-- `node --check server.mjs` and `node --check public/app.js` pass; server boots; one real
+- `node --check local-server.mjs` and `node --check public/app.js` pass; server boots; one real
   `batch-single` run and one new-mode run reach `Completed`.
 - The §11 batch-timing table is filled for three file durations.
 - `docs/EXPERIMENTS.md` has new rows; `README.md` documents each new mode.

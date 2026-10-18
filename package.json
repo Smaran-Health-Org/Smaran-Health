@@ -5,8 +5,8 @@
   "type": "module",
   "description": "Local lab: record audio and probe Sarvam STT batch/REST latency without touching the clinical app.",
   "scripts": {
-    "start": "node server.mjs",
-    "dev": "node --watch server.mjs",
+    "start": "node local-server.mjs",
+    "dev": "node --watch local-server.mjs",
     "selftest": "node scripts/selftest-stitch.mjs"
   },
   "engines": {

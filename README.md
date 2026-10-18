@@ -29,7 +29,7 @@ cp .env.example .env     # Windows: copy .env.example .env
 npm start                # → http://localhost:8787
 ```
 
-There is nothing to install: `npm start` just runs `node server.mjs`. Node 18+.
+There is nothing to install: `npm start` just runs `node local-server.mjs`. Node 18+.
 
 You should see:
 
@@ -80,13 +80,13 @@ Detailed step-by-step procedures: [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md).
 
 ## Deploy to Vercel
 
-The local app (`server.mjs`) is a single long-running process: it holds the run registry
+The local app (`local-server.mjs`) is a single long-running process: it holds the run registry
 and streams SSE. A serverless function can do neither, so the deployed variant is a
 **separate, stateless path**:
 
 | Local (`npm start`) | Deployed (Vercel) |
 | --- | --- |
-| `server.mjs` serves `/` and one SSE run stream | `api/*.js` — one bounded Sarvam call per request |
+| `local-server.mjs` serves `/` and one SSE run stream | `api/*.js` — one bounded Sarvam call per request |
 | run state in server memory | run state **in the browser** (`cloud.js`) |
 | upload posted to the server | browser **PUTs directly to Sarvam storage** |
 
@@ -160,7 +160,7 @@ Run history is visible in the page (bottom table). Click any row to inspect it.
 ## What this branch contains
 
 ```
-server.mjs                the whole backend: Sarvam calls, timings, run registry, SSE
+local-server.mjs                the whole backend: Sarvam calls, timings, run registry, SSE
 public/index.html         the UI
 public/app.js             UI logic (record → POST → live step stream)
 public/styles.css         styling

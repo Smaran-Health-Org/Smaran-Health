@@ -1,5 +1,4 @@
 {
-  "name": "smaran-audio-tester",
   "cleanUrls": true,
   "rewrites": [{ "source": "/", "destination": "/cloud.html" }],
   "functions": {

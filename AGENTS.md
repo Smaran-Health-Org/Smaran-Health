@@ -19,7 +19,7 @@ Facts that shape every decision here:
 - **Branch is orphaned on purpose.** It does not share history with `dev-keshav`, so it
   must never be merged into it. Cherry-pick ideas, never merge.
 - **Zero dependencies.** Only `node:` built-ins. Do not add `express`, `undici`,
-  `dotenv`, a bundler, or a framework. `npm start` = `node server.mjs`.
+  `dotenv`, a bundler, or a framework. `npm start` = `node local-server.mjs`.
 - **Single user, localhost only.** The server binds `127.0.0.1` deliberately.
 - **The clinical app is the source of truth for the protocol.** This app mirrors
   `apps/clinical/src/lib/ai/sarvam.ts` and
@@ -30,7 +30,7 @@ Facts that shape every decision here:
 
 | File | Responsibility |
 | --- | --- |
-| `server.mjs` | everything backend: env loading, HTTP client with timings, Sarvam batch + REST pipelines, run registry, SSE, static serving |
+| `local-server.mjs` | everything backend: env loading, HTTP client with timings, Sarvam batch + REST pipelines, run registry, SSE, static serving |
 | `public/app.js` | recording (MediaRecorder), building query params, rendering the live step stream |
 | `public/pcm-window-worklet.js` | 16 kHz PCM capture, 50 ms RMS silence cutting, 25 s hard cap. Owns the clock (`start_s`). |
 | `public/chunk-stitch.js` | pure window reassembly: timestamp zip, one-authority overlap de-duplication, gap reporting. `npm run selftest` covers it. |
@@ -40,7 +40,7 @@ Facts that shape every decision here:
 | `docs/NEXT_SESSION_PROMPT.md` | self-contained brief for the next working session (problem, verified Sarvam facts, plan, constraints) |
 | `README.md` | the team's runbook |
 
-Keep this shape. Do not split `server.mjs` into modules just to be tidy — one readable
+Keep this shape. Do not split `local-server.mjs` into modules just to be tidy — one readable
 file is the point.
 
 ## 3. Run and validate
@@ -52,7 +52,7 @@ npm start                # http://localhost:8787
 
 Validation before you claim a change works:
 
-1. `node --check server.mjs` and `node --check public/app.js` — syntax.
+1. `node --check local-server.mjs` and `node --check public/app.js` — syntax.
 2. Boot the server and confirm it prints `API key: loaded`.
 3. `curl http://127.0.0.1:8787/api/config` returns JSON.
 4. One **real** run through the UI (or `POST /api/runs`) that reaches `Completed`, and
@@ -62,7 +62,7 @@ Validation before you claim a change works:
 You can smoke-test the error path without a valid key by starting with a dummy key:
 
 ```powershell
-$env:SARVAM_API_KEY='test'; $env:PROBE_PORT='8788'; node server.mjs
+$env:SARVAM_API_KEY='test'; $env:PROBE_PORT='8788'; node local-server.mjs
 ```
 
 Never report a run as successful if you did not actually make the Sarvam call.
@@ -86,7 +86,7 @@ Never report a run as successful if you did not actually make the Sarvam call.
 
 ## 5. How to add an experiment lever
 
-1. Add the param in `readRunParams()` in `server.mjs` (use `parseBool` / `parseNumber`
+1. Add the param in `readRunParams()` in `local-server.mjs` (use `parseBool` / `parseNumber`
    — note `parseNumber` treats missing as the fallback, not as `0`).
 2. Use it in `runBatch()` / `runRest()` where it belongs.
 3. Add the control to `public/index.html`, read it in `buildParams()` in
