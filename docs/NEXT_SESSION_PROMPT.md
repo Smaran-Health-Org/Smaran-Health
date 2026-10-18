@@ -158,6 +158,24 @@ Remaining gaps in iteration 2 — close these before trusting its output:
 | `abort(new Error(…))` rejects with that error, so `err.name === 'AbortError'` never matches. | Harmless today (the message is right) but misleading — check `signal.reason`, or call `abort()` with no argument. |
 | Sarvam's `words` array is **phrase-level**, not word-level. | Speaker-label grafting therefore works at phrase granularity. Fine — just do not assume per-word timing anywhere. |
 
+**Iteration 3 closed all six gaps** and is landed in this branch:
+`public/pcm-window-worklet.js`, `public/chunk-stitch.js`, `scripts/selftest-stitch.mjs`
+(`npm run selftest`). Four judgement calls were changed while landing it:
+
+- **One de-duplication authority per seam**, not two. Iteration 3 ran a word-suffix
+  trim *and* a timestamp filter over the same window; when they disagreed the text and
+  the phrase list covered different content. Now: timestamps when the provider gives
+  them, word matching only as a fallback, with both recorded in `seamAudit`.
+- **No large copy on the audio thread.** The 800 kB `slice()` per window is replaced by
+  a pooled buffer that the main thread recycles, with only the 1.75 s tail copied.
+- **Failed windows become explicit `gaps`.** A dropped window must show as a hole in the
+  transcript, not as text that silently skips a minute of a consultation.
+- **Silence cutting disables itself** when the measured floor is louder than the clamp
+  can express, rather than guessing a threshold that cuts inside speech.
+
+Still not wired: `/api/chunk-rest`, `/api/probe-presigned-url`, and the app.js capture
+switch. That is step 1–3 of §9 and the next piece of work.
+
 ## 7. Deployment reality on Vercel — what all three analyses missed
 
 This is the section that changes the answer, so read it before designing anything.

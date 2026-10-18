@@ -6,7 +6,8 @@
   "description": "Local lab: record audio and probe Sarvam STT batch/REST latency without touching the clinical app.",
   "scripts": {
     "start": "node server.mjs",
-    "dev": "node --watch server.mjs"
+    "dev": "node --watch server.mjs",
+    "selftest": "node scripts/selftest-stitch.mjs"
   },
   "engines": {
     "node": ">=18"

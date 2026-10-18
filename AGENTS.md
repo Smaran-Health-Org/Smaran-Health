@@ -32,6 +32,8 @@ Facts that shape every decision here:
 | --- | --- |
 | `server.mjs` | everything backend: env loading, HTTP client with timings, Sarvam batch + REST pipelines, run registry, SSE, static serving |
 | `public/app.js` | recording (MediaRecorder), building query params, rendering the live step stream |
+| `public/pcm-window-worklet.js` | 16 kHz PCM capture, 50 ms RMS silence cutting, 25 s hard cap. Owns the clock (`start_s`). |
+| `public/chunk-stitch.js` | pure window reassembly: timestamp zip, one-authority overlap de-duplication, gap reporting. `npm run selftest` covers it. |
 | `public/index.html` | the form controls |
 | `public/styles.css` | styling (supports light + dark) |
 | `docs/EXPERIMENTS.md` | the procedures a human follows, and the results log |

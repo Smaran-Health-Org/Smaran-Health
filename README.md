@@ -123,12 +123,15 @@ Run history is visible in the page (bottom table). Click any row to inspect it.
 ## What this branch contains
 
 ```
-server.mjs          the whole backend: Sarvam calls, timings, run registry, SSE
-public/index.html   the UI
-public/app.js       UI logic (record → POST → live step stream)
-public/styles.css   styling
-docs/EXPERIMENTS.md procedures + results log template
-AGENTS.md           instructions for AI coding agents working on this branch
+server.mjs                the whole backend: Sarvam calls, timings, run registry, SSE
+public/index.html         the UI
+public/app.js             UI logic (record → POST → live step stream)
+public/styles.css         styling
+public/pcm-window-worklet.js  16 kHz PCM capture + silence-cut windows (not wired yet)
+public/chunk-stitch.js    window reassembly + overlap de-duplication (not wired yet)
+scripts/selftest-stitch.mjs    `npm run selftest` — seam cases, no network
+docs/EXPERIMENTS.md       procedures + results log template
+AGENTS.md                 instructions for AI coding agents working on this branch
 ```
 
 Everything is plain Node + browser JavaScript. No build step, no framework.
