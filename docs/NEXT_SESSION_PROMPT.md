@@ -249,7 +249,7 @@ Unknown and possibly 10–40 s — measure before optimising anything else.
 - Rolling/delta extraction is allowed only if every intermediate stays draft-only and
   unpersisted.
 
-## 11. The four measurements that decide everything
+## 11. The five measurements that decide everything
 
 | Measurement | Decides |
 | --- | --- |
