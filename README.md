@@ -208,12 +208,12 @@ localStorage, not a database, so nothing leaves your browser unless you export i
 
 **The log and history never contain transcript text or audio**, only timings, sizes,
 counts and job ids. Benchmarking must not become a PHI leak.
-## A/B compare: diarization on vs off
+## Diarization A/B (always on)
 
-Choose **A/B — both** in the Diarization selector before recording (or before uploading a
-clip). The page then runs **two batch jobs on the same bytes, at the same moment** — one
-with diarization, one without — and shows a side-by-side table: total, provider wait, our
-overhead, status probes, transcript chars, speaker turns, and the delta.
+There is no diarization setting to choose: every recording runs **two batch jobs on the
+same bytes, at the same moment** — one with diarization, one without — and the page shows
+a side-by-side table: total, provider wait, our overhead, status probes, transcript chars,
+speaker turns, and the delta.
 
 Why concurrent instead of one after another: running them sequentially lets the
 provider's queue position drift between the two, which looks exactly like a diarization
@@ -232,4 +232,4 @@ What the numbers mean:
 - **speaker turns** � 0 means the diarized job returned no usable diarized_transcript
   block (it is beta), which would break any label-grafting design.
 
-Pre-initiate is disabled in A/B mode � one pre-initiated job cannot be reused for two.
+Pre-initiate creates **both** jobs at recording start, so E2 is measured for both halves.

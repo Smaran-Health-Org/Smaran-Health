@@ -32,7 +32,7 @@ const state = {
   startedAt: 0,
   timerId: null,
   stream: null,
-  preJob: null,
+  preJobs: null,
   lastBlob: null,
   lastMime: "audio/webm",
   lastDuration: 0,
@@ -160,27 +160,28 @@ async function startRecording() {
     el("timer").textContent = fmtClock(Date.now() - state.startedAt);
   }, 250);
 
-  state.preJob = null;
-  const comparing = el("diarization").value === "ab";
-  if (el("pre-initiate").checked && !comparing) {
-    el("level").textContent = "pre-initiating job…";
+  state.preJobs = null;
+  if (el("pre-initiate").checked) {
+    el("level").textContent = "pre-initiating both jobs…";
     try {
-      const response = await fetch("/api/job", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...settings(), diarization: el("diarization").value !== "off" }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "initiate failed");
-      state.preJob = { jobId: data.jobId, ms: data.ms };
-      el("level").textContent = `job ready in ${fmtMs(data.ms)} — E2 cost already paid`;
-      log("info", "pre-initiate (E2)", { jobId: data.jobId, ms: data.ms });
+      const initiate = async (diarization) => {
+        const response = await fetch("/api/job", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...settings(), diarization }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "initiate failed");
+        return data;
+      };
+      const [withLabels, withoutLabels] = await Promise.all([initiate(true), initiate(false)]);
+      state.preJobs = { on: withLabels, off: withoutLabels };
+      el("level").textContent = `2 jobs ready in ${fmtMs(Math.max(withLabels.ms, withoutLabels.ms))} — E2 paid`;
+      log("info", "pre-initiate both (E2)", { on: withLabels.ms, off: withoutLabels.ms });
     } catch (error) {
       el("level").textContent = `pre-initiate failed: ${error.message}`;
       log("error", "pre-initiate failed", { message: error.message });
     }
-  } else if (comparing) {
-    log("info", "A/B mode: pre-initiate skipped", { reason: "two jobs, cannot reuse one" });
   }
 }
 
@@ -205,7 +206,7 @@ async function handleStopped() {
   el("rerun-btn").disabled = false;
   log("info", "recording stopped", { seconds: Number(durationSec.toFixed(1)), bytes: blob.size });
   await runPipeline(blob, state.mimeType, durationSec);
-  state.preJob = null;
+  state.preJobs = null;
 }
 
 function probeDuration(file) {
@@ -491,27 +492,10 @@ async function runPipeline(blob, mimeType, durationSec) {
   const host = el("run-panel");
   host.innerHTML = "";
   const label = el("label").value.trim();
-  const comparing = el("diarization").value === "ab";
 
   try {
-    if (!comparing) {
-      const card = createCard(host, label || "run");
-      await runVariant({
-        blob,
-        mimeType,
-        durationSec,
-        diarization: el("diarization").value !== "off",
-        variant: "single",
-        card,
-        reuseJob: state.preJob,
-      });
-      state.preJob = null;
-      return;
-    }
-
-    // Two jobs, same bytes, same moment. Running them concurrently removes the biggest
-    // confounder in a sequential A/B: provider queue position drifting between runs.
-    log("info", "A/B comparison started", { bytes: blob.size });
+    // Same bytes, two jobs, submitted at the same moment: one diarized, one not.
+    log("info", "comparison started", { bytes: blob.size });
     el("ab-card").hidden = false;
     el("ab-summary").innerHTML = "";
     document.querySelector("#ab-table tbody").innerHTML = "";
@@ -521,10 +505,26 @@ async function runPipeline(blob, mimeType, durationSec) {
     const offCard = createCard(host, `${label || "run"} — diarization OFF`);
 
     const [on, off] = await Promise.all([
-      runVariant({ blob, mimeType, durationSec, diarization: true, variant: "diar-on", card: onCard }),
-      runVariant({ blob, mimeType, durationSec, diarization: false, variant: "diar-off", card: offCard }),
+      runVariant({
+        blob,
+        mimeType,
+        durationSec,
+        diarization: true,
+        variant: "diar-on",
+        card: onCard,
+        reuseJob: state.preJobs?.on,
+      }),
+      runVariant({
+        blob,
+        mimeType,
+        durationSec,
+        diarization: false,
+        variant: "diar-off",
+        card: offCard,
+        reuseJob: state.preJobs?.off,
+      }),
     ]);
-    state.preJob = null;
+    state.preJobs = null;
     renderComparison(on, off);
   } finally {
     state.busy = false;
@@ -578,6 +578,15 @@ function renderComparison(on, off) {
     add("Comparison incomplete — see the per-step breakdown above.");
   }
 
+  if (order !== "concurrent") {
+    add(
+      `Sequential order: ${order}. The second job started after the first finished, so provider ` +
+        `queue drift between the two runs is inside these numbers. Run the opposite order on the ` +
+        `same clip and average the two deltas to cancel it.`
+    );
+  } else {
+    add("Concurrent: both jobs were submitted at the same moment, so queue drift is shared.");
+  }
   const box = el("ab-transcripts");
   for (const [name, record] of [
     ["diarization ON", on],

@@ -29,7 +29,7 @@
         </div>
         <label class="check">
           <input type="checkbox" id="pre-initiate" checked />
-          Pre-initiate the job when recording starts <span class="muted">(E2 — skipped in A/B)</span>
+          Pre-initiate both jobs when recording starts <span class="muted">(E2)</span>
         </label>
         <div class="record-row">
           <input type="file" id="file-input" accept="audio/*" />
@@ -48,13 +48,6 @@
           <label>Model <select id="model"></select></label>
           <label>Mode <select id="mode"></select></label>
           <label>Language <select id="language"></select></label>
-          <label>Diarization
-            <select id="diarization">
-              <option value="ab" selected>both paths — A/B (target design)</option>
-              <option value="on">diarization only — today's production job</option>
-              <option value="off">no diarization only — control, never run in production</option>
-            </select>
-          </label>
           <label>Poll interval (ms) <span class="muted">— ≥3000 stays under the 20 req/min batch limit</span>
             <input id="poll-ms" type="number" min="1000" step="500" value="3000" />
           </label>
