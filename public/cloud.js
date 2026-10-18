@@ -388,7 +388,7 @@ async function runPipeline(blob, mimeType, durationSec) {
     });
 
     // 5. Poll — the browser owns this loop; no function is held open.
-    const pollMs = Math.max(500, Number(el("poll-ms").value) || 2000);
+    const pollMs = Math.max(1000, Number(el("poll-ms").value) || 3000);
     const deadline = Date.now() + 15 * 60 * 1000;
     const waitStartedAt = performance.now();
     let probes = 0;

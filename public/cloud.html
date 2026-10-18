@@ -54,8 +54,8 @@
               <option value="0">off</option>
             </select>
           </label>
-          <label>Poll interval (ms)
-            <input id="poll-ms" type="number" min="500" step="500" value="2000" />
+          <label>Poll interval (ms) <span class="muted">— ≥3000 stays under the 20 req/min batch limit</span>
+            <input id="poll-ms" type="number" min="1000" step="500" value="3000" />
           </label>
           <label class="wide">Label
             <input id="label" type="text" placeholder="e.g. v3 baseline, 24 s clip" />
