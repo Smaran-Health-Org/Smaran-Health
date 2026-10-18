@@ -1,8 +1,9 @@
 # Next-session prompt — Sarvam transcription latency (merged + reviewed)
 
-Paste everything below the line into a new chat. It merges two independent design
-reviews, reconciles their disagreements, corrects the claims that were wrong, and adds
-the deployment constraints both missed. Read section 2 before writing any code.
+Paste everything below the line into a new chat. It merges three independent design
+reviews (two architecture proposals plus one set of implementation code), reconciles
+their disagreements, corrects the claims that were wrong, and adds the deployment
+constraints all three missed. Read section 2 before writing any code.
 
 ---
 
@@ -104,11 +105,11 @@ Docs: `docs.sarvam.ai/api/api-guides-tutorials/speech-to-text/{which-api-to-use,
   a word into a **separate speaker turn**, and names/numbers still need verification.
 - Benchmarks are vendor-run; weights are closed.
 
-## 6. The two prior analyses — what to keep, what to discard
+## 6. The three prior analyses — what to keep, what to discard
 
-Two reviews proposed changes. Both agree on the thesis: **transcribe during the visit,
-diarize afterwards, measure before rebuilding.** They differ on transport and on
-honesty about unmeasured numbers. This is the reconciled position.
+Three reviews contributed. All agree on the thesis: **transcribe during the visit,
+diarize afterwards, measure before rebuilding.** They differ on transport, on honesty
+about unmeasured numbers, and on implementation detail. This is the reconciled position.
 
 | Proposal | Source | Verdict |
 | --- | --- | --- |
@@ -128,7 +129,25 @@ honesty about unmeasured numbers. This is the reconciled position.
 | pyannote/WeSpeaker diarization sidecar, ~2 s for 10 min, cuts ₹75→₹30/hr | B | **Defer.** It is a second system touching clinical audio (DPA, retention, GPU hosting, monitoring), and ~2 s for a 10-min diarization is optimistic by roughly 3–5×. The ₹30/hr saving ignores the GPU bill. Park it as option C. |
 | "Total wait becomes 3–5 s" | B | **An estimate presented as a result.** Replace with measurements (§11). |
 
-## 7. Deployment reality on Vercel — what both analyses missed
+### Third review — the implementation code
+
+A third pass supplied working code (an `AudioWorklet` silence cutter, a client-side
+window scheduler, and a `node:https` TLS-breakdown harness). The direction matches §8
+and it is a usable starting point, but four defects would cost accuracy or hang the run.
+Take the shape, not the code.
+
+| Proposed | Verdict |
+| --- | --- |
+| 48 kHz → 16 kHz by incrementing an accumulator and dropping samples | **Reject — accuracy bug.** Decimation without a low-pass filter aliases high frequencies into the speech band and degrades ASR, worst on English words inside codemix. Create the context at 16 kHz (`new AudioContext({ sampleRate: 16000 })`) and let the browser resample, or resample once with `OfflineAudioContext` at stop. |
+| Silence detection by peak sample `|x| < 0.008` (−42 dBFS), labelled "RMS" | **Reject — fails in the real room.** A ceiling fan or AC keeps every sample above the threshold, so silence is never detected, every window becomes a hard-cap cut, and you get the overlap path you were trying to avoid. Use RMS over ~50 ms windows and calibrate the noise floor during the existing pre-flight mic check. |
+| Reading `data.timestamps` as objects with `start_s` / `end_s` | **Bug.** Sarvam returns parallel arrays — `{words[], start_time_seconds[], end_time_seconds[]}` — so that mapping silently yields `NaN`. |
+| "Byte offset ÷ 32 000 = seconds" combined with its own 1.75 s overlap copy | **Only true without overlap.** A header overlap duplicates samples, so absolute time must come from the window's `start_s` + `(byteOffset / 2) / 16000`. Pick one rule and state it once. |
+| Scheduler with `maxInFlight = 2` and per-window retry | **Adopt, with two fixes.** (1) No `AbortController`/timeout: a 504 leaves `inFlight` occupied forever and `checkDone` never fires, so the run looks hung. (2) Retry without de-duplication: a lost response followed by a retry duplicates that window's text. Key retries by window index. |
+| TLS breakdown via `socket.once('lookup' | 'connect' | 'secureConnect')` + `req.reusedSocket` | **Adopt.** This is the right way to settle the cold-TLS question instead of guessing about DNS ordering. |
+| Loop one 60 s clip ×2/×5/×10 to synthesise the 2/5/10 min benchmark files | **Adopt — for provider timing only.** It is meaningless for accuracy; label it as such so nobody scores WER on it. |
+| "Interactive pipeline latency & rate-limit explorer" | **Did not arrive.** Nothing was delivered — do not plan around it. |
+
+## 7. Deployment reality on Vercel — what all three analyses missed
 
 This is the section that changes the answer, so read it before designing anything.
 
@@ -161,6 +180,11 @@ This is the section that changes the answer, so read it before designing anythin
    a hard ceiling for a tenant with 20 doctors. Note it now.
 10. **Cold starts** inflate p95 for every control call; that is a large part of what
     the keep-alive work is fighting, and it cannot be fully removed on serverless.
+11. **Browser-direct PUT to Sarvam's presigned URL is unproven.** A presigned Azure blob
+    upload from a browser requires that container's CORS rules to allow the tester
+    origin. If Sarvam does not set them, the browser PUT fails and the chunked-upload
+    fallback is mandatory. Test this in five minutes before designing around it — it
+    also decides whether the 4.5 MB limit is a blocker or a non-issue.
 
 ## 8. Target architecture
 
@@ -189,10 +213,16 @@ Rejected without new data:
 
 ## 9. Implementation order in the tester
 
-1. **PCM capture.** `AudioWorklet` → Float32 → Int16, 16 kHz mono, alongside the existing
-   webm path. Fixed 32 kB/s ⇒ byte offset ÷ 32 000 = seconds. Everything below depends
-   on this. (Blocker being removed: `MediaRecorder` chunks after the first carry no EBML
-   header and are not independently decodable.)
+1. **PCM capture.** `AudioWorklet` → Int16, 16 kHz mono, alongside the existing webm
+   path. Configure the context at 16 kHz and let the browser do the resampling — **do
+   not** decimate by dropping samples. A continuous buffer is 32 kB/s, so
+   `byteOffset / 2 / 16000` = seconds **within one buffer**; once windows overlap, the
+   only reliable clock is the window's own `start_s`. Everything below depends on this.
+   (Blocker being removed: `MediaRecorder` chunks after the first carry no EBML header
+   and are not independently decodable.)
+   Also decide here whether the same capture feeds the WS path, and remember mobile
+   browsers suspend `AudioContext` when the tab is backgrounded — the existing wake lock
+   is what keeps that from silently truncating a visit.
 2. **Batch timing measurement** (see §11) — do this before step 4.
 3. **`chunked-rest` mode.** Windows cut on silence with a 25 s hard cap; keep a 1.5–2 s
    overlap **only** for the hard-cap case, since a silence cut needs no dedupe; ≤2 in
@@ -226,6 +256,7 @@ Unknown and possibly 10–40 s — measure before optimising anything else.
 | `batch.start` → `Completed` for 2, 5, 10 min single files | whether provider time or our overhead dominates; whether the labelling pass returns in seconds |
 | cold vs keep-alive on the same clip | whether the 2–4 s control calls are TLS (and worth ~8–12 s per run) |
 | `upload_put` bytes vs duration | whether the 11–16 s upload is a client/ingest bug |
+| can a browser PUT to Sarvam's presigned upload URL (CORS)? | whether direct-to-blob upload exists at all, or the chunked path is mandatory (§7.11) |
 | full LLM stage latency | whether the note draft is the real bottleneck |
 
 Minimum three data points each, same recording length, ratio recorded.
