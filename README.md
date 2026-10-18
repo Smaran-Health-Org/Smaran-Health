@@ -78,6 +78,43 @@ Detailed step-by-step procedures: [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md).
 
 ---
 
+## Deploy to Vercel
+
+The local app (`server.mjs`) is a single long-running process: it holds the run registry
+and streams SSE. A serverless function can do neither, so the deployed variant is a
+**separate, stateless path**:
+
+| Local (`npm start`) | Deployed (Vercel) |
+| --- | --- |
+| `server.mjs` serves `/` and one SSE run stream | `api/*.js` — one bounded Sarvam call per request |
+| run state in server memory | run state **in the browser** (`cloud.js`) |
+| upload posted to the server | browser **PUTs directly to Sarvam storage** |
+
+```bash
+vercel deploy --prod     # from this folder
+```
+
+Then set the environment variable in **Vercel → Project → Settings → Environment
+Variables**:
+
+```
+SARVAM_API_KEY=<the same key the clinical app uses>
+```
+
+Redeploy after adding it — the API reports `API key missing on Vercel` until then.
+
+Two things the deployment settles immediately:
+
+1. **Does direct browser upload work?** The presigned Azure blob URL requires that
+   container's CORS rules to allow this origin. If the `batch.upload_put` step reports
+   *CORS blocked*, browser-direct upload is impossible and the deployment needs a
+   chunked server proxy (§7.11 in `docs/NEXT_SESSION_PROMPT.md`).
+2. **How long does a whole batch job really take?** The page shows per-step timings plus
+   total and ratio, which is the §11 measurement.
+
+Local-only features (PCM capture, `chunked-rest`, `stream`, `hybrid`) are **not** in the
+cloud build yet — they need the PCM worklet wired into the UI.
+
 ## Where results are saved
 
 | Path | Contents |

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sarvam probe — cloud</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Sarvam probe <span class="muted small">— cloud</span></h1>
+        <p class="sub">
+          Stateless deployment: every Sarvam call is one request from this page, so nothing
+          depends on server memory. Timings are measured in your browser.
+        </p>
+      </div>
+      <span id="key-state" class="chip">checking key…</span>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>1. Record or pick audio</h2>
+        <div class="record-row">
+          <button id="record-btn" class="primary">● Record</button>
+          <button id="stop-btn" disabled>■ Stop</button>
+          <span id="timer" class="timer">00:00</span>
+          <span id="level" class="muted"></span>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="pre-initiate" checked />
+          Pre-initiate the job when recording starts <span class="muted">(E2)</span>
+        </label>
+        <div class="record-row">
+          <input type="file" id="file-input" accept="audio/*" />
+          <button id="rerun-btn" disabled>Re-run last audio</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>2. Settings</h2>
+        <div class="grid">
+          <label>Model <select id="model"></select></label>
+          <label>Mode <select id="mode"></select></label>
+          <label>Language <select id="language"></select></label>
+          <label>Diarization
+            <select id="diarization">
+              <option value="1" selected>on</option>
+              <option value="0">off</option>
+            </select>
+          </label>
+          <label>Poll interval (ms)
+            <input id="poll-ms" type="number" min="500" step="500" value="2000" />
+          </label>
+          <label class="wide">Label
+            <input id="label" type="text" placeholder="e.g. v3 baseline, 24 s clip" />
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>3. This run <button id="refresh-btn" class="ghost">refresh history</button></h2>
+        <div id="run-panel" class="run-list">
+          <p class="muted small">No run yet.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>4. History <span class="muted small">(saved in this browser)</span></h2>
+        <div class="table-wrap">
+          <table id="history">
+            <thead>
+              <tr>
+                <th>when</th>
+                <th>label</th>
+                <th>rec</th>
+                <th>model</th>
+                <th>total</th>
+                <th>×</th>
+                <th>status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="muted small">
+          Rule: no change is kept without a before/after number on the same recording length.
+        </p>
+      </section>
+    </main>
+
+    <script src="/cloud.js" type="module"></script>
+  </body>
+</html>
