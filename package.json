@@ -1,0 +1,14 @@
+{
+  "name": "sarvam-probe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local lab: record audio and probe Sarvam STT batch/REST latency without touching the clinical app.",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

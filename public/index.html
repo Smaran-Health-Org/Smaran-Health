@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sarvam probe</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Sarvam probe</h1>
+        <p class="sub">
+          Local lab for recording + transcription experiments. Nothing here touches the clinical app.
+        </p>
+      </div>
+      <span id="key-state" class="chip">checking key…</span>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>1. Record or pick audio</h2>
+        <div class="record-row">
+          <button id="record-btn" class="primary">● Record</button>
+          <button id="stop-btn" disabled>■ Stop</button>
+          <span id="timer" class="timer">00:00</span>
+          <span id="level" class="muted"></span>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="pre-initiate" />
+          Pre-initiate batch job when recording starts <span class="muted">(E2 — saves ~2–3 s)</span>
+        </label>
+        <div class="record-row">
+          <input type="file" id="file-input" accept="audio/*" />
+          <button id="rerun-btn" disabled>Re-run last audio</button>
+        </div>
+        <p class="muted small">
+          Uploading a file is how you re-measure the same recording length before/after a change.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>2. What to test</h2>
+        <div class="grid">
+          <label>Transport
+            <select id="transport">
+              <option value="batch" selected>batch (production path)</option>
+              <option value="rest">rest (≤30 s per request)</option>
+            </select>
+          </label>
+          <label>Model
+            <select id="model"></select>
+          </label>
+          <label>Mode
+            <select id="mode"></select>
+          </label>
+          <label>Language
+            <select id="language"></select>
+          </label>
+          <label>Diarization
+            <select id="diarization">
+              <option value="1" selected>on</option>
+              <option value="0">off</option>
+            </select>
+          </label>
+          <label>Num speakers
+            <input id="num-speakers" type="number" min="0" max="10" placeholder="auto" />
+          </label>
+          <label>Reuse connections <span class="muted">(E3)</span>
+            <select id="keep-alive">
+              <option value="1" selected>keep-alive</option>
+              <option value="0">new connection each call</option>
+            </select>
+          </label>
+          <label>Poll interval (ms)
+            <input id="poll-ms" type="number" min="200" step="100" value="2000" />
+          </label>
+          <label class="rest-only">REST segments
+            <input id="segments" type="number" min="1" max="40" value="1" />
+          </label>
+          <label class="rest-only">REST concurrency
+            <input id="concurrency" type="number" min="1" max="8" value="1" />
+          </label>
+          <label class="wide">Label
+            <input id="label" type="text" placeholder="e.g. v3 baseline, 24 s clip" />
+          </label>
+        </div>
+        <p class="muted small">
+          Rule from the plan: no change is kept without a before/after number on the same
+          recording length. Record once, keep the file, then re-run it under each setting.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>3. Runs <button id="refresh-btn" class="ghost">refresh</button></h2>
+        <div id="run-list" class="run-list"></div>
+        <div class="table-wrap">
+          <table id="history">
+            <thead>
+              <tr>
+                <th>when</th>
+                <th>label</th>
+                <th>rec</th>
+                <th>transport</th>
+                <th>model</th>
+                <th>keep-alive</th>
+                <th>total</th>
+                <th>×</th>
+                <th>status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="inspector-card" hidden>
+        <h2>Inspector</h2>
+        <div id="inspector"></div>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
