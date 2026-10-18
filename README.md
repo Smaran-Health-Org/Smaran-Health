@@ -191,3 +191,20 @@ prove the production app changed.
 The tester answers the two open questions the moment someone records a clip: whether
 browser-direct upload to Sarvam's storage is allowed (CORS), and how long a whole batch
 job actually takes.
+## Benchmarks and logs (cloud build)
+
+Every run is stored in this browser, so a benchmark costs nothing to keep:
+
+- **History** — one row per run: recording length, audio size, model, total, ratio, and
+  Sarvam's own provider wait. Click a row for its per-step breakdown.
+- **Benchmarks** — runs grouped by **recording length** with median total, ratio,
+  provider wait and *our overhead* (total - provider wait). Grouping by length is the
+  only honest basis for before/after, because the wait scales with the audio.
+- **Log** — timestamped lifecycle events (initiate, upload, start, each status probe,
+  download, errors). Downloadable as JSON.
+
+Export JSON or CSV from the History section to compare across machines — the data is
+localStorage, not a database, so nothing leaves your browser unless you export it.
+
+**The log and history never contain transcript text or audio**, only timings, sizes,
+counts and job ids. Benchmarking must not become a PHI leak.

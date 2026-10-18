@@ -35,6 +35,11 @@
           <input type="file" id="file-input" accept="audio/*" />
           <button id="rerun-btn" disabled>Re-run last audio</button>
         </div>
+        <div class="grid">
+          <label>Clip length (s) <span class="muted">— auto for uploads, optional override</span>
+            <input id="clip-seconds" type="number" min="0" step="0.1" placeholder="measured" />
+          </label>
+        </div>
       </section>
 
       <section class="card">
@@ -59,14 +64,19 @@
       </section>
 
       <section class="card">
-        <h2>3. This run <button id="refresh-btn" class="ghost">refresh history</button></h2>
+        <h2>3. This run</h2>
         <div id="run-panel" class="run-list">
           <p class="muted small">No run yet.</p>
         </div>
       </section>
 
       <section class="card">
-        <h2>4. History <span class="muted small">(saved in this browser)</span></h2>
+        <h2>
+          4. History
+          <button id="export-json" class="ghost">export JSON</button>
+          <button id="export-csv" class="ghost">export CSV</button>
+          <button id="clear-runs" class="ghost">clear</button>
+        </h2>
         <div class="table-wrap">
           <table id="history">
             <thead>
@@ -74,18 +84,55 @@
                 <th>when</th>
                 <th>label</th>
                 <th>rec</th>
+                <th>size</th>
                 <th>model</th>
                 <th>total</th>
                 <th>×</th>
+                <th>provider</th>
                 <th>status</th>
               </tr>
             </thead>
             <tbody></tbody>
           </table>
         </div>
+        <p class="muted small">Click a row for its per-step breakdown.</p>
+      </section>
+
+      <section class="card">
+        <h2>5. Benchmarks <button id="refresh-bench" class="ghost">recompute</button></h2>
         <p class="muted small">
-          Rule: no change is kept without a before/after number on the same recording length.
+          Grouped by recording length — the only honest basis for comparison. "Provider" is
+          Sarvam's own work; "overhead" is everything else we control.
         </p>
+        <div class="table-wrap">
+          <table id="benchmarks">
+            <thead>
+              <tr>
+                <th>clip length</th>
+                <th>runs</th>
+                <th>median rec</th>
+                <th>median total</th>
+                <th>median ×</th>
+                <th>median provider</th>
+                <th>median overhead</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="bench-summary" class="notes"></div>
+      </section>
+
+      <section class="card">
+        <h2>
+          6. Log
+          <button id="export-logs" class="ghost">download</button>
+          <button id="clear-logs" class="ghost">clear</button>
+        </h2>
+        <p class="muted small">
+          Timing and lifecycle events only — never transcript text, never audio.
+        </p>
+        <div id="log" class="steps"></div>
       </section>
     </main>
 
