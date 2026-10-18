@@ -35,6 +35,7 @@ Facts that shape every decision here:
 | `public/index.html` | the form controls |
 | `public/styles.css` | styling (supports light + dark) |
 | `docs/EXPERIMENTS.md` | the procedures a human follows, and the results log |
+| `docs/NEXT_SESSION_PROMPT.md` | self-contained brief for the next working session (problem, verified Sarvam facts, plan, constraints) |
 | `README.md` | the team's runbook |
 
 Keep this shape. Do not split `server.mjs` into modules just to be tidy — one readable
