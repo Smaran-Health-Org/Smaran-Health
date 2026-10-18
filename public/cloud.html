@@ -29,7 +29,12 @@
         </div>
         <label class="check">
           <input type="checkbox" id="pre-initiate" checked />
-          Pre-initiate the job when recording starts <span class="muted">(E2)</span>
+          Pre-initiate the job when recording starts <span class="muted">(E2 — ignored in A/B mode)</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="ab-compare" />
+          <strong>A/B compare diarization</strong> &nbsp;— run two jobs on the same audio,
+          diarization on and off, in parallel
         </label>
         <div class="record-row">
           <input type="file" id="file-input" accept="audio/*" />
@@ -48,7 +53,7 @@
           <label>Model <select id="model"></select></label>
           <label>Mode <select id="mode"></select></label>
           <label>Language <select id="language"></select></label>
-          <label>Diarization
+          <label>Diarization <span class="muted">— ignored in A/B mode</span>
             <select id="diarization">
               <option value="1" selected>on</option>
               <option value="0">off</option>
@@ -70,9 +75,28 @@
         </div>
       </section>
 
+      <section class="card" id="ab-card" hidden>
+        <h2>4. A/B result <span class="muted small">— same audio, same moment</span></h2>
+        <div id="ab-summary" class="notes"></div>
+        <div class="table-wrap">
+          <table id="ab-table">
+            <thead>
+              <tr>
+                <th>metric</th>
+                <th>diarization on</th>
+                <th>diarization off</th>
+                <th>delta</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="ab-transcripts"></div>
+      </section>
+
       <section class="card">
         <h2>
-          4. History
+          5. History
           <button id="export-json" class="ghost">export JSON</button>
           <button id="export-csv" class="ghost">export CSV</button>
           <button id="clear-runs" class="ghost">clear</button>
@@ -99,7 +123,7 @@
       </section>
 
       <section class="card">
-        <h2>5. Benchmarks <button id="refresh-bench" class="ghost">recompute</button></h2>
+        <h2>6. Benchmarks <button id="refresh-bench" class="ghost">recompute</button></h2>
         <p class="muted small">
           Grouped by recording length — the only honest basis for comparison. "Provider" is
           Sarvam's own work; "overhead" is everything else we control.
@@ -125,7 +149,7 @@
 
       <section class="card">
         <h2>
-          6. Log
+          7. Log
           <button id="export-logs" class="ghost">download</button>
           <button id="clear-logs" class="ghost">clear</button>
         </h2>

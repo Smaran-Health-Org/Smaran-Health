@@ -5,11 +5,13 @@
  * — initiate → presign → PUT → start → poll → download — and measures every hop with
  * `performance.now()`.
  *
- * Two rules this file keeps:
+ * Three rules this file keeps:
  *   • The upload goes straight from the browser to Sarvam's presigned storage URL. That
  *     stays under Vercel's 4.5 MB body limit and doubles as the CORS probe (§7.11).
- *   • The log and the run history hold timings, sizes and ids — **never** transcript text
- *     and never audio. Benchmarking must not become a PHI leak.
+ *   • Status polling is globally rate-limited to 20 req/min, which is Sarvam's batch
+ *     limit. Two concurrent A/B jobs therefore share one budget instead of tripling it.
+ *   • The log and the run history hold timings, sizes and ids — **never** transcript
+ *     text and never audio. Benchmarking must not become a PHI leak.
  */
 
 const el = (id) => document.getElementById(id);
@@ -17,6 +19,9 @@ const el = (id) => document.getElementById(id);
 const RUNS_KEY = "sarvam-probe-runs";
 const LOGS_KEY = "sarvam-probe-logs";
 const MAX_LOGS = 500;
+
+/** Batch endpoints allow 20 req/min per account. One status call per 3 s is the ceiling. */
+const STATUS_MIN_GAP_MS = 3000;
 
 const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
 
@@ -72,19 +77,11 @@ function readLog() {
   }
 }
 
-function writeLog(entries) {
-  localStorage.setItem(LOGS_KEY, JSON.stringify(entries.slice(-MAX_LOGS)));
-}
-
-/**
- * Append one event. `extra` must contain only non-clinical values (ids, counts, ms).
- * Transcript text is deliberately never passed here.
- */
 function log(level, message, extra) {
   const entry = { t: new Date().toISOString(), level, message, ...(extra ? { extra } : {}) };
   const entries = readLog();
   entries.push(entry);
-  writeLog(entries.slice(-MAX_LOGS));
+  localStorage.setItem(LOGS_KEY, JSON.stringify(entries.slice(-MAX_LOGS)));
   renderLog();
   return entry;
 }
@@ -92,18 +89,16 @@ function log(level, message, extra) {
 function renderLog() {
   const box = el("log");
   if (!box) return;
-  const entries = readLog().slice(-120).reverse();
   box.innerHTML = "";
-  for (const entry of entries) {
+  for (const entry of readLog().slice(-120).reverse()) {
     const row = document.createElement("div");
     row.className = `step ${entry.level === "error" ? "failed" : ""}`;
-    const time = new Date(entry.t).toLocaleTimeString();
     const extra = entry.extra
       ? ` ${Object.entries(entry.extra)
           .map(([k, v]) => `${k}=${v}`)
           .join(" ")}`
       : "";
-    row.innerHTML = `<span class="name">${escapeHtml(time)}</span><span class="ms">${escapeHtml(
+    row.innerHTML = `<span class="name">${escapeHtml(new Date(entry.t).toLocaleTimeString())}</span><span class="ms">${escapeHtml(
       entry.level
     )}</span><span class="detail">${escapeHtml(entry.message + extra)}</span>`;
     box.appendChild(row);
@@ -166,13 +161,14 @@ async function startRecording() {
   }, 250);
 
   state.preJob = null;
-  if (el("pre-initiate").checked) {
+  const comparing = el("ab-compare").checked;
+  if (el("pre-initiate").checked && !comparing) {
     el("level").textContent = "pre-initiating job…";
     try {
       const response = await fetch("/api/job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings()),
+        body: JSON.stringify({ ...settings(), diarization: el("diarization").value === "1" }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "initiate failed");
@@ -183,6 +179,8 @@ async function startRecording() {
       el("level").textContent = `pre-initiate failed: ${error.message}`;
       log("error", "pre-initiate failed", { message: error.message });
     }
+  } else if (comparing) {
+    log("info", "A/B mode: pre-initiate skipped", { reason: "two jobs, cannot reuse one" });
   }
 }
 
@@ -205,15 +203,11 @@ async function handleStopped() {
   state.lastDuration = durationSec;
   el("clip-seconds").value = durationSec.toFixed(1);
   el("rerun-btn").disabled = false;
-  log("info", "recording stopped", {
-    seconds: Number(durationSec.toFixed(1)),
-    bytes: blob.size,
-  });
+  log("info", "recording stopped", { seconds: Number(durationSec.toFixed(1)), bytes: blob.size });
   await runPipeline(blob, state.mimeType, durationSec);
   state.preJob = null;
 }
 
-/** Read duration from the container's metadata — works for uploaded files. */
 function probeDuration(file) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
@@ -247,76 +241,86 @@ function resolveDuration(fallback) {
   return fallback || null;
 }
 
-// ── run panel ────────────────────────────────────────────────────────────────
+// ── shared status budget ─────────────────────────────────────────────────────
 
-function newPanel() {
-  const panel = el("run-panel");
-  panel.innerHTML = `
-    <article class="run">
-      <div class="run-head">
-        <span class="run-title">${escapeHtml(el("label").value.trim() || "run")}</span>
-        <span class="run-total chip">running…</span>
-      </div>
-      <div class="steps"></div>
-      <div class="notes"></div>
-      <div class="result"></div>
-    </article>`;
+let lastStatusCallAt = 0;
+
+/** Serialises status calls across concurrent runs so two A/B jobs cannot exceed 20/min. */
+async function statusGate() {
+  const wait = lastStatusCallAt + STATUS_MIN_GAP_MS - performance.now();
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  lastStatusCallAt = performance.now();
+}
+
+// ── run card ─────────────────────────────────────────────────────────────────
+
+function createCard(host, title) {
+  const article = document.createElement("article");
+  article.className = "run";
+  article.innerHTML = `
+    <div class="run-head">
+      <span class="run-title"></span>
+      <span class="run-total chip">running…</span>
+    </div>
+    <div class="steps"></div>
+    <div class="notes"></div>
+    <div class="result"></div>`;
+  article.querySelector(".run-title").textContent = title;
+  host.appendChild(article);
   return {
-    total: panel.querySelector(".run-total"),
-    steps: panel.querySelector(".steps"),
-    notes: panel.querySelector(".notes"),
-    result: panel.querySelector(".result"),
+    article,
+    total: article.querySelector(".run-total"),
+    steps: article.querySelector(".steps"),
+    notes: article.querySelector(".notes"),
+    result: article.querySelector(".result"),
   };
 }
 
-function addStep(panel, record, name, ok, durationMs, detail) {
+function addStep(card, record, name, ok, durationMs, detail) {
   const row = document.createElement("div");
   row.className = `step ${ok ? "" : "failed"}`;
   row.innerHTML = `<span class="name">${escapeHtml(name)}</span><span class="ms">${fmtMs(
     durationMs
   )}</span><span class="detail">${escapeHtml(detail ?? "")}</span>`;
-  panel.steps.appendChild(row);
+  card.steps.appendChild(row);
   record.steps.push({ name, ok, ms: durationMs ?? null, at: new Date().toISOString(), detail: detail ?? null });
 }
 
-function note(panel, text, bad = false) {
+function note(card, text, bad = false) {
   const line = document.createElement("div");
   line.className = "note";
   if (bad) line.style.color = "var(--bad)";
   line.textContent = text;
-  panel.notes.appendChild(line);
+  card.notes.appendChild(line);
 }
 
-async function jsonStep(panel, record, name, url, options) {
+async function jsonStep(card, record, name, url, options) {
   const startedAt = performance.now();
   const response = await fetch(url, options);
   const data = await response.json().catch(() => ({}));
   const ms = Math.round(performance.now() - startedAt);
-  addStep(panel, record, name, response.ok, data.ms ?? ms, data.error ?? "");
-  if (response.ok) log("info", name, { ms: data.ms ?? ms });
-  else log("error", name, { status: response.status, message: String(data.error || "").slice(0, 160) });
+  addStep(card, record, name, response.ok, data.ms ?? ms, data.error ?? "");
+  if (response.ok) log("info", name, { variant: record.variant, ms: data.ms ?? ms });
+  else log("error", name, { variant: record.variant, status: response.status, message: String(data.error || "").slice(0, 160) });
   if (!response.ok) throw new Error(data.error || `${name} failed (${response.status})`);
   return data;
 }
 
-// ── pipeline ─────────────────────────────────────────────────────────────────
+// ── one variant ──────────────────────────────────────────────────────────────
 
-async function runPipeline(blob, mimeType, durationSec) {
-  if (state.busy) return;
-  state.busy = true;
-
-  const panel = newPanel();
-  const t0 = performance.now();
+async function runVariant({ blob, mimeType, durationSec, diarization, variant, card, reuseJob }) {
+  const startedAt = performance.now();
   const record = {
     at: new Date().toISOString(),
     label: el("label").value.trim(),
+    variant,
+    diarization,
     durationSec: resolveDuration(durationSec),
     audioBytes: blob.size,
     mimeType,
     model: el("model").value,
     mode: el("mode").value,
-    diarization: el("diarization").value === "1",
-    preInitiated: Boolean(state.preJob),
+    preInitiated: Boolean(reuseJob),
     status: "running",
     totalMs: null,
     providerWaitMs: null,
@@ -326,30 +330,34 @@ async function runPipeline(blob, mimeType, durationSec) {
   };
 
   log("info", "run started", {
+    variant,
     bytes: blob.size,
     seconds: record.durationSec ?? "?",
     model: record.model,
   });
 
   try {
-    // 1. Job — already initiated during recording, or initiate now.
     let jobId;
-    if (state.preJob) {
-      jobId = state.preJob.jobId;
-      addStep(panel, record, "batch.initiate", true, 0, "pre-initiated during recording (E2)");
+    if (reuseJob) {
+      jobId = reuseJob.jobId;
+      addStep(card, record, "batch.initiate", true, 0, "pre-initiated during recording (E2)");
     } else {
-      const job = await jsonStep(panel, record, "batch.initiate", "/api/job", {
+      const job = await jsonStep(card, record, "batch.initiate", "/api/job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings()),
+        body: JSON.stringify({
+          model: record.model,
+          mode: record.mode,
+          language: el("language").value,
+          diarization,
+        }),
       });
       jobId = job.jobId;
     }
     record.jobId = jobId;
 
-    // 2. Presigned URL for this one file.
     const fileName = `part-1.${extForMime(mimeType)}`;
-    const presign = await jsonStep(panel, record, "batch.upload_url", "/api/upload-url", {
+    const presign = await jsonStep(card, record, "batch.upload_url", "/api/upload-url", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ jobId, files: [fileName] }),
@@ -357,7 +365,6 @@ async function runPipeline(blob, mimeType, durationSec) {
     const uploadUrl = presign.files[fileName];
     if (!uploadUrl) throw new Error("No presigned upload URL returned.");
 
-    // 3. Direct browser → Sarvam storage. Also the CORS probe (§7.11).
     const putStartedAt = performance.now();
     try {
       const put = await fetch(uploadUrl, {
@@ -366,35 +373,33 @@ async function runPipeline(blob, mimeType, durationSec) {
         body: blob,
       });
       const putMs = Math.round(performance.now() - putStartedAt);
-      addStep(panel, record, "batch.upload_put", put.ok, putMs, `${fmtKb(blob.size)} · direct to storage`);
+      addStep(card, record, "batch.upload_put", put.ok, putMs, `${fmtKb(blob.size)} · direct to storage`);
       if (!put.ok) throw new Error(`upload rejected (${put.status})`);
-      log("info", "batch.upload_put", { ms: putMs, bytes: blob.size, cors: "allowed" });
-      note(panel, "Direct browser upload worked — Sarvam's storage allows this origin (CORS ok).");
+      log("info", "batch.upload_put", { variant, ms: putMs, bytes: blob.size, cors: "allowed" });
     } catch (error) {
       const putMs = Math.round(performance.now() - putStartedAt);
-      addStep(panel, record, "batch.upload_put", false, putMs, "CORS blocked");
-      log("error", "direct upload blocked", { ms: putMs, message: String(error.message).slice(0, 160) });
+      addStep(card, record, "batch.upload_put", false, putMs, "CORS blocked");
+      log("error", "direct upload blocked", { variant, ms: putMs, message: String(error.message).slice(0, 160) });
       throw new Error(
         `Direct upload blocked (${error.message}). Sarvam's storage does not allow this origin — ` +
           `the deployment needs a chunked server proxy instead. This is the §7.11 answer.`
       );
     }
 
-    // 4. Start.
-    await jsonStep(panel, record, "batch.start", "/api/start", {
+    await jsonStep(card, record, "batch.start", "/api/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ jobId }),
     });
 
-    // 5. Poll — the browser owns this loop; no function is held open.
     const pollMs = Math.max(1000, Number(el("poll-ms").value) || 3000);
     const deadline = Date.now() + 15 * 60 * 1000;
     const waitStartedAt = performance.now();
     let probes = 0;
     let status;
     for (;;) {
-      status = await jsonStep(panel, record, `batch.status#${++probes}`, `/api/status?jobId=${encodeURIComponent(jobId)}`, {
+      await statusGate();
+      status = await jsonStep(card, record, `batch.status#${++probes}`, `/api/status?jobId=${encodeURIComponent(jobId)}`, {
         method: "GET",
       });
       if (status.jobState === "Completed") break;
@@ -407,23 +412,25 @@ async function runPipeline(blob, mimeType, durationSec) {
     }
     record.providerWaitMs = Math.round(performance.now() - waitStartedAt);
     record.probeCount = probes;
-    note(
-      panel,
-      `Provider wait: ${(record.providerWaitMs / 1000).toFixed(1)} s over ${probes} probe(s).`
-    );
-    log("info", "job completed", { providerWaitMs: record.providerWaitMs, probes });
+    note(card, `Provider wait: ${(record.providerWaitMs / 1000).toFixed(1)} s over ${probes} probe(s).`);
+    log("info", "job completed", { variant, providerWaitMs: record.providerWaitMs, probes });
 
-    // 6. Transcript.
-    const result = await jsonStep(panel, record, "batch.download", "/api/download", {
+    const result = await jsonStep(card, record, "batch.download", "/api/download", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ jobId, files: status.outputFiles }),
     });
 
-    if (result.turns?.length) {
+    record.transcript = result.transcript || "";
+    record.turns = result.turns || [];
+    record.transcriptChars = record.transcript.length;
+    record.turnCount = record.turns.length;
+    record.languageCode = result.languageCode ?? null;
+
+    if (record.turns.length) {
       const box = document.createElement("div");
       box.className = "turns";
-      for (const turn of result.turns) {
+      for (const turn of record.turns) {
         const row = document.createElement("div");
         row.className = "turn";
         const time =
@@ -433,27 +440,29 @@ async function runPipeline(blob, mimeType, durationSec) {
         row.innerHTML = `<span class="who">S${escapeHtml(turn.speakerId)}</span><span class="time">${time}</span><span>${escapeHtml(turn.transcript)}</span>`;
         box.appendChild(row);
       }
-      panel.result.appendChild(box);
+      card.result.appendChild(box);
     }
     const text = document.createElement("div");
     text.className = "transcript";
-    text.textContent = result.transcript || "(empty transcript)";
-    panel.result.appendChild(text);
+    text.textContent = record.transcript || "(empty transcript)";
+    card.result.appendChild(text);
 
     record.status = "completed";
-    record.transcriptChars = (result.transcript || "").length;
-    record.turnCount = result.turns?.length ?? 0;
     log("info", "run completed", {
+      variant,
       chars: record.transcriptChars,
       turns: record.turnCount,
-      language: result.languageCode ?? "?",
+      language: record.languageCode ?? "?",
     });
+    return record;
   } catch (error) {
     record.status = "failed";
     record.error = error.message;
-    log("error", "run failed", { message: String(error.message).slice(0, 200) });
+    log("error", "run failed", { variant, message: String(error.message).slice(0, 200) });
+    note(card, error.message, true);
+    return record;
   } finally {
-    record.totalMs = Math.round(performance.now() - t0);
+    record.totalMs = Math.round(performance.now() - startedAt);
     record.ratio =
       record.durationSec && record.totalMs
         ? Number((record.totalMs / 1000 / record.durationSec).toFixed(2))
@@ -462,18 +471,133 @@ async function runPipeline(blob, mimeType, durationSec) {
       record.providerWaitMs != null ? Math.max(0, record.totalMs - record.providerWaitMs) : null;
 
     if (record.status === "completed") {
-      panel.total.textContent = `${fmtMs(record.totalMs)}${record.ratio ? ` · ×${record.ratio}` : ""}`;
+      card.total.textContent = `${fmtMs(record.totalMs)}${record.ratio ? ` · ×${record.ratio}` : ""}`;
     } else {
-      panel.total.textContent = "failed";
-      panel.total.classList.add("bad");
-      note(panel, record.error || "Run failed.", true);
+      card.total.textContent = "failed";
+      card.total.classList.add("bad");
     }
 
-    state.busy = false;
     saveRun(record);
     renderHistory();
     renderBenchmarks();
   }
+}
+
+// ── pipeline (single or A/B) ─────────────────────────────────────────────────
+
+async function runPipeline(blob, mimeType, durationSec) {
+  if (state.busy) return;
+  state.busy = true;
+
+  const host = el("run-panel");
+  host.innerHTML = "";
+  const label = el("label").value.trim();
+  const comparing = el("ab-compare").checked;
+
+  try {
+    if (!comparing) {
+      const card = createCard(host, label || "run");
+      await runVariant({
+        blob,
+        mimeType,
+        durationSec,
+        diarization: el("diarization").value === "1",
+        variant: "single",
+        card,
+        reuseJob: state.preJob,
+      });
+      state.preJob = null;
+      return;
+    }
+
+    // Two jobs, same bytes, same moment. Running them concurrently removes the biggest
+    // confounder in a sequential A/B: provider queue position drifting between runs.
+    log("info", "A/B comparison started", { bytes: blob.size });
+    el("ab-card").hidden = false;
+    el("ab-summary").innerHTML = "";
+    document.querySelector("#ab-table tbody").innerHTML = "";
+    el("ab-transcripts").innerHTML = "";
+
+    const onCard = createCard(host, `${label || "run"} — diarization ON`);
+    const offCard = createCard(host, `${label || "run"} — diarization OFF`);
+
+    const [on, off] = await Promise.all([
+      runVariant({ blob, mimeType, durationSec, diarization: true, variant: "diar-on", card: onCard }),
+      runVariant({ blob, mimeType, durationSec, diarization: false, variant: "diar-off", card: offCard }),
+    ]);
+    state.preJob = null;
+    renderComparison(on, off);
+  } finally {
+    state.busy = false;
+  }
+}
+
+function renderComparison(on, off) {
+  const body = document.querySelector("#ab-table tbody");
+  body.innerHTML = "";
+  const summary = el("ab-summary");
+  summary.innerHTML = "";
+
+  const delta = (a, b) => {
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return "—";
+    const diff = a - b;
+    const sign = diff > 0 ? "+" : "";
+    return `${sign}${Math.abs(diff) < 1000 ? `${Math.round(diff)} ms` : `${(diff / 1000).toFixed(2)} s`}`;
+  };
+
+  const rows = [
+    ["status", on.status, off.status, deltaText(on.status, off.status)],
+    ["total", fmtMs(on.totalMs), fmtMs(off.totalMs), delta(on.totalMs, off.totalMs)],
+    ["provider wait", fmtMs(on.providerWaitMs), fmtMs(off.providerWaitMs), delta(on.providerWaitMs, off.providerWaitMs)],
+    ["our overhead", fmtMs(on.overheadMs), fmtMs(off.overheadMs), delta(on.overheadMs, off.overheadMs)],
+    ["status probes", on.probeCount ?? "—", off.probeCount ?? "—", "—"],
+    ["transcript chars", on.transcriptChars ?? "—", off.transcriptChars ?? "—", delta(on.transcriptChars, off.transcriptChars)],
+    ["speaker turns", on.turnCount ?? 0, off.turnCount ?? 0, delta(on.turnCount, off.turnCount)],
+    ["ratio ×", on.ratio ?? "—", off.ratio ?? "—", "—"],
+  ];
+
+  for (const [name, a, b, d] of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${escapeHtml(name)}</td><td>${a}</td><td>${b}</td><td>${d}</td>`;
+    body.appendChild(tr);
+  }
+
+  const add = (text) => {
+    const line = document.createElement("div");
+    line.className = "note";
+    line.textContent = text;
+    summary.appendChild(line);
+  };
+  if (on.status === "completed" && off.status === "completed") {
+    const providerDelta = on.providerWaitMs - off.providerWaitMs;
+    add(
+      `Diarization cost on this clip: ${delta(on.totalMs, off.totalMs)} end-to-end, ` +
+        `${providerDelta >= 0 ? "+" : ""}${(providerDelta / 1000).toFixed(1)} s of it Sarvam's own work.`
+    );
+    add("Both jobs were polled on the same global 20 req/min budget, so detection lag is symmetric.");
+  } else {
+    add("Comparison incomplete — see the per-step breakdown above.");
+  }
+
+  const box = el("ab-transcripts");
+  for (const [name, record] of [
+    ["diarization ON", on],
+    ["diarization OFF", off],
+  ]) {
+    const heading = document.createElement("div");
+    heading.className = "note";
+    heading.textContent = name;
+    box.appendChild(heading);
+    const text = document.createElement("div");
+    text.className = "transcript";
+    text.textContent = record.transcript || "(no transcript)";
+    box.appendChild(text);
+  }
+}
+
+function deltaText(a, b) {
+  if (a === b) return "same";
+  return `${a} / ${b}`;
 }
 
 // ── storage ──────────────────────────────────────────────────────────────────
@@ -486,9 +610,11 @@ function loadRuns() {
   }
 }
 
+/** Persists the summary only — `transcript` and `turns` are deliberately dropped. */
 function saveRun(record) {
+  const { transcript, turns, ...safe } = record;
   const runs = loadRuns();
-  runs.unshift(record);
+  runs.unshift(safe);
   localStorage.setItem(RUNS_KEY, JSON.stringify(runs.slice(0, 200)));
 }
 
@@ -501,7 +627,7 @@ function renderHistory() {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${new Date(run.at).toLocaleTimeString()}</td>
-      <td>${escapeHtml(run.label || "—")}</td>
+      <td>${escapeHtml(run.label || "—")}${run.variant && run.variant !== "single" ? ` <span class="muted">(${escapeHtml(run.variant)})</span>` : ""}</td>
       <td>${fmtSec(run.durationSec)}</td>
       <td>${fmtKb(run.audioBytes)}</td>
       <td>${escapeHtml(run.model)}${run.diarization ? "" : " · nodiar"}</td>
@@ -545,7 +671,8 @@ const BUCKETS = [
 ];
 
 function renderBenchmarks() {
-  const runs = loadRuns().filter((r) => r.status === "completed");
+  const all = loadRuns();
+  const runs = all.filter((r) => r.status === "completed");
   const body = document.querySelector("#benchmarks tbody");
   body.innerHTML = "";
 
@@ -584,13 +711,24 @@ function renderBenchmarks() {
     return;
   }
   add(`${runs.length} completed run(s). Overall median × ${median(runs.map((r) => r.ratio)) ?? "—"}.`);
+
   const withProvider = runs.filter((r) => r.providerWaitMs != null);
   if (withProvider.length) {
-    const provider = median(withProvider.map((r) => r.providerWaitMs));
-    const overhead = median(withProvider.map((r) => r.overheadMs));
-    add(`Median provider wait ${fmtMs(provider)}, median our overhead ${fmtMs(overhead)}.`);
+    add(
+      `Median provider wait ${fmtMs(median(withProvider.map((r) => r.providerWaitMs)))}, ` +
+        `median our overhead ${fmtMs(median(withProvider.map((r) => r.overheadMs)))}.`
+    );
   }
-  const failed = loadRuns().filter((r) => r.status !== "completed").length;
+
+  const onDiar = runs.filter((r) => r.diarization && r.providerWaitMs != null);
+  const offDiar = runs.filter((r) => !r.diarization && r.providerWaitMs != null);
+  if (onDiar.length && offDiar.length) {
+    const a = median(onDiar.map((r) => r.providerWaitMs));
+    const b = median(offDiar.map((r) => r.providerWaitMs));
+    add(`Median provider wait: diarization on ${fmtMs(a)}, off ${fmtMs(b)} (delta ${fmtMs(a - b)}).`);
+  }
+
+  const failed = all.filter((r) => r.status !== "completed").length;
   if (failed) add(`${failed} failed run(s) not counted.`);
 }
 
@@ -606,9 +744,7 @@ function download(name, text, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function stamp() {
-  return new Date().toISOString().replace(/[:.]/g, "-");
-}
+const stamp = () => new Date().toISOString().replace(/[:.]/g, "-");
 
 function exportRunsJson() {
   download(
@@ -623,6 +759,7 @@ function exportRunsCsv() {
   const header = [
     "at",
     "label",
+    "variant",
     "durationSec",
     "audioBytes",
     "model",
@@ -634,6 +771,8 @@ function exportRunsCsv() {
     "providerWaitMs",
     "overheadMs",
     "probeCount",
+    "transcriptChars",
+    "turnCount",
     "status",
     "error",
   ];
@@ -641,6 +780,7 @@ function exportRunsCsv() {
     [
       r.at,
       r.label ?? "",
+      r.variant ?? "",
       r.durationSec ?? "",
       r.audioBytes ?? "",
       r.model ?? "",
@@ -652,6 +792,8 @@ function exportRunsCsv() {
       r.providerWaitMs ?? "",
       r.overheadMs ?? "",
       r.probeCount ?? "",
+      r.transcriptChars ?? "",
+      r.turnCount ?? "",
       r.status ?? "",
       String(r.error ?? "").replace(/[\r\n]+/g, " "),
     ]

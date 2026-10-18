@@ -208,3 +208,28 @@ localStorage, not a database, so nothing leaves your browser unless you export i
 
 **The log and history never contain transcript text or audio**, only timings, sizes,
 counts and job ids. Benchmarking must not become a PHI leak.
+## A/B compare: diarization on vs off
+
+Tick **A/B compare diarization** before recording (or before uploading a clip). The page
+then runs **two batch jobs on the same bytes, at the same moment** — one with
+diarization, one without — and shows a side-by-side table: total, provider wait, our
+overhead, status probes, transcript chars, speaker turns, and the delta.
+
+Why concurrent instead of one after another: running them sequentially lets the
+provider's queue position drift between the two, which looks exactly like a diarization
+cost. Two jobs started together remove that confounder.
+
+Both pollers share a single **20 req/min** status budget (STATUS_MIN_GAP_MS), because
+that is Sarvam's batch limit and two jobs would otherwise ask for 40/min. Detection lag
+is therefore symmetric and cancels out of the delta.
+
+What the numbers mean:
+
+- **provider wait delta** — Sarvam's own extra work for diarization. This is the cost the
+  hybrid pays for its labelling pass.
+- **transcript chars delta** — non-zero is expected and worth reading: diarization can
+  re-segment the text.
+- **speaker turns** — 0 means the diarized job returned no usable diarized_transcript
+  block (it is beta), which would break any label-grafting design.
+
+Pre-initiate is disabled in A/B mode — one pre-initiated job cannot be reused for two.
