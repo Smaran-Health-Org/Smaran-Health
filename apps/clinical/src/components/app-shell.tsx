@@ -95,6 +95,7 @@ export function AppShell({
 
   const isPatients = pathname.startsWith("/patients") || pathname.startsWith("/desk/patients");
   const isDashboard = pathname === "/dashboard";
+  const isRecordings = pathname.startsWith("/recordings");
   const isDeskHome = pathname === "/desk";
   const isScheduler = pathname.startsWith("/scheduler");
   const homeHref = workspace === "desk" ? "/desk" : "/dashboard";
@@ -149,6 +150,15 @@ export function AppShell({
                 <Icon name="users" />
                 <span>Patients</span>
                 <small>{patientCount}</small>
+              </Link>
+              <Link
+                href="/recordings"
+                className={isRecordings ? styles.activeNav : undefined}
+                aria-label="Recordings"
+                title="Recordings"
+              >
+                <Icon name="mic" />
+                <span>Recordings</span>
               </Link>
             </>
           ) : (

@@ -431,6 +431,17 @@
 .liveTranscriptBody .interim { color: #9aa6a1; }
 .liveTranscriptEmpty { color: #98a29e; font-style: italic; }
 .livePreviewNote { margin-top: 0.55rem !important; color: #8a958f !important; font-size: 0.62rem !important; font-weight: 700; letter-spacing: 0.01em; }
+
+/* ── Recording history (doctor-only evidence) ───────────────────────────── */
+.recordingTable { width: 100%; border-collapse: collapse; }
+.recordingTable th, .recordingTable td { text-align: left; padding: 0.62rem 0.5rem; border-bottom: 1px solid #eef1ef; font-size: 0.7rem; vertical-align: middle; }
+.recordingTable th { color: #84908b; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.recordingTable tr:last-child td { border-bottom: 0; }
+.recordingMeta { color: #84908b; font-size: 0.62rem; }
+.recordingActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.4rem; }
+.recordingAudio { width: 100%; margin-top: 1rem; }
+.recordingError { margin: 0.8rem 0 0; color: #a33a2c; font-size: 0.68rem; font-weight: 700; }
+.recordingNotice { margin: 0.85rem 0 0; color: #7d8985; font-size: 0.64rem; line-height: 1.5; }
 .draftSavedBanner { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; border: 1px solid #bcdccb; border-radius: 12px; background: #eff8f4; padding: 0.75rem 0.9rem; color: #1d6d56; font-size: 0.72rem; font-weight: 800; }
 .draftSavedBanner span { display: inline-flex; align-items: center; gap: 0.5rem; }
 .draftSavedBanner svg { width: 16px; height: 16px; }
