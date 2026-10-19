@@ -524,13 +524,28 @@ function setFixtureStatus(message, bad = false) {
 async function loadFixtures() {
   try {
     const data = await fetch("/api/fixtures").then((response) => response.json());
+    if (data.error) throw new Error(data.error);
     state.fixtures = data.fixtures ?? [];
     if (state.selectedFixture && !state.fixtures.some((f) => f.id === state.selectedFixture)) {
       state.selectedFixture = null;
     }
+    const chip = el("fixture-backend");
+    if (chip) {
+      chip.textContent =
+        data.backend === "supabase" ? `clips: shared (${data.bucket})` : "clips: local";
+      chip.classList.toggle("ok", data.backend === "supabase");
+    }
     renderFixtures();
   } catch (error) {
-    setFixtureStatus(`Could not load clips: ${error.message}`, true);
+    const chip = el("fixture-backend");
+    if (chip) {
+      chip.textContent = "clips: unavailable";
+      chip.classList.add("bad");
+    }
+    setFixtureStatus(
+      `Could not load clips: ${error.message}. If you just switched to Supabase, apply the migration first.`,
+      true
+    );
   }
 }
 

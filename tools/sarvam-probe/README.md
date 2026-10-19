@@ -95,6 +95,51 @@ browser cannot decode (e.g. amr/wma) may be rejected by Sarvam itself.
 Clips can be renamed/re-annotated (`PATCH /api/fixtures/:id`), deleted, previewed
 in the browser, or stored outside the repo with `PROBE_FIXTURE_DIR=/path/to/dir`.
 
+## Shared clip library (optional, dedicated Supabase project)
+
+Local clips are per-machine. To benchmark the same recordings across the team,
+point the probe at a **dedicated probe/test Supabase project** — never the
+clinical project, and never with the clinical service-role key.
+
+```bash
+# tools/sarvam-probe/.env
+PROBE_FIXTURE_BACKEND=supabase
+SUPABASE_URL=https://<probe-project-ref>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_BUCKET=probe-fixtures
+```
+
+Apply [`supabase/migrations/20261019000000_probe_clip_library.sql`](supabase/migrations/20261019000000_probe_clip_library.sql)
+either by pasting it into the project's SQL editor, or via the CLI:
+
+```bash
+cd tools/sarvam-probe
+supabase init          # only if supabase/config.toml does not exist yet
+supabase link --project-ref <probe-project-ref>
+supabase db push       # applies migrations/*.sql
+```
+
+What the migration creates:
+
+- `storage` bucket `probe-fixtures` (private) — audio objects named `<sha256[0:12]>.<ext>`
+- `public.probe_fixtures` — clip metadata (name, note, duration, bytes, sha256, run count)
+- `public.probe_runs` — benchmark summaries (no audio, no transcripts)
+- RLS policies scoped to those objects/tables for the `anon` role
+
+Behaviour with the shared backend:
+
+- Clip **list/metadata** come from `probe_fixtures`; audio is served from the bucket.
+- The local `fixtures/` directory is kept as a **read-through cache**: a clip is
+  downloaded once, hash-verified by name, then reused offline.
+- Saves are still deduplicated by `sha256`.
+- Every completed run posts a summary row to `probe_runs`, so results are
+  comparable across machines by `audio_sha256`.
+- The publishable key stays in the local `.env`; it is never sent to the browser.
+
+**Privacy:** the policies intentionally allow the `anon` role full access to this
+probe-only bucket/table. Keep the bucket private, restrict the project to
+benchmark data, and only upload consented/de-identified audio.
+
 ## Deliberate limitations
 
 - Single client, single process, in-memory run registry (restart loses the

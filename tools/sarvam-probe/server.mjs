@@ -45,15 +45,6 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(HERE, "public");
 const RUNS_DIR = path.join(HERE, "runs");
 const RUNS_INDEX = path.join(HERE, "runs.jsonl");
-// Named, reusable benchmark clips. Kept out of the repo (see .gitignore) and
-// overridable so real patient audio can live outside the working tree.
-const FIXTURES_DIR = process.env.PROBE_FIXTURE_DIR || path.join(HERE, "fixtures");
-const FIXTURES_INDEX = path.join(FIXTURES_DIR, "index.json");
-
-const BASE_URL = "https://api.sarvam.ai";
-const BATCH_PATH = "/speech-to-text/job/v1";
-const STT_PATH = "/speech-to-text";
-const MAX_AUDIO_BYTES = 200 * 1024 * 1024;
 
 // ── env ──────────────────────────────────────────────────────────────────────
 
@@ -76,7 +67,36 @@ function loadDotEnv() {
 
 loadDotEnv();
 
+// Named, reusable benchmark clips. Kept out of the repo (see .gitignore) and
+// overridable so real patient audio can live outside the working tree.
+const FIXTURES_DIR = process.env.PROBE_FIXTURE_DIR || path.join(HERE, "fixtures");
+const FIXTURES_INDEX = path.join(FIXTURES_DIR, "index.json");
+
+// ── optional shared library (dedicated Supabase project, not the clinical one) ─
+
+const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+const SUPABASE_KEY = (
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_KEY ||
+  ""
+).trim();
+const SUPABASE_BUCKET = (process.env.SUPABASE_BUCKET || "probe-fixtures").trim();
+const FIXTURE_BACKEND = (process.env.PROBE_FIXTURE_BACKEND || "local").trim().toLowerCase();
+const SUPABASE_ENABLED = FIXTURE_BACKEND === "supabase" && Boolean(SUPABASE_URL && SUPABASE_KEY);
+
+if (FIXTURE_BACKEND === "supabase" && !SUPABASE_ENABLED) {
+  console.warn(
+    "[probe] PROBE_FIXTURE_BACKEND=supabase but SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY is missing — using local clips."
+  );
+}
+
+const BASE_URL = "https://api.sarvam.ai";
+const BATCH_PATH = "/speech-to-text/job/v1";
+const STT_PATH = "/speech-to-text";
+const MAX_AUDIO_BYTES = 200 * 1024 * 1024;
+
 const PORT = Number(process.env.PROBE_PORT || 8787);
+const HOST = (process.env.PROBE_HOST || "127.0.0.1").trim();
 const DEFAULT_MODEL = process.env.PROBE_MODEL || "saaras:v3";
 
 function requireApiKey() {
@@ -421,7 +441,73 @@ function withFixtureLock(fn) {
   return next;
 }
 
+/** Minimal PostgREST + Storage client for the dedicated probe project. */
+async function supabaseRequest(pathname, { method = "GET", body, headers = {} } = {}) {
+  const res = await request({
+    url: `${SUPABASE_URL}${pathname}`,
+    method,
+    keepAlive: true,
+    timeoutMs: 120_000,
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      ...headers,
+    },
+    body,
+  });
+  if (!res.ok) {
+    throw new SarvamError(`Supabase ${res.status}: ${res.text.slice(0, 300)}`, {
+      status: res.status,
+      errorCode: "supabase_error",
+      body: res.text,
+    });
+  }
+  return res;
+}
+
+function rowToFixture(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    note: row.note ?? "",
+    storedName: row.storage_path,
+    mimeType: row.mime_type,
+    bytes: Number(row.bytes),
+    sha256: row.sha256,
+    durationSec: row.duration_sec === null || row.duration_sec === undefined
+      ? null
+      : Number(row.duration_sec),
+    sourceName: row.source_name ?? "",
+    converted: Boolean(row.converted),
+    createdAt: row.created_at,
+    runs: Number(row.runs ?? 0),
+    lastRunAt: row.last_run_at,
+  };
+}
+
+function fixtureToRow(entry) {
+  return {
+    id: entry.id,
+    name: entry.name,
+    note: entry.note ?? "",
+    duration_sec: entry.durationSec ?? null,
+    bytes: entry.bytes,
+    mime_type: entry.mimeType,
+    sha256: entry.sha256,
+    storage_path: entry.storedName,
+    source_name: entry.sourceName ?? "",
+    converted: Boolean(entry.converted),
+    runs: entry.runs ?? 0,
+    last_run_at: entry.lastRunAt,
+  };
+}
+
 async function readFixtures() {
+  if (SUPABASE_ENABLED) {
+    const res = await supabaseRequest("/rest/v1/probe_fixtures?select=*&order=name.asc");
+    const rows = res.text ? JSON.parse(res.text) : [];
+    return Array.isArray(rows) ? rows.map(rowToFixture) : [];
+  }
   try {
     const parsed = JSON.parse(await fsp.readFile(FIXTURES_INDEX, "utf8"));
     return Array.isArray(parsed?.fixtures) ? parsed.fixtures : [];
@@ -465,15 +551,145 @@ function fixturePath(entry) {
   return path.join(FIXTURES_DIR, entry.storedName);
 }
 
+async function uploadFixtureObject(entry, buffer) {
+  await supabaseRequest(
+    `/storage/v1/object/${SUPABASE_BUCKET}/${encodeURIComponent(entry.storedName)}`,
+    {
+      method: "POST",
+      body: buffer,
+      headers: { "Content-Type": entry.mimeType, "x-upsert": "true" },
+    }
+  );
+}
+
+async function downloadFixtureObject(entry) {
+  const res = await supabaseRequest(
+    `/storage/v1/object/${SUPABASE_BUCKET}/${encodeURIComponent(entry.storedName)}`
+  );
+  return res.buffer;
+}
+
+/** Persists a new clip: shared bucket + table, or local file + index. */
+async function createFixtureRecord(entry, audio) {
+  if (SUPABASE_ENABLED) {
+    await uploadFixtureObject(entry, audio);
+    try {
+      await supabaseRequest("/rest/v1/probe_fixtures", {
+        method: "POST",
+        body: JSON.stringify(fixtureToRow(entry)),
+        headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+      });
+    } catch (error) {
+      // 409 = another client saved the same sha256 first; treat as duplicate.
+      if (error?.status === 409) return false;
+      throw error;
+    }
+    return true;
+  }
+
+  await fsp.mkdir(FIXTURES_DIR, { recursive: true });
+  await fsp.writeFile(fixturePath(entry), audio);
+  const fixtures = await readFixtures();
+  fixtures.push(entry);
+  await writeFixtures(fixtures);
+  return true;
+}
+
+async function updateFixtureRecord(entry) {
+  if (SUPABASE_ENABLED) {
+    await supabaseRequest(`/rest/v1/probe_fixtures?id=eq.${encodeURIComponent(entry.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: entry.name,
+        note: entry.note ?? "",
+        duration_sec: entry.durationSec ?? null,
+        runs: entry.runs ?? 0,
+        last_run_at: entry.lastRunAt ?? null,
+      }),
+      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+    });
+    return;
+  }
+  const fixtures = await readFixtures();
+  const index = fixtures.findIndex((item) => item.id === entry.id);
+  if (index >= 0) fixtures[index] = entry;
+  await writeFixtures(fixtures);
+}
+
+async function deleteFixtureRecord(entry) {
+  if (SUPABASE_ENABLED) {
+    await supabaseRequest(`/rest/v1/probe_fixtures?id=eq.${encodeURIComponent(entry.id)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+    try {
+      await supabaseRequest(
+        `/storage/v1/object/${SUPABASE_BUCKET}/${encodeURIComponent(entry.storedName)}`,
+        { method: "DELETE" }
+      );
+    } catch {
+      /* orphaned object is harmless */
+    }
+    await fsp.rm(fixturePath(entry), { force: true });
+    return;
+  }
+  const fixtures = await readFixtures();
+  const index = fixtures.findIndex((item) => item.id === entry.id);
+  if (index >= 0) fixtures.splice(index, 1);
+  await fsp.rm(fixturePath(entry), { force: true });
+  await writeFixtures(fixtures);
+}
+
 /** Reads a fixture by id and returns `{ entry, audio }` or null. */
 async function loadFixture(id) {
   const fixtures = await readFixtures();
   const entry = fixtures.find((item) => item.id === id);
   if (!entry) return null;
+
   try {
     return { entry, audio: await fsp.readFile(fixturePath(entry)) };
   } catch {
+    /* fall through to the shared bucket */
+  }
+  if (!SUPABASE_ENABLED) return null;
+
+  try {
+    const audio = await downloadFixtureObject(entry);
+    await fsp.mkdir(FIXTURES_DIR, { recursive: true });
+    await fsp.writeFile(fixturePath(entry), audio);
+    return { entry, audio };
+  } catch {
     return null;
+  }
+}
+
+async function shareRunSummary(summary) {
+  if (!SUPABASE_ENABLED) return;
+  try {
+    await supabaseRequest("/rest/v1/probe_runs", {
+      method: "POST",
+      body: JSON.stringify({
+        run_id: summary.id,
+        fixture_id: summary.fixtureId ?? null,
+        fixture_name: summary.fixtureName ?? null,
+        audio_sha256: summary.audioSha256 ?? null,
+        duration_sec: summary.durationSec ?? null,
+        transport: summary.transport,
+        model: summary.model,
+        mode: summary.mode,
+        keep_alive: summary.keepAlive,
+        diarization: summary.diarization,
+        total_ms: summary.totalMs,
+        ratio: summary.ratio,
+        transcript_chars: summary.transcriptChars,
+        turn_count: summary.turnCount,
+        status: summary.status,
+        created_at: summary.createdAt,
+      }),
+      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+    });
+  } catch (error) {
+    console.error("[probe] could not share run summary", error.message);
   }
 }
 
@@ -909,6 +1125,7 @@ async function persistRun(run) {
       "utf8"
     );
     await fsp.appendFile(RUNS_INDEX, `${JSON.stringify(summary)}\n`, "utf8");
+    await shareRunSummary(summary);
   } catch (error) {
     console.error("[probe] failed to persist run", error);
   }
@@ -1091,6 +1308,8 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, {
         hasKey: Boolean((process.env.SARVAM_API_KEY || "").trim()),
         defaultModel: DEFAULT_MODEL,
+        fixtureBackend: SUPABASE_ENABLED ? "supabase" : "local",
+        fixtureBucket: SUPABASE_ENABLED ? SUPABASE_BUCKET : null,
         models: ["saaras:v3", "saaras:v4"],
         modes: ["codemix", "transcribe", "translate", "verbatim", "translit"],
         languages: [
@@ -1118,7 +1337,9 @@ const server = http.createServer(async (req, res) => {
         fixtures: fixtures
           .map(publicFixture)
           .sort((a, b) => String(a.name).localeCompare(String(b.name))),
+        backend: SUPABASE_ENABLED ? "supabase" : "local",
         dir: FIXTURES_DIR,
+        bucket: SUPABASE_ENABLED ? SUPABASE_BUCKET : null,
       });
       return;
     }
@@ -1155,7 +1376,7 @@ const server = http.createServer(async (req, res) => {
           if (!existing.durationSec && requestedDuration) {
             existing.durationSec = requestedDuration;
           }
-          await writeFixtures(fixtures);
+          await updateFixtureRecord(existing);
           return { entry: existing, duplicate: true };
         }
 
@@ -1174,10 +1395,12 @@ const server = http.createServer(async (req, res) => {
           runs: 0,
           lastRunAt: null,
         };
-        await fsp.mkdir(FIXTURES_DIR, { recursive: true });
-        await fsp.writeFile(fixturePath(entry), audio);
-        fixtures.push(entry);
-        await writeFixtures(fixtures);
+        const stored = await createFixtureRecord(entry, audio);
+        if (!stored) {
+          const after = await readFixtures();
+          const duplicate = after.find((item) => item.sha256 === sha256);
+          return { entry: duplicate ?? entry, duplicate: true };
+        }
         return { entry, duplicate: false };
       });
 
@@ -1220,7 +1443,7 @@ const server = http.createServer(async (req, res) => {
         if (body.durationSec !== undefined) {
           entry.durationSec = parseNumber(body.durationSec, 0, 0, 7200) || null;
         }
-        await writeFixtures(fixtures);
+        await updateFixtureRecord(entry);
         return entry;
       });
       if (!updated) {
@@ -1234,11 +1457,9 @@ const server = http.createServer(async (req, res) => {
     if (fixtureMatch && req.method === "DELETE") {
       const removed = await withFixtureLock(async () => {
         const fixtures = await readFixtures();
-        const index = fixtures.findIndex((item) => item.id === fixtureMatch[1]);
-        if (index < 0) return null;
-        const [entry] = fixtures.splice(index, 1);
-        await fsp.rm(fixturePath(entry), { force: true });
-        await writeFixtures(fixtures);
+        const entry = fixtures.find((item) => item.id === fixtureMatch[1]);
+        if (!entry) return null;
+        await deleteFixtureRecord(entry);
         return entry;
       });
       if (!removed) {
@@ -1296,7 +1517,7 @@ const server = http.createServer(async (req, res) => {
           if (!entry) return;
           entry.runs = (entry.runs ?? 0) + 1;
           entry.lastRunAt = new Date().toISOString();
-          await writeFixtures(fixtures);
+          await updateFixtureRecord(entry);
         }).catch(() => {});
       } else {
         audio = await readBody(req);
@@ -1401,10 +1622,12 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, "127.0.0.1", () => {
+server.listen(PORT, HOST, () => {
   const hasKey = Boolean((process.env.SARVAM_API_KEY || "").trim());
-  console.log(`\n  Sarvam probe → http://localhost:${PORT}`);
+  console.log(`\n  Sarvam probe → http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`);
   console.log(`  API key: ${hasKey ? "loaded" : "MISSING (copy .env.example to .env)"}`);
   console.log(`  Runs saved to tools/sarvam-probe/runs.jsonl`);
-  console.log(`  Clips saved to ${FIXTURES_DIR}\n`);
+  console.log(
+    `  Clips: ${SUPABASE_ENABLED ? `supabase bucket "${SUPABASE_BUCKET}" (+ local cache)` : FIXTURES_DIR}\n`
+  );
 });
