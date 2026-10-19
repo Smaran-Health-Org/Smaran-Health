@@ -16,6 +16,8 @@
 
 const el = (id) => document.getElementById(id);
 
+import { stitchWindows, zipPhrases } from "/chunk-stitch.js";
+
 const RUNS_KEY = "sarvam-probe-runs";
 const LOGS_KEY = "sarvam-probe-logs";
 const MAX_LOGS = 500;
@@ -40,6 +42,9 @@ const state = {
   clips: [],
   selectedClip: null,
   activeClip: null,
+  hybrid: null,
+  hybridSummary: null,
+  liveSource: null,
 };
 
 // ── formatting ───────────────────────────────────────────────────────────────
@@ -409,6 +414,8 @@ async function runClip(clip) {
     el("clip-seconds").value = clip.duration_sec ? Number(clip.duration_sec).toFixed(1) : "";
     if (!el("label").value.trim()) el("label").value = clip.name;
 
+    state.liveSource = runMode() === "hybrid" ? "file" : null;
+    state.hybridSummary = null;
     setClipStatus(`Running ${clip.name} (${fmtKb(blob.size)})…`);
     void sbJson(`/rest/v1/${CLIPS_TABLE}?id=eq.${encodeURIComponent(clip.id)}`, {
       method: "PATCH",
@@ -480,6 +487,10 @@ async function shareRun(record) {
         transcript_chars: record.transcriptChars ?? null,
         turn_count: record.turnCount ?? null,
         status: record.status,
+        run_mode: record.runMode ?? (record.diarization ? "batch-on" : "batch-off"),
+        first_text_ms: record.firstTextMs ?? null,
+        segment_count: record.segmentCount ?? null,
+        seam_warnings: record.seamWarnings ?? null,
       }),
       headers: { Prefer: "return=minimal" },
     });
@@ -490,6 +501,14 @@ async function shareRun(record) {
 
 // ── recording ────────────────────────────────────────────────────────────────
 
+function runMode() {
+  return el("run-mode").value;
+}
+
+function diarizationForMode(mode = runMode()) {
+  return mode !== "batch-off";
+}
+
 function pickMimeType() {
   for (const candidate of MIME_CANDIDATES) {
     if (window.MediaRecorder?.isTypeSupported?.(candidate)) return candidate;
@@ -498,6 +517,12 @@ function pickMimeType() {
 }
 
 async function startRecording() {
+  if (runMode() === "hybrid") {
+    await startHybridRecording();
+    return;
+  }
+
+  state.hybridSummary = null;
   try {
     state.stream = await navigator.mediaDevices.getUserMedia({
       audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
@@ -530,22 +555,21 @@ async function startRecording() {
 
   state.preJobs = null;
   if (el("pre-initiate").checked) {
-    el("level").textContent = "pre-initiating both jobs…";
+    const diarization = diarizationForMode();
+    el("level").textContent = "pre-initiating the batch job…";
     try {
-      const initiate = async (diarization) => {
-        const response = await fetch("/api/job", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...settings(), diarization }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "initiate failed");
-        return data;
-      };
-      const [withLabels, withoutLabels] = await Promise.all([initiate(true), initiate(false)]);
-      state.preJobs = { on: withLabels, off: withoutLabels };
-      el("level").textContent = `2 jobs ready in ${fmtMs(Math.max(withLabels.ms, withoutLabels.ms))} — E2 paid`;
-      log("info", "pre-initiate both (E2)", { on: withLabels.ms, off: withoutLabels.ms });
+      const response = await fetch("/api/job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...settings(), diarization }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "initiate failed");
+      state.preJobs = diarization
+        ? { on: data, off: null }
+        : { on: null, off: data };
+      el("level").textContent = `job ready in ${fmtMs(data.ms)} — E2 paid`;
+      log("info", "pre-initiate (E2)", { diarization, ms: data.ms });
     } catch (error) {
       el("level").textContent = `pre-initiate failed: ${error.message}`;
       log("error", "pre-initiate failed", { message: error.message });
@@ -554,6 +578,10 @@ async function startRecording() {
 }
 
 function stopRecording() {
+  if (state.hybrid) {
+    void stopHybridRecording();
+    return;
+  }
   if (!state.recorder || state.recorder.state === "inactive") return;
   state.recorder.stop();
   clearInterval(state.timerId);
@@ -613,6 +641,463 @@ function resolveDuration(fallback) {
   const typed = Number(el("clip-seconds").value);
   if (Number.isFinite(typed) && typed > 0) return typed;
   return fallback || null;
+}
+
+// ── hybrid rail (live preview + batch final) ─────────────────────────────────
+//
+// Live rail: 15–25 s PCM windows → REST endpoint (no diarization, by design).
+// Final rail: the same batch job as the production path, with diarization ON.
+// The live text is always provisional and is replaced by the batch transcript.
+
+const LIVE_SAMPLE_RATE = 16000;
+
+function encodeWavPcm16(samples, sampleRate) {
+  const dataBytes = samples.length * 2;
+  const out = new ArrayBuffer(44 + dataBytes);
+  const view = new DataView(out);
+  const ascii = (offset, text) => {
+    for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  ascii(0, "RIFF");
+  view.setUint32(4, 36 + dataBytes, true);
+  ascii(8, "WAVE");
+  ascii(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, "data");
+  view.setUint32(40, dataBytes, true);
+  new Uint8Array(out, 44).set(
+    new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength)
+  );
+  return new Uint8Array(out);
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function floatToInt16(input) {
+  const out = new Int16Array(input.length);
+  for (let i = 0; i < input.length; i += 1) {
+    const sample = Math.max(-1, Math.min(1, input[i]));
+    out[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+  }
+  return out;
+}
+
+async function decodeToPcm16(file) {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  const context = new Ctx();
+  let decoded;
+  try {
+    decoded = await context.decodeAudioData(await file.arrayBuffer());
+  } finally {
+    context.close?.();
+  }
+
+  const sampleRate = LIVE_SAMPLE_RATE;
+  const frames = Math.max(1, Math.ceil(decoded.duration * sampleRate));
+  const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const offline = new Offline(1, frames, sampleRate);
+  const source = offline.createBufferSource();
+  source.buffer = decoded;
+  source.connect(offline.destination);
+  source.start();
+  const rendered = await offline.startRendering();
+  return { samples: floatToInt16(rendered.getChannelData(0)), sampleRate };
+}
+
+async function startHybridRecording() {
+  state.hybridSummary = null;
+  state.liveSource = "recording";
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+    });
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx({ sampleRate: LIVE_SAMPLE_RATE });
+    await ctx.audioWorklet.addModule("/pcm-window-worklet.js");
+    const node = new AudioWorkletNode(ctx, "pcm-window", {
+      channelCount: 1,
+      processorOptions: { noiseFloorRms: 0.006 },
+    });
+    const sourceNode = ctx.createMediaStreamSource(stream);
+    sourceNode.connect(node);
+    node.connect(ctx.destination);
+
+    state.hybrid = {
+      ctx,
+      node,
+      source: sourceNode,
+      stream,
+      windows: [],
+      index: 0,
+      pieces: [],
+      writtenUntil: 0,
+      sampleRate: LIVE_SAMPLE_RATE,
+      startedAt: performance.now(),
+      stoppedAt: null,
+      firstTextMs: null,
+      firstTextAfterStopMs: null,
+      pending: 0,
+      failed: 0,
+      stopped: false,
+      tailResolve: null,
+    };
+    node.port.onmessage = (event) => handleWorkletMessage(event.data);
+
+    el("record-btn").disabled = true;
+    el("record-btn").classList.add("recording");
+    el("stop-btn").disabled = false;
+    el("level").textContent = "hybrid: live windows + batch";
+    el("live-card").hidden = false;
+    renderLive();
+    log("info", "hybrid recording started", { sampleRate: LIVE_SAMPLE_RATE });
+
+    state.timerId = setInterval(() => {
+      el("timer").textContent = fmtClock(Date.now() - state.hybrid.startedAt);
+    }, 250);
+
+    state.preJobs = null;
+    if (el("pre-initiate").checked) {
+      try {
+        const response = await fetch("/api/job", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...settings(), diarization: true }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "initiate failed");
+        state.preJobs = { on: data, off: null };
+        log("info", "pre-initiate (E2)", { diarization: true, ms: data.ms });
+      } catch (error) {
+        log("error", "pre-initiate failed", { message: error.message });
+      }
+    }
+  } catch (error) {
+    state.hybrid = null;
+    state.liveSource = null;
+    alert(`Hybrid capture unavailable: ${error.message}`);
+    log("error", "hybrid capture unavailable", { message: String(error.message).slice(0, 160) });
+  }
+}
+
+function handleWorkletMessage(message) {
+  const hybrid = state.hybrid;
+  if (!hybrid) return;
+
+  if (message?.type === "TAIL_FLUSHED") {
+    hybrid.tailResolve?.();
+    return;
+  }
+  if (message?.type !== "PCM_WINDOW") return;
+
+  const samples = new Int16Array(message.pcm16);
+  const startSample = Math.round(message.start_s * hybrid.sampleRate);
+  const skip = Math.max(
+    0,
+    Math.round(hybrid.writtenUntil * hybrid.sampleRate) - startSample
+  );
+  if (skip < samples.length) {
+    hybrid.pieces.push(samples.slice(skip));
+    hybrid.writtenUntil = Math.max(hybrid.writtenUntil, message.end_s);
+  }
+
+  const record = {
+    index: hybrid.index++,
+    start_s: message.start_s,
+    end_s: message.end_s,
+    cutReason: message.cutReason,
+    overlap_s: message.overlap_s ?? 0,
+    status: "running",
+    transcript: "",
+    phrases: [],
+  };
+  hybrid.windows.push(record);
+  hybrid.pending += 1;
+
+  const pcm = samples.slice();
+  hybrid.node.port.postMessage({ type: "RECYCLE", buffer: message.pcm16 }, [message.pcm16]);
+  void transcribeWindow(record, pcm, hybrid).finally(() => {
+    hybrid.pending -= 1;
+    if (hybrid.stopped && hybrid.pending === 0) hybrid.tailResolve?.();
+  });
+}
+
+async function transcribeWindow(record, pcm16, hybrid) {
+  const startedAt = performance.now();
+  try {
+    const wav = encodeWavPcm16(pcm16, hybrid.sampleRate);
+    const response = await fetch("/api/segment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        audioBase64: bytesToBase64(wav),
+        sampleRate: hybrid.sampleRate,
+        model: el("model").value,
+        mode: el("mode").value,
+        language: el("language").value,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `live window failed (${response.status})`);
+    record.status = "ok";
+    record.transcript = data.transcript || "";
+    record.phrases = zipPhrases(data.timestamps, record.start_s);
+    record.ms = Math.round(performance.now() - startedAt);
+    if (hybrid.firstTextMs == null && record.transcript) {
+      hybrid.firstTextMs = Math.round(performance.now() - hybrid.startedAt);
+      if (hybrid.stoppedAt != null) {
+        hybrid.firstTextAfterStopMs = Math.round(performance.now() - hybrid.stoppedAt);
+      }
+    }
+    log("info", "live window", {
+      index: record.index,
+      ms: record.ms,
+      chars: record.transcript.length,
+    });
+  } catch (error) {
+    record.status = "failed";
+    record.error = error.message;
+    hybrid.failed += 1;
+    log("error", "live window failed", {
+      index: record.index,
+      message: String(error.message).slice(0, 160),
+    });
+  }
+  renderLive();
+}
+
+function summarizeHybrid(hybrid) {
+  const stitched = stitchWindows(hybrid.windows);
+  return {
+    firstTextMs: hybrid.firstTextMs,
+    firstTextAfterStopMs: hybrid.firstTextAfterStopMs,
+    segmentCount: hybrid.windows.length,
+    failedSegments: hybrid.failed,
+    gaps: stitched.gaps.length,
+    seamWarnings: stitched.seamAudit.filter((seam) => seam.warning).length,
+    transcript: stitched.fullTranscript,
+  };
+}
+
+function renderLive() {
+  const hybrid = state.hybrid;
+  if (!hybrid) return;
+  const stitched = stitchWindows(hybrid.windows);
+  el("live-card").hidden = false;
+  el("live-transcript").textContent =
+    stitched.fullTranscript || "(waiting for the first window…)";
+
+  const box = el("live-metrics");
+  box.innerHTML = "";
+  const add = (text) => {
+    const line = document.createElement("div");
+    line.className = "note";
+    line.textContent = text;
+    box.appendChild(line);
+  };
+  add(
+    `windows ${hybrid.windows.length} · pending ${hybrid.pending} · failed ${hybrid.failed}` +
+      (hybrid.firstTextMs != null
+        ? ` · first text ${(hybrid.firstTextMs / 1000).toFixed(1)} s after start`
+        : " · first text: waiting")
+  );
+  if (stitched.gaps.length) {
+    add(`${stitched.gaps.length} gap(s): a failed window is a hole, never silently missing text.`);
+  }
+}
+
+async function stopHybridRecording() {
+  const hybrid = state.hybrid;
+  if (!hybrid) return;
+
+  hybrid.stoppedAt = performance.now();
+  hybrid.stopped = true;
+  clearInterval(state.timerId);
+  el("record-btn").disabled = false;
+  el("record-btn").classList.remove("recording");
+  el("stop-btn").disabled = true;
+  el("level").textContent = "flushing live windows…";
+
+  await new Promise((resolve) => {
+    hybrid.tailResolve = resolve;
+    hybrid.node.port.postMessage({ type: "FLUSH_TAIL" });
+    setTimeout(resolve, 6000);
+  });
+
+  const deadline = Date.now() + 45_000;
+  while (hybrid.pending > 0 && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+
+  hybrid.node.port.onmessage = null;
+  try {
+    await hybrid.ctx.close();
+  } catch {
+    /* already closed */
+  }
+  hybrid.stream.getTracks().forEach((track) => track.stop());
+
+  const totalSamples = hybrid.pieces.reduce((sum, piece) => sum + piece.length, 0);
+  const samples = new Int16Array(totalSamples);
+  let offset = 0;
+  for (const piece of hybrid.pieces) {
+    samples.set(piece, offset);
+    offset += piece.length;
+  }
+  const durationSec = samples.length / hybrid.sampleRate;
+  const wav = encodeWavPcm16(samples, hybrid.sampleRate);
+
+  state.hybridSummary = summarizeHybrid(hybrid);
+  renderLive();
+  state.hybrid = null;
+
+  state.lastBlob = new Blob([wav], { type: "audio/wav" });
+  state.lastMime = "audio/wav";
+  state.lastDuration = durationSec;
+  el("clip-seconds").value = durationSec.toFixed(1);
+  if (!el("clip-name").value.trim()) {
+    el("clip-name").value = `recording-${new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace(/[:T]/g, "-")}`;
+  }
+  el("rerun-btn").disabled = false;
+  log("info", "hybrid recording stopped", {
+    seconds: Number(durationSec.toFixed(1)),
+    bytes: wav.byteLength,
+    windows: state.hybridSummary.segmentCount,
+  });
+
+  await runPipeline(state.lastBlob, "audio/wav", durationSec);
+}
+
+/** File variant: same two rails, driven from a decoded file instead of mic input. */
+async function runFileHybrid(file) {
+  const hybrid = {
+    windows: [],
+    index: 0,
+    sampleRate: LIVE_SAMPLE_RATE,
+    startedAt: performance.now(),
+    stoppedAt: performance.now(),
+    firstTextMs: null,
+    firstTextAfterStopMs: null,
+    pending: 0,
+    failed: 0,
+    stopped: true,
+  };
+  state.hybrid = hybrid;
+  el("live-card").hidden = false;
+  renderLive();
+
+  try {
+    const { samples, sampleRate } = await decodeToPcm16(file);
+    hybrid.sampleRate = sampleRate;
+    const windowSamples = 25 * sampleRate;
+    const overlapSamples = Math.round(1.75 * sampleRate);
+    let start = 0;
+
+    while (start < samples.length) {
+      const hardCap = start + windowSamples < samples.length;
+      const end = Math.min(start + windowSamples, samples.length);
+      const record = {
+        index: hybrid.index++,
+        start_s: start / sampleRate,
+        end_s: end / sampleRate,
+        cutReason: hardCap ? "hard-cap" : "stop-tail",
+        overlap_s: hardCap ? 1.75 : 0,
+        status: "running",
+        transcript: "",
+        phrases: [],
+      };
+      hybrid.windows.push(record);
+      await transcribeWindow(record, samples.slice(start, end), hybrid);
+      start = hardCap ? end - overlapSamples : end;
+    }
+  } catch (error) {
+    log("error", "file hybrid failed", { message: String(error.message).slice(0, 160) });
+  } finally {
+    state.hybridSummary = summarizeHybrid(hybrid);
+    state.hybrid = null;
+  }
+}
+
+function renderHybridComparison(record) {
+  const summary = state.hybridSummary;
+  el("ab-card").hidden = false;
+  const body = document.querySelector("#ab-table tbody");
+  body.innerHTML = "";
+
+  const rows = [
+    ["first text (from start)", summary?.firstTextMs != null ? fmtMs(summary.firstTextMs) : "—"],
+    ["first text after stop", summary?.firstTextAfterStopMs != null ? fmtMs(summary.firstTextAfterStopMs) : "0 ms"],
+    ["live windows", summary?.segmentCount ?? "—"],
+    ["failed windows", summary?.failedSegments ?? "—"],
+    ["gaps", summary?.gaps ?? "—"],
+    ["t_final (batch)", "—", fmtMs(record.totalMs)],
+    ["provider wait", "—", fmtMs(record.providerWaitMs)],
+    ["speaker turns", "none available", record.turnCount ?? 0],
+    ["ratio ×", "—", record.ratio ?? "—"],
+  ];
+
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${escapeHtml(row[0])}</td><td>${escapeHtml(String(row[1] ?? "—"))}</td><td>${escapeHtml(
+      String(row[2] ?? "—")
+    )}</td><td>—</td>`;
+    body.appendChild(tr);
+  }
+
+  const notes = el("ab-summary");
+  notes.innerHTML = "";
+  const add = (text) => {
+    const line = document.createElement("div");
+    line.className = "note";
+    line.textContent = text;
+    notes.appendChild(line);
+  };
+  if (summary?.firstTextMs != null) {
+    add(
+      `Provisional text appeared after ${fmtMs(summary.firstTextMs)}` +
+        (summary.firstTextAfterStopMs != null
+          ? ` (${fmtMs(summary.firstTextAfterStopMs)} after stop)`
+          : " (while still recording)") +
+        `; the authoritative diarized transcript took ${fmtMs(record.totalMs)}.`
+    );
+  } else {
+    add("No live text was produced — check the live window errors in the log.");
+  }
+  add(
+    "Provisional text is unconfirmed and has no speaker labels; the batch transcript replaces it. " +
+      "Audio was transcribed twice, so this run costs REST + batch."
+  );
+
+  const box = el("ab-transcripts");
+  box.innerHTML = "";
+  for (const [name, text] of [
+    ["live preview (provisional)", summary?.transcript || "(no live text)"],
+    ["batch (authoritative, diarized)", record.transcript || "(no transcript)"],
+  ]) {
+    const heading = document.createElement("div");
+    heading.className = "note";
+    heading.textContent = name;
+    box.appendChild(heading);
+    const transcript = document.createElement("div");
+    transcript.className = "transcript";
+    transcript.textContent = text;
+    box.appendChild(transcript);
+  }
 }
 
 // ── shared status budget ─────────────────────────────────────────────────────
@@ -697,6 +1182,7 @@ async function runVariant({ blob, mimeType, durationSec, diarization, variant, c
     preInitiated: Boolean(reuseJob),
     clipId: state.activeClip?.id ?? null,
     clipName: state.activeClip?.name ?? null,
+    runMode: runMode(),
     status: "running",
     totalMs: null,
     providerWaitMs: null,
@@ -846,6 +1332,17 @@ async function runVariant({ blob, mimeType, durationSec, diarization, variant, c
     record.overheadMs =
       record.providerWaitMs != null ? Math.max(0, record.totalMs - record.providerWaitMs) : null;
 
+    if (record.status === "completed" && state.hybridSummary) {
+      Object.assign(record, {
+        firstTextMs: state.hybridSummary.firstTextMs,
+        firstTextAfterStopMs: state.hybridSummary.firstTextAfterStopMs,
+        segmentCount: state.hybridSummary.segmentCount,
+        failedSegments: state.hybridSummary.failedSegments,
+        gaps: state.hybridSummary.gaps,
+        seamWarnings: state.hybridSummary.seamWarnings,
+      });
+    }
+
     if (record.status === "completed") {
       card.total.textContent = `${fmtMs(record.totalMs)}${record.ratio ? ` · ×${record.ratio}` : ""}`;
     } else {
@@ -859,7 +1356,7 @@ async function runVariant({ blob, mimeType, durationSec, diarization, variant, c
   }
 }
 
-// ── pipeline (single or A/B) ─────────────────────────────────────────────────
+// ── pipeline (one mode per run) ─────────────────────────────────────────────
 
 async function runPipeline(blob, mimeType, durationSec) {
   if (state.busy) return;
@@ -868,42 +1365,51 @@ async function runPipeline(blob, mimeType, durationSec) {
   const host = el("run-panel");
   host.innerHTML = "";
   const label = el("label").value.trim();
+  const mode = runMode();
+  const diarization = diarizationForMode(mode);
 
   try {
-    // Same bytes, two jobs, submitted at the same moment: one diarized, one not.
-    log("info", "comparison started", { bytes: blob.size });
-    el("ab-card").hidden = false;
-    el("ab-summary").innerHTML = "";
-    document.querySelector("#ab-table tbody").innerHTML = "";
-    el("ab-transcripts").innerHTML = "";
+    if (mode !== "hybrid") {
+      state.hybridSummary = null;
+      el("live-card").hidden = true;
+    }
+    if (mode === "hybrid") {
+      el("ab-card").hidden = true;
+      el("ab-summary").innerHTML = "";
+      document.querySelector("#ab-table tbody").innerHTML = "";
+      el("ab-transcripts").innerHTML = "";
+    }
 
-    const onCard = createCard(host, `${label || "run"} — diarization ON`);
-    const offCard = createCard(host, `${label || "run"} — diarization OFF`);
+    const livePromise =
+      mode === "hybrid" && state.liveSource === "file"
+        ? runFileHybrid(blob)
+        : Promise.resolve();
 
-    const [on, off] = await Promise.all([
+    const card = createCard(
+      host,
+      `${label || "run"} — ${mode === "hybrid" ? "batch rail, " : ""}diarization ${
+        diarization ? "ON" : "OFF"
+      }`
+    );
+
+    const [record] = await Promise.all([
       runVariant({
         blob,
         mimeType,
         durationSec,
-        diarization: true,
-        variant: "diar-on",
-        card: onCard,
-        reuseJob: state.preJobs?.on,
+        diarization,
+        variant: diarization ? "diar-on" : "diar-off",
+        card,
+        reuseJob: diarization ? state.preJobs?.on : state.preJobs?.off,
       }),
-      runVariant({
-        blob,
-        mimeType,
-        durationSec,
-        diarization: false,
-        variant: "diar-off",
-        card: offCard,
-        reuseJob: state.preJobs?.off,
-      }),
+      livePromise,
     ]);
+
     state.preJobs = null;
-    renderComparison(on, off);
+    if (mode === "hybrid") renderHybridComparison(record);
   } finally {
     state.busy = false;
+    state.liveSource = null;
   }
 }
 
@@ -1006,7 +1512,9 @@ function renderHistory() {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${new Date(run.at).toLocaleTimeString()}</td>
-      <td>${escapeHtml(run.label || "—")}${run.variant && run.variant !== "single" ? ` <span class="muted">(${escapeHtml(run.variant)})</span>` : ""}</td>
+      <td>${escapeHtml(run.label || "—")}${
+        run.runMode ? ` <span class="muted">(${escapeHtml(run.runMode)})</span>` : ""
+      }</td>
       <td>${fmtSec(run.durationSec)}</td>
       <td>${fmtKb(run.audioBytes)}</td>
       <td>${escapeHtml(run.model)}${run.diarization ? "" : " · nodiar"}</td>
@@ -1195,6 +1703,12 @@ el("refresh-bench").addEventListener("click", renderBenchmarks);
 el("save-clip-btn").addEventListener("click", saveClip);
 el("run-clip-btn").addEventListener("click", runSelectedClip);
 el("delete-clip-btn").addEventListener("click", deleteSelectedClip);
+el("run-mode").addEventListener("change", () => {
+  const hybrid = runMode() === "hybrid";
+  el("run-mode-note").textContent = hybrid
+    ? "Hybrid: 15–25 s PCM windows stream to the REST endpoint for a provisional preview; the batch job with diarization ON remains authoritative. Streaming (WebSocket) is faster but needs a relay — see the README."
+    : "Batch only: one job per run with the selected diarization setting. This is the production path.";
+});
 el("export-json").addEventListener("click", exportRunsJson);
 el("export-csv").addEventListener("click", exportRunsCsv);
 el("export-logs").addEventListener("click", exportLogs);
@@ -1226,11 +1740,15 @@ el("file-input").addEventListener("change", async (event) => {
   }
   el("rerun-btn").disabled = false;
   log("info", "file selected", { bytes: file.size, seconds: probed ?? "unknown", type: state.lastMime });
+  state.liveSource = runMode() === "hybrid" ? "file" : null;
+  state.hybridSummary = null;
   await runPipeline(file, state.lastMime, state.lastDuration);
 });
 
 el("rerun-btn").addEventListener("click", async () => {
   if (!state.lastBlob) return;
+  state.liveSource = runMode() === "hybrid" ? "file" : null;
+  state.hybridSummary = null;
   await runPipeline(state.lastBlob, state.lastMime, state.lastDuration);
 });
 

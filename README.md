@@ -145,6 +145,37 @@ Two things the deployment settles immediately:
 Local-only features (PCM capture, `chunked-rest`, `stream`, `hybrid`) are **not** in the
 cloud build yet — they need the PCM worklet wired into the UI.
 
+## Three run modes
+
+| Mode | Rail A (live) | Rail B (authoritative) |
+| --- | --- | --- |
+| `batch + diarization ON` | — | batch job, `with_diarization: true` |
+| `batch + diarization OFF` | — | batch job, `with_diarization: false` |
+| `hybrid` | REST endpoint, 15–25 s PCM windows, **no diarization** | batch job, `with_diarization: true` |
+
+Hybrid capture uses `public/pcm-window-worklet.js`: 16 kHz mono PCM, windows cut
+on ~400 ms silence after 15 s, hard cap 25 s, 1.75 s overlap only on hard-cap
+cuts. Windows are transcribed by `api/segment.js` (one REST call each) and
+stitched with `public/chunk-stitch.js`. Uploaded files use the same rails,
+windowed on the client, so clips benchmark identically.
+
+Measured per run: `firstTextMs` (provisional text, from recording start),
+`firstTextAfterStopMs`, `segmentCount`, failed windows/gaps, and the usual batch
+`totalMs` / provider wait / turns. Provisional text is explicitly unconfirmed and
+is replaced by the batch transcript.
+
+**Why not streaming for the live rail?** Sarvam does have a realtime WebSocket
+(`wss://api.sarvam.ai/speech-to-text-realtime/ws`, `saaras:v3-realtime` /
+`saaras:v4`, 8/16 kHz linear16, partial + final transcripts, VAD). But:
+
+- it has **no diarization** — same limitation as REST, so it can only ever be a preview;
+- it needs a **long-lived relay** to keep the API key server-side; a Vercel function
+  cannot hold a WebSocket.
+
+So hybrid + streaming is the target architecture for production, but this app
+tests hybrid + REST chunks. Use it to measure the ceiling (`firstTextMs`); moving
+that number down further is a relay/infra change, not a UI change.
+
 ## Where results are saved
 
 | Path | Contents |

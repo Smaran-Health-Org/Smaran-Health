@@ -29,8 +29,22 @@
         </div>
         <label class="check">
           <input type="checkbox" id="pre-initiate" checked />
-          Pre-initiate both jobs when recording starts <span class="muted">(E2)</span>
+          Pre-initiate the batch job when recording starts <span class="muted">(E2)</span>
         </label>
+        <div class="grid">
+          <label class="wide">Run mode
+            <select id="run-mode">
+              <option value="batch-on" selected>batch + diarization ON — production path</option>
+              <option value="batch-off">batch + diarization OFF — baseline</option>
+              <option value="hybrid">hybrid — live preview (no speakers) then batch + diarization ON</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted small" id="run-mode-note">
+          Hybrid uses 15–25 s PCM windows and the REST endpoint for the live rail; the batch rail
+          stays authoritative. Streaming (WebSocket) is faster but needs a long-lived relay, which
+          a Vercel function cannot be — see the README.
+        </p>
         <div class="record-row">
           <input type="file" id="file-input" accept="audio/*" />
           <button id="rerun-btn" disabled>Re-run last audio</button>
@@ -102,16 +116,22 @@
         </div>
       </section>
 
+      <section class="card" id="live-card" hidden>
+        <h2>Live preview <span class="muted small">— unconfirmed, no speaker labels</span></h2>
+        <div id="live-metrics" class="notes"></div>
+        <div id="live-transcript" class="transcript">(waiting for the first window…)</div>
+      </section>
+
       <section class="card" id="ab-card" hidden>
-        <h2>5. A/B result <span class="muted small">— same audio, same moment</span></h2>
+        <h2>5. Hybrid result <span class="muted small">— live preview vs authoritative batch</span></h2>
         <div id="ab-summary" class="notes"></div>
         <div class="table-wrap">
           <table id="ab-table">
             <thead>
               <tr>
                 <th>metric</th>
-                <th>diarization on</th>
-                <th>diarization off</th>
+                <th>live preview</th>
+                <th>batch (DIA ON)</th>
                 <th>delta</th>
               </tr>
             </thead>

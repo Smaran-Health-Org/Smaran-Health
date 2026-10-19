@@ -54,6 +54,12 @@ create table if not exists public.probe_runs (
 create index if not exists probe_runs_fixture_idx on public.probe_runs (fixture_id);
 create index if not exists probe_runs_sha_idx on public.probe_runs (audio_sha256);
 
+-- Hybrid test columns (safe to re-run).
+alter table public.probe_runs add column if not exists run_mode text;
+alter table public.probe_runs add column if not exists first_text_ms integer;
+alter table public.probe_runs add column if not exists segment_count integer;
+alter table public.probe_runs add column if not exists seam_warnings integer;
+
 alter table public.probe_fixtures enable row level security;
 alter table public.probe_runs enable row level security;
 
