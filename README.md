@@ -88,7 +88,14 @@ and streams SSE. A serverless function can do neither, so the deployed variant i
 | --- | --- |
 | `local-server.mjs` serves `/` and one SSE run stream | `api/*.js` — one bounded Sarvam call per request |
 | run state in server memory | run state **in the browser** (`cloud.js`) |
-| upload posted to the server | browser **PUTs directly to Sarvam storage** |
+| upload posted to the server | `api/upload.js` proxies the presigned PUT |
+
+Direct browser → Sarvam storage is blocked by CORS, so the deployed build proxies
+the upload through a function. Vercel caps request bodies at 4.5 MB and base64
+inflates by ~33%, so the proxy accepts up to **3.2 MB** of audio. Compressed
+recordings (webm/opus, mp3, m4a) fit comfortably; long uncompressed WAV files do
+not. Hybrid recordings therefore keep a MediaRecorder copy for the batch rail
+while the worklet drives the live rail.
 
 ```bash
 vercel deploy --prod     # from this folder
@@ -133,17 +140,16 @@ In the UI:
 Privacy: this bucket holds benchmark audio. Keep it to synthetic or consented,
 de-identified clips — never patient consultations.
 
-Two things the deployment settles immediately:
+Two things the deployment settled:
 
-1. **Does direct browser upload work?** The presigned Azure blob URL requires that
-   container's CORS rules to allow this origin. If the `batch.upload_put` step reports
-   *CORS blocked*, browser-direct upload is impossible and the deployment needs a
-   chunked server proxy (§7.11 in `docs/NEXT_SESSION_PROMPT.md`).
-2. **How long does a whole batch job really take?** The page shows per-step timings plus
-   total and ratio, which is the §11 measurement.
+1. **Direct browser upload does not work.** Sarvam's presigned Azure blob URL
+   rejects the Vercel origin at CORS preflight, so `api/upload.js` proxies the PUT.
+   This is measured as `batch.upload_put · via server proxy`.
+2. **How long does a whole batch job really take?** The page shows per-step timings
+   plus total and ratio.
 
-Local-only features (PCM capture, `chunked-rest`, `stream`, `hybrid`) are **not** in the
-cloud build yet — they need the PCM worklet wired into the UI.
+The hybrid live rail (PCM windows → REST) is in the cloud build. Streaming
+(WebSocket) is not, because it needs a long-lived relay.
 
 ## Three run modes
 
