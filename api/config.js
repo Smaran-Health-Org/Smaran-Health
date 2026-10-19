@@ -33,5 +33,10 @@ export default withErrors(async (req, res) => {
     supabaseUrl: supabaseUrl || null,
     supabaseKey: supabaseUrl && supabaseKey ? supabaseKey : null,
     supabaseBucket: process.env.SUPABASE_BUCKET || "probe-fixtures",
+    // THROWAWAY TESTER ONLY: the realtime WebSocket authenticates from the
+    // browser via a subprotocol, so the key is visible in devtools. Do not copy
+    // this pattern into any product build.
+    realtimeKey: (process.env.SARVAM_API_KEY || "").trim() || null,
+    realtimeModel: process.env.PROBE_REALTIME_MODEL || "saaras:v3-realtime",
   });
 });

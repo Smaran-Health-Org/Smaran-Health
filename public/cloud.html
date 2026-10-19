@@ -8,74 +8,89 @@
   </head>
   <body>
     <header class="topbar">
-      <div>
-        <h1>Sarvam probe <span class="muted small">— cloud</span></h1>
+      <div class="brand">
+        <h1>Sarvam probe</h1>
         <p class="sub">
-          Stateless deployment: every Sarvam call is one request from this page, so nothing
-          depends on server memory. Timings are measured in your browser.
+          Latency lab for the clinical transcription pipeline. Nothing here touches the app.
         </p>
       </div>
-      <span id="key-state" class="chip">checking key…</span>
+      <div class="chips">
+        <span id="key-state" class="chip">checking key…</span>
+        <span id="clips-backend" class="chip">clips: …</span>
+      </div>
     </header>
 
     <main>
+      <!-- 1 ─ Capture -->
       <section class="card">
-        <h2>1. Record or pick audio</h2>
-        <div class="record-row">
+        <div class="card-head">
+          <h2>1 · Capture</h2>
+          <span class="hint">record once, then re-run the same bytes</span>
+        </div>
+
+        <div class="capture-row">
           <button id="record-btn" class="primary">● Record</button>
           <button id="stop-btn" disabled>■ Stop</button>
           <span id="timer" class="timer">00:00</span>
           <span id="level" class="muted"></span>
         </div>
-        <label class="check">
-          <input type="checkbox" id="pre-initiate" checked />
-          Pre-initiate the batch job when recording starts <span class="muted">(E2)</span>
-        </label>
+
         <div class="grid">
-          <label class="wide">Run mode
+          <label class="wide">Test mode
             <select id="run-mode">
-              <option value="batch-on" selected>batch + diarization ON — production path</option>
-              <option value="batch-off">batch + diarization OFF — baseline</option>
-              <option value="hybrid">hybrid — live preview (no speakers) then batch + diarization ON</option>
+              <option value="batch-on" selected>1 · batch + diarization ON — production path</option>
+              <option value="batch-off">2 · batch + diarization OFF — baseline</option>
+              <option value="hybrid-rest">3 · hybrid · live REST chunks → batch ON</option>
+              <option value="hybrid-stream">4 · hybrid · live WebSocket stream → batch ON</option>
             </select>
           </label>
         </div>
-        <p class="muted small" id="run-mode-note">
-          Hybrid uses 15–25 s PCM windows and the REST endpoint for the live rail; the batch rail
-          stays authoritative. Streaming (WebSocket) is faster but needs a long-lived relay, which
-          a Vercel function cannot be — see the README.
+
+        <label class="check">
+          <input type="checkbox" id="pre-initiate" checked />
+          Create the batch job when recording starts <span class="muted">(E2, saves ~2 s)</span>
+        </label>
+
+        <p class="hint" id="run-mode-note">
+          Batch-only runs measure the production path. Hybrid runs add a live preview that is
+          replaced by the diarized batch transcript.
         </p>
-        <div class="record-row">
-          <input type="file" id="file-input" accept="audio/*" />
+
+        <div class="capture-row">
+          <input type="file" id="file-input" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.opus,.webm,.flac,.amr" />
           <button id="rerun-btn" disabled>Re-run last audio</button>
-        </div>
-        <div class="grid">
-          <label>Clip length (s) <span class="muted">— auto for uploads, optional override</span>
-            <input id="clip-seconds" type="number" min="0" step="0.1" placeholder="measured" />
+          <label class="inline-field">Clip length (s)
+            <input id="clip-seconds" type="number" min="0" step="0.1" placeholder="auto" />
           </label>
         </div>
       </section>
 
+      <!-- 2 ─ Saved clips -->
       <section class="card">
-        <h2>2. Saved clips <span id="clips-backend" class="muted small"></span></h2>
+        <div class="card-head">
+          <h2>2 · Saved clips</h2>
+          <span class="hint">shared, SHA-256 deduped, re-runnable anywhere</span>
+        </div>
+
         <div class="grid">
           <label>Clip name
             <input id="clip-name" type="text" placeholder="e.g. clinic-dialog-24s" />
           </label>
           <label class="wide">What's in the recording
-            <input id="clip-note" type="text" placeholder="e.g. Hinglish diabetes follow-up, 2 speakers, lab review" />
+            <input id="clip-note" type="text" placeholder="e.g. Hinglish diabetes follow-up, 2 speakers" />
           </label>
         </div>
-        <div class="record-row" style="margin-top: 10px">
+
+        <div class="capture-row">
           <button id="save-clip-btn">Save current audio as clip</button>
           <button id="run-clip-btn" disabled>Run selected clip</button>
           <button id="delete-clip-btn" class="ghost" disabled>delete</button>
           <span id="clip-selected" class="muted small">no clip selected</span>
         </div>
-        <p class="muted small" id="clip-status">
-          Clips are saved to the shared probe project so the same audio bytes can be
-          re-run from any machine. Audio is only uploaded when you click save.
+        <p class="hint" id="clip-status">
+          Audio is uploaded only when you click save. Clips live in the probe Supabase project.
         </p>
+
         <div class="table-wrap">
           <table id="clips">
             <thead>
@@ -94,36 +109,48 @@
         <audio id="clip-audio" controls hidden></audio>
       </section>
 
+      <!-- 3 ─ Settings -->
       <section class="card">
-        <h2>3. Settings</h2>
+        <div class="card-head">
+          <h2>3 · Settings</h2>
+          <span class="hint">held constant across a comparison</span>
+        </div>
         <div class="grid">
           <label>Model <select id="model"></select></label>
           <label>Mode <select id="mode"></select></label>
           <label>Language <select id="language"></select></label>
-          <label>Poll interval (ms) <span class="muted">— ≥3000 stays under the 20 req/min batch limit</span>
-            <input id="poll-ms" type="number" min="1000" step="500" value="3000" />
-          </label>
-          <label class="wide">Label
-            <input id="label" type="text" placeholder="e.g. v3 baseline, 24 s clip" />
-          </label>
+          <label>Poll interval (ms) <input id="poll-ms" type="number" min="1000" step="500" value="3000" /></label>
+          <label class="wide">Label <input id="label" type="text" placeholder="e.g. v3, 30 s clip" /></label>
         </div>
       </section>
 
+      <!-- 4 ─ Live preview (hybrid only) -->
+      <section class="card" id="live-card" hidden>
+        <div class="card-head">
+          <h2>4 · Live preview</h2>
+          <span class="badge warn">unconfirmed · no speaker labels</span>
+        </div>
+        <div id="live-metrics" class="metrics"></div>
+        <div id="live-transcript" class="transcript">(waiting for the first text…)</div>
+      </section>
+
+      <!-- 5 ─ This run -->
       <section class="card">
-        <h2>4. This run</h2>
+        <div class="card-head">
+          <h2>5 · This run</h2>
+          <span class="hint">per-step timings, measured in this browser</span>
+        </div>
         <div id="run-panel" class="run-list">
           <p class="muted small">No run yet.</p>
         </div>
       </section>
 
-      <section class="card" id="live-card" hidden>
-        <h2>Live preview <span class="muted small">— unconfirmed, no speaker labels</span></h2>
-        <div id="live-metrics" class="notes"></div>
-        <div id="live-transcript" class="transcript">(waiting for the first window…)</div>
-      </section>
-
+      <!-- 6 ─ Hybrid verdict -->
       <section class="card" id="ab-card" hidden>
-        <h2>5. Hybrid result <span class="muted small">— live preview vs authoritative batch</span></h2>
+        <div class="card-head">
+          <h2>6 · Hybrid verdict</h2>
+          <span class="hint">preview vs authoritative batch</span>
+        </div>
         <div id="ab-summary" class="notes"></div>
         <div class="table-wrap">
           <table id="ab-table">
@@ -141,51 +168,38 @@
         <div id="ab-transcripts"></div>
       </section>
 
+      <!-- 7 ─ Benchmarks -->
       <section class="card">
-        <h2>
-          6. History
-          <button id="export-json" class="ghost">export JSON</button>
-          <button id="export-csv" class="ghost">export CSV</button>
-          <button id="clear-runs" class="ghost">clear</button>
-        </h2>
-        <div class="table-wrap">
-          <table id="history">
-            <thead>
-              <tr>
-                <th>when</th>
-                <th>label</th>
-                <th>rec</th>
-                <th>size</th>
-                <th>model</th>
-                <th>total</th>
-                <th>×</th>
-                <th>provider</th>
-                <th>status</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div class="card-head">
+          <h2>7 · Benchmarks</h2>
+          <button id="refresh-bench" class="ghost">recompute</button>
         </div>
-        <p class="muted small">Click a row for its per-step breakdown.</p>
-      </section>
 
-      <section class="card">
-        <h2>7. Benchmarks <button id="refresh-bench" class="ghost">recompute</button></h2>
-        <p class="muted small">
-          Grouped by recording length — the only honest basis for comparison. "Provider" is
-          Sarvam's own work; "overhead" is everything else we control.
-        </p>
+        <div class="guide">
+          <h3>How to read this</h3>
+          <ul>
+            <li><b>×</b> = total ÷ audio length. Below 1.0 means faster than playback; lower is better.</li>
+            <li><b>provider</b> is Sarvam's own work. <b>overhead</b> is everything we control. Fix overhead first.</li>
+            <li><b>first text</b> only exists for hybrid. It is when the doctor could start reading.</li>
+            <li>If <b>first text ≈ total</b>, the hybrid preview adds no value on that clip.</li>
+            <li><b>turns</b> must be greater than 0. Zero means diarization failed or no speech was detected.</li>
+            <li>Median is used, and failed runs are excluded. Compare rows with the same mode and length.</li>
+          </ul>
+        </div>
+
         <div class="table-wrap">
           <table id="benchmarks">
             <thead>
               <tr>
+                <th>mode</th>
                 <th>clip length</th>
                 <th>runs</th>
-                <th>median rec</th>
-                <th>median total</th>
                 <th>median ×</th>
-                <th>median provider</th>
-                <th>median overhead</th>
+                <th>median total</th>
+                <th>provider</th>
+                <th>overhead</th>
+                <th>first text</th>
+                <th>turns &gt; 0</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -194,15 +208,46 @@
         <div id="bench-summary" class="notes"></div>
       </section>
 
+      <!-- 8 ─ History -->
       <section class="card">
-        <h2>
-          8. Log
+        <div class="card-head">
+          <h2>8 · Run history</h2>
+          <span class="hint">click a row for its steps</span>
+          <span class="spacer"></span>
+          <button id="export-json" class="ghost">JSON</button>
+          <button id="export-csv" class="ghost">CSV</button>
+          <button id="clear-runs" class="ghost">clear</button>
+        </div>
+        <div class="table-wrap">
+          <table id="history">
+            <thead>
+              <tr>
+                <th>when</th>
+                <th>mode</th>
+                <th>clip</th>
+                <th>length</th>
+                <th>×</th>
+                <th>total</th>
+                <th>first text</th>
+                <th>provider</th>
+                <th>turns</th>
+                <th>status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 9 ─ Event log -->
+      <section class="card">
+        <div class="card-head">
+          <h2>9 · Event log</h2>
+          <span class="hint">timings only — never transcript text or audio</span>
+          <span class="spacer"></span>
           <button id="export-logs" class="ghost">download</button>
           <button id="clear-logs" class="ghost">clear</button>
-        </h2>
-        <p class="muted small">
-          Timing and lifecycle events only — never transcript text, never audio.
-        </p>
+        </div>
         <div id="log" class="steps"></div>
       </section>
     </main>

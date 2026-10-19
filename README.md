@@ -148,39 +148,36 @@ Two things the deployment settled:
 2. **How long does a whole batch job really take?** The page shows per-step timings
    plus total and ratio.
 
-The hybrid live rail (PCM windows → REST) is in the cloud build. Streaming
-(WebSocket) is not, because it needs a long-lived relay.
+The hybrid live rails are in the cloud build: REST windows and the realtime
+WebSocket (tester-only key exposure). The batch rail is unchanged.
 
-## Three run modes
+## Four run modes
 
 | Mode | Rail A (live) | Rail B (authoritative) |
 | --- | --- | --- |
 | `batch + diarization ON` | — | batch job, `with_diarization: true` |
 | `batch + diarization OFF` | — | batch job, `with_diarization: false` |
-| `hybrid` | REST endpoint, 15–25 s PCM windows, **no diarization** | batch job, `with_diarization: true` |
+| `hybrid · REST` | REST endpoint, 15–25 s PCM windows, no diarization | batch job, `with_diarization: true` |
+| `hybrid · stream` | Realtime WebSocket, partials + finals, no diarization | batch job, `with_diarization: true` |
 
-Hybrid capture uses `public/pcm-window-worklet.js`: 16 kHz mono PCM, windows cut
-on ~400 ms silence after 15 s, hard cap 25 s, 1.75 s overlap only on hard-cap
-cuts. Windows are transcribed by `api/segment.js` (one REST call each) and
-stitched with `public/chunk-stitch.js`. Uploaded files use the same rails,
-windowed on the client, so clips benchmark identically.
+**`hybrid · stream` is tester-only.** The realtime endpoint authenticates from
+the browser via the `api-subscription-key.<key>` subprotocol, so the Sarvam key
+is visible in devtools and can be used by anyone who loads the page. That is
+acceptable for a throwaway probe; it is not a pattern for the product. In
+production the stream needs a relay that holds the key server-side.
 
-Measured per run: `firstTextMs` (provisional text, from recording start),
-`firstTextAfterStopMs`, `segmentCount`, failed windows/gaps, and the usual batch
-`totalMs` / provider wait / turns. Provisional text is explicitly unconfirmed and
-is replaced by the batch transcript.
+Hybrid capture uses `public/pcm-window-worklet.js` (REST windows) or
+`public/pcm-stream-worklet.js` (100 ms chunks for the WebSocket). REST windows
+are transcribed by `api/segment.js` and stitched with `public/chunk-stitch.js`.
+Uploaded files use the same rails, replayed from PCM on the client.
 
-**Why not streaming for the live rail?** Sarvam does have a realtime WebSocket
-(`wss://api.sarvam.ai/speech-to-text-realtime/ws`, `saaras:v3-realtime` /
-`saaras:v4`, 8/16 kHz linear16, partial + final transcripts, VAD). But:
+Measured per run: `firstTextMs` / `firstFinalMs` (live rail), utterance or window
+count, gaps/seam warnings, and the usual batch `totalMs` / provider wait / turns.
+Provisional text is explicitly unconfirmed and is replaced by the batch transcript.
 
-- it has **no diarization** — same limitation as REST, so it can only ever be a preview;
-- it needs a **long-lived relay** to keep the API key server-side; a Vercel function
-  cannot hold a WebSocket.
-
-So hybrid + streaming is the target architecture for production, but this app
-tests hybrid + REST chunks. Use it to measure the ceiling (`firstTextMs`); moving
-that number down further is a relay/infra change, not a UI change.
+**Why streaming can't be authoritative:** the realtime schema has no speaker
+fields. Diarization exists only in the batch API, so the batch rail stays
+non-negotiable for clinical state.
 
 ## Where results are saved
 

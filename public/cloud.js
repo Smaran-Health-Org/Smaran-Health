@@ -45,6 +45,8 @@ const state = {
   hybrid: null,
   hybridSummary: null,
   liveSource: null,
+  realtimeKey: null,
+  realtimeModel: "saaras:v3-realtime",
 };
 
 // ── formatting ───────────────────────────────────────────────────────────────
@@ -155,6 +157,9 @@ async function loadConfig() {
         }
       : null;
 
+  state.realtimeKey = config.realtimeKey || null;
+  state.realtimeModel = config.realtimeModel || "saaras:v3-realtime";
+
   const clipsChip = el("clips-backend");
   if (SUPABASE) {
     clipsChip.textContent = "shared · Supabase";
@@ -177,6 +182,7 @@ async function loadConfig() {
     hasKey: config.hasKey,
     runtime: config.runtime,
     sharedClips: Boolean(SUPABASE),
+    realtime: Boolean(state.realtimeKey),
   });
 }
 
@@ -414,7 +420,7 @@ async function runClip(clip) {
     el("clip-seconds").value = clip.duration_sec ? Number(clip.duration_sec).toFixed(1) : "";
     if (!el("label").value.trim()) el("label").value = clip.name;
 
-    state.liveSource = runMode() === "hybrid" ? "file" : null;
+    state.liveSource = runMode().startsWith("hybrid") ? "file" : null;
     state.hybridSummary = null;
     setClipStatus(`Running ${clip.name} (${fmtKb(blob.size)})…`);
     void sbJson(`/rest/v1/${CLIPS_TABLE}?id=eq.${encodeURIComponent(clip.id)}`, {
@@ -517,8 +523,13 @@ function pickMimeType() {
 }
 
 async function startRecording() {
-  if (runMode() === "hybrid") {
+  const mode = runMode();
+  if (mode === "hybrid-rest") {
     await startHybridRecording();
+    return;
+  }
+  if (mode === "hybrid-stream") {
+    await startStreamRecording();
     return;
   }
 
@@ -579,7 +590,8 @@ async function startRecording() {
 
 function stopRecording() {
   if (state.hybrid) {
-    void stopHybridRecording();
+    if (state.hybrid.rail === "stream") void stopStreamRecording();
+    else void stopHybridRecording();
     return;
   }
   if (!state.recorder || state.recorder.state === "inactive") return;
@@ -763,6 +775,7 @@ async function startHybridRecording() {
       node,
       source: sourceNode,
       stream,
+      rail: "rest",
       windows: [],
       index: 0,
       pieces: [],
@@ -921,10 +934,32 @@ async function transcribeWindow(record, pcm16, hybrid) {
 }
 
 function summarizeHybrid(hybrid) {
+  if (hybrid.rail === "stream") {
+    const finals = [...hybrid.finals].sort((a, b) => a.idx - b.idx);
+    return {
+      rail: "stream",
+      firstTextMs: hybrid.firstTextMs,
+      firstFinalMs: hybrid.firstFinalMs,
+      firstTextAfterStopMs: null,
+      segmentCount: finals.length,
+      failedSegments: 0,
+      gaps: 0,
+      seamWarnings: 0,
+      droppedChunks: hybrid.dropped,
+      transcript: finals
+        .map((item) => item.text)
+        .filter(Boolean)
+        .join(" ")
+        .trim(),
+    };
+  }
+
   const stitched = stitchWindows(hybrid.windows);
   return {
+    rail: "rest",
     firstTextMs: hybrid.firstTextMs,
     firstTextAfterStopMs: hybrid.firstTextAfterStopMs,
+    firstFinalMs: null,
     segmentCount: hybrid.windows.length,
     failedSegments: hybrid.failed,
     gaps: stitched.gaps.length,
@@ -936,19 +971,41 @@ function summarizeHybrid(hybrid) {
 function renderLive() {
   const hybrid = state.hybrid;
   if (!hybrid) return;
-  const stitched = stitchWindows(hybrid.windows);
   el("live-card").hidden = false;
-  el("live-transcript").textContent =
-    stitched.fullTranscript || "(waiting for the first window…)";
 
   const box = el("live-metrics");
   box.innerHTML = "";
   const add = (text) => {
     const line = document.createElement("div");
-    line.className = "note";
+    line.className = "metric-line";
     line.textContent = text;
     box.appendChild(line);
   };
+
+  if (hybrid.rail === "stream") {
+    const text =
+      [...hybrid.finals]
+        .sort((a, b) => a.idx - b.idx)
+        .map((item) => item.text)
+        .filter(Boolean)
+        .join(" ") + (hybrid.partial ? ` ${hybrid.partial}` : "");
+    el("live-transcript").textContent = text.trim() || "(waiting for the first partial…)";
+    add(
+      `utterances ${hybrid.finals.length} · ` +
+        (hybrid.firstTextMs != null
+          ? `first partial ${(hybrid.firstTextMs / 1000).toFixed(1)} s`
+          : "first partial: waiting") +
+        (hybrid.firstFinalMs != null
+          ? ` · first final ${(hybrid.firstFinalMs / 1000).toFixed(1)} s`
+          : "") +
+        (hybrid.dropped ? ` · dropped chunks ${hybrid.dropped}` : "")
+    );
+    return;
+  }
+
+  const stitched = stitchWindows(hybrid.windows);
+  el("live-transcript").textContent =
+    stitched.fullTranscript || "(waiting for the first window…)";
   add(
     `windows ${hybrid.windows.length} · pending ${hybrid.pending} · failed ${hybrid.failed}` +
       (hybrid.firstTextMs != null
@@ -1050,6 +1107,7 @@ async function runFileHybrid(file) {
   const hybrid = {
     windows: [],
     index: 0,
+    rail: "rest",
     sampleRate: LIVE_SAMPLE_RATE,
     startedAt: performance.now(),
     stoppedAt: performance.now(),
@@ -1103,17 +1161,29 @@ function renderHybridComparison(record) {
   const body = document.querySelector("#ab-table tbody");
   body.innerHTML = "";
 
-  const rows = [
-    ["first text (from start)", summary?.firstTextMs != null ? fmtMs(summary.firstTextMs) : "—"],
-    ["first text after stop", summary?.firstTextAfterStopMs != null ? fmtMs(summary.firstTextAfterStopMs) : "0 ms"],
-    ["live windows", summary?.segmentCount ?? "—"],
-    ["failed windows", summary?.failedSegments ?? "—"],
-    ["gaps", summary?.gaps ?? "—"],
-    ["t_final (batch)", "—", fmtMs(record.totalMs)],
-    ["provider wait", "—", fmtMs(record.providerWaitMs)],
-    ["speaker turns", "none available", record.turnCount ?? 0],
-    ["ratio ×", "—", record.ratio ?? "—"],
-  ];
+  const isStream = summary?.rail === "stream";
+  const rows = isStream
+    ? [
+        ["first partial", summary?.firstTextMs != null ? fmtMs(summary.firstTextMs) : "—"],
+        ["first final", summary?.firstFinalMs != null ? fmtMs(summary.firstFinalMs) : "—"],
+        ["utterances", summary?.segmentCount ?? "—"],
+        ["dropped chunks", summary?.droppedChunks ?? "—"],
+        ["t_final (batch)", "—", fmtMs(record.totalMs)],
+        ["provider wait", "—", fmtMs(record.providerWaitMs)],
+        ["speaker turns", "none available", record.turnCount ?? 0],
+        ["ratio ×", "—", record.ratio ?? "—"],
+      ]
+    : [
+        ["first text (from start)", summary?.firstTextMs != null ? fmtMs(summary.firstTextMs) : "—"],
+        ["first text after stop", summary?.firstTextAfterStopMs != null ? fmtMs(summary.firstTextAfterStopMs) : "0 ms"],
+        ["live windows", summary?.segmentCount ?? "—"],
+        ["failed windows", summary?.failedSegments ?? "—"],
+        ["gaps", summary?.gaps ?? "—"],
+        ["t_final (batch)", "—", fmtMs(record.totalMs)],
+        ["provider wait", "—", fmtMs(record.providerWaitMs)],
+        ["speaker turns", "none available", record.turnCount ?? 0],
+        ["ratio ×", "—", record.ratio ?? "—"],
+      ];
 
   for (const row of rows) {
     const tr = document.createElement("tr");
@@ -1140,17 +1210,17 @@ function renderHybridComparison(record) {
         `; the authoritative diarized transcript took ${fmtMs(record.totalMs)}.`
     );
   } else {
-    add("No live text was produced — check the live window errors in the log.");
+    add("No live text was produced — check the live errors in the event log.");
   }
   add(
-    "Provisional text is unconfirmed and has no speaker labels; the batch transcript replaces it. " +
-      "Audio was transcribed twice, so this run costs REST + batch."
+    `Rail: ${isStream ? "realtime WebSocket (partials, no speakers)" : "REST chunks (no speakers)"}. ` +
+      "Provisional text is unconfirmed and is replaced by the batch transcript. Audio was transcribed twice, so this run costs REST/stream + batch."
   );
 
   const box = el("ab-transcripts");
   box.innerHTML = "";
   for (const [name, text] of [
-    ["live preview (provisional)", summary?.transcript || "(no live text)"],
+    [`live preview (${isStream ? "stream" : "REST chunks"})`, summary?.transcript || "(no live text)"],
     ["batch (authoritative, diarized)", record.transcript || "(no transcript)"],
   ]) {
     const heading = document.createElement("div");
@@ -1161,6 +1231,376 @@ function renderHybridComparison(record) {
     transcript.className = "transcript";
     transcript.textContent = text;
     box.appendChild(transcript);
+  }
+}
+
+// ── streaming live rail (realtime WebSocket) ────────────────────────────────
+//
+// Throwaway tester only: the Sarvam key is passed in the WebSocket subprotocol,
+// which makes it visible in devtools. Do not copy this into a product build.
+
+function realtimeUrl() {
+  const language = el("language").value === "unknown" ? "auto" : el("language").value;
+  const params = new URLSearchParams({
+    language_code: language,
+    model: state.realtimeModel || "saaras:v3-realtime",
+    mode: el("mode").value,
+    encoding: "linear16",
+    sample_rate: "16000",
+    endpointing: "vad",
+    return_timestamps: "true",
+  });
+  return `wss://api.sarvam.ai/speech-to-text-realtime/ws?${params}`;
+}
+
+function openRealtimeSocket(hybrid) {
+  if (!state.realtimeKey) throw new Error("Realtime key is not configured.");
+  const ws = new WebSocket(realtimeUrl(), [`api-subscription-key.${state.realtimeKey}`]);
+  hybrid.ws = ws;
+
+  hybrid.ready = new Promise((resolve, reject) => {
+    hybrid.resolveReady = resolve;
+    hybrid.rejectReady = reject;
+    setTimeout(() => reject(new Error("realtime session did not start within 10 s")), 10_000);
+  });
+
+  ws.onmessage = (event) => {
+    let message = null;
+    try {
+      message = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    handleRealtimeMessage(hybrid, message);
+  };
+  ws.onerror = () => log("error", "realtime socket error", {});
+  ws.onclose = (event) => {
+    hybrid.resolveEnd?.();
+    log(event.wasClean ? "info" : "warn", "realtime socket closed", {
+      code: event.code,
+      reason: String(event.reason || "").slice(0, 80),
+    });
+  };
+  return ws;
+}
+
+function handleRealtimeMessage(hybrid, message) {
+  switch (message.event) {
+    case "session.begin":
+      hybrid.resolveReady?.();
+      for (const buffer of hybrid.queued.splice(0)) sendPcm(hybrid, buffer);
+      log("info", "realtime session ready", {
+        model: message.config?.model,
+        rate: message.config?.sample_rate,
+      });
+      break;
+
+    case "transcript.partial":
+      hybrid.partial = message.text || "";
+      if (hybrid.firstTextMs == null) {
+        hybrid.firstTextMs = Math.round(performance.now() - hybrid.startedAt);
+      }
+      renderLive();
+      break;
+
+    case "transcript.final":
+      hybrid.finals.push({
+        idx: Number.isFinite(message.utterance_idx) ? message.utterance_idx : hybrid.finals.length,
+        text: message.text || "",
+      });
+      hybrid.partial = "";
+      if (hybrid.firstFinalMs == null) {
+        hybrid.firstFinalMs = Math.round(performance.now() - hybrid.startedAt);
+      }
+      renderLive();
+      break;
+
+    case "session.end":
+      hybrid.resolveEnd?.();
+      break;
+
+    case "error":
+      log("error", "realtime error", {
+        code: message.code,
+        fatal: Boolean(message.is_fatal),
+      });
+      if (message.is_fatal) hybrid.rejectReady?.(new Error(message.message || message.code));
+      break;
+
+    default:
+      break;
+  }
+}
+
+function sendPcm(hybrid, buffer) {
+  const ws = hybrid.ws;
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    if (hybrid.queued.length < 200) hybrid.queued.push(buffer);
+    else hybrid.dropped += 1;
+    return;
+  }
+  if (ws.bufferedAmount > 1_000_000) {
+    hybrid.dropped += 1;
+    return;
+  }
+  ws.send(
+    JSON.stringify({
+      event: "audio_input",
+      audio: bytesToBase64(new Uint8Array(buffer)),
+    })
+  );
+}
+
+async function startStreamRecording() {
+  state.hybridSummary = null;
+  state.liveSource = "recording";
+
+  if (!state.realtimeKey) {
+    alert("Realtime streaming needs SARVAM_API_KEY exposed by /api/config.");
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+    });
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx({ sampleRate: LIVE_SAMPLE_RATE });
+    await ctx.audioWorklet.addModule("/pcm-stream-worklet.js");
+    const node = new AudioWorkletNode(ctx, "pcm-stream", {
+      channelCount: 1,
+      processorOptions: { chunkMs: 100 },
+    });
+    const sourceNode = ctx.createMediaStreamSource(stream);
+    sourceNode.connect(node);
+    node.connect(ctx.destination);
+
+    let recorder = null;
+    let recorderMime = "audio/webm";
+    const recorderChunks = [];
+    try {
+      recorderMime = pickMimeType() || "audio/webm";
+      recorder = new MediaRecorder(stream, { mimeType: recorderMime });
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size > 0) recorderChunks.push(event.data);
+      };
+      recorder.start(1000);
+    } catch (error) {
+      log("warn", "batch recorder unavailable", {
+        message: String(error.message).slice(0, 120),
+      });
+    }
+
+    const hybrid = {
+      rail: "stream",
+      ws: null,
+      ctx,
+      node,
+      source: sourceNode,
+      stream,
+      finals: [],
+      partial: "",
+      queued: [],
+      dropped: 0,
+      startedAt: performance.now(),
+      stoppedAt: null,
+      firstTextMs: null,
+      firstFinalMs: null,
+      resolveReady: null,
+      rejectReady: null,
+      resolveEnd: null,
+      recorder,
+      recorderMime,
+      recorderChunks,
+      stopResolve: null,
+    };
+    state.hybrid = hybrid;
+
+    node.port.onmessage = (event) => {
+      const message = event.data;
+      if (message?.type === "PCM_CHUNK") sendPcm(hybrid, message.pcm16);
+      else if (message?.type === "STOPPED") hybrid.stopResolve?.();
+    };
+
+    openRealtimeSocket(hybrid);
+
+    el("record-btn").disabled = true;
+    el("record-btn").classList.add("recording");
+    el("stop-btn").disabled = false;
+    el("level").textContent = "streaming: realtime + batch";
+    el("live-card").hidden = false;
+    renderLive();
+    log("info", "streaming recording started", { model: state.realtimeModel });
+
+    state.timerId = setInterval(() => {
+      el("timer").textContent = fmtClock(Date.now() - state.hybrid.startedAt);
+    }, 250);
+
+    state.preJobs = null;
+    if (el("pre-initiate").checked) {
+      try {
+        const response = await fetch("/api/job", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...settings(), diarization: true }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "initiate failed");
+        state.preJobs = { on: data, off: null };
+        log("info", "pre-initiate (E2)", { diarization: true, ms: data.ms });
+      } catch (error) {
+        log("error", "pre-initiate failed", { message: error.message });
+      }
+    }
+  } catch (error) {
+    state.hybrid = null;
+    state.liveSource = null;
+    alert(`Streaming capture unavailable: ${error.message}`);
+    log("error", "streaming capture unavailable", {
+      message: String(error.message).slice(0, 160),
+    });
+  }
+}
+
+async function stopStreamRecording() {
+  const hybrid = state.hybrid;
+  if (!hybrid) return;
+
+  hybrid.stoppedAt = performance.now();
+  clearInterval(state.timerId);
+  el("record-btn").disabled = false;
+  el("record-btn").classList.remove("recording");
+  el("stop-btn").disabled = true;
+  el("level").textContent = "closing the stream…";
+
+  await new Promise((resolve) => {
+    hybrid.stopResolve = resolve;
+    hybrid.node.port.postMessage({ type: "STOP" });
+    setTimeout(resolve, 2000);
+  });
+
+  if (hybrid.ws?.readyState === WebSocket.OPEN) {
+    try {
+      hybrid.ws.send(JSON.stringify({ event: "end" }));
+    } catch {
+      /* socket already closing */
+    }
+  }
+  await new Promise((resolve) => {
+    hybrid.resolveEnd = resolve;
+    setTimeout(resolve, 3000);
+  });
+  try {
+    hybrid.ws?.close();
+  } catch {
+    /* already closed */
+  }
+
+  let batchBlob = null;
+  if (hybrid.recorder && hybrid.recorder.state !== "inactive") {
+    batchBlob = await new Promise((resolve) => {
+      const finish = () => resolve(new Blob(hybrid.recorderChunks, { type: hybrid.recorderMime }));
+      hybrid.recorder.onstop = finish;
+      try {
+        hybrid.recorder.stop();
+      } catch {
+        finish();
+      }
+      setTimeout(finish, 2500);
+    });
+  }
+
+  try {
+    await hybrid.ctx.close();
+  } catch {
+    /* already closed */
+  }
+  hybrid.stream.getTracks().forEach((track) => track.stop());
+
+  state.hybridSummary = summarizeHybrid(hybrid);
+  renderLive();
+  state.hybrid = null;
+
+  if (!batchBlob || batchBlob.size === 0) {
+    alert("The batch rail needs a MediaRecorder copy; this browser did not produce one.");
+    return;
+  }
+
+  state.lastBlob = batchBlob;
+  state.lastMime = hybrid.recorderMime;
+  state.lastDuration = hybrid.stoppedAt / 1000 - hybrid.startedAt / 1000;
+  el("clip-seconds").value = state.lastDuration.toFixed(1);
+  if (!el("clip-name").value.trim()) {
+    el("clip-name").value = `recording-${new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace(/[:T]/g, "-")}`;
+  }
+  el("rerun-btn").disabled = false;
+  log("info", "streaming recording stopped", {
+    seconds: Number(state.lastDuration.toFixed(1)),
+    bytes: batchBlob.size,
+    utterances: state.hybridSummary.segmentCount,
+  });
+
+  await runPipeline(state.lastBlob, state.lastMime, state.lastDuration);
+}
+
+/** File replay for the streaming rail: send PCM as fast as the socket allows. */
+async function runFileStream(file) {
+  const hybrid = {
+    rail: "stream",
+    ws: null,
+    finals: [],
+    partial: "",
+    queued: [],
+    dropped: 0,
+    startedAt: performance.now(),
+    stoppedAt: performance.now(),
+    firstTextMs: null,
+    firstFinalMs: null,
+    resolveReady: null,
+    rejectReady: null,
+    resolveEnd: null,
+  };
+  state.hybrid = hybrid;
+  el("live-card").hidden = false;
+  renderLive();
+
+  try {
+    const { samples } = await decodeToPcm16(file);
+    openRealtimeSocket(hybrid);
+    await hybrid.ready;
+
+    const chunkSamples = 1600; // 100 ms @ 16 kHz
+    for (let start = 0; start < samples.length; start += chunkSamples) {
+      const slice = samples.slice(start, Math.min(start + chunkSamples, samples.length));
+      sendPcm(hybrid, slice.buffer);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    await new Promise((resolve) => {
+      hybrid.resolveEnd = resolve;
+      setTimeout(resolve, 8000);
+      try {
+        hybrid.ws?.send(JSON.stringify({ event: "end" }));
+      } catch {
+        resolve();
+      }
+    });
+  } catch (error) {
+    log("error", "stream file replay failed", {
+      message: String(error.message).slice(0, 160),
+    });
+  } finally {
+    try {
+      hybrid.ws?.close();
+    } catch {
+      /* already closed */
+    }
+    state.hybridSummary = summarizeHybrid(hybrid);
+    renderLive();
+    state.hybrid = null;
   }
 }
 
@@ -1409,12 +1849,26 @@ async function runVariant({ blob, mimeType, durationSec, diarization, variant, c
       Object.assign(record, {
         firstTextMs: state.hybridSummary.firstTextMs,
         firstTextAfterStopMs: state.hybridSummary.firstTextAfterStopMs,
+        firstFinalMs: state.hybridSummary.firstFinalMs,
+        rail: state.hybridSummary.rail,
         segmentCount: state.hybridSummary.segmentCount,
         failedSegments: state.hybridSummary.failedSegments,
         gaps: state.hybridSummary.gaps,
         seamWarnings: state.hybridSummary.seamWarnings,
       });
     }
+
+    log("info", "run summary", {
+      mode: record.runMode,
+      sec: record.durationSec != null ? Number(record.durationSec.toFixed(1)) : "?",
+      total: fmtMs(record.totalMs),
+      ratio: record.ratio ?? "?",
+      provider: fmtMs(record.providerWaitMs),
+      overhead: fmtMs(record.overheadMs),
+      first: record.firstTextMs != null ? fmtMs(record.firstTextMs) : "—",
+      turns: record.turnCount ?? 0,
+      status: record.status,
+    });
 
     if (record.status === "completed") {
       card.total.textContent = `${fmtMs(record.totalMs)}${record.ratio ? ` · ×${record.ratio}` : ""}`;
@@ -1442,25 +1896,26 @@ async function runPipeline(blob, mimeType, durationSec) {
   const diarization = diarizationForMode(mode);
 
   try {
-    if (mode !== "hybrid") {
+    if (!mode.startsWith("hybrid")) {
       state.hybridSummary = null;
       el("live-card").hidden = true;
     }
-    if (mode === "hybrid") {
+    if (mode.startsWith("hybrid")) {
       el("ab-card").hidden = true;
       el("ab-summary").innerHTML = "";
       document.querySelector("#ab-table tbody").innerHTML = "";
       el("ab-transcripts").innerHTML = "";
     }
 
-    const livePromise =
-      mode === "hybrid" && state.liveSource === "file"
-        ? runFileHybrid(blob)
-        : Promise.resolve();
+    let livePromise = Promise.resolve();
+    if (state.liveSource === "file") {
+      if (mode === "hybrid-rest") livePromise = runFileHybrid(blob);
+      else if (mode === "hybrid-stream") livePromise = runFileStream(blob);
+    }
 
     const card = createCard(
       host,
-      `${label || "run"} — ${mode === "hybrid" ? "batch rail, " : ""}diarization ${
+      `${label || "run"} — ${mode.startsWith("hybrid") ? "batch rail, " : ""}diarization ${
         diarization ? "ON" : "OFF"
       }`
     );
@@ -1479,7 +1934,7 @@ async function runPipeline(blob, mimeType, durationSec) {
     ]);
 
     state.preJobs = null;
-    if (mode === "hybrid") renderHybridComparison(record);
+    if (mode.startsWith("hybrid")) renderHybridComparison(record);
   } finally {
     state.busy = false;
     state.liveSource = null;
@@ -1578,6 +2033,17 @@ function saveRun(record) {
 
 // ── history ──────────────────────────────────────────────────────────────────
 
+function modeLabel(mode) {
+  return (
+    {
+      "batch-on": "batch · DIA ON",
+      "batch-off": "batch · DIA OFF",
+      "hybrid-rest": "hybrid · REST",
+      "hybrid-stream": "hybrid · stream",
+    }[mode] || mode || "batch"
+  );
+}
+
 function renderHistory() {
   const body = document.querySelector("#history tbody");
   body.innerHTML = "";
@@ -1585,15 +2051,14 @@ function renderHistory() {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${new Date(run.at).toLocaleTimeString()}</td>
-      <td>${escapeHtml(run.label || "—")}${
-        run.runMode ? ` <span class="muted">(${escapeHtml(run.runMode)})</span>` : ""
-      }</td>
+      <td>${escapeHtml(modeLabel(run.runMode || (run.diarization ? "batch-on" : "batch-off")))}</td>
+      <td>${escapeHtml(run.clipName || run.label || "—")}</td>
       <td>${fmtSec(run.durationSec)}</td>
-      <td>${fmtKb(run.audioBytes)}</td>
-      <td>${escapeHtml(run.model)}${run.diarization ? "" : " · nodiar"}</td>
-      <td>${fmtMs(run.totalMs)}</td>
       <td>${run.ratio ?? "—"}</td>
+      <td>${fmtMs(run.totalMs)}</td>
+      <td>${run.firstTextMs != null ? fmtMs(run.firstTextMs) : "—"}</td>
       <td>${fmtMs(run.providerWaitMs)}</td>
+      <td>${run.turnCount ?? 0}</td>
       <td class="${run.status === "completed" ? "" : "bad"}">${run.status}</td>`;
 
     const detail = document.createElement("tr");
@@ -1608,7 +2073,7 @@ function renderHistory() {
           )}</span></div>`
       )
       .join("");
-    detail.innerHTML = `<td colspan="9">${
+    detail.innerHTML = `<td colspan="10">${
       cells || '<span class="muted small">no steps recorded</span>'
     }${run.error ? `<div class="note" style="color:var(--bad)">${escapeHtml(run.error)}</div>` : ""}</td>`;
 
@@ -1630,35 +2095,20 @@ const BUCKETS = [
   { label: "≥ 10 min", test: (d) => d >= 600 },
 ];
 
+const MODES = ["batch-on", "batch-off", "hybrid-rest", "hybrid-stream"];
+
+function modeOf(run) {
+  return run.runMode || (run.diarization ? "batch-on" : "batch-off");
+}
+
 function renderBenchmarks() {
   const all = loadRuns();
-  const runs = all.filter((r) => r.status === "completed");
+  const runs = all.filter((run) => run.status === "completed");
   const body = document.querySelector("#benchmarks tbody");
-  body.innerHTML = "";
-
-  const groups = BUCKETS.map((bucket) => ({
-    label: bucket.label,
-    runs: runs.filter((r) => Number.isFinite(r.durationSec) && bucket.test(r.durationSec)),
-  }));
-  const unknown = runs.filter((r) => !Number.isFinite(r.durationSec));
-  if (unknown.length) groups.push({ label: "unknown length", runs: unknown });
-
-  for (const group of groups) {
-    if (group.runs.length === 0) continue;
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${group.label}</td>
-      <td>${group.runs.length}</td>
-      <td>${fmtSec(median(group.runs.map((r) => r.durationSec)))}</td>
-      <td>${fmtMs(median(group.runs.map((r) => r.totalMs)))}</td>
-      <td>${median(group.runs.map((r) => r.ratio)) ?? "—"}</td>
-      <td>${fmtMs(median(group.runs.map((r) => r.providerWaitMs)))}</td>
-      <td>${fmtMs(median(group.runs.map((r) => r.overheadMs)))}</td>`;
-    body.appendChild(row);
-  }
-
   const summary = el("bench-summary");
+  body.innerHTML = "";
   summary.innerHTML = "";
+
   const add = (text) => {
     const line = document.createElement("div");
     line.className = "note";
@@ -1667,29 +2117,84 @@ function renderBenchmarks() {
   };
 
   if (runs.length === 0) {
-    add("No completed runs yet — record or upload a clip.");
+    add("No completed runs yet — record audio or run a saved clip.");
     return;
   }
-  add(`${runs.length} completed run(s). Overall median × ${median(runs.map((r) => r.ratio)) ?? "—"}.`);
 
-  const withProvider = runs.filter((r) => r.providerWaitMs != null);
-  if (withProvider.length) {
+  const groups = [];
+  for (const mode of MODES) {
+    const modeRuns = runs.filter((run) => modeOf(run) === mode);
+    if (modeRuns.length === 0) continue;
+    for (const bucket of BUCKETS) {
+      const group = modeRuns.filter(
+        (run) => Number.isFinite(run.durationSec) && bucket.test(run.durationSec)
+      );
+      if (group.length) groups.push({ mode, label: bucket.label, runs: group });
+    }
+    const unknown = modeRuns.filter((run) => !Number.isFinite(run.durationSec));
+    if (unknown.length) groups.push({ mode, label: "unknown", runs: unknown });
+  }
+
+  for (const group of groups) {
+    const turnsOk = group.runs.filter((run) => Number(run.turnCount) > 0).length;
+    const firstTexts = group.runs.map((run) => run.firstTextMs).filter(Number.isFinite);
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${escapeHtml(modeLabel(group.mode))}</td>
+      <td>${escapeHtml(group.label)}</td>
+      <td>${group.runs.length}</td>
+      <td>${median(group.runs.map((run) => run.ratio)) ?? "—"}</td>
+      <td>${fmtMs(median(group.runs.map((run) => run.totalMs)))}</td>
+      <td>${fmtMs(median(group.runs.map((run) => run.providerWaitMs)))}</td>
+      <td>${fmtMs(median(group.runs.map((run) => run.overheadMs)))}</td>
+      <td>${firstTexts.length ? fmtMs(median(firstTexts)) : "—"}</td>
+      <td>${turnsOk}/${group.runs.length}</td>`;
+    body.appendChild(row);
+  }
+
+  add(`${runs.length} completed run(s). Failed runs are excluded from every median.`);
+
+  // The number the hybrid decision actually turns on: how much earlier does the
+  // doctor see text on the same length bucket?
+  for (const bucket of BUCKETS) {
+    const inBucket = (mode) =>
+      runs.filter(
+        (run) =>
+          modeOf(run) === mode &&
+          Number.isFinite(run.durationSec) &&
+          bucket.test(run.durationSec)
+      );
+
+    const baseline = inBucket("batch-on");
+    if (baseline.length === 0) continue;
+    const batchTotal = median(baseline.map((run) => run.totalMs));
+
+    for (const hybridMode of ["hybrid-stream", "hybrid-rest"]) {
+      const live = inBucket(hybridMode);
+      if (live.length === 0) continue;
+      const first = median(live.map((run) => run.firstTextMs).filter(Number.isFinite));
+      if (first == null) continue;
+      add(
+        `${bucket.label} · ${modeLabel(hybridMode)}: first text at ${fmtMs(first)} vs ` +
+          `${fmtMs(batchTotal)} for batch ON → ${fmtMs(Math.max(0, batchTotal - first))} earlier.`
+      );
+    }
+  }
+
+  const perMode = MODES.map((mode) => {
+    const list = runs.filter((run) => modeOf(run) === mode);
+    return list.length ? { mode, total: median(list.map((run) => run.totalMs)) } : null;
+  }).filter(Boolean);
+  if (perMode.length) {
+    perMode.sort((a, b) => a.total - b.total);
     add(
-      `Median provider wait ${fmtMs(median(withProvider.map((r) => r.providerWaitMs)))}, ` +
-        `median our overhead ${fmtMs(median(withProvider.map((r) => r.overheadMs)))}.`
+      `Fastest median total: ${modeLabel(perMode[0].mode)} (${fmtMs(perMode[0].total)}). ` +
+        "Hybrid rows share the same batch tail, so read the first-text line for the real benefit."
     );
   }
 
-  const onDiar = runs.filter((r) => r.diarization && r.providerWaitMs != null);
-  const offDiar = runs.filter((r) => !r.diarization && r.providerWaitMs != null);
-  if (onDiar.length && offDiar.length) {
-    const a = median(onDiar.map((r) => r.providerWaitMs));
-    const b = median(offDiar.map((r) => r.providerWaitMs));
-    add(`Median provider wait: diarization on ${fmtMs(a)}, off ${fmtMs(b)} (delta ${fmtMs(a - b)}).`);
-  }
-
-  const failed = all.filter((r) => r.status !== "completed").length;
-  if (failed) add(`${failed} failed run(s) not counted.`);
+  const failed = all.filter((run) => run.status !== "completed").length;
+  if (failed) add(`${failed} failed run(s) excluded.`);
 }
 
 // ── exports ──────────────────────────────────────────────────────────────────
@@ -1719,7 +2224,8 @@ function exportRunsCsv() {
   const header = [
     "at",
     "label",
-    "variant",
+    "runMode",
+    "rail",
     "durationSec",
     "audioBytes",
     "model",
@@ -1730,6 +2236,9 @@ function exportRunsCsv() {
     "ratio",
     "providerWaitMs",
     "overheadMs",
+    "firstTextMs",
+    "firstFinalMs",
+    "segmentCount",
     "probeCount",
     "transcriptChars",
     "turnCount",
@@ -1740,7 +2249,8 @@ function exportRunsCsv() {
     [
       r.at,
       r.label ?? "",
-      r.variant ?? "",
+      r.runMode ?? "",
+      r.rail ?? "",
       r.durationSec ?? "",
       r.audioBytes ?? "",
       r.model ?? "",
@@ -1751,6 +2261,9 @@ function exportRunsCsv() {
       r.ratio ?? "",
       r.providerWaitMs ?? "",
       r.overheadMs ?? "",
+      r.firstTextMs ?? "",
+      r.firstFinalMs ?? "",
+      r.segmentCount ?? "",
       r.probeCount ?? "",
       r.transcriptChars ?? "",
       r.turnCount ?? "",
@@ -1777,10 +2290,16 @@ el("save-clip-btn").addEventListener("click", saveClip);
 el("run-clip-btn").addEventListener("click", runSelectedClip);
 el("delete-clip-btn").addEventListener("click", deleteSelectedClip);
 el("run-mode").addEventListener("change", () => {
-  const hybrid = runMode() === "hybrid";
-  el("run-mode-note").textContent = hybrid
-    ? "Hybrid: 15–25 s PCM windows stream to the REST endpoint for a provisional preview; the batch job with diarization ON remains authoritative. Streaming (WebSocket) is faster but needs a relay — see the README."
-    : "Batch only: one job per run with the selected diarization setting. This is the production path.";
+  const mode = runMode();
+  const notes = {
+    "batch-on": "Batch only: one job with diarization ON. This is the production path.",
+    "batch-off": "Batch only with diarization OFF. Baseline for how much diarization costs us.",
+    "hybrid-rest": "Hybrid: 15–25 s PCM windows go to the REST endpoint for a provisional preview; the batch job with diarization ON remains authoritative.",
+    "hybrid-stream": state.realtimeKey
+      ? "Hybrid: the realtime WebSocket supplies partials and finals during the visit; the batch job with diarization ON remains authoritative. Tester only — the API key is visible in devtools."
+      : "Realtime streaming is not configured (no SARVAM_API_KEY in /api/config).",
+  };
+  el("run-mode-note").textContent = notes[mode] || "";
 });
 el("export-json").addEventListener("click", exportRunsJson);
 el("export-csv").addEventListener("click", exportRunsCsv);
@@ -1813,14 +2332,14 @@ el("file-input").addEventListener("change", async (event) => {
   }
   el("rerun-btn").disabled = false;
   log("info", "file selected", { bytes: file.size, seconds: probed ?? "unknown", type: state.lastMime });
-  state.liveSource = runMode() === "hybrid" ? "file" : null;
+  state.liveSource = runMode().startsWith("hybrid") ? "file" : null;
   state.hybridSummary = null;
   await runPipeline(file, state.lastMime, state.lastDuration);
 });
 
 el("rerun-btn").addEventListener("click", async () => {
   if (!state.lastBlob) return;
-  state.liveSource = runMode() === "hybrid" ? "file" : null;
+  state.liveSource = runMode().startsWith("hybrid") ? "file" : null;
   state.hybridSummary = null;
   await runPipeline(state.lastBlob, state.lastMime, state.lastDuration);
 });
