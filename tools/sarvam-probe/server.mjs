@@ -45,6 +45,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(HERE, "public");
 const RUNS_DIR = path.join(HERE, "runs");
 const RUNS_INDEX = path.join(HERE, "runs.jsonl");
+// Named, reusable benchmark clips. Kept out of the repo (see .gitignore) and
+// overridable so real patient audio can live outside the working tree.
+const FIXTURES_DIR = process.env.PROBE_FIXTURE_DIR || path.join(HERE, "fixtures");
+const FIXTURES_INDEX = path.join(FIXTURES_DIR, "index.json");
 
 const BASE_URL = "https://api.sarvam.ai";
 const BATCH_PATH = "/speech-to-text/job/v1";
@@ -239,6 +243,19 @@ async function sarvamJson(
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const MIME_BY_EXTENSION = {
+  wav: "audio/wav",
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  mp4: "audio/mp4",
+  aac: "audio/aac",
+  ogg: "audio/ogg",
+  opus: "audio/ogg",
+  webm: "audio/webm",
+  flac: "audio/flac",
+  amr: "audio/amr",
+};
+
 function extensionForMime(mimeType) {
   const clean = String(mimeType || "").split(";")[0].trim().toLowerCase();
   switch (clean) {
@@ -256,9 +273,92 @@ function extensionForMime(mimeType) {
       return "wav";
     case "audio/flac":
       return "flac";
+    case "audio/amr":
+      return "amr";
     default:
       return "webm";
   }
+}
+
+/** Extension wins over a missing/generic browser MIME type. */
+function mimeForName(fileName, fallback) {
+  const ext = path.extname(String(fileName || "")).slice(1).toLowerCase();
+  if (MIME_BY_EXTENSION[ext]) return MIME_BY_EXTENSION[ext];
+  const clean = String(fallback || "").split(";")[0].trim().toLowerCase();
+  return clean || "audio/webm";
+}
+
+// ── audio duration detection (no dependencies) ──────────────────────────────
+
+/** Exact duration from the RIFF `fmt ` byte rate and `data` chunk length. */
+function wavDurationSec(buffer) {
+  if (buffer.length < 44) return null;
+  if (buffer.toString("ascii", 0, 4) !== "RIFF") return null;
+  if (buffer.toString("ascii", 8, 12) !== "WAVE") return null;
+  let offset = 12;
+  let byteRate = 0;
+  while (offset + 8 <= buffer.length) {
+    const id = buffer.toString("ascii", offset, offset + 4);
+    const size = buffer.readUInt32LE(offset + 4);
+    if (id === "fmt " && offset + 16 <= buffer.length) {
+      byteRate = buffer.readUInt32LE(offset + 16);
+    } else if (id === "data") {
+      const available = Math.min(size, buffer.length - offset - 8);
+      return byteRate > 0 && available > 0 ? available / byteRate : null;
+    }
+    offset += 8 + size + (size % 2);
+  }
+  return null;
+}
+
+/** Duration from the MP4/M4A `mvhd` box (version 0 or 1). */
+function mp4DurationSec(buffer) {
+  const at = buffer.indexOf("mvhd", 0, "ascii");
+  if (at < 0) return null;
+  try {
+    if (buffer[at + 4] === 1) {
+      if (at + 32 > buffer.length) return null;
+      const timescale = buffer.readUInt32BE(at + 20);
+      const duration = Number(buffer.readBigUInt64BE(at + 24));
+      return timescale > 0 && duration > 0 ? duration / timescale : null;
+    }
+    if (at + 20 > buffer.length) return null;
+    const timescale = buffer.readUInt32BE(at + 12);
+    const duration = buffer.readUInt32BE(at + 16);
+    if (!timescale || !duration || duration === 0xffffffff) return null;
+    return duration / timescale;
+  } catch {
+    return null;
+  }
+}
+
+/** Duration from the FLAC STREAMINFO block (total samples / sample rate). */
+function flacDurationSec(buffer) {
+  if (buffer.length < 26 || buffer.toString("ascii", 0, 4) !== "fLaC") return null;
+  const hi = buffer.readUInt32BE(18);
+  const lo = buffer.readUInt32BE(22);
+  const sampleRate = hi >>> 12;
+  const totalSamples = (hi & 0xf) * 4294967296 + lo;
+  return sampleRate > 0 && totalSamples > 0 ? totalSamples / sampleRate : null;
+}
+
+/** Best-effort duration; the browser also sends one when it can decode. */
+function detectDurationSec(buffer, mimeType) {
+  const mime = String(mimeType || "").toLowerCase();
+  const candidates = [];
+  if (mime.includes("wav")) candidates.push(wavDurationSec);
+  if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")) {
+    candidates.push(mp4DurationSec);
+  }
+  if (mime.includes("flac")) candidates.push(flacDurationSec);
+  candidates.push(wavDurationSec, mp4DurationSec, flacDurationSec);
+  for (const detect of candidates) {
+    const value = detect(buffer);
+    if (value && Number.isFinite(value) && value > 0) {
+      return Math.round(value * 10) / 10;
+    }
+  }
+  return null;
 }
 
 function buildMultipart(fields, file) {
@@ -308,6 +408,73 @@ function readDiarizedTurns(value) {
     });
   }
   return turns;
+}
+
+// ── fixture library ──────────────────────────────────────────────────────────
+
+/** Serialises index read-modify-write so two saves cannot clobber each other. */
+let fixtureChain = Promise.resolve();
+
+function withFixtureLock(fn) {
+  const next = fixtureChain.then(fn, fn);
+  fixtureChain = next.catch(() => {});
+  return next;
+}
+
+async function readFixtures() {
+  try {
+    const parsed = JSON.parse(await fsp.readFile(FIXTURES_INDEX, "utf8"));
+    return Array.isArray(parsed?.fixtures) ? parsed.fixtures : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeFixtures(fixtures) {
+  await fsp.mkdir(FIXTURES_DIR, { recursive: true });
+  await fsp.writeFile(
+    FIXTURES_INDEX,
+    JSON.stringify({ version: 1, fixtures }, null, 2),
+    "utf8"
+  );
+}
+
+function publicFixture(entry) {
+  return {
+    id: entry.id,
+    name: entry.name,
+    note: entry.note ?? "",
+    durationSec: entry.durationSec ?? null,
+    bytes: entry.bytes,
+    mimeType: entry.mimeType,
+    sha256: entry.sha256,
+    sourceName: entry.sourceName ?? "",
+    converted: Boolean(entry.converted),
+    createdAt: entry.createdAt,
+    runs: entry.runs ?? 0,
+    lastRunAt: entry.lastRunAt ?? null,
+  };
+}
+
+function cleanFixtureName(value, fallback) {
+  const text = String(value || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  return text || String(fallback || "clip").slice(0, 80);
+}
+
+function fixturePath(entry) {
+  return path.join(FIXTURES_DIR, entry.storedName);
+}
+
+/** Reads a fixture by id and returns `{ entry, audio }` or null. */
+async function loadFixture(id) {
+  const fixtures = await readFixtures();
+  const entry = fixtures.find((item) => item.id === id);
+  if (!entry) return null;
+  try {
+    return { entry, audio: await fsp.readFile(fixturePath(entry)) };
+  } catch {
+    return null;
+  }
 }
 
 // ── run registry ─────────────────────────────────────────────────────────────
@@ -707,6 +874,9 @@ function summarize(run) {
     segments: run.params.segments,
     preInitiated: Boolean(run.params.jobId),
     jobId: run.jobId ?? null,
+    fixtureId: run.params.fixtureId ?? null,
+    fixtureName: run.params.fixtureName ?? null,
+    audioSha256: run.audioSha256 ?? null,
     audioBytes: run.audio.length,
     durationSec: run.params.durationSec,
     totalMs,
@@ -746,11 +916,13 @@ async function persistRun(run) {
 
 async function executeRun(run) {
   run.t0 = performance.now();
+  run.audioSha256 = crypto.createHash("sha256").update(run.audio).digest("hex");
   try {
     pushEvent(run, {
       type: "run.start",
       params: run.params,
       audioBytes: run.audio.length,
+      fixtureName: run.params.fixtureName ?? null,
     });
     if (run.params.transport === "rest") await runRest(run);
     else await runBatch(run);
@@ -802,7 +974,14 @@ function parseNumber(value, fallback, min, max) {
 }
 
 function readRunParams(searchParams, headers) {
-  const mimeType = (headers["content-type"] || "audio/webm").split(";")[0].trim();
+  const headerType = String(headers["content-type"] || "")
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
+  const mimeType =
+    headerType && headerType !== "application/octet-stream"
+      ? headerType
+      : mimeForName(headers["x-filename"], "audio/webm");
   return {
     transport: searchParams.get("transport") === "rest" ? "rest" : "batch",
     model: searchParams.get("model") || DEFAULT_MODEL,
@@ -818,6 +997,8 @@ function readRunParams(searchParams, headers) {
     jobId: searchParams.get("jobId") || null,
     durationSec: parseNumber(searchParams.get("durationSec"), 0, 0, 7200) || null,
     label: (searchParams.get("label") || "").slice(0, 120),
+    fixtureId: searchParams.get("fixture") || null,
+    fixtureName: null,
     mimeType,
   };
 }
@@ -930,6 +1111,144 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ── fixture library ────────────────────────────────────────────────────
+    if (pathname === "/api/fixtures" && req.method === "GET") {
+      const fixtures = await readFixtures();
+      sendJson(res, 200, {
+        fixtures: fixtures
+          .map(publicFixture)
+          .sort((a, b) => String(a.name).localeCompare(String(b.name))),
+        dir: FIXTURES_DIR,
+      });
+      return;
+    }
+
+    if (pathname === "/api/fixtures" && req.method === "POST") {
+      const audio = await readBody(req);
+      if (audio.length === 0) {
+        sendJson(res, 400, { error: "Empty audio body." });
+        return;
+      }
+      const sourceName = String(
+        searchParams.get("sourceName") || req.headers["x-filename"] || ""
+      ).slice(0, 160);
+      const mimeType = mimeForName(sourceName, req.headers["content-type"]);
+      const sha256 = crypto.createHash("sha256").update(audio).digest("hex");
+      const id = sha256.slice(0, 12);
+      const converted = searchParams.get("converted") === "1";
+      const requestedDuration =
+        parseNumber(searchParams.get("durationSec"), 0, 0, 7200) || null;
+
+      const result = await withFixtureLock(async () => {
+        const fixtures = await readFixtures();
+        const existing = fixtures.find((item) => item.sha256 === sha256);
+        const name = cleanFixtureName(
+          searchParams.get("name"),
+          sourceName.replace(/\.[^.]+$/, "") || "clip"
+        );
+        const note = (searchParams.get("note") || "").slice(0, 500);
+
+        if (existing) {
+          // Same bytes → same benchmark clip. Update labels rather than clone.
+          if (searchParams.get("name")) existing.name = name;
+          if (searchParams.get("note") !== null) existing.note = note;
+          if (!existing.durationSec && requestedDuration) {
+            existing.durationSec = requestedDuration;
+          }
+          await writeFixtures(fixtures);
+          return { entry: existing, duplicate: true };
+        }
+
+        const entry = {
+          id,
+          name,
+          note,
+          storedName: `${id}.${extensionForMime(mimeType)}`,
+          mimeType,
+          bytes: audio.length,
+          sha256,
+          durationSec: requestedDuration ?? detectDurationSec(audio, mimeType),
+          sourceName,
+          converted,
+          createdAt: new Date().toISOString(),
+          runs: 0,
+          lastRunAt: null,
+        };
+        await fsp.mkdir(FIXTURES_DIR, { recursive: true });
+        await fsp.writeFile(fixturePath(entry), audio);
+        fixtures.push(entry);
+        await writeFixtures(fixtures);
+        return { entry, duplicate: false };
+      });
+
+      sendJson(res, result.duplicate ? 200 : 201, {
+        fixture: publicFixture(result.entry),
+        duplicate: result.duplicate,
+        dir: FIXTURES_DIR,
+      });
+      return;
+    }
+
+    const fixtureAudioMatch = /^\/api\/fixtures\/([A-Za-z0-9_-]+)\/audio$/.exec(pathname);
+    if (fixtureAudioMatch && req.method === "GET") {
+      const loaded = await loadFixture(fixtureAudioMatch[1]);
+      if (!loaded) {
+        sendJson(res, 404, { error: "Unknown fixture." });
+        return;
+      }
+      res.writeHead(200, {
+        "Content-Type": loaded.entry.mimeType,
+        "Content-Length": loaded.audio.length,
+        "Cache-Control": "no-store",
+      });
+      res.end(loaded.audio);
+      return;
+    }
+
+    const fixtureMatch = /^\/api\/fixtures\/([A-Za-z0-9_-]+)$/.exec(pathname);
+    if (fixtureMatch && req.method === "PATCH") {
+      const raw = await readBody(req, 64 * 1024);
+      const body = raw.length ? JSON.parse(raw.toString("utf8")) : {};
+      const updated = await withFixtureLock(async () => {
+        const fixtures = await readFixtures();
+        const entry = fixtures.find((item) => item.id === fixtureMatch[1]);
+        if (!entry) return null;
+        if (typeof body.name === "string") {
+          entry.name = cleanFixtureName(body.name, entry.name);
+        }
+        if (typeof body.note === "string") entry.note = body.note.slice(0, 500);
+        if (body.durationSec !== undefined) {
+          entry.durationSec = parseNumber(body.durationSec, 0, 0, 7200) || null;
+        }
+        await writeFixtures(fixtures);
+        return entry;
+      });
+      if (!updated) {
+        sendJson(res, 404, { error: "Unknown fixture." });
+        return;
+      }
+      sendJson(res, 200, { fixture: publicFixture(updated) });
+      return;
+    }
+
+    if (fixtureMatch && req.method === "DELETE") {
+      const removed = await withFixtureLock(async () => {
+        const fixtures = await readFixtures();
+        const index = fixtures.findIndex((item) => item.id === fixtureMatch[1]);
+        if (index < 0) return null;
+        const [entry] = fixtures.splice(index, 1);
+        await fsp.rm(fixturePath(entry), { force: true });
+        await writeFixtures(fixtures);
+        return entry;
+      });
+      if (!removed) {
+        sendJson(res, 404, { error: "Unknown fixture." });
+        return;
+      }
+      sendJson(res, 200, { deleted: removed.id });
+      return;
+    }
+
     // ── pre-initiate a batch job (E2) ──────────────────────────────────────
     if (pathname === "/api/jobs" && req.method === "POST") {
       const raw = await readBody(req, 64 * 1024);
@@ -958,7 +1277,32 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/runs" && req.method === "POST") {
       requireApiKey();
       const params = readRunParams(searchParams, req.headers);
-      const audio = await readBody(req);
+
+      let audio;
+      if (params.fixtureId) {
+        const loaded = await loadFixture(params.fixtureId);
+        if (!loaded) {
+          sendJson(res, 404, { error: `Unknown fixture: ${params.fixtureId}` });
+          return;
+        }
+        audio = loaded.audio;
+        params.mimeType = loaded.entry.mimeType;
+        params.fixtureName = loaded.entry.name;
+        if (!params.durationSec) params.durationSec = loaded.entry.durationSec ?? null;
+        if (!params.label) params.label = loaded.entry.name;
+        void withFixtureLock(async () => {
+          const fixtures = await readFixtures();
+          const entry = fixtures.find((item) => item.id === params.fixtureId);
+          if (!entry) return;
+          entry.runs = (entry.runs ?? 0) + 1;
+          entry.lastRunAt = new Date().toISOString();
+          await writeFixtures(fixtures);
+        }).catch(() => {});
+      } else {
+        audio = await readBody(req);
+        if (!params.label) params.label = "upload";
+      }
+
       if (audio.length === 0) {
         sendJson(res, 400, { error: "Empty audio body." });
         return;
@@ -975,7 +1319,12 @@ const server = http.createServer(async (req, res) => {
         t0: performance.now(),
       };
       runs.set(run.id, run);
-      sendJson(res, 202, { id: run.id, audioBytes: audio.length });
+      sendJson(res, 202, {
+        id: run.id,
+        audioBytes: audio.length,
+        fixtureId: params.fixtureId,
+        durationSec: params.durationSec,
+      });
       void executeRun(run);
       return;
     }
@@ -1056,5 +1405,6 @@ server.listen(PORT, "127.0.0.1", () => {
   const hasKey = Boolean((process.env.SARVAM_API_KEY || "").trim());
   console.log(`\n  Sarvam probe → http://localhost:${PORT}`);
   console.log(`  API key: ${hasKey ? "loaded" : "MISSING (copy .env.example to .env)"}`);
-  console.log(`  Runs saved to tools/sarvam-probe/runs.jsonl\n`);
+  console.log(`  Runs saved to tools/sarvam-probe/runs.jsonl`);
+  console.log(`  Clips saved to ${FIXTURES_DIR}\n`);
 });

@@ -19,7 +19,7 @@
 
     <main>
       <section class="card">
-        <h2>1. Record or pick audio</h2>
+        <h2>1. Audio clips</h2>
         <div class="record-row">
           <button id="record-btn" class="primary">● Record</button>
           <button id="stop-btn" disabled>■ Stop</button>
@@ -30,13 +30,53 @@
           <input type="checkbox" id="pre-initiate" />
           Pre-initiate batch job when recording starts <span class="muted">(E2 — saves ~2–3 s)</span>
         </label>
-        <div class="record-row">
-          <input type="file" id="file-input" accept="audio/*" />
-          <button id="rerun-btn" disabled>Re-run last audio</button>
+        <label class="check">
+          <input type="checkbox" id="canonicalise" checked />
+          Convert to 16 kHz mono WAV before saving/running
+          <span class="muted">(recommended for benchmarks; uncheck to keep the production webm path)</span>
+        </label>
+
+        <div class="fixture-form">
+          <label>Clip name
+            <input id="fixture-name" type="text" placeholder="e.g. clinic-dialog-24s" />
+          </label>
+          <label class="wide">What's in the recording
+            <input id="fixture-note" type="text" placeholder="e.g. Hinglish diabetes follow-up, 2 speakers, lab review" />
+          </label>
         </div>
-        <p class="muted small">
-          Uploading a file is how you re-measure the same recording length before/after a change.
+        <div class="record-row">
+          <input type="file" id="file-input" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.opus,.webm,.flac,.amr" />
+          <button id="save-fixture-btn">Save clip to library</button>
+          <button id="run-upload-btn" disabled>Run once (no save)</button>
+          <button id="save-recording-btn" disabled>Save last recording</button>
+        </div>
+        <p class="muted small" id="fixture-status">
+          Pick a clip once, name it, and run it as many times as you like — the audio bytes stay
+          identical, so before/after numbers are comparable.
         </p>
+
+        <h3>Saved clips</h3>
+        <div class="table-wrap">
+          <table id="fixtures">
+            <thead>
+              <tr>
+                <th>name</th>
+                <th>what's in it</th>
+                <th>length</th>
+                <th>size</th>
+                <th>format</th>
+                <th>runs</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="record-row" style="margin-top: 10px">
+          <button id="run-fixture-btn" disabled>Run selected clip</button>
+          <span id="fixture-selected" class="muted small">no clip selected</span>
+        </div>
+        <audio id="fixture-audio" controls hidden></audio>
       </section>
 
       <section class="card">
@@ -99,6 +139,7 @@
             <thead>
               <tr>
                 <th>when</th>
+                <th>clip</th>
                 <th>label</th>
                 <th>rec</th>
                 <th>transport</th>

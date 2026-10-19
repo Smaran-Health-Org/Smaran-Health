@@ -25,7 +25,10 @@ const state = {
   lastBlob: null,
   lastMime: "audio/webm",
   lastDuration: 0,
+  lastSourceName: "",
   stream: null,
+  fixtures: [],
+  selectedFixture: null,
 };
 
 // ── formatting ───────────────────────────────────────────────────────────────
@@ -47,7 +50,147 @@ function fmtClock(ms) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+// ── canonical audio (16 kHz mono WAV) ────────────────────────────────────────
+
+function encodeWav(audioBuffer) {
+  const frames = audioBuffer.length;
+  const sampleRate = audioBuffer.sampleRate;
+  const dataBytes = frames * 2;
+  const out = new ArrayBuffer(44 + dataBytes);
+  const view = new DataView(out);
+  const ascii = (offset, text) => {
+    for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  ascii(0, "RIFF");
+  view.setUint32(4, 36 + dataBytes, true);
+  ascii(8, "WAVE");
+  ascii(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, "data");
+  view.setUint32(40, dataBytes, true);
+  const samples = audioBuffer.getChannelData(0);
+  let offset = 44;
+  for (let i = 0; i < frames; i += 1) {
+    const sample = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+    offset += 2;
+  }
+  return new Blob([out], { type: "audio/wav" });
+}
+
+async function decodeAudio(blob) {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) throw new Error("Web Audio is unavailable in this browser.");
+  const context = new Ctx();
+  try {
+    return await context.decodeAudioData(await blob.arrayBuffer());
+  } finally {
+    context.close?.();
+  }
+}
+
+/** Decode → resample to 16 kHz mono → re-encode as PCM WAV. */
+async function toCanonicalWav(blob) {
+  const decoded = await decodeAudio(blob);
+  const targetRate = 16000;
+  const frames = Math.max(1, Math.ceil(decoded.duration * targetRate));
+  const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!Offline) throw new Error("OfflineAudioContext is unavailable.");
+  const offline = new Offline(1, frames, targetRate);
+  const source = offline.createBufferSource();
+  source.buffer = decoded;
+  source.connect(offline.destination);
+  source.start();
+  const rendered = await offline.startRendering();
+  return { blob: encodeWav(rendered), durationSec: rendered.duration };
+}
+
+async function durationOf(blob) {
+  try {
+    return (await decodeAudio(blob)).duration;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Applies the canonical-WAV checkbox. Duration always comes from decoding when
+ * possible, so the ratio column is populated even for uploaded files.
+ */
+async function prepareAudio(blob, mimeType, durationHint) {
+  if (el("canonicalise").checked) {
+    try {
+      const canonical = await toCanonicalWav(blob);
+      return {
+        blob: canonical.blob,
+        mimeType: "audio/wav",
+        durationSec: canonical.durationSec,
+        converted: true,
+      };
+    } catch (error) {
+      setFixtureStatus(
+        `Could not convert (${error.message}); using the original file instead.`,
+        true
+      );
+    }
+  }
+  const durationSec = durationHint || (await durationOf(blob));
+  return { blob, mimeType, durationSec, converted: false };
+}
+
 // ── options ──────────────────────────────────────────────────────────────────
+
+const SETTINGS_KEY = "sarvam-probe-settings";
+const SETTING_IDS = [
+  "transport",
+  "model",
+  "mode",
+  "language",
+  "diarization",
+  "num-speakers",
+  "keep-alive",
+  "poll-ms",
+  "segments",
+  "concurrency",
+  "label",
+];
+
+function saveSettings() {
+  const data = {};
+  for (const id of SETTING_IDS) {
+    const node = el(id);
+    if (node) data[id] = node.value;
+  }
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(data));
+  } catch {
+    /* storage can be disabled; settings are a convenience only */
+  }
+}
+
+function restoreSettings() {
+  let data;
+  try {
+    data = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+  } catch {
+    return;
+  }
+  for (const id of SETTING_IDS) {
+    const node = el(id);
+    if (!node || data[id] === undefined) continue;
+    if (node.tagName === "SELECT") {
+      if ([...node.options].some((option) => option.value === data[id])) node.value = data[id];
+    } else {
+      node.value = data[id];
+    }
+  }
+}
 
 async function loadConfig() {
   const config = await fetch("/api/config").then((r) => r.json());
@@ -78,9 +221,12 @@ async function loadConfig() {
     chip.textContent = "API key missing — add .env";
     chip.classList.add("bad");
   }
+
+  restoreSettings();
+  syncTransportUi();
 }
 
-function buildParams(durationSec) {
+function buildParams(durationSec, autoLabel) {
   const params = new URLSearchParams({
     transport: el("transport").value,
     model: el("model").value,
@@ -91,7 +237,7 @@ function buildParams(durationSec) {
     pollMs: el("poll-ms").value || "2000",
     segments: el("segments").value || "1",
     concurrency: el("concurrency").value || "1",
-    label: el("label").value.trim(),
+    label: el("label").value.trim() || autoLabel || "",
   });
   const speakers = el("num-speakers").value;
   if (speakers) params.set("numSpeakers", speakers);
@@ -183,25 +329,55 @@ function stopRecording() {
   state.stream?.getTracks().forEach((track) => track.stop());
 }
 
+function extForMime(mimeType) {
+  const mime = String(mimeType || "").toLowerCase();
+  if (mime.includes("wav")) return "wav";
+  if (mime.includes("mpeg")) return "mp3";
+  if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")) return "m4a";
+  if (mime.includes("ogg") || mime.includes("opus")) return "ogg";
+  if (mime.includes("flac")) return "flac";
+  return "webm";
+}
+
 async function handleRecordingStopped() {
   const durationSec = (Date.now() - state.startedAt) / 1000;
   const blob = new Blob(state.chunks, { type: state.mimeType });
   state.chunks = [];
-  state.lastBlob = blob;
-  state.lastMime = state.mimeType;
-  state.lastDuration = durationSec;
-  el("rerun-btn").disabled = false;
-  await submit(blob, state.mimeType, durationSec);
+  el("save-recording-btn").disabled = false;
+  setFixtureStatus("Preparing recording…");
+
+  const prepared = await prepareAudio(blob, state.mimeType, durationSec);
+  state.lastBlob = prepared.blob;
+  state.lastMime = prepared.mimeType;
+  state.lastDuration = prepared.durationSec;
+  state.lastSourceName = `recording-${new Date()
+    .toISOString()
+    .slice(0, 19)
+    .replace(/[:T]/g, "-")}.${extForMime(prepared.mimeType)}`;
+
+  if (!el("fixture-name").value.trim()) {
+    el("fixture-name").value = state.lastSourceName.replace(/\.[^.]+$/, "");
+  }
+  if (!el("fixture-note").value.trim()) {
+    el("fixture-note").value = `Recorded ${new Date().toLocaleString()} — ${prepared.durationSec.toFixed(
+      1
+    )} s`;
+  }
+  setFixtureStatus(`Recording ready (${prepared.durationSec.toFixed(1)} s).`);
+  await submit(prepared.blob, prepared.mimeType, prepared.durationSec);
   state.preJob = null;
 }
 
 // ── runs ─────────────────────────────────────────────────────────────────────
 
-async function submit(blob, mimeType, durationSec) {
+async function submit(blob, mimeType, durationSec, sourceName) {
   const params = buildParams(durationSec);
   const response = await fetch(`/api/runs?${params}`, {
     method: "POST",
-    headers: { "Content-Type": mimeType },
+    headers: {
+      "Content-Type": mimeType,
+      "x-filename": sourceName || state.lastSourceName || `clip.${extForMime(mimeType)}`,
+    },
     body: blob,
   });
   const data = await response.json();
@@ -336,6 +512,232 @@ function escapeHtml(value) {
   );
 }
 
+// ── clip library ─────────────────────────────────────────────────────────────
+
+function setFixtureStatus(message, bad = false) {
+  const node = el("fixture-status");
+  if (!node) return;
+  node.textContent = message;
+  node.style.color = bad ? "var(--bad)" : "";
+}
+
+async function loadFixtures() {
+  try {
+    const data = await fetch("/api/fixtures").then((response) => response.json());
+    state.fixtures = data.fixtures ?? [];
+    if (state.selectedFixture && !state.fixtures.some((f) => f.id === state.selectedFixture)) {
+      state.selectedFixture = null;
+    }
+    renderFixtures();
+  } catch (error) {
+    setFixtureStatus(`Could not load clips: ${error.message}`, true);
+  }
+}
+
+function renderFixtures() {
+  const body = document.querySelector("#fixtures tbody");
+  if (!body) return;
+  body.innerHTML = "";
+
+  if (state.fixtures.length === 0) {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td colspan="7" class="muted small">No clips saved yet — record or upload one, name it, then save.</td>`;
+    body.appendChild(row);
+    el("run-fixture-btn").disabled = true;
+    el("fixture-selected").textContent = "no clip selected";
+    const audio = el("fixture-audio");
+    audio.hidden = true;
+    audio.removeAttribute("src");
+    return;
+  }
+
+  for (const fixture of state.fixtures) {
+    const row = document.createElement("tr");
+    if (fixture.id === state.selectedFixture) row.classList.add("selected");
+    row.innerHTML = `
+      <td>${escapeHtml(fixture.name)}</td>
+      <td class="muted small">${escapeHtml(fixture.note || "—")}</td>
+      <td>${fixture.durationSec ? `${fixture.durationSec.toFixed(1)} s` : "—"}</td>
+      <td>${fmtBytes(fixture.bytes)}</td>
+      <td>${escapeHtml(fixture.mimeType.replace("audio/", ""))}${
+        fixture.converted ? " · 16k" : ""
+      }</td>
+      <td>${fixture.runs ?? 0}</td>
+      <td class="row-actions">
+        <button data-act="run">run</button>
+        <button data-act="edit">edit</button>
+        <button data-act="delete">delete</button>
+      </td>`;
+    row.addEventListener("click", (event) => {
+      if (event.target.dataset.act) return;
+      selectFixture(fixture.id);
+    });
+    row.querySelector('[data-act="run"]').addEventListener("click", async () => {
+      selectFixture(fixture.id);
+      await runFixture(fixture.id);
+    });
+    row.querySelector('[data-act="edit"]').addEventListener("click", () => editFixture(fixture));
+    row.querySelector('[data-act="delete"]').addEventListener("click", () => deleteFixture(fixture));
+    body.appendChild(row);
+  }
+}
+
+function selectFixture(id) {
+  state.selectedFixture = id;
+  const fixture = state.fixtures.find((item) => item.id === id) ?? null;
+  el("run-fixture-btn").disabled = !fixture;
+  const label = el("fixture-selected");
+  const audio = el("fixture-audio");
+
+  if (!fixture) {
+    label.textContent = "no clip selected";
+    audio.hidden = true;
+    audio.removeAttribute("src");
+  } else {
+    label.textContent = `${fixture.name} · ${
+      fixture.durationSec ? `${fixture.durationSec.toFixed(1)} s` : "length unknown"
+    } · ${fmtBytes(fixture.bytes)}`;
+    audio.src = `/api/fixtures/${fixture.id}/audio`;
+    audio.hidden = false;
+  }
+  for (const row of document.querySelectorAll("#fixtures tbody tr")) {
+    row.classList.toggle("selected", false);
+  }
+  renderFixtures();
+}
+
+async function saveFixture(blob, mimeType, sourceName, durationHint) {
+  const name = el("fixture-name").value.trim();
+  const note = el("fixture-note").value.trim();
+  if (!name) {
+    setFixtureStatus("Give the clip a name first.", true);
+    el("fixture-name").focus();
+    return null;
+  }
+
+  setFixtureStatus("Preparing audio…");
+  const prepared = await prepareAudio(blob, mimeType, durationHint);
+
+  const params = new URLSearchParams({
+    name,
+    note,
+    sourceName: sourceName || state.lastSourceName || "clip",
+    converted: prepared.converted ? "1" : "0",
+  });
+  if (prepared.durationSec) params.set("durationSec", prepared.durationSec.toFixed(1));
+
+  setFixtureStatus("Saving…");
+  const response = await fetch(`/api/fixtures?${params}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": prepared.mimeType,
+      "x-filename": sourceName || state.lastSourceName || "clip",
+    },
+    body: prepared.blob,
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    setFixtureStatus(data.error || "Save failed.", true);
+    return null;
+  }
+
+  setFixtureStatus(
+    `${data.duplicate ? "Already in the library" : "Saved"}: ${data.fixture.name} · ${
+      data.fixture.durationSec ? `${data.fixture.durationSec.toFixed(1)} s` : "length unknown"
+    } · ${fmtBytes(data.fixture.bytes)}`
+  );
+  el("fixture-name").value = "";
+  el("fixture-note").value = "";
+  await loadFixtures();
+  selectFixture(data.fixture.id);
+  return data.fixture;
+}
+
+async function saveSelectedFile() {
+  const file = el("file-input").files?.[0];
+  if (!file) {
+    setFixtureStatus("Choose an audio file first.", true);
+    return;
+  }
+  await saveFixture(file, file.type || "", file.name, 0);
+  el("file-input").value = "";
+  el("run-upload-btn").disabled = true;
+}
+
+async function saveLastRecording() {
+  if (!state.lastBlob) {
+    setFixtureStatus("No recording in memory yet.", true);
+    return;
+  }
+  await saveFixture(state.lastBlob, state.lastMime, state.lastSourceName, state.lastDuration);
+}
+
+async function runFixture(fixtureId) {
+  const fixture = state.fixtures.find((item) => item.id === (fixtureId ?? state.selectedFixture));
+  if (!fixture) return;
+
+  const params = buildParams(fixture.durationSec || 0, fixture.name);
+  params.set("fixture", fixture.id);
+
+  const response = await fetch(`/api/runs?${params}`, { method: "POST" });
+  const data = await response.json();
+  if (!response.ok) {
+    alert(data.error || "Could not start the run.");
+    return;
+  }
+  attachRun(data.id, params.get("label"), fixture.durationSec || 0);
+  refreshHistory();
+  loadFixtures();
+}
+
+async function runUploadOnce() {
+  const file = el("file-input").files?.[0];
+  if (!file) return;
+  setFixtureStatus("Preparing audio…");
+  const prepared = await prepareAudio(file, file.type || "", 0);
+  state.lastBlob = prepared.blob;
+  state.lastMime = prepared.mimeType;
+  state.lastDuration = prepared.durationSec;
+  state.lastSourceName = file.name;
+  setFixtureStatus(`Running ${file.name} once (not saved).`);
+  await submit(prepared.blob, prepared.mimeType, prepared.durationSec, file.name);
+}
+
+async function editFixture(fixture) {
+  const name = window.prompt("Clip name", fixture.name);
+  if (name === null) return;
+  const note = window.prompt("What's in this recording", fixture.note || "");
+  if (note === null) return;
+  const response = await fetch(`/api/fixtures/${fixture.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, note }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    setFixtureStatus(data.error || "Could not update the clip.", true);
+    return;
+  }
+  await loadFixtures();
+  selectFixture(fixture.id);
+  setFixtureStatus("Clip updated.");
+}
+
+async function deleteFixture(fixture) {
+  if (!window.confirm(`Delete clip "${fixture.name}"? Runs already recorded stay in history.`)) {
+    return;
+  }
+  const response = await fetch(`/api/fixtures/${fixture.id}`, { method: "DELETE" });
+  const data = await response.json();
+  if (!response.ok) {
+    setFixtureStatus(data.error || "Could not delete the clip.", true);
+    return;
+  }
+  if (state.selectedFixture === fixture.id) state.selectedFixture = null;
+  await loadFixtures();
+  setFixtureStatus(`Deleted ${fixture.name}.`);
+}
+
 // ── history ──────────────────────────────────────────────────────────────────
 
 async function refreshHistory() {
@@ -346,8 +748,9 @@ async function refreshHistory() {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${new Date(run.createdAt).toLocaleTimeString()}</td>
+      <td>${escapeHtml(run.fixtureName || "—")}</td>
       <td>${escapeHtml(run.label || "—")}</td>
-      <td>${run.durationSec ? `${run.durationSec.toFixed(0)} s` : "—"}</td>
+      <td>${run.durationSec ? `${run.durationSec.toFixed(1)} s` : "—"}</td>
       <td>${run.transport}</td>
       <td>${run.model}${run.diarization ? "" : " · nodiar"}</td>
       <td>${run.keepAlive ? "on" : "off"}</td>
@@ -409,24 +812,29 @@ async function showInspector(id) {
 
 el("record-btn").addEventListener("click", startRecording);
 el("stop-btn").addEventListener("click", stopRecording);
-el("transport").addEventListener("change", syncTransportUi);
 el("refresh-btn").addEventListener("click", refreshHistory);
+el("save-fixture-btn").addEventListener("click", saveSelectedFile);
+el("run-upload-btn").addEventListener("click", runUploadOnce);
+el("save-recording-btn").addEventListener("click", saveLastRecording);
+el("run-fixture-btn").addEventListener("click", () => runFixture());
 
-el("file-input").addEventListener("change", async (event) => {
+el("file-input").addEventListener("change", (event) => {
   const file = event.target.files?.[0];
+  el("run-upload-btn").disabled = !file;
   if (!file) return;
-  state.lastBlob = file;
-  state.lastMime = file.type || "audio/webm";
-  state.lastDuration = 0;
-  el("rerun-btn").disabled = false;
-  await submit(file, state.lastMime, 0);
-});
-
-el("rerun-btn").addEventListener("click", async () => {
-  if (!state.lastBlob) return;
-  await submit(state.lastBlob, state.lastMime, state.lastDuration);
+  if (!el("fixture-name").value.trim()) {
+    el("fixture-name").value = file.name.replace(/\.[^.]+$/, "").slice(0, 80);
+  }
+  setFixtureStatus(`${file.name} · ${fmtBytes(file.size)} selected.`);
 });
 
 syncTransportUi();
 loadConfig();
+loadFixtures();
 refreshHistory();
+
+for (const id of SETTING_IDS) {
+  const node = el(id);
+  if (node) node.addEventListener("change", saveSettings);
+}
+el("transport").addEventListener("change", syncTransportUi);

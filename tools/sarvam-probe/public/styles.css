@@ -336,3 +336,56 @@ pre {
   padding: 10px;
   overflow-x: auto;
 }
+
+/* ── clip library ─────────────────────────────────────────────────────────── */
+
+h3 {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fixture-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 14px;
+  margin: 4px 0 12px;
+}
+
+.fixture-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.fixture-form label.wide {
+  grid-column: 1 / -1;
+}
+
+#fixtures td:nth-child(2) {
+  white-space: normal;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+tbody tr.selected {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+td.row-actions {
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+td.row-actions button {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+#fixture-audio {
+  width: 100%;
+  margin-top: 10px;
+}

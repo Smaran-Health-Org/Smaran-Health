@@ -53,7 +53,7 @@ the only number the plan says counts.
 | **Model** `saaras:v3` / `saaras:v4` | **E5** — A/B on the same audio, side-by-side transcripts. |
 | **Poll interval** | is the wait provider work or our polling? |
 | **REST segments / concurrency** | chunking experiments against the ≤30 s endpoint (no diarization there — matches the plan's "ruled out" note). |
-| **Upload a file / Re-run last audio** | keeps recording length constant so before/after is honest (**§5 rule**). |
+| **Saved clip / Run selected clip** | keeps the audio bytes and recording length constant so before/after is honest (**§5 rule**). |
 | Label field | name the run ("v3 baseline, 24 s clip") — it shows in the history table. |
 | Diarization on/off | verify diarization survives, per constraint 1. |
 
@@ -63,10 +63,37 @@ the only number the plan says counts.
 
 - `runs.jsonl` — one summary line per run (append-only, this is your results log)
 - `runs/<id>.json` — full step timings + transcript + diarized turns
+- `fixtures/` — named, reusable benchmark clips (`index.json` + one audio file each)
 
-Both are gitignored. **Audio is never written to disk** — it lives in memory for
-the duration of the request only. Transcripts can contain real patient speech, so
-do not paste them into tickets or commit `runs/`.
+All three are gitignored. **Audio is only written to disk when you explicitly
+save it as a clip**; a one-off recording or upload lives in memory for the request
+only. Transcripts can contain real patient speech, so do not paste them into
+tickets or commit `runs/` or `fixtures/`.
+
+## Clip library (repeatable benchmarks)
+
+The unit of benchmarking is a **saved clip**, not a file you keep re-picking.
+
+1. Record, or choose an upload. Give it a **name** and a **what's in it** note.
+2. Leave **Convert to 16 kHz mono WAV** checked (default). The browser decodes,
+   downmixes and re-encodes to PCM WAV, so:
+   - duration is exact → the `ratio` column is always populated;
+   - bytes are identical on every run → before/after is honest;
+   - REST segment slicing is frame-safe (arbitrary byte slices break `webm`).
+   Uncheck it when you specifically want to measure the production `webm` path.
+3. **Save clip to library.** Files are hashed (`sha256`) and deduplicated, so
+   saving the same audio twice just updates its name/note.
+4. Pick the clip → **Run selected clip**. The run is executed from disk; the
+   bytes never round-trip through the browser again. `runs.jsonl` records
+   `fixtureId`, `fixtureName` and `audioSha256` for every run.
+
+Uploads are accepted in any format the browser can decode (wav, mp3, m4a/aac,
+ogg/opus, webm, flac). If decoding fails, the original bytes are stored as-is,
+duration falls back to header parsing (WAV/M4A/FLAC) or `null`. Formats the
+browser cannot decode (e.g. amr/wma) may be rejected by Sarvam itself.
+
+Clips can be renamed/re-annotated (`PATCH /api/fixtures/:id`), deleted, previewed
+in the browser, or stored outside the repo with `PROBE_FIXTURE_DIR=/path/to/dir`.
 
 ## Deliberate limitations
 

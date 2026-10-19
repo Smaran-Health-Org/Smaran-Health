@@ -1,4 +1,6 @@
 # Local runs contain transcripts of real audio — never commit.
 runs/
 runs.jsonl
+# Saved benchmark clips can contain patient speech — never commit.
+fixtures/
 .env

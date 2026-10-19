@@ -171,8 +171,12 @@ npm start                                        # http://localhost:8787
 
 Per-run it reports `batch.initiate` / `upload_url` / `upload_put` / `start` /
 `status#N` / `download_url` / `download_get` timings plus `total` and `ratio`, and
-appends a summary line to `runs.jsonl`. It covers E2 (pre-initiate), E3 (keep-alive
-vs cold connection), E5 (v3 vs v4), poll-interval and REST-chunking experiments.
+appends a summary line to `runs.jsonl`. Saved clips (name + what's-in-it note,
+stored under `tools/sarvam-probe/fixtures/`, `sha256`-deduped, optionally
+normalised to 16 kHz mono WAV) make the §5 same-recording-length rule mechanical:
+pick a clip, run it under each setting, compare rows. It covers E2
+(pre-initiate), E3 (keep-alive vs cold connection), E5 (v3 vs v4), poll-interval
+and REST-chunking experiments.
 It does **not** cover E1 (streaming), E6 (webhook) or E7 (async-first UX), and it
 does not reproduce the Supabase Storage download/concat step — so port any winning
 lever into the app and re-measure there with the query above, not in the probe.
