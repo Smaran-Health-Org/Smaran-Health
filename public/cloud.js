@@ -650,6 +650,29 @@ function resolveDuration(fallback) {
 // The live text is always provisional and is replaced by the batch transcript.
 
 const LIVE_SAMPLE_RATE = 16000;
+const MAX_PROXY_BYTES = 3_200_000;
+
+async function proxyUpload(uploadUrl, blob, mimeType) {
+  if (blob.size > MAX_PROXY_BYTES) {
+    throw new Error(
+      `Audio is ${(blob.size / 1024 / 1024).toFixed(1)} MB; the server proxy accepts up to 3.2 MB. ` +
+        "Use compressed audio (webm/opus, mp3, m4a) or a shorter clip."
+    );
+  }
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const response = await fetch("/api/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      uploadUrl,
+      contentType: mimeType,
+      audioBase64: bytesToBase64(bytes),
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `upload failed (${response.status})`);
+  return data;
+}
 
 function encodeWavPcm16(samples, sampleRate) {
   const dataBytes = samples.length * 2;
@@ -753,8 +776,27 @@ async function startHybridRecording() {
       failed: 0,
       stopped: false,
       tailResolve: null,
+      recorder,
+      recorderMime,
+      recorderChunks,
     };
     node.port.onmessage = (event) => handleWorkletMessage(event.data);
+
+    // The live rail needs PCM; the batch rail only needs a file. Record a
+    // compressed copy in parallel so long visits stay inside the proxy limit.
+    let recorder = null;
+    let recorderMime = "audio/webm";
+    const recorderChunks = [];
+    try {
+      recorderMime = pickMimeType() || "audio/webm";
+      recorder = new MediaRecorder(stream, { mimeType: recorderMime });
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size > 0) recorderChunks.push(event.data);
+      };
+      recorder.start(1000);
+    } catch (error) {
+      log("warn", "batch recorder unavailable", { message: String(error.message).slice(0, 120) });
+    }
 
     el("record-btn").disabled = true;
     el("record-btn").classList.add("recording");
@@ -942,6 +984,21 @@ async function stopHybridRecording() {
   }
 
   hybrid.node.port.onmessage = null;
+  let batchBlob = null;
+  if (hybrid.recorder && hybrid.recorder.state !== "inactive") {
+    batchBlob = await new Promise((resolve) => {
+      const finish = () =>
+        resolve(new Blob(hybrid.recorderChunks, { type: hybrid.recorderMime }));
+      hybrid.recorder.onstop = finish;
+      try {
+        hybrid.recorder.stop();
+      } catch {
+        finish();
+      }
+      setTimeout(finish, 2500);
+    });
+  }
+
   try {
     await hybrid.ctx.close();
   } catch {
@@ -963,8 +1020,13 @@ async function stopHybridRecording() {
   renderLive();
   state.hybrid = null;
 
-  state.lastBlob = new Blob([wav], { type: "audio/wav" });
-  state.lastMime = "audio/wav";
+  if (!batchBlob || batchBlob.size === 0) {
+    batchBlob = new Blob([wav], { type: "audio/wav" });
+    hybrid.recorderMime = "audio/wav";
+  }
+
+  state.lastBlob = batchBlob;
+  state.lastMime = hybrid.recorderMime;
   state.lastDuration = durationSec;
   el("clip-seconds").value = durationSec.toFixed(1);
   if (!el("clip-name").value.trim()) {
@@ -976,11 +1038,11 @@ async function stopHybridRecording() {
   el("rerun-btn").disabled = false;
   log("info", "hybrid recording stopped", {
     seconds: Number(durationSec.toFixed(1)),
-    bytes: wav.byteLength,
+    bytes: batchBlob.size,
     windows: state.hybridSummary.segmentCount,
   });
 
-  await runPipeline(state.lastBlob, "audio/wav", durationSec);
+  await runPipeline(state.lastBlob, state.lastMime, durationSec);
 }
 
 /** File variant: same two rails, driven from a decoded file instead of mic input. */
@@ -1029,6 +1091,8 @@ async function runFileHybrid(file) {
     log("error", "file hybrid failed", { message: String(error.message).slice(0, 160) });
   } finally {
     state.hybridSummary = summarizeHybrid(hybrid);
+    state.hybrid = hybrid;
+    renderLive();
     state.hybrid = null;
   }
 }
@@ -1229,23 +1293,32 @@ async function runVariant({ blob, mimeType, durationSec, diarization, variant, c
 
     const putStartedAt = performance.now();
     try {
-      const put = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": mimeType, "x-ms-blob-type": "BlockBlob" },
-        body: blob,
-      });
+      const result = await proxyUpload(uploadUrl, blob, mimeType);
       const putMs = Math.round(performance.now() - putStartedAt);
-      addStep(card, record, "batch.upload_put", put.ok, putMs, `${fmtKb(blob.size)} · direct to storage`);
-      if (!put.ok) throw new Error(`upload rejected (${put.status})`);
-      log("info", "batch.upload_put", { variant, ms: putMs, bytes: blob.size, cors: "allowed" });
+      addStep(
+        card,
+        record,
+        "batch.upload_put",
+        true,
+        putMs,
+        `${fmtKb(blob.size)} · via server proxy`
+      );
+      log("info", "batch.upload_put", {
+        variant,
+        ms: putMs,
+        bytes: blob.size,
+        via: "server-proxy",
+        status: result.status,
+      });
     } catch (error) {
       const putMs = Math.round(performance.now() - putStartedAt);
-      addStep(card, record, "batch.upload_put", false, putMs, "CORS blocked");
-      log("error", "direct upload blocked", { variant, ms: putMs, message: String(error.message).slice(0, 160) });
-      throw new Error(
-        `Direct upload blocked (${error.message}). Sarvam's storage does not allow this origin — ` +
-          `the deployment needs a chunked server proxy instead. This is the §7.11 answer.`
-      );
+      addStep(card, record, "batch.upload_put", false, putMs, "proxy upload failed");
+      log("error", "upload failed", {
+        variant,
+        ms: putMs,
+        message: String(error.message).slice(0, 160),
+      });
+      throw new Error(`Upload failed: ${error.message}`);
     }
 
     await jsonStep(card, record, "batch.start", "/api/start", {
