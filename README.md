@@ -99,9 +99,39 @@ Variables**:
 
 ```
 SARVAM_API_KEY=<the same key the clinical app uses>
+SUPABASE_URL=https://<probe-project-ref>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_BUCKET=probe-fixtures
 ```
 
-Redeploy after adding it — the API reports `API key missing on Vercel` until then.
+Redeploy after adding them — the API reports `API key missing on Vercel` until then,
+and the Saved clips section stays disabled until the Supabase variables are present.
+
+### Saved clips (shared)
+
+The cloud build is stateless, so clips cannot live on the server. They go straight
+to a **dedicated probe/test Supabase project**:
+
+- audio → private storage bucket `probe-fixtures` (object name `<sha256[0:12]>.<ext>`)
+- metadata → `public.probe_fixtures` (name, what's-in-it note, duration, bytes, sha256, run count)
+- run summaries → `public.probe_runs` (timings only; never transcript text, never audio)
+- browser → Supabase directly with the **publishable** key; nothing server-side holds state
+
+Create them once by applying
+[`supabase/migrations/20261019000000_probe_clip_library.sql`](supabase/migrations/20261019000000_probe_clip_library.sql)
+in that project's SQL editor (or via the Supabase CLI).
+
+In the UI:
+
+1. Record or pick a file, then give it a **clip name** and a **what's in it** note.
+2. **Save current audio as clip** → hashed, deduplicated, uploaded.
+3. Pick the clip → **Run selected clip** (or double-click the row). The bytes are
+   downloaded from storage and run through the normal pipeline, so every run uses
+   exactly the same audio.
+4. **Delete** removes the metadata row and the stored object.
+
+Privacy: this bucket holds benchmark audio. Keep it to synthetic or consented,
+de-identified clips — never patient consultations.
 
 Two things the deployment settles immediately:
 
@@ -121,10 +151,13 @@ cloud build yet — they need the PCM worklet wired into the UI.
 | --- | --- |
 | `runs.jsonl` | one summary line per run — append-only, this is the results log |
 | `runs/<id>.json` | full step timings, transcript, diarized turns |
+| `localStorage` (cloud) | run summaries and log for the deployed build — no transcript text |
+| Supabase `probe_runs` (cloud) | the same summaries, shared across machines |
 
-Both are gitignored. **Audio is never written to disk** — it is held in memory for the
-duration of the request and dropped. Restarting the server loses in-flight runs but
-keeps the saved files.
+Local `runs/` and `runs.jsonl` are gitignored. **Audio is never written to disk
+locally** — it is held in memory for the duration of the request and dropped.
+Saved clips are the exception: they are only uploaded when you explicitly click
+save. Restarting the server loses in-flight runs but keeps the saved files.
 
 Run history is visible in the page (bottom table). Click any row to inspect it.
 

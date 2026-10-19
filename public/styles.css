@@ -328,6 +328,23 @@ td.bad {
   color: var(--bad);
 }
 
+/* ── saved clips ──────────────────────────────────────────────────────────── */
+
+tbody tr.selected {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+#clips td:nth-child(2) {
+  white-space: normal;
+  min-width: 200px;
+  max-width: 420px;
+}
+
+#clip-audio {
+  width: 100%;
+  margin-top: 10px;
+}
+
 pre {
   white-space: pre-wrap;
   font-size: 12px;

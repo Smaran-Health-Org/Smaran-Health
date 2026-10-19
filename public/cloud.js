@@ -37,6 +37,9 @@ const state = {
   lastMime: "audio/webm",
   lastDuration: 0,
   busy: false,
+  clips: [],
+  selectedClip: null,
+  activeClip: null,
 };
 
 // ── formatting ───────────────────────────────────────────────────────────────
@@ -60,11 +63,31 @@ function median(values) {
 
 function extForMime(mime) {
   const clean = String(mime || "").split(";")[0].trim().toLowerCase();
-  if (clean === "audio/mp4" || clean === "audio/x-m4a") return "m4a";
+  if (clean === "audio/mp4" || clean === "audio/x-m4a" || clean === "audio/aac") return "m4a";
   if (clean === "audio/ogg" || clean === "audio/opus") return "ogg";
   if (clean === "audio/mpeg") return "mp3";
   if (clean === "audio/wav" || clean === "audio/x-wav") return "wav";
+  if (clean === "audio/flac") return "flac";
+  if (clean === "audio/amr") return "amr";
   return "webm";
+}
+
+const MIME_BY_EXTENSION = {
+  wav: "audio/wav",
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  mp4: "audio/mp4",
+  aac: "audio/aac",
+  ogg: "audio/ogg",
+  opus: "audio/ogg",
+  webm: "audio/webm",
+  flac: "audio/flac",
+  amr: "audio/amr",
+};
+
+function mimeForFile(file) {
+  const extension = String(file?.name || "").split(".").pop().toLowerCase();
+  return MIME_BY_EXTENSION[extension] || file?.type || "audio/webm";
 }
 
 // ── log ──────────────────────────────────────────────────────────────────────
@@ -117,7 +140,352 @@ async function loadConfig() {
   const chip = el("key-state");
   chip.textContent = config.hasKey ? "API key loaded" : "API key missing on Vercel";
   chip.classList.add(config.hasKey ? "ok" : "bad");
-  log("info", "config loaded", { hasKey: config.hasKey, runtime: config.runtime });
+
+  SUPABASE =
+    config.supabaseUrl && config.supabaseKey
+      ? {
+          url: String(config.supabaseUrl).replace(/\/+$/, ""),
+          key: config.supabaseKey,
+          bucket: config.supabaseBucket || "probe-fixtures",
+        }
+      : null;
+
+  const clipsChip = el("clips-backend");
+  if (SUPABASE) {
+    clipsChip.textContent = "shared · Supabase";
+    clipsChip.classList.add("ok");
+    el("save-clip-btn").disabled = false;
+    loadClips().catch((error) =>
+      setClipStatus(`Could not load clips: ${error.message}`, true)
+    );
+  } else {
+    clipsChip.textContent = "not configured";
+    clipsChip.classList.add("bad");
+    el("save-clip-btn").disabled = true;
+    setClipStatus(
+      "Shared clips need SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in the Vercel project.",
+      true
+    );
+  }
+
+  log("info", "config loaded", {
+    hasKey: config.hasKey,
+    runtime: config.runtime,
+    sharedClips: Boolean(SUPABASE),
+  });
+}
+
+// ── saved clips (shared Supabase project) ────────────────────────────────────
+
+let SUPABASE = null;
+const CLIPS_TABLE = "probe_fixtures";
+
+function sbHeaders(extra = {}) {
+  return {
+    apikey: SUPABASE.key,
+    Authorization: `Bearer ${SUPABASE.key}`,
+    ...extra,
+  };
+}
+
+async function sbJson(pathname, options = {}) {
+  const response = await fetch(`${SUPABASE.url}${pathname}`, {
+    ...options,
+    headers: sbHeaders({ "Content-Type": "application/json", ...(options.headers || {}) }),
+  });
+  const text = await response.text();
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || `Supabase ${response.status}`);
+  }
+  return data;
+}
+
+async function sha256Hex(buffer) {
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function setClipStatus(message, bad = false) {
+  const node = el("clip-status");
+  node.textContent = message;
+  node.style.color = bad ? "var(--bad)" : "";
+}
+
+async function loadClips() {
+  if (!SUPABASE) return;
+  const rows = await sbJson(`/rest/v1/${CLIPS_TABLE}?select=*&order=name.asc`);
+  state.clips = Array.isArray(rows) ? rows : [];
+  if (state.selectedClip && !state.clips.some((clip) => clip.id === state.selectedClip)) {
+    state.selectedClip = null;
+  }
+  renderClips();
+}
+
+function renderClips() {
+  const body = document.querySelector("#clips tbody");
+  body.innerHTML = "";
+
+  if (state.clips.length === 0) {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td colspan="6" class="muted small">No clips saved yet — record or pick audio, name it, then save.</td>`;
+    body.appendChild(row);
+    updateClipSelection();
+    return;
+  }
+
+  for (const clip of state.clips) {
+    const row = document.createElement("tr");
+    if (clip.id === state.selectedClip) row.classList.add("selected");
+    row.innerHTML = `
+      <td>${escapeHtml(clip.name)}</td>
+      <td class="muted small">${escapeHtml(clip.note || "—")}</td>
+      <td>${clip.duration_sec ? `${Number(clip.duration_sec).toFixed(1)} s` : "—"}</td>
+      <td>${fmtKb(Number(clip.bytes))}</td>
+      <td>${clip.runs ?? 0}</td>
+      <td>${clip.last_run_at ? new Date(clip.last_run_at).toLocaleString() : "—"}</td>`;
+    row.addEventListener("click", () => selectClip(clip.id));
+    row.addEventListener("dblclick", () => runClip(clip));
+    body.appendChild(row);
+  }
+  updateClipSelection();
+}
+
+function updateClipSelection() {
+  const clip = state.clips.find((item) => item.id === state.selectedClip) ?? null;
+  el("run-clip-btn").disabled = !clip;
+  el("delete-clip-btn").disabled = !clip;
+  el("clip-selected").textContent = clip
+    ? `${clip.name} · ${clip.duration_sec ? `${Number(clip.duration_sec).toFixed(1)} s` : "length unknown"} · ${fmtKb(
+        Number(clip.bytes)
+      )}`
+    : "no clip selected";
+
+  const audio = el("clip-audio");
+  if (!clip) {
+    audio.hidden = true;
+    audio.removeAttribute("src");
+  }
+}
+
+async function selectClip(id) {
+  state.selectedClip = id;
+  renderClips();
+  const clip = state.clips.find((item) => item.id === id);
+  if (!clip) return;
+
+  state.lastDuration = Number(clip.duration_sec) || 0;
+  el("clip-seconds").value = clip.duration_sec ? Number(clip.duration_sec).toFixed(1) : "";
+  if (!el("clip-name").value.trim()) el("clip-name").value = clip.name;
+
+  const audio = el("clip-audio");
+  try {
+    const signed = await sbJson(
+      `/storage/v1/object/sign/${SUPABASE.bucket}/${encodeURIComponent(clip.storage_path)}`,
+      { method: "POST", body: JSON.stringify({ expiresIn: 3600 }) }
+    );
+    const relative = signed?.signedURL || signed?.signedUrl;
+    if (relative) {
+      audio.src = relative.startsWith("http") ? relative : `${SUPABASE.url}/storage/v1${relative}`;
+      audio.hidden = false;
+    }
+  } catch (error) {
+    log("error", "clip preview unavailable", { message: String(error.message).slice(0, 160) });
+  }
+}
+
+async function saveClip() {
+  if (!SUPABASE) return;
+  const blob = state.lastBlob;
+  if (!blob) {
+    setClipStatus("Record or select audio first, then save it.", true);
+    return;
+  }
+  const name = el("clip-name").value.trim();
+  if (!name) {
+    setClipStatus("Give the clip a name first.", true);
+    el("clip-name").focus();
+    return;
+  }
+
+  const note = el("clip-note").value.trim();
+  const mimeType = state.lastMime || blob.type || "audio/webm";
+  const durationSec = resolveDuration(state.lastDuration);
+
+  try {
+    setClipStatus("Hashing…");
+    const buffer = await blob.arrayBuffer();
+    const sha256 = await sha256Hex(buffer);
+    const id = sha256.slice(0, 12);
+
+    const existing = await sbJson(
+      `/rest/v1/${CLIPS_TABLE}?select=*&sha256=eq.${sha256}`
+    );
+    if (Array.isArray(existing) && existing.length > 0) {
+      const row = existing[0];
+      await sbJson(`/rest/v1/${CLIPS_TABLE}?id=eq.${encodeURIComponent(row.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name, note, duration_sec: durationSec ?? row.duration_sec }),
+        headers: { Prefer: "return=minimal" },
+      });
+      setClipStatus(`Already saved — updated "${name}".`);
+      await loadClips();
+      selectClip(row.id);
+      return;
+    }
+
+    const storagePath = `${id}.${extForMime(mimeType)}`;
+    setClipStatus(`Uploading ${fmtKb(blob.size)}…`);
+    const upload = await fetch(
+      `${SUPABASE.url}/storage/v1/object/${SUPABASE.bucket}/${encodeURIComponent(storagePath)}`,
+      {
+        method: "POST",
+        headers: sbHeaders({ "Content-Type": mimeType, "x-upsert": "true" }),
+        body: blob,
+      }
+    );
+    if (!upload.ok) {
+      const detail = await upload.text().catch(() => "");
+      throw new Error(detail.slice(0, 200) || `upload failed (${upload.status})`);
+    }
+
+    await sbJson(`/rest/v1/${CLIPS_TABLE}`, {
+      method: "POST",
+      body: JSON.stringify({
+        id,
+        name,
+        note,
+        duration_sec: durationSec ?? null,
+        bytes: blob.size,
+        mime_type: mimeType,
+        sha256,
+        storage_path: storagePath,
+        source_name: blob.name || "recording",
+        converted: false,
+        runs: 0,
+      }),
+      headers: { Prefer: "return=minimal" },
+    });
+
+    setClipStatus(`Saved "${name}" · ${fmtKb(blob.size)} · ${durationSec ? `${durationSec.toFixed(1)} s` : "length unknown"}.`);
+    el("clip-name").value = "";
+    el("clip-note").value = "";
+    log("info", "clip saved", { bytes: blob.size, seconds: durationSec ?? "?", sha: sha256.slice(0, 12) });
+    await loadClips();
+    selectClip(id);
+  } catch (error) {
+    setClipStatus(`Could not save clip: ${error.message}`, true);
+    log("error", "clip save failed", { message: String(error.message).slice(0, 160) });
+  }
+}
+
+async function runClip(clip) {
+  if (!SUPABASE || !clip) return;
+  if (state.busy) {
+    setClipStatus("A run is already in progress.", true);
+    return;
+  }
+
+  try {
+    setClipStatus(`Loading ${clip.name}…`);
+    const response = await fetch(
+      `${SUPABASE.url}/storage/v1/object/${SUPABASE.bucket}/${encodeURIComponent(clip.storage_path)}`,
+      { headers: sbHeaders() }
+    );
+    if (!response.ok) throw new Error(`download failed (${response.status})`);
+    const blob = await response.blob();
+
+    state.lastBlob = blob;
+    state.lastMime = clip.mime_type;
+    state.lastDuration = Number(clip.duration_sec) || 0;
+    state.activeClip = clip;
+    el("clip-seconds").value = clip.duration_sec ? Number(clip.duration_sec).toFixed(1) : "";
+    if (!el("label").value.trim()) el("label").value = clip.name;
+
+    setClipStatus(`Running ${clip.name} (${fmtKb(blob.size)})…`);
+    void sbJson(`/rest/v1/${CLIPS_TABLE}?id=eq.${encodeURIComponent(clip.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ runs: (clip.runs ?? 0) + 1, last_run_at: new Date().toISOString() }),
+      headers: { Prefer: "return=minimal" },
+    })
+      .then(() => loadClips())
+      .catch(() => {});
+
+    await runPipeline(blob, clip.mime_type, state.lastDuration);
+    state.activeClip = null;
+    setClipStatus(`Finished ${clip.name} — see the run card above.`);
+  } catch (error) {
+    state.activeClip = null;
+    setClipStatus(`Could not run clip: ${error.message}`, true);
+    log("error", "clip run failed", { message: String(error.message).slice(0, 160) });
+  }
+}
+
+async function runSelectedClip() {
+  const clip = state.clips.find((item) => item.id === state.selectedClip);
+  if (!clip) return;
+  await runClip(clip);
+}
+
+async function deleteSelectedClip() {
+  const clip = state.clips.find((item) => item.id === state.selectedClip);
+  if (!clip) return;
+  if (!confirm(`Delete clip "${clip.name}"? Run history in this browser is kept.`)) return;
+
+  try {
+    await sbJson(`/rest/v1/${CLIPS_TABLE}?id=eq.${encodeURIComponent(clip.id)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+    const removedObject = await fetch(
+      `${SUPABASE.url}/storage/v1/object/${SUPABASE.bucket}/${encodeURIComponent(clip.storage_path)}`,
+      { method: "DELETE", headers: sbHeaders() }
+    );
+    if (!removedObject.ok) {
+      log("warn", "clip object delete failed", { status: removedObject.status });
+    }
+    state.selectedClip = null;
+    setClipStatus(`Deleted "${clip.name}".`);
+    await loadClips();
+  } catch (error) {
+    setClipStatus(`Could not delete clip: ${error.message}`, true);
+  }
+}
+
+/** Shares the summary only (no transcript, no audio) so results are comparable. */
+async function shareRun(record) {
+  if (!SUPABASE) return;
+  try {
+    await sbJson("/rest/v1/probe_runs", {
+      method: "POST",
+      body: JSON.stringify({
+        run_id: `${Date.now()}-${record.variant}`,
+        fixture_id: record.clipId ?? null,
+        fixture_name: record.clipName ?? null,
+        duration_sec: record.durationSec ?? null,
+        transport: "batch",
+        model: record.model,
+        mode: record.mode,
+        keep_alive: true,
+        diarization: record.diarization,
+        total_ms: record.totalMs,
+        ratio: record.ratio,
+        transcript_chars: record.transcriptChars ?? null,
+        turn_count: record.turnCount ?? null,
+        status: record.status,
+      }),
+      headers: { Prefer: "return=minimal" },
+    });
+  } catch (error) {
+    log("warn", "run summary not shared", { message: String(error.message).slice(0, 160) });
+  }
 }
 
 // ── recording ────────────────────────────────────────────────────────────────
@@ -203,6 +571,12 @@ async function handleStopped() {
   state.lastMime = state.mimeType;
   state.lastDuration = durationSec;
   el("clip-seconds").value = durationSec.toFixed(1);
+  if (!el("clip-name").value.trim()) {
+    el("clip-name").value = `recording-${new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace(/[:T]/g, "-")}`;
+  }
   el("rerun-btn").disabled = false;
   log("info", "recording stopped", { seconds: Number(durationSec.toFixed(1)), bytes: blob.size });
   await runPipeline(blob, state.mimeType, durationSec);
@@ -321,6 +695,8 @@ async function runVariant({ blob, mimeType, durationSec, diarization, variant, c
     model: el("model").value,
     mode: el("mode").value,
     preInitiated: Boolean(reuseJob),
+    clipId: state.activeClip?.id ?? null,
+    clipName: state.activeClip?.name ?? null,
     status: "running",
     totalMs: null,
     providerWaitMs: null,
@@ -578,15 +954,9 @@ function renderComparison(on, off) {
     add("Comparison incomplete — see the per-step breakdown above.");
   }
 
-  if (order !== "concurrent") {
-    add(
-      `Sequential order: ${order}. The second job started after the first finished, so provider ` +
-        `queue drift between the two runs is inside these numbers. Run the opposite order on the ` +
-        `same clip and average the two deltas to cancel it.`
-    );
-  } else {
-    add("Concurrent: both jobs were submitted at the same moment, so queue drift is shared.");
-  }
+  add(
+    "Concurrent: both jobs were submitted at the same moment, so Sarvam queue drift is shared."
+  );
   const box = el("ab-transcripts");
   for (const [name, record] of [
     ["diarization ON", on],
@@ -624,6 +994,7 @@ function saveRun(record) {
   const runs = loadRuns();
   runs.unshift(safe);
   localStorage.setItem(RUNS_KEY, JSON.stringify(runs.slice(0, 200)));
+  void shareRun(safe);
 }
 
 // ── history ──────────────────────────────────────────────────────────────────
@@ -821,6 +1192,9 @@ function exportLogs() {
 el("record-btn").addEventListener("click", startRecording);
 el("stop-btn").addEventListener("click", stopRecording);
 el("refresh-bench").addEventListener("click", renderBenchmarks);
+el("save-clip-btn").addEventListener("click", saveClip);
+el("run-clip-btn").addEventListener("click", runSelectedClip);
+el("delete-clip-btn").addEventListener("click", deleteSelectedClip);
 el("export-json").addEventListener("click", exportRunsJson);
 el("export-csv").addEventListener("click", exportRunsCsv);
 el("export-logs").addEventListener("click", exportLogs);
@@ -843,10 +1217,13 @@ el("file-input").addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
   state.lastBlob = file;
-  state.lastMime = file.type || "audio/webm";
+  state.lastMime = mimeForFile(file);
   const probed = await probeDuration(file);
   state.lastDuration = probed ?? 0;
   el("clip-seconds").value = probed ? probed.toFixed(1) : "";
+  if (!el("clip-name").value.trim()) {
+    el("clip-name").value = file.name.replace(/\.[^.]+$/, "").slice(0, 80);
+  }
   el("rerun-btn").disabled = false;
   log("info", "file selected", { bytes: file.size, seconds: probed ?? "unknown", type: state.lastMime });
   await runPipeline(file, state.lastMime, state.lastDuration);

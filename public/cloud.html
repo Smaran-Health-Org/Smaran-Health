@@ -43,7 +43,45 @@
       </section>
 
       <section class="card">
-        <h2>2. Settings</h2>
+        <h2>2. Saved clips <span id="clips-backend" class="muted small"></span></h2>
+        <div class="grid">
+          <label>Clip name
+            <input id="clip-name" type="text" placeholder="e.g. clinic-dialog-24s" />
+          </label>
+          <label class="wide">What's in the recording
+            <input id="clip-note" type="text" placeholder="e.g. Hinglish diabetes follow-up, 2 speakers, lab review" />
+          </label>
+        </div>
+        <div class="record-row" style="margin-top: 10px">
+          <button id="save-clip-btn">Save current audio as clip</button>
+          <button id="run-clip-btn" disabled>Run selected clip</button>
+          <button id="delete-clip-btn" class="ghost" disabled>delete</button>
+          <span id="clip-selected" class="muted small">no clip selected</span>
+        </div>
+        <p class="muted small" id="clip-status">
+          Clips are saved to the shared probe project so the same audio bytes can be
+          re-run from any machine. Audio is only uploaded when you click save.
+        </p>
+        <div class="table-wrap">
+          <table id="clips">
+            <thead>
+              <tr>
+                <th>name</th>
+                <th>what's in it</th>
+                <th>length</th>
+                <th>size</th>
+                <th>runs</th>
+                <th>last run</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <audio id="clip-audio" controls hidden></audio>
+      </section>
+
+      <section class="card">
+        <h2>3. Settings</h2>
         <div class="grid">
           <label>Model <select id="model"></select></label>
           <label>Mode <select id="mode"></select></label>
@@ -58,14 +96,14 @@
       </section>
 
       <section class="card">
-        <h2>3. This run</h2>
+        <h2>4. This run</h2>
         <div id="run-panel" class="run-list">
           <p class="muted small">No run yet.</p>
         </div>
       </section>
 
       <section class="card" id="ab-card" hidden>
-        <h2>4. A/B result <span class="muted small">— same audio, same moment</span></h2>
+        <h2>5. A/B result <span class="muted small">— same audio, same moment</span></h2>
         <div id="ab-summary" class="notes"></div>
         <div class="table-wrap">
           <table id="ab-table">
@@ -85,7 +123,7 @@
 
       <section class="card">
         <h2>
-          5. History
+          6. History
           <button id="export-json" class="ghost">export JSON</button>
           <button id="export-csv" class="ghost">export CSV</button>
           <button id="clear-runs" class="ghost">clear</button>
@@ -112,7 +150,7 @@
       </section>
 
       <section class="card">
-        <h2>6. Benchmarks <button id="refresh-bench" class="ghost">recompute</button></h2>
+        <h2>7. Benchmarks <button id="refresh-bench" class="ghost">recompute</button></h2>
         <p class="muted small">
           Grouped by recording length — the only honest basis for comparison. "Provider" is
           Sarvam's own work; "overhead" is everything else we control.
@@ -138,7 +176,7 @@
 
       <section class="card">
         <h2>
-          7. Log
+          8. Log
           <button id="export-logs" class="ghost">download</button>
           <button id="clear-logs" class="ghost">clear</button>
         </h2>
