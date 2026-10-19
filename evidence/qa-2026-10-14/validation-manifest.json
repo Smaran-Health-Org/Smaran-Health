@@ -1,0 +1,42 @@
+{
+  "checkedOutBranch": "dev-neelesh",
+  "testedCodeCommit": "9940d6b835b80c73606fb84e3890bb27cb100c10",
+  "integratedBase": "43569a42915289776f7100072a1b75cdee55cf6e",
+  "node": "22.23.3",
+  "database": "task-only Supabase smaran-engineering-oct13 on loopback port 56522",
+  "results": {
+    "applicationTests": {
+      "passed": 215,
+      "command": "npm run test:qa"
+    },
+    "sql": {
+      "filesPassed": 45,
+      "assertionsPassed": 1239,
+      "command": "npm run test:db:qa"
+    },
+    "clinicalIntegrity": {
+      "passed": 16,
+      "command": "npm run test:db:clinical-integrity"
+    },
+    "clinicRouteJourneys": {
+      "passed": 4,
+      "command": "npm run test:db:clinic-journeys"
+    },
+    "schedulerConcurrency": {
+      "passed": 1,
+      "command": "npm run test:db:scheduler-s8-concurrency"
+    },
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "cleanMigrationReplay": "passed through 0107",
+    "ciWorkflowStructure": "passed",
+    "browserManualNoteComponent": "passed with mocked HTTP"
+  },
+  "deferred": [
+    "full speech/Sarvam test suites (user pause)",
+    "hosted GitHub Actions execution (no push authorized)",
+    "full authenticated browser E2E, live Storage and hosted providers"
+  ],
+  "publication": "no push, PR creation, merge or deployment"
+}

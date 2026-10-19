@@ -125,13 +125,18 @@ export async function getRecentConsultations(
 
 export async function getPendingConsultations(
   clinicId: string,
-  limit = 20
+  doctorId: string,
+  limit = 20,
+  client?: SupabaseClient
 ): Promise<ConsultationWithPatient[]> {
-  const supabase = await createServerClient();
+  const supabase = client ?? await createServerClient();
   const { data, error } = await supabase
     .from("consultations")
     .select(CONSULTATION_WITH_NOTE_SELECT)
     .eq("clinic_id", clinicId)
+    // Scope before limiting: other doctors' drafts must not displace this
+    // doctor's pending work or affect the dashboard's "has more" indicator.
+    .eq("doctor_id", doctorId)
     .eq("status", "draft_ready")
     .order("started_at", { ascending: false })
     .limit(limit);

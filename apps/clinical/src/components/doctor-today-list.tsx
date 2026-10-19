@@ -1,6 +1,7 @@
 "use client";
 
 import type { AppointmentQueueItem } from "@/lib/db/appointment-queue";
+import Link from "next/link";
 import { PendingLink } from "@/components/pending-link";
 import { Icon } from "@/components/icons";
 import styles from "@/components/clinical.module.css";
@@ -75,7 +76,11 @@ export function DoctorTodayList({ items }: { items: AppointmentQueueItem[] }) {
 
   if (items.length === 0) {
     return (
-      <section className={styles.panel}>
+      <section className={`${styles.panel} ${styles.doctorSequencePanel}`} aria-labelledby="doctor-day-heading">
+        <div className={styles.panelTitle}>
+          <div><p className={styles.eyebrow}>Today</p><h2 id="doctor-day-heading">Patient sequence</h2></div>
+          <Link href="/scheduler?workspace=clinical" className={styles.secondaryButton}><Icon name="calendar" /> View schedule</Link>
+        </div>
         <div className={styles.emptyState}>
           <strong>No patients today</strong>
           <p>Today&apos;s visits will appear here as they are added by the Clinic Desk.</p>
@@ -88,10 +93,13 @@ export function DoctorTodayList({ items }: { items: AppointmentQueueItem[] }) {
     <div className={styles.doctorDaySections}>
       {priorityItems.length > 0 ? <div className={styles.prioritySummary} role="status"><Icon name="alert" /><div><strong>{priorityItems.length} human-marked priority {priorityItems.length === 1 ? "patient" : "patients"}</strong><span>{priorityItems.map((item) => item.patientName).join(", ")} · Queue order is unchanged</span></div></div> : null}
 
-      <section className={styles.panel} aria-labelledby="doctor-day-heading">
+      <section className={`${styles.panel} ${styles.doctorSequencePanel}`} aria-labelledby="doctor-day-heading">
         <div className={styles.panelTitle}>
           <div><p className={styles.eyebrow}>Today</p><h2 id="doctor-day-heading">Patient sequence</h2></div>
-          <span className={styles.panelHint}>Operational view</span>
+          <div className={styles.sequenceHeaderActions}>
+            <span className={styles.panelHint}>Operational view</span>
+            <Link href="/scheduler?workspace=clinical" className={styles.secondaryButton}><Icon name="calendar" /> View schedule</Link>
+          </div>
         </div>
         <ul className={styles.doctorDayList}>{items.map((item) => <DoctorPatientRow key={item.appointmentId} item={item} />)}</ul>
       </section>

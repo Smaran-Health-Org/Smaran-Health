@@ -1,0 +1,1698 @@
+v22.23.3
+
+> clinical@0.1.0 test
+> tsx --test src/tests/*.test.ts
+
+TAP version 13
+# Subtest: durable recording chunk paths are stable and sequence ordered
+ok 1 - durable recording chunk paths are stable and sequence ordered
+  ---
+  duration_ms: 2.646084
+  type: 'test'
+  ...
+# Subtest: no approved provider fails closed instead of using browser preview text
+ok 2 - no approved provider fails closed instead of using browser preview text
+  ---
+  duration_ms: 0.366458
+  type: 'test'
+  ...
+# Subtest: Chrome MediaRecorder MIME parameters are normalized at the storage boundary
+ok 3 - Chrome MediaRecorder MIME parameters are normalized at the storage boundary
+  ---
+  duration_ms: 0.298708
+  type: 'test'
+  ...
+# Subtest: unsupported recording MIME types are rejected before storage upload
+ok 4 - unsupported recording MIME types are rejected before storage upload
+  ---
+  duration_ms: 0.070417
+  type: 'test'
+  ...
+# Subtest: a database failure never becomes a second persistence attempt with fallback content
+ok 5 - a database failure never becomes a second persistence attempt with fallback content
+  ---
+  duration_ms: 0.714666
+  type: 'test'
+  ...
+# Subtest: provider failure persists a reviewable fallback through the same guarded path
+ok 6 - provider failure persists a reviewable fallback through the same guarded path
+  ---
+  duration_ms: 0.107417
+  type: 'test'
+  ...
+# Subtest: human review requires an observed revision and cannot masquerade as AI generation
+ok 7 - human review requires an observed revision and cannot masquerade as AI generation
+  ---
+  duration_ms: 1.479542
+  type: 'test'
+  ...
+# {"level":"info","scope":"worker","event":"persisted","ts":"2026-10-13T04:25:27.758Z","transcript":"[omitted:47 chars]","rawText":"[omitted:34 chars]","notes":"[omitted:22 chars]","patient":"[omitted:4 chars]","phone":"[omitted:13 chars]","authorization":"[omitted:23 chars]"}
+# Subtest: clinical content is never written to the diagnostic log
+ok 8 - clinical content is never written to the diagnostic log
+  ---
+  duration_ms: 7.215542
+  type: 'test'
+  ...
+# Subtest: shape description reports structure without content
+ok 9 - shape description reports structure without content
+  ---
+  duration_ms: 0.248458
+  type: 'test'
+  ...
+# Subtest: transcript summary counts speakers without recording speech
+ok 10 - transcript summary counts speakers without recording speech
+  ---
+  duration_ms: 0.502958
+  type: 'test'
+  ...
+# Subtest: only real uuids are promoted to columns, so a bad id cannot drop the row
+ok 11 - only real uuids are promoted to columns, so a bad id cannot drop the row
+  ---
+  duration_ms: 0.377875
+  type: 'test'
+  ...
+# Subtest: an unknown level degrades to info rather than failing the insert
+ok 12 - an unknown level degrades to info rather than failing the insert
+  ---
+  duration_ms: 0.196167
+  type: 'test'
+  ...
+# Subtest: PDF and image extraction payloads follow the same safe successful contract
+ok 13 - PDF and image extraction payloads follow the same safe successful contract
+  ---
+  duration_ms: 2.104917
+  type: 'test'
+  ...
+# Subtest: uncertain extraction is retained as Needs Review instead of clinical guessing
+ok 14 - uncertain extraction is retained as Needs Review instead of clinical guessing
+  ---
+  duration_ms: 0.375042
+  type: 'test'
+  ...
+# Subtest: provider unavailability and malformed provider output are mapped to stable non-PHI codes
+ok 15 - provider unavailability and malformed provider output are mapped to stable non-PHI codes
+  ---
+  duration_ms: 0.470666
+  type: 'test'
+  ...
+# Subtest: patient registration commits durable automatic work and recovery stays manual
+ok 16 - patient registration commits durable automatic work and recovery stays manual
+  ---
+  duration_ms: 0.919959
+  type: 'test'
+  ...
+# Subtest: worker drains extraction, reconciliation, and brief generation without a Process click
+ok 17 - worker drains extraction, reconciliation, and brief generation without a Process click
+  ---
+  duration_ms: 0.603
+  type: 'test'
+  ...
+# Subtest: brief lifecycle only polls while server-reported asynchronous work is active
+ok 18 - brief lifecycle only polls while server-reported asynchronous work is active
+  ---
+  duration_ms: 0.670584
+  type: 'test'
+  ...
+# Subtest: the sweep waits long enough not to race the doctor's own generation
+ok 19 - the sweep waits long enough not to race the doctor's own generation
+  ---
+  duration_ms: 0.47575
+  type: 'test'
+  ...
+# Subtest: the sweep is bounded so it cannot rewrite settled history
+ok 20 - the sweep is bounded so it cannot rewrite settled history
+  ---
+  duration_ms: 0.063167
+  type: 'test'
+  ...
+# Subtest: the background sweep uses a service-role connection, not the RLS client
+ok 21 - the background sweep uses a service-role connection, not the RLS client
+  ---
+  duration_ms: 0.145084
+  type: 'test'
+  ...
+# Subtest: helpers still filter by clinic_id when handed a service-role client
+ok 22 - helpers still filter by clinic_id when handed a service-role client
+  ---
+  duration_ms: 2.982042
+  type: 'test'
+  ...
+# Subtest: a skip on the background path is logged, so a no-op is never silent
+ok 23 - a skip on the background path is logged, so a no-op is never silent
+  ---
+  duration_ms: 0.08625
+  type: 'test'
+  ...
+# Subtest: patient portal uses a high-entropy link and HMAC-only fixed verification credential
+ok 24 - patient portal uses a high-entropy link and HMAC-only fixed verification credential
+  ---
+  duration_ms: 0.964833
+  type: 'test'
+  ...
+# Subtest: portal invitation is patient-safe and never includes the fixed verification code
+ok 25 - portal invitation is patient-safe and never includes the fixed verification code
+  ---
+  duration_ms: 0.167167
+  type: 'test'
+  ...
+# Subtest: ambiguous Portal email delivery remains pending without recording a false failure
+ok 26 - ambiguous Portal email delivery remains pending without recording a false failure
+  ---
+  duration_ms: 0.489625
+  type: 'test'
+  ...
+# Subtest: definite Portal email delivery failure records a safe failure and remains unavailable
+ok 27 - definite Portal email delivery failure records a safe failure and remains unavailable
+  ---
+  duration_ms: 0.367291
+  type: 'test'
+  ...
+# Subtest: portal browser schemas reject caller-selected identities and staff-only booking fields
+ok 28 - portal browser schemas reject caller-selected identities and staff-only booking fields
+  ---
+  duration_ms: 10.267917
+  type: 'test'
+  ...
+# Subtest: portal warning proofs are short-lived, session-bound, and tamper resistant
+ok 29 - portal warning proofs are short-lived, session-bound, and tamper resistant
+  ---
+  duration_ms: 0.311125
+  type: 'test'
+  ...
+# Subtest: the operational directory projection never selects clinical columns
+ok 30 - the operational directory projection never selects clinical columns
+  ---
+  duration_ms: 0.391292
+  type: 'test'
+  ...
+# Subtest: stripping clinical facts keeps every identity field intact
+ok 31 - stripping clinical facts keeps every identity field intact
+  ---
+  duration_ms: 0.51325
+  type: 'test'
+  ...
+# Subtest: the update schema still admits clinical fields, so the role guard is load-bearing
+ok 32 - the update schema still admits clinical fields, so the role guard is load-bearing
+  ---
+  duration_ms: 2.818583
+  type: 'test'
+  ...
+# Subtest: patient matching signals normalize formatting without inferring a country code
+ok 33 - patient matching signals normalize formatting without inferring a country code
+  ---
+  duration_ms: 0.531458
+  type: 'test'
+  ...
+# Subtest: patient validation accepts DOB and rejects impossible or future dates
+ok 34 - patient validation accepts DOB and rejects impossible or future dates
+  ---
+  duration_ms: 11.435458
+  type: 'test'
+  ...
+# Subtest: appointment validation requires a patient and scheduled timestamp
+ok 35 - appointment validation requires a patient and scheduled timestamp
+  ---
+  duration_ms: 7.676917
+  type: 'test'
+  ...
+# Subtest: appointment creation delegates one atomic Scheduler lifecycle RPC call
+ok 36 - appointment creation delegates one atomic Scheduler lifecycle RPC call
+  ---
+  duration_ms: 0.569583
+  type: 'test'
+  ...
+# Subtest: lifecycle mutations use the guarded Scheduler RPC
+ok 37 - lifecycle mutations use the guarded Scheduler RPC
+  ---
+  duration_ms: 0.125583
+  type: 'test'
+  ...
+# Subtest: migration keeps name and phone as non-unique clinic-scoped signals
+ok 38 - migration keeps name and phone as non-unique clinic-scoped signals
+  ---
+  duration_ms: 0.607667
+  type: 'test'
+  ...
+# Subtest: Phase 10 batch contract permits mixed doctor choices without client-side mutation fields
+ok 39 - Phase 10 batch contract permits mixed doctor choices without client-side mutation fields
+  ---
+  duration_ms: 1.833416
+  type: 'test'
+  ...
+# Subtest: Phase 10 rejects duplicate delta decisions before the batch can reach clinical authority
+ok 40 - Phase 10 rejects duplicate delta decisions before the batch can reach clinical authority
+  ---
+  duration_ms: 0.344167
+  type: 'test'
+  ...
+# Subtest: Phase 10 requires the viewed source revision and base token for every staged decision
+ok 41 - Phase 10 requires the viewed source revision and base token for every staged decision
+  ---
+  duration_ms: 0.341084
+  type: 'test'
+  ...
+# Subtest: Phase 10 reuses one command identity across harmless ordering changes
+ok 42 - Phase 10 reuses one command identity across harmless ordering changes
+  ---
+  duration_ms: 0.604291
+  type: 'test'
+  ...
+# Subtest: Phase 10 partial apply keeps every unsubmitted delta available
+ok 43 - Phase 10 partial apply keeps every unsubmitted delta available
+  ---
+  duration_ms: 0.0895
+  type: 'test'
+  ...
+# Subtest: Phase 10 fails closed when the confirmed-state query is unavailable
+ok 44 - Phase 10 fails closed when the confirmed-state query is unavailable
+  ---
+  duration_ms: 0.190584
+  type: 'test'
+  ...
+# Subtest: Phase 10 requires refresh when a non-null base is absent from current state
+ok 45 - Phase 10 requires refresh when a non-null base is absent from current state
+  ---
+  duration_ms: 0.07575
+  type: 'test'
+  ...
+# Subtest: Phase 10 presents a confirmed-empty null-base proposal only after a successful empty same-key lookup
+ok 46 - Phase 10 presents a confirmed-empty null-base proposal only after a successful empty same-key lookup
+  ---
+  duration_ms: 0.124416
+  type: 'test'
+  ...
+# Subtest: Phase 10 requires refresh when a null-base proposal now has current same-key state
+ok 47 - Phase 10 requires refresh when a null-base proposal now has current same-key state
+  ---
+  duration_ms: 1.059292
+  type: 'test'
+  ...
+# Subtest: Phase 10 preserves safe comparisons while excluding an invalid comparison from staging
+ok 48 - Phase 10 preserves safe comparisons while excluding an invalid comparison from staging
+  ---
+  duration_ms: 0.432583
+  type: 'test'
+  ...
+# Subtest: Phase 11 resolves only the immutable version captured at consultation start
+ok 49 - Phase 11 resolves only the immutable version captured at consultation start
+  ---
+  duration_ms: 5.327166
+  type: 'test'
+  ...
+# Subtest: Phase 11 preserves an explicit no-brief start despite later artifacts
+ok 50 - Phase 11 preserves an explicit no-brief start despite later artifacts
+  ---
+  duration_ms: 0.091083
+  type: 'test'
+  ...
+# Subtest: Phase 11 fails closed for malformed start artifacts and relationship mismatches
+ok 51 - Phase 11 fails closed for malformed start artifacts and relationship mismatches
+  ---
+  duration_ms: 0.540209
+  type: 'test'
+  ...
+# Subtest: Phase 11 keeps the captured version readable after canonical patient re-rooting
+ok 52 - Phase 11 keeps the captured version readable after canonical patient re-rooting
+  ---
+  duration_ms: 0.268667
+  type: 'test'
+  ...
+# Subtest: Phase 11 keeps every verification state explicit and opens exact evidence in a separate target
+ok 53 - Phase 11 keeps every verification state explicit and opens exact evidence in a separate target
+  ---
+  duration_ms: 0.190042
+  type: 'test'
+  ...
+# Subtest: Phase 9 and 11 preserve why-today provenance through one cautious display mapping
+ok 54 - Phase 9 and 11 preserve why-today provenance through one cautious display mapping
+  ---
+  duration_ms: 0.486
+  type: 'test'
+  ...
+# Subtest: Phase 12 synthetic pilot fixtures cover safe new, returning, document, review, correction, and start states
+ok 55 - Phase 12 synthetic pilot fixtures cover safe new, returning, document, review, correction, and start states
+  ---
+  duration_ms: 5.435
+  type: 'test'
+  ...
+# Subtest: Phase 12 preserves the captured consultation-start brief despite newer output and merge re-rooting
+ok 56 - Phase 12 preserves the captured consultation-start brief despite newer output and merge re-rooting
+  ---
+  duration_ms: 15.523583
+  type: 'test'
+  ...
+# Subtest: Phase 12 failure fixtures keep preparation nonblocking and stale review requires refresh
+ok 57 - Phase 12 failure fixtures keep preparation nonblocking and stale review requires refresh
+  ---
+  duration_ms: 0.180792
+  type: 'test'
+  ...
+# Subtest: Phase 12 direct consultation start returns only a safe success or failure outcome
+ok 58 - Phase 12 direct consultation start returns only a safe success or failure outcome
+  ---
+  duration_ms: 0.246625
+  type: 'test'
+  ...
+# Subtest: Phase 12 reconciles a committed document after a lost registration response without cleanup
+ok 59 - Phase 12 reconciles a committed document after a lost registration response without cleanup
+  ---
+  duration_ms: 0.582375
+  type: 'test'
+  ...
+# Subtest: Phase 12 whole-request replay reconciles an existing original without overwrite
+ok 60 - Phase 12 whole-request replay reconciles an existing original without overwrite
+  ---
+  duration_ms: 0.133916
+  type: 'test'
+  ...
+# Subtest: Phase 12 retains a definitive registration failure rather than deleting possible source evidence
+ok 61 - Phase 12 retains a definitive registration failure rather than deleting possible source evidence
+  ---
+  duration_ms: 0.388292
+  type: 'test'
+  ...
+# Subtest: Phase 12 conflicting replay provenance retains the existing original
+ok 62 - Phase 12 conflicting replay provenance retains the existing original
+  ---
+  duration_ms: 0.098834
+  type: 'test'
+  ...
+# Subtest: Phase 12 direct-start command survives new-patient start retry and reaches the API
+ok 63 - Phase 12 direct-start command survives new-patient start retry and reaches the API
+  ---
+  duration_ms: 0.2225
+  type: 'test'
+  ...
+# Subtest: Phase 12 review refresh guard persists until changed server props and preserves merged recovery
+ok 64 - Phase 12 review refresh guard persists until changed server props and preserves merged recovery
+  ---
+  duration_ms: 0.103458
+  type: 'test'
+  ...
+# Subtest: Phase 12 audit failures are nonblocking and emit only a stable safe event
+ok 65 - Phase 12 audit failures are nonblocking and emit only a stable safe event
+  ---
+  duration_ms: 0.81575
+  type: 'test'
+  ...
+# Subtest: Phase 12 records brief views with the render-captured RLS client
+ok 66 - Phase 12 records brief views with the render-captured RLS client
+  ---
+  duration_ms: 0.149084
+  type: 'test'
+  ...
+# Subtest: Phase 12 schedules a nonblocking brief audit without creating a request client in after
+ok 67 - Phase 12 schedules a nonblocking brief audit without creating a request client in after
+  ---
+  duration_ms: 0.461167
+  type: 'test'
+  ...
+# Subtest: Phase 12 does not record a document view when signed-url generation fails
+ok 68 - Phase 12 does not record a document view when signed-url generation fails
+  ---
+  duration_ms: 0.238042
+  type: 'test'
+  ...
+# Subtest: Phase 12 records a document view only after successful signing
+ok 69 - Phase 12 records a document view only after successful signing
+  ---
+  duration_ms: 0.091083
+  type: 'test'
+  ...
+# Subtest: Phase 12 preserves the safe route failure when view auditing fails after signing
+ok 70 - Phase 12 preserves the safe route failure when view auditing fails after signing
+  ---
+  duration_ms: 0.12825
+  type: 'test'
+  ...
+# Subtest: India-aware phone matching treats common +91, zero-prefix, and national forms alike
+ok 71 - India-aware phone matching treats common +91, zero-prefix, and national forms alike
+  ---
+  duration_ms: 0.905041
+  type: 'test'
+  ...
+# Subtest: name similarity supports formatting, token order, and conservative near matches
+ok 72 - name similarity supports formatting, token order, and conservative near matches
+  ---
+  duration_ms: 0.364292
+  type: 'test'
+  ...
+# Subtest: duplicate lookup is clinic scoped, excludes merged sources, and requires name similarity
+ok 73 - duplicate lookup is clinic scoped, excludes merged sources, and requires name similarity
+  ---
+  duration_ms: 0.39325
+  type: 'test'
+  ...
+# Subtest: patient create and merge validation require explicit override/reason values
+ok 74 - patient create and merge validation require explicit override/reason values
+  ---
+  duration_ms: 1.909209
+  type: 'test'
+  ...
+# Subtest: merge service delegates exactly one transactional RPC
+ok 75 - merge service delegates exactly one transactional RPC
+  ---
+  duration_ms: 0.22675
+  type: 'test'
+  ...
+# Subtest: merge service maps authorization failures without exposing database details
+ok 76 - merge service maps authorization failures without exposing database details
+  ---
+  duration_ms: 0.251666
+  type: 'test'
+  ...
+# Subtest: today queue uses India Standard Time day boundaries
+ok 77 - today queue uses India Standard Time day boundaries
+  ---
+  duration_ms: 0.778542
+  type: 'test'
+  ...
+# Subtest: queue operations preserve non-blocking arrival and doctor start paths
+ok 78 - queue operations preserve non-blocking arrival and doctor start paths
+  ---
+  duration_ms: 0.093917
+  type: 'test'
+  ...
+# Subtest: queue transition service delegates one atomic RPC and maps its result
+ok 79 - queue transition service delegates one atomic RPC and maps its result
+  ---
+  duration_ms: 0.41125
+  type: 'test'
+  ...
+# Subtest: queue transition service maps database authorization and state failures
+ok 80 - queue transition service maps database authorization and state failures
+  ---
+  duration_ms: 0.279042
+  type: 'test'
+  ...
+# Subtest: queue summaries exclude cancelled appointments from operational readiness counts
+ok 81 - queue summaries exclude cancelled appointments from operational readiness counts
+  ---
+  duration_ms: 0.287458
+  type: 'test'
+  ...
+# Subtest: queue operation validation accepts only explicit operational actions
+ok 82 - queue operation validation accepts only explicit operational actions
+  ---
+  duration_ms: 0.803
+  type: 'test'
+  ...
+# Subtest: intake credentials use deterministic HMAC digests without retaining raw values
+ok 83 - intake credentials use deterministic HMAC digests without retaining raw values
+  ---
+  duration_ms: 0.809
+  type: 'test'
+  ...
+# Subtest: intake credentials make the high-entropy link the only MVP access credential
+ok 84 - intake credentials make the high-entropy link the only MVP access credential
+  ---
+  duration_ms: 0.30775
+  type: 'test'
+  ...
+# Subtest: patient intake validation requires consent, verbatim reason, and bounded optional lists
+ok 85 - patient intake validation requires consent, verbatim reason, and bounded optional lists
+  ---
+  duration_ms: 1.316375
+  type: 'test'
+  ...
+# Subtest: patient email is optional generally but is normalized and validated when supplied
+ok 86 - patient email is optional generally but is normalized and validated when supplied
+  ---
+  duration_ms: 0.644583
+  type: 'test'
+  ...
+# Subtest: notification service previews without calling an email provider
+ok 87 - notification service previews without calling an email provider
+  ---
+  duration_ms: 1.04575
+  type: 'test'
+  ...
+# Subtest: notification service routes live intake invitations through the email provider once
+ok 88 - notification service routes live intake invitations through the email provider once
+  ---
+  duration_ms: 0.445541
+  type: 'test'
+  ...
+# Subtest: Resend provider sends the configured recipient and preserves the idempotency key
+ok 89 - Resend provider sends the configured recipient and preserves the idempotency key
+  ---
+  duration_ms: 0.362375
+  type: 'test'
+  ...
+# Subtest: invalid recipient, provider rejection, and an ambiguous provider failure remain safe
+ok 90 - invalid recipient, provider rejection, and an ambiguous provider failure remain safe
+  ---
+  duration_ms: 0.412125
+  type: 'test'
+  ...
+# Subtest: staff intake issuance delegates only hashed credentials to the database
+ok 91 - staff intake issuance delegates only hashed credentials to the database
+  ---
+  duration_ms: 0.375458
+  type: 'test'
+  ...
+# Subtest: delivery, OTP verification, context, and submission use narrow RPC boundaries
+ok 92 - delivery, OTP verification, context, and submission use narrow RPC boundaries
+  ---
+  duration_ms: 0.664541
+  type: 'test'
+  ...
+# Subtest: document signatures, not caller MIME labels, identify supported original evidence
+ok 93 - document signatures, not caller MIME labels, identify supported original evidence
+  ---
+  duration_ms: 0.614125
+  type: 'test'
+  ...
+# Subtest: document bytes are bounded and unsupported content fails closed
+ok 94 - document bytes are bounded and unsupported content fails closed
+  ---
+  duration_ms: 0.736542
+  type: 'test'
+  ...
+# Subtest: multipart request bodies are bounded before form-data parsing
+ok 95 - multipart request bodies are bounded before form-data parsing
+  ---
+  duration_ms: 5.758709
+  type: 'test'
+  ...
+# Subtest: clinic calendar dates do not fall back to the previous UTC day
+ok 96 - clinic calendar dates do not fall back to the previous UTC day
+  ---
+  duration_ms: 0.461375
+  type: 'test'
+  ...
+# Subtest: hashing and storage paths are stable without patient filenames
+ok 97 - hashing and storage paths are stable without patient filenames
+  ---
+  duration_ms: 0.481583
+  type: 'test'
+  ...
+# Subtest: document metadata validation preserves exact versus approximate date provenance
+ok 98 - document metadata validation preserves exact versus approximate date provenance
+  ---
+  duration_ms: 3.464792
+  type: 'test'
+  ...
+# Subtest: patient document context uses only hashed verified intake credentials
+ok 99 - patient document context uses only hashed verified intake credentials
+  ---
+  duration_ms: 0.341875
+  type: 'test'
+  ...
+# Subtest: staff registration delegates immutable evidence metadata to one guarded RPC
+ok 100 - staff registration delegates immutable evidence metadata to one guarded RPC
+  ---
+  duration_ms: 0.682625
+  type: 'test'
+  ...
+# Subtest: document view audit is a separate post-signing RPC for staff and patients
+ok 101 - document view audit is a separate post-signing RPC for staff and patients
+  ---
+  duration_ms: 8.848417
+  type: 'test'
+  ...
+# Subtest: a failed document upload can retry with the same immutable registration command
+ok 102 - a failed document upload can retry with the same immutable registration command
+  ---
+  duration_ms: 0.570583
+  type: 'test'
+  ...
+# Subtest: role-aware landing keeps one identity while separating workspaces
+ok 103 - role-aware landing keeps one identity while separating workspaces
+  ---
+  duration_ms: 0.459333
+  type: 'test'
+  ...
+# Subtest: assisted intake requires patient consent and bounded patient-reported content
+ok 104 - assisted intake requires patient consent and bounded patient-reported content
+  ---
+  duration_ms: 1.089291
+  type: 'test'
+  ...
+# Subtest: safe redirects cannot carry an operational role into clinical routes
+ok 105 - safe redirects cannot carry an operational role into clinical routes
+  ---
+  duration_ms: 0.105584
+  type: 'test'
+  ...
+# Subtest: one-click check-in moves expected patients directly to waiting
+ok 106 - one-click check-in moves expected patients directly to waiting
+  ---
+  duration_ms: 0.086417
+  type: 'test'
+  ...
+# Subtest: waiting queue is priority-first then FIFO/manual order
+ok 107 - waiting queue is priority-first then FIFO/manual order
+  ---
+  duration_ms: 0.596459
+  type: 'test'
+  ...
+# Subtest: workspace KPIs count only human priority and actionable operational exceptions
+ok 108 - workspace KPIs count only human priority and actionable operational exceptions
+  ---
+  duration_ms: 0.136333
+  type: 'test'
+  ...
+# Subtest: priority and manual queue input accept only explicit human actions
+ok 109 - priority and manual queue input accept only explicit human actions
+  ---
+  duration_ms: 0.494875
+  type: 'test'
+  ...
+# Subtest: document extraction schema rejects invented shapes and out-of-range confidence
+ok 110 - document extraction schema rejects invented shapes and out-of-range confidence
+  ---
+  duration_ms: 4.186708
+  type: 'test'
+  ...
+# Subtest: reliable typed text becomes processed with deterministic overall confidence
+ok 111 - reliable typed text becomes processed with deterministic overall confidence
+  ---
+  duration_ms: 1.579458
+  type: 'test'
+  ...
+# Subtest: handwriting and partial readability become Needs Review instead of guessed fact
+ok 112 - handwriting and partial readability become Needs Review instead of guessed fact
+  ---
+  duration_ms: 1.030291
+  type: 'test'
+  ...
+# Subtest: likely-duplicate identity is HMAC-only and omitted without strong evidence/config
+ok 113 - likely-duplicate identity is HMAC-only and omitted without strong evidence/config
+  ---
+  duration_ms: 2.719125
+  type: 'test'
+  ...
+# Subtest: processing claim delegates version metadata to the guarded clinic RPC
+ok 114 - processing claim delegates version metadata to the guarded clinic RPC
+  ---
+  duration_ms: 0.167083
+  type: 'test'
+  ...
+# Subtest: normalized observations keep evidence and default to document-date provenance
+ok 115 - normalized observations keep evidence and default to document-date provenance
+  ---
+  duration_ms: 6.144291
+  type: 'test'
+  ...
+# Subtest: approximate dates retain source wording without inventing a day
+ok 116 - approximate dates retain source wording without inventing a day
+  ---
+  duration_ms: 0.28975
+  type: 'test'
+  ...
+# Subtest: low-confidence normalized facts force Needs Review
+ok 117 - low-confidence normalized facts force Needs Review
+  ---
+  duration_ms: 0.245209
+  type: 'test'
+  ...
+# Subtest: observation schema rejects missing evidence and invented approximate dates
+ok 118 - observation schema rejects missing evidence and invented approximate dates
+  ---
+  duration_ms: 0.632417
+  type: 'test'
+  ...
+# Subtest: unsupported evidence quotes force Needs Review and stay out of reliable trends
+ok 119 - unsupported evidence quotes force Needs Review and stay out of reliable trends
+  ---
+  duration_ms: 0.126125
+  type: 'test'
+  ...
+# Subtest: calendar validation rejects impossible ISO-shaped dates
+ok 120 - calendar validation rejects impossible ISO-shaped dates
+  ---
+  duration_ms: 0.219541
+  type: 'test'
+  ...
+# Subtest: normalization is deterministic and does not perform medical synonym mapping
+ok 121 - normalization is deterministic and does not perform medical synonym mapping
+  ---
+  duration_ms: 0.052292
+  type: 'test'
+  ...
+# Subtest: exact medication and regimen match produces no reconciliation work
+ok 122 - exact medication and regimen match produces no reconciliation work
+  ---
+  duration_ms: 2.903458
+  type: 'test'
+  ...
+# Subtest: an exact medication identity with another regimen is conservative regimen change
+ok 123 - an exact medication identity with another regimen is conservative regimen change
+  ---
+  duration_ms: 0.643958
+  type: 'test'
+  ...
+# Subtest: only documented exact stopped/not taking phrases can propose discontinuation
+ok 124 - only documented exact stopped/not taking phrases can propose discontinuation
+  ---
+  duration_ms: 0.828541
+  type: 'test'
+  ...
+# Subtest: medication omission, substitution, synonym and unit differences are never inferred
+ok 125 - medication omission, substitution, synonym and unit differences are never inferred
+  ---
+  duration_ms: 0.235792
+  type: 'test'
+  ...
+# Subtest: conditions and allergies remain proposals rather than diagnoses or silent removals
+ok 126 - conditions and allergies remain proposals rather than diagnoses or silent removals
+  ---
+  duration_ms: 0.160875
+  type: 'test'
+  ...
+# Subtest: Phase 9 baseline uses visit chronology and only approved-note candidates
+ok 127 - Phase 9 baseline uses visit chronology and only approved-note candidates
+  ---
+  duration_ms: 1.073333
+  type: 'test'
+  ...
+# Subtest: source watermark is deterministic and excludes operational priority context
+ok 128 - source watermark is deterministic and excludes operational priority context
+  ---
+  duration_ms: 0.267917
+  type: 'test'
+  ...
+# Subtest: returning changes use the last approved visit as a temporal baseline
+ok 129 - returning changes use the last approved visit as a temporal baseline
+  ---
+  duration_ms: 0.147125
+  type: 'test'
+  ...
+# Subtest: brief contract requires bounded verification states and evidence
+ok 130 - brief contract requires bounded verification states and evidence
+  ---
+  duration_ms: 1.575708
+  type: 'test'
+  ...
+# Subtest: brief lifecycle never presents retained work as current while regeneration is active
+ok 131 - brief lifecycle never presents retained work as current while regeneration is active
+  ---
+  duration_ms: 0.094541
+  type: 'test'
+  ...
+# Subtest: correction evidence dates require a real calendar date without adding a future-date policy
+ok 132 - correction evidence dates require a real calendar date without adding a future-date policy
+  ---
+  duration_ms: 2.833667
+  type: 'test'
+  ...
+# Subtest: every Phase 9 evidence action preserves its exact source identity
+ok 133 - every Phase 9 evidence action preserves its exact source identity
+  ---
+  duration_ms: 0.46175
+  type: 'test'
+  ...
+# Subtest: delta evidence resolves to doctor-authorized source records instead of opaque identifiers
+ok 134 - delta evidence resolves to doctor-authorized source records instead of opaque identifiers
+  ---
+  duration_ms: 0.88775
+  type: 'test'
+  ...
+# Subtest: trends require two comparable numeric points and retain factual provenance
+ok 135 - trends require two comparable numeric points and retain factual provenance
+  ---
+  duration_ms: 3.046875
+  type: 'test'
+  ...
+# Subtest: incompatible units remain separate and corrected effective points participate without losing original value
+ok 136 - incompatible units remain separate and corrected effective points participate without losing original value
+  ---
+  duration_ms: 0.415208
+  type: 'test'
+  ...
+# Subtest: patient portal routes bypass the staff auth gate so patients can use the link
+ok 137 - patient portal routes bypass the staff auth gate so patients can use the link
+  ---
+  duration_ms: 0.451542
+  type: 'test'
+  ...
+# Subtest: the staff patients directory is never public
+ok 138 - the staff patients directory is never public
+  ---
+  duration_ms: 0.063958
+  type: 'test'
+  ...
+# Subtest: staff routes stay protected
+ok 139 - staff routes stay protected
+  ---
+  duration_ms: 0.087583
+  type: 'test'
+  ...
+# Subtest: only the intended prefixed routes are public
+ok 140 - only the intended prefixed routes are public
+  ---
+  duration_ms: 0.409084
+  type: 'test'
+  ...
+# Subtest: api namespace is detected for JSON auth responses
+ok 141 - api namespace is detected for JSON auth responses
+  ---
+  duration_ms: 0.176833
+  type: 'test'
+  ...
+# {"level":"info","event":"sarvam.request.start","ts":"2026-10-13T04:25:29.444Z","step":"batch.initiate","jobId":"job-7"}
+# {"level":"error","event":"sarvam.request.timeout","ts":"2026-10-13T04:25:29.445Z","step":"batch.status","durationMs":30000}
+# Subtest: a redacted entry maps onto typed event-log columns
+ok 142 - a redacted entry maps onto typed event-log columns
+  ---
+  duration_ms: 1.662583
+  type: 'test'
+  ...
+# Subtest: a non-uuid identity value is kept in detail instead of failing the insert
+ok 143 - a non-uuid identity value is kept in detail instead of failing the insert
+  ---
+  duration_ms: 0.085625
+  type: 'test'
+  ...
+# Subtest: a sink-shaped value never shadows a typed column
+ok 144 - a sink-shaped value never shadows a typed column
+  ---
+  duration_ms: 0.063792
+  type: 'test'
+  ...
+# Subtest: a missing or unparseable timestamp still produces a usable row
+ok 145 - a missing or unparseable timestamp still produces a usable row
+  ---
+  duration_ms: 0.055042
+  type: 'test'
+  ...
+# {"level":"info","event":"sarvam.request.start","ts":"2026-10-13T04:25:29.456Z","step":"batch.start"}
+# Subtest: the durable sink receives every emitted entry and flush waits for it
+ok 146 - the durable sink receives every emitted entry and flush waits for it
+  ---
+  duration_ms: 11.230375
+  type: 'test'
+  ...
+# Subtest: a failing sink never breaks the caller
+ok 147 - a failing sink never breaks the caller
+  ---
+  duration_ms: 3.955125
+  type: 'test'
+  ...
+# {"level":"info","event":"sarvam.test.event","ts":"2026-10-13T04:25:29.425Z","jobId":"job-1","audioBytes":10}
+# {"level":"error","event":"sarvam.request.http_error","ts":"2026-10-13T04:25:29.428Z","status":429,"errorBody":"quota exhausted for key [redacted]"}
+# Subtest: redaction hides payloads, credentials and presigned URLs
+ok 148 - redaction hides payloads, credentials and presigned URLs
+  ---
+  duration_ms: 1.051834
+  type: 'test'
+  ...
+# Subtest: log entries are tagged, timestamped and readable in memory
+ok 149 - log entries are tagged, timestamped and readable in memory
+  ---
+  duration_ms: 2.133208
+  type: 'test'
+  ...
+# Subtest: error entries keep Sarvam's status without leaking the response body verbatim
+ok 150 - error entries keep Sarvam's status without leaking the response body verbatim
+  ---
+  duration_ms: 0.446125
+  type: 'test'
+  ...
+# Subtest: log file path is absolute and environment aware
+ok 151 - log file path is absolute and environment aware
+  ---
+  duration_ms: 0.131417
+  type: 'test'
+  ...
+# Subtest: S2 builds clean intervals from recurring sessions, special work, leave and blocks
+ok 152 - S2 builds clean intervals from recurring sessions, special work, leave and blocks
+  ---
+  duration_ms: 8.137041
+  type: 'test'
+  ...
+# Subtest: S2 uses half-open full-duration boundaries and duration-aware doctor occupancy
+ok 153 - S2 uses half-open full-duration boundaries and duration-aware doctor occupancy
+  ---
+  duration_ms: 0.952417
+  type: 'test'
+  ...
+# Subtest: S8.3B proves exact working, duration, grid, adjacent-session, and block boundaries
+ok 154 - S8.3B proves exact working, duration, grid, adjacent-session, and block boundaries
+  ---
+  duration_ms: 1.187959
+  type: 'test'
+  ...
+# Subtest: S8.3B proves special-work, no-hours, Kolkata midnight, and exact 0-minute notice boundaries
+ok 155 - S8.3B proves special-work, no-hours, Kolkata midnight, and exact 0-minute notice boundaries
+  ---
+  duration_ms: 0.731833
+  type: 'test'
+  ...
+# Subtest: S2 patient grid is local-midnight anchored and does not restart at boundaries
+ok 156 - S2 patient grid is local-midnight anchored and does not restart at boundaries
+  ---
+  duration_ms: 0.234833
+  type: 'test'
+  ...
+# Subtest: S2 resolves doctor settings and duration in the locked S1 precedence order
+ok 157 - S2 resolves doctor settings and duration in the locked S1 precedence order
+  ---
+  duration_ms: 0.377583
+  type: 'test'
+  ...
+# Subtest: S2 patient overlap is duration-aware across doctors while adjacent appointments remain valid
+ok 158 - S2 patient overlap is duration-aware across doctors while adjacent appointments remain valid
+  ---
+  duration_ms: 0.441583
+  type: 'test'
+  ...
+# Subtest: S2 applies Asia/Kolkata calendar-date booking window and a single asOf
+ok 159 - S2 applies Asia/Kolkata calendar-date booking window and a single asOf
+  ---
+  duration_ms: 0.174792
+  type: 'test'
+  ...
+# Subtest: S2 applies future-cap warning/eligibility without appointment details
+ok 160 - S2 applies future-cap warning/eligibility without appointment details
+  ---
+  duration_ms: 1.005833
+  type: 'test'
+  ...
+# Subtest: S2 uses a calculation-only 60-minute envelope for unknown legacy duration
+ok 161 - S2 uses a calculation-only 60-minute envelope for unknown legacy duration
+  ---
+  duration_ms: 0.480667
+  type: 'test'
+  ...
+# Subtest: S2 allows special-working without recurring hours but no availability with neither
+ok 162 - S2 allows special-working without recurring hours but no availability with neither
+  ---
+  duration_ms: 0.119333
+  type: 'test'
+  ...
+# Subtest: S2 Scheduler availability is empty for an explicitly unbookable doctor
+ok 163 - S2 Scheduler availability is empty for an explicitly unbookable doctor
+  ---
+  duration_ms: 0.1925
+  type: 'test'
+  ...
+# Subtest: S2 clips cross-midnight special-working to the requested Kolkata day
+ok 164 - S2 clips cross-midnight special-working to the requested Kolkata day
+  ---
+  duration_ms: 0.067625
+  type: 'test'
+  ...
+# Subtest: S2 dynamically recalculates rather than retaining generated slot rows
+ok 165 - S2 dynamically recalculates rather than retaining generated slot rows
+  ---
+  duration_ms: 0.092875
+  type: 'test'
+  ...
+# Subtest: S2 fails closed on contradictory persisted exceptions and patient projection is safe
+ok 166 - S2 fails closed on contradictory persisted exceptions and patient projection is safe
+  ---
+  duration_ms: 0.110458
+  type: 'test'
+  ...
+# Subtest: S2 keeps Asia/Kolkata weekday and local-date conversion stable around midnight
+ok 167 - S2 keeps Asia/Kolkata weekday and local-date conversion stable around midnight
+  ---
+  duration_ms: 0.051875
+  type: 'test'
+  ...
+# Subtest: S2 staff conflict preview reports independent working, doctor and patient conflicts
+ok 168 - S2 staff conflict preview reports independent working, doctor and patient conflicts
+  ---
+  duration_ms: 0.128083
+  type: 'test'
+  ...
+# Subtest: S2 does not expose a profile/staff-session patient identity wrapper
+ok 169 - S2 does not expose a profile/staff-session patient identity wrapper
+  ---
+  duration_ms: 0.033375
+  type: 'test'
+  ...
+# Subtest: accepts a clinic-defaults update without a row id, which the database resolves from the session clinic
+ok 170 - accepts a clinic-defaults update without a row id, which the database resolves from the session clinic
+  ---
+  duration_ms: 0.802833
+  type: 'test'
+  ...
+# Subtest: still requires an id for every doctor-scoped update or delete
+ok 171 - still requires an id for every doctor-scoped update or delete
+  ---
+  duration_ms: 0.282584
+  type: 'test'
+  ...
+# Subtest: normalizes explicit inherit overrides without deleting a doctor settings row
+ok 172 - normalizes explicit inherit overrides without deleting a doctor settings row
+  ---
+  duration_ms: 0.113875
+  type: 'test'
+  ...
+# Subtest: preserves omitted settings fields while retaining explicit null clears
+ok 173 - preserves omitted settings fields while retaining explicit null clears
+  ---
+  duration_ms: 0.062625
+  type: 'test'
+  ...
+# Subtest: edits exception wall-clock values in Kolkata independently of browser timezone
+ok 174 - edits exception wall-clock values in Kolkata independently of browser timezone
+  ---
+  duration_ms: 2.013917
+  type: 'test'
+  ...
+# Subtest: requires valid concrete working and exception ranges
+ok 175 - requires valid concrete working and exception ranges
+  ---
+  duration_ms: 0.127708
+  type: 'test'
+  ...
+# Subtest: allows duplicate appointment-type labels because IDs, not names, are authoritative
+ok 176 - allows duplicate appointment-type labels because IDs, not names, are authoritative
+  ---
+  duration_ms: 0.056833
+  type: 'test'
+  ...
+# Subtest: configuration warnings distinguish known impact from unresolved-duration review
+ok 177 - configuration warnings distinguish known impact from unresolved-duration review
+  ---
+  duration_ms: 0.084583
+  type: 'test'
+  ...
+# Subtest: S4 calendar projection is clinic-safe, duration-faithful, and excludes clinical/staff-note data
+ok 178 - S4 calendar projection is clinic-safe, duration-faithful, and excludes clinical/staff-note data
+  ---
+  duration_ms: 5.085625
+  type: 'test'
+  ...
+# Subtest: S4 calendar geometry keeps exact starts with a visible minimum for short appointments
+ok 179 - S4 calendar geometry keeps exact starts with a visible minimum for short appointments
+  ---
+  duration_ms: 0.395375
+  type: 'test'
+  ...
+# Subtest: S4 overlap lanes preserve actual vertical geometry and use half-open intervals
+ok 180 - S4 overlap lanes preserve actual vertical geometry and use half-open intervals
+  ---
+  duration_ms: 12.168792
+  type: 'test'
+  ...
+# Subtest: S4 optional duration payloads preserve server-side inheritance
+ok 181 - S4 optional duration payloads preserve server-side inheritance
+  ---
+  duration_ms: 0.11375
+  type: 'test'
+  ...
+# Subtest: S4 doctor-scoped type state clears only incompatible types and retains duration intent
+ok 182 - S4 doctor-scoped type state clears only incompatible types and retains duration intent
+  ---
+  duration_ms: 0.209834
+  type: 'test'
+  ...
+# Subtest: S4 searches canonical patients before fetching any selected-patient history
+ok 183 - S4 searches canonical patients before fetching any selected-patient history
+  ---
+  duration_ms: 0.202416
+  type: 'test'
+  ...
+# Subtest: S4 selected-patient history is independently bounded, patient-scoped, and safely hydrated
+ok 184 - S4 selected-patient history is independently bounded, patient-scoped, and safely hydrated
+  ---
+  duration_ms: 0.673167
+  type: 'test'
+  ...
+# Subtest: S4 derives appointment origin from existing creation provenance
+ok 185 - S4 derives appointment origin from existing creation provenance
+  ---
+  duration_ms: 0.448625
+  type: 'test'
+  ...
+# Subtest: S4 rejects an oversized public calendar range
+ok 186 - S4 rejects an oversized public calendar range
+  ---
+  duration_ms: 0.482417
+  type: 'test'
+  ...
+# Subtest: S7 keeps booking and Patient Link delivery as separate explicit staff actions
+ok 187 - S7 keeps booking and Patient Link delivery as separate explicit staff actions
+  ---
+  duration_ms: 0.526459
+  type: 'test'
+  ...
+# Subtest: S7 self-booking remains in the Portal and opens the existing preparation handoff
+ok 188 - S7 self-booking remains in the Portal and opens the existing preparation handoff
+  ---
+  duration_ms: 0.106958
+  type: 'test'
+  ...
+# Subtest: S7 keeps a confirmed booking actionable when post-booking hydration fails
+ok 189 - S7 keeps a confirmed booking actionable when post-booking hydration fails
+  ---
+  duration_ms: 0.131875
+  type: 'test'
+  ...
+# Subtest: S8.5 keeps availability errors distinct from genuinely empty availability and makes result states perceivable
+ok 190 - S8.5 keeps availability errors distinct from genuinely empty availability and makes result states perceivable
+  ---
+  duration_ms: 0.161167
+  type: 'test'
+  ...
+# Subtest: S7 history uses narrow service-only projections instead of raw Scheduler reads
+ok 191 - S7 history uses narrow service-only projections instead of raw Scheduler reads
+  ---
+  duration_ms: 0.1635
+  type: 'test'
+  ...
+# Subtest: S8.5 separates configuration preview, save, and post-save refresh failures
+ok 192 - S8.5 separates configuration preview, save, and post-save refresh failures
+  ---
+  duration_ms: 0.608042
+  type: 'test'
+  ...
+# Subtest: S8.5 refresh retry remains read-only and Portal retry remains availability-only
+ok 193 - S8.5 refresh retry remains read-only and Portal retry remains availability-only
+  ---
+  duration_ms: 0.136583
+  type: 'test'
+  ...
+# Subtest: S8.5 synchronously invalidates a stale availability response before the next selection request completes
+ok 194 - S8.5 synchronously invalidates a stale availability response before the next selection request completes
+  ---
+  duration_ms: 0.462584
+  type: 'test'
+  ...
+# Subtest: S8.5 prevents stale availability selections from being submitted
+ok 195 - S8.5 prevents stale availability selections from being submitted
+  ---
+  duration_ms: 0.157333
+  type: 'test'
+  ...
+# Subtest: S8.5 keeps a current repeat-booking failure as an alert after an earlier confirmation
+ok 196 - S8.5 keeps a current repeat-booking failure as an alert after an earlier confirmation
+  ---
+  duration_ms: 0.090708
+  type: 'test'
+  ...
+# Subtest: V2 exact starts retain a single five-minute visual card target for short appointments
+ok 197 - V2 exact starts retain a single five-minute visual card target for short appointments
+  ---
+  duration_ms: 0.725334
+  type: 'test'
+  ...
+# Subtest: V2 overlapping short cards get deterministic lanes using their actual durations
+ok 198 - V2 overlapping short cards get deterministic lanes using their actual durations
+  ---
+  duration_ms: 0.542042
+  type: 'test'
+  ...
+# Subtest: V2 unknown duration is a marker, never a synthetic appointment duration
+ok 199 - V2 unknown duration is a marker, never a synthetic appointment duration
+  ---
+  duration_ms: 0.163542
+  type: 'test'
+  ...
+# Subtest: V2 Day permits one, three, or six doctors; Week explicitly selects one
+ok 200 - V2 Day permits one, three, or six doctors; Week explicitly selects one
+  ---
+  duration_ms: 0.165417
+  type: 'test'
+  ...
+# Subtest: V2 today marker uses the exact Kolkata minute, not a five-minute snap
+ok 201 - V2 today marker uses the exact Kolkata minute, not a five-minute snap
+  ---
+  duration_ms: 0.107541
+  type: 'test'
+  ...
+# Subtest: V2 late calendar response cannot overwrite the newer provider/date request
+ok 202 - V2 late calendar response cannot overwrite the newer provider/date request
+  ---
+  duration_ms: 0.154
+  type: 'test'
+  ...
+# Subtest: V2 readiness prioritizes document review over positive intake readiness
+ok 203 - V2 readiness prioritizes document review over positive intake readiness
+  ---
+  duration_ms: 0.230583
+  type: 'test'
+  ...
+# Subtest: V2 calendar clicks select a whole five-minute ruler cell while exact input remains available
+ok 204 - V2 calendar clicks select a whole five-minute ruler cell while exact input remains available
+  ---
+  duration_ms: 0.107583
+  type: 'test'
+  ...
+# Subtest: V2 accessible appointment labels include identity, schedule context, and duration
+ok 205 - V2 accessible appointment labels include identity, schedule context, and duration
+  ---
+  duration_ms: 0.212208
+  type: 'test'
+  ...
+# Subtest: V2 operational metrics count only active appointments in the returned scope
+ok 206 - V2 operational metrics count only active appointments in the returned scope
+  ---
+  duration_ms: 0.396833
+  type: 'test'
+  ...
+# Subtest: Phase 2 keeps working, dated special working, blocks, leave and clean intervals semantically separate
+ok 207 - Phase 2 keeps working, dated special working, blocks, leave and clean intervals semantically separate
+  ---
+  duration_ms: 1.862917
+  type: 'test'
+  ...
+# Subtest: Phase 2 no-hours, full-day and partial leave, contradictory exceptions, unbookable doctor
+ok 208 - Phase 2 no-hours, full-day and partial leave, contradictory exceptions, unbookable doctor
+  ---
+  duration_ms: 0.430542
+  type: 'test'
+  ...
+# Subtest: Phase 2 never turns interval cadence or default duration into anonymous slots
+ok 209 - Phase 2 never turns interval cadence or default duration into anonymous slots
+  ---
+  duration_ms: 1.28825
+  type: 'test'
+  ...
+# Subtest: Phase 2 occupancy uses conservative unknown duration, not the Phase 1 marker; cancelled/non-scheduled do not enter the read
+ok 210 - Phase 2 occupancy uses conservative unknown duration, not the Phase 1 marker; cancelled/non-scheduled do not enter the read
+  ---
+  duration_ms: 0.184042
+  type: 'test'
+  ...
+# Subtest: Phase 2 clips intervals at Kolkata midnight and keeps out-of-hours appointment geometry independent
+ok 211 - Phase 2 clips intervals at Kolkata midnight and keeps out-of-hours appointment geometry independent
+  ---
+  duration_ms: 0.125916
+  type: 'test'
+  ...
+# Subtest: Phase 2 presentation geometry, semantics and scope never infer availability from empty cells
+ok 212 - Phase 2 presentation geometry, semantics and scope never infer availability from empty cells
+  ---
+  duration_ms: 0.246458
+  type: 'test'
+  ...
+# Subtest: Phase 2 accessible description preserves every projected segment and clean interval in Kolkata time
+ok 213 - Phase 2 accessible description preserves every projected segment and clean interval in Kolkata time
+  ---
+  duration_ms: 2.345
+  type: 'test'
+  ...
+# Subtest: Phase 2 accessibility distinguishes unbookable and invalid configuration without inventing intervals
+ok 214 - Phase 2 accessibility distinguishes unbookable and invalid configuration without inventing intervals
+  ---
+  duration_ms: 0.309833
+  type: 'test'
+  ...
+# Subtest: Phase 2 accessibility marks a Kolkata midnight boundary as the next day
+ok 215 - Phase 2 accessibility marks a Kolkata midnight boundary as the next day
+  ---
+  duration_ms: 0.416416
+  type: 'test'
+  ...
+# Subtest: Phase 2 batches Day 3/6 doctors and Week 1 doctor/7 dates without N+1 queries
+ok 216 - Phase 2 batches Day 3/6 doctors and Week 1 doctor/7 dates without N+1 queries
+  ---
+  duration_ms: 2.532292
+  type: 'test'
+  ...
+# Subtest: Phase 2 rejects unsupported roles, foreign doctors and invalid Day/Week scope
+ok 217 - Phase 2 rejects unsupported roles, foreign doctors and invalid Day/Week scope
+  ---
+  duration_ms: 0.439084
+  type: 'test'
+  ...
+# Subtest: Phase 2 shares request generation: failed advisory read cannot hide appointments; stale Day/Week/date read cannot publish
+ok 218 - Phase 2 shares request generation: failed advisory read cannot hide appointments; stale Day/Week/date read cannot publish
+  ---
+  duration_ms: 0.193458
+  type: 'test'
+  ...
+# Subtest: Phase 3 panel modes are exclusive, second selection replaces the first, and refresh ignores obsolete selection
+ok 219 - Phase 3 panel modes are exclusive, second selection replaces the first, and refresh ignores obsolete selection
+  ---
+  duration_ms: 0.551792
+  type: 'test'
+  ...
+# Subtest: Phase 3 search discards an older response even when abort is ignored
+ok 220 - Phase 3 search discards an older response even when abort is ignored
+  ---
+  duration_ms: 0.154375
+  type: 'test'
+  ...
+# Subtest: Phase 3 search requires a useful query and foreign-patient history is rejected
+ok 221 - Phase 3 search requires a useful query and foreign-patient history is rejected
+  ---
+  duration_ms: 0.447416
+  type: 'test'
+  ...
+# Subtest: Phase 3 summary counts only scheduled records in the visible provider scope
+ok 222 - Phase 3 summary counts only scheduled records in the visible provider scope
+  ---
+  duration_ms: 0.520958
+  type: 'test'
+  ...
+# Subtest: Phase 3 inspector keeps lifecycle, Queue and action eligibility separate
+ok 223 - Phase 3 inspector keeps lifecycle, Queue and action eligibility separate
+  ---
+  duration_ms: 0.205167
+  type: 'test'
+  ...
+# Subtest: Phase 3 inspector read is clinic-scoped and has an exact scheduling-only payload
+ok 224 - Phase 3 inspector read is clinic-scoped and has an exact scheduling-only payload
+  ---
+  duration_ms: 0.76575
+  type: 'test'
+  ...
+# Subtest: Phase 4 booking, search and inspector share one exclusive panel state
+ok 225 - Phase 4 booking, search and inspector share one exclusive panel state
+  ---
+  duration_ms: 10.850292
+  type: 'test'
+  ...
+# Subtest: Phase 4 preview requires patient, options duration and a real exact-minute time
+ok 226 - Phase 4 preview requires patient, options duration and a real exact-minute time
+  ---
+  duration_ms: 4.231125
+  type: 'test'
+  ...
+# Subtest: Phase 4 duration retains server defaults, type default, exact-minute override and doctor type reset
+ok 227 - Phase 4 duration retains server defaults, type default, exact-minute override and doctor type reset
+  ---
+  duration_ms: 0.174208
+  type: 'test'
+  ...
+# Subtest: Phase 4 shows the resolved end time so staff never compute duration arithmetic
+ok 228 - Phase 4 shows the resolved end time so staff never compute duration arithmetic
+  ---
+  duration_ms: 0.471084
+  type: 'test'
+  ...
+# Subtest: Phase 4 semantic changes demand new preview/acknowledgements and discard late results
+ok 229 - Phase 4 semantic changes demand new preview/acknowledgements and discard late results
+  ---
+  duration_ms: 0.301708
+  type: 'test'
+  ...
+# Subtest: Phase 4 Agenda orders by authoritative start, with deterministic ties and no availability filtering
+ok 230 - Phase 4 Agenda orders by authoritative start, with deterministic ties and no availability filtering
+  ---
+  duration_ms: 0.615
+  type: 'test'
+  ...
+# Subtest: Phase 4 Agenda cues use only lifecycle, readiness and operational Queue projection
+ok 231 - Phase 4 Agenda cues use only lifecycle, readiness and operational Queue projection
+  ---
+  duration_ms: 0.233958
+  type: 'test'
+  ...
+# Subtest: Phase 4 Agenda accessible label preserves scheduling-safe operational context
+ok 232 - Phase 4 Agenda accessible label preserves scheduling-safe operational context
+  ---
+  duration_ms: 0.19025
+  type: 'test'
+  ...
+# Subtest: Phase 4 Agenda accessible label handles missing type, unknown duration and non-scheduled lifecycle
+ok 233 - Phase 4 Agenda accessible label handles missing type, unknown duration and non-scheduled lifecycle
+  ---
+  duration_ms: 0.210541
+  type: 'test'
+  ...
+# ◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+# ◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+# Subtest: seed guard permits only explicit localhost targets
+ok 234 - seed guard permits only explicit localhost targets
+  ---
+  duration_ms: 0.533417
+  type: 'test'
+  ...
+# Subtest: a textbook consultation is attributed correctly and confidently
+ok 235 - a textbook consultation is attributed correctly and confidently
+  ---
+  duration_ms: 17.988458
+  type: 'test'
+  ...
+# Subtest: a code-mixed Hinglish consultation is still attributed correctly
+ok 236 - a code-mixed Hinglish consultation is still attributed correctly
+  ---
+  duration_ms: 0.271875
+  type: 'test'
+  ...
+# Subtest: an ambiguous conversation refuses to name either side
+ok 237 - an ambiguous conversation refuses to name either side
+  ---
+  duration_ms: 0.24225
+  type: 'test'
+  ...
+# Subtest: a third voice is left unknown rather than forced into a role
+ok 238 - a third voice is left unknown rather than forced into a role
+  ---
+  duration_ms: 0.338875
+  type: 'test'
+  ...
+# Subtest: swapping records a doctor correction rather than re-guessing
+ok 239 - swapping records a doctor correction rather than re-guessing
+  ---
+  duration_ms: 0.251625
+  type: 'test'
+  ...
+# Subtest: a single separated speaker never invents a counterpart
+ok 240 - a single separated speaker never invents a counterpart
+  ---
+  duration_ms: 11.162917
+  type: 'test'
+  ...
+# Subtest: grouping merges only adjacent turns from the same speaker
+ok 241 - grouping merges only adjacent turns from the same speaker
+  ---
+  duration_ms: 0.131583
+  type: 'test'
+  ...
+# Subtest: speaker ids keep first-appearance order so labels stay stable
+ok 242 - speaker ids keep first-appearance order so labels stay stable
+  ---
+  duration_ms: 0.4085
+  type: 'test'
+  ...
+# Subtest: labels prefer the role over the position once roles exist
+ok 243 - labels prefer the role over the position once roles exist
+  ---
+  duration_ms: 0.231666
+  type: 'test'
+  ...
+# Subtest: malformed stored JSONB degrades instead of throwing in a render path
+ok 244 - malformed stored JSONB degrades instead of throwing in a render path
+  ---
+  duration_ms: 0.432167
+  type: 'test'
+  ...
+# Subtest: provider errors are classified into distinct, actionable codes
+ok 245 - provider errors are classified into distinct, actionable codes
+  ---
+  duration_ms: 0.854459
+  type: 'test'
+  ...
+# Subtest: quota and auth failures are never retried, transient faults are
+ok 246 - quota and auth failures are never retried, transient faults are
+  ---
+  duration_ms: 0.087167
+  type: 'test'
+  ...
+# Subtest: an already-started job reads as benign rather than a rejection
+ok 247 - an already-started job reads as benign rather than a rejection
+  ---
+  duration_ms: 0.185292
+  type: 'test'
+  ...
+# Subtest: the retryable list stays in step with the worker's behaviour
+ok 248 - the retryable list stays in step with the worker's behaviour
+  ---
+  duration_ms: 0.190084
+  type: 'test'
+  ...
+# Subtest: a healthy in-flight job is re-polled inside the doctor's poll cadence
+ok 249 - a healthy in-flight job is re-polled inside the doctor's poll cadence
+  ---
+  duration_ms: 0.425459
+  type: 'test'
+  ...
+# Subtest: the transcript poll the workflow already makes also advances the queue
+ok 250 - the transcript poll the workflow already makes also advances the queue
+  ---
+  duration_ms: 0.437291
+  type: 'test'
+  ...
+1..250
+# tests 250
+# suites 0
+# pass 250
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2821.998666
+
+> clinical@0.1.0 build
+> next build
+
+▲ Next.js 16.3.0 (Turbopack)
+✓ Running next.config.ts took 76ms
+- Experiments (use with caution):
+  · staleTimes
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.
+
+  To migrate automatically, run:
+  npx @next/codemod@canary middleware-to-proxy .
+
+  Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 1542ms
+  Running TypeScript ...
+  Finished TypeScript in 2.0s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/33) ...
+  Generating static pages using 7 workers (8/33)
+  Generating static pages using 7 workers (16/33)
+  Generating static pages using 7 workers (24/33)
+✓ Generating static pages using 7 workers (33/33) in 189ms
+Turbopack build encountered 2 warnings:
+./src/lib/ai/sarvam-log.ts:217:23
+Warning: Dynamic filesystem access causes tracing of the whole project
+  [90m215 |[0m [36mexport[0m [36masync[0m [36mfunction[0m readSarvamLogFile(limit = [35m200[0m): [33mPromise[0m<[33mSarvamLogEntry[0m[]> {
+  [90m216 |[0m   [36mtry[0m {
+[33m[1m>[0m [90m217 |[0m     [36mconst[0m raw = [36mawait[0m readFile(sarvamLogFilePath(), [32m"utf8"[0m);
+  [90m    |[0m                       [33m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m218 |[0m     [36mreturn[0m raw
+  [90m219 |[0m       .split([32m"\n"[0m)
+  [90m220 |[0m       .filter((line) => line.trim().length > [35m0[0m)
+
+Static analysis determined that this filesystem access causes the whole project to be traced and included in the output.
+This is usually unintentional and leads to all source files (including the public folder) to be deployed as part of the server code.
+This can slow down deployments or lead to failures when size limits are exceeded.
+To resolve this, you can
+- make sure the path is statically scoped to some subfolder, for example path.join(process.cwd(), 'data', bar), or
+- only use them in development, or
+- opt out by adding an ignore comment to the highlighted call: fs.readFile(/*turbopackIgnore: true*/ ...), or
+- remove them.
+
+Import traces:
+  #1 [App Route]:
+    ./src/lib/ai/sarvam-log.ts
+    ./src/lib/debug-log.ts
+    ./src/app/api/consultations/[id]/recording/route.ts
+
+  #2 [App Route]:
+    ./src/lib/ai/sarvam-log.ts
+    ./src/lib/documents/pipeline.ts
+    ./src/app/api/documents/[id]/process/route.ts
+
+  #3 [Server Component]:
+    ./src/lib/ai/sarvam-log.ts
+    ./src/lib/documents/pipeline.ts
+    ./src/app/patients/[id]/preconsult/page.tsx
+
+
+./src/lib/debug-log.ts:202:23
+Warning: Dynamic filesystem access causes tracing of the whole project
+  [90m200 |[0m [36mexport[0m [36masync[0m [36mfunction[0m readDebugLogFile(limit = [35m200[0m): [33mPromise[0m<[33mDebugEntry[0m[]> {
+  [90m201 |[0m   [36mtry[0m {
+[33m[1m>[0m [90m202 |[0m     [36mconst[0m raw = [36mawait[0m readFile(debugLogFilePath(), [32m"utf8"[0m);
+  [90m    |[0m                       [33m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m203 |[0m     [36mreturn[0m raw
+  [90m204 |[0m       .split([32m"\n"[0m)
+  [90m205 |[0m       .filter([33mBoolean[0m)
+
+Static analysis determined that this filesystem access causes the whole project to be traced and included in the output.
+This is usually unintentional and leads to all source files (including the public folder) to be deployed as part of the server code.
+This can slow down deployments or lead to failures when size limits are exceeded.
+To resolve this, you can
+- make sure the path is statically scoped to some subfolder, for example path.join(process.cwd(), 'data', bar), or
+- only use them in development, or
+- opt out by adding an ignore comment to the highlighted call: fs.readFile(/*turbopackIgnore: true*/ ...), or
+- remove them.
+
+Import traces:
+  App Route:
+    ./src/lib/debug-log.ts
+    ./src/app/api/consultations/[id]/recording/route.ts
+
+  Server Component:
+    ./src/lib/debug-log.ts
+    ./src/lib/db/session.ts
+    ./src/app/scheduler/settings/page.tsx
+
+
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /api/appointments
+├ ƒ /api/appointments/[id]
+├ ƒ /api/appointments/[id]/assisted-intake
+├ ƒ /api/appointments/[id]/intake
+├ ƒ /api/appointments/[id]/priority
+├ ƒ /api/appointments/[id]/queue
+├ ƒ /api/clinical-observations/[id]/correction
+├ ƒ /api/clinical-state-deltas/[id]/decision
+├ ƒ /api/consultations
+├ ƒ /api/consultations/[id]
+├ ƒ /api/consultations/[id]/documents
+├ ƒ /api/consultations/[id]/generate
+├ ƒ /api/consultations/[id]/note
+├ ƒ /api/consultations/[id]/preconsult
+├ ƒ /api/consultations/[id]/recording
+├ ƒ /api/consultations/[id]/recording/[recordingId]/chunks
+├ ƒ /api/consultations/[id]/transcript
+├ ƒ /api/consultations/[id]/transcription/retry
+├ ƒ /api/documents/[id]
+├ ƒ /api/documents/[id]/extraction
+├ ƒ /api/documents/[id]/process
+├ ƒ /api/documents/[id]/view
+├ ƒ /api/intake/[token]
+├ ƒ /api/intake/[token]/documents
+├ ƒ /api/intake/[token]/documents/[id]/view
+├ ƒ /api/internal/debug-events
+├ ƒ /api/internal/document-pipeline
+├ ƒ /api/patients
+├ ƒ /api/patients/[id]
+├ ƒ /api/patients/[id]/clinical-state-deltas/batch
+├ ƒ /api/patients/[id]/confirmed-clinical-state
+├ ƒ /api/patients/[id]/merge
+├ ƒ /api/patients/[id]/portal-link
+├ ƒ /api/scheduler/appointments/[id]
+├ ƒ /api/scheduler/appointments/[id]/remediate-duration
+├ ƒ /api/scheduler/availability
+├ ƒ /api/scheduler/booking-options
+├ ƒ /api/scheduler/calendar
+├ ƒ /api/scheduler/configuration
+├ ƒ /api/scheduler/configuration/impact-preview
+├ ƒ /api/scheduler/search
+├ ƒ /api/walk-ins
+├ ƒ /auth/callback
+├ ƒ /consultations/[id]
+├ ƒ /dashboard
+├ ƒ /desk
+├ ƒ /desk/patients
+├ ƒ /desk/patients/[id]
+├ ƒ /desk/walk-in
+├ ○ /doctors
+├ ƒ /intake/[token]
+├ ○ /login
+├ ƒ /new-consultation
+├ ○ /patient
+├ ƒ /patient/access/[token]
+├ ƒ /patient/api/access/[token]/verify
+├ ƒ /patient/api/appointments
+├ ƒ /patient/api/appointments/[id]
+├ ƒ /patient/api/appointments/[id]/intake-handoff
+├ ƒ /patient/api/availability
+├ ƒ /patient/api/doctors
+├ ƒ /patient/api/logout
+├ ƒ /patient/api/portal
+├ ƒ /patient/api/scheduler/book
+├ ƒ /patients
+├ ƒ /patients/[id]
+├ ƒ /patients/[id]/preconsult
+├ ƒ /patients/[id]/preconsult/evidence
+├ ƒ /patients/[id]/preconsult/review-changes
+├ ƒ /patients/[id]/today
+├ ƒ /scheduler
+└ ƒ /scheduler/settings
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

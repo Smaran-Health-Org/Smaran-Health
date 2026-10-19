@@ -145,9 +145,9 @@ RESET ROLE;
 UPDATE public.clinic_scheduler_settings SET default_duration_minutes = 5 WHERE clinic_id = '73000000-0000-4000-8000-000000000001';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '73100000-0000-4000-8000-000000000001', true);
-SELECT lives_ok($$ SELECT * FROM public.create_walk_in_with_consultation('73200000-0000-4000-8000-000000000002', '73100000-0000-4000-8000-000000000001', 's1-walk-in') $$, 'walk-in continues through the canonical S1 path');
+SELECT lives_ok($$ SELECT * FROM public.create_walk_in_with_consultation(p_patient_id => '73200000-0000-4000-8000-000000000002', p_doctor_id => '73100000-0000-4000-8000-000000000001', p_idempotency_key => 's1-walk-in') $$, 'walk-in continues through the canonical S1 path');
 SELECT is((SELECT duration_minutes FROM public.appointments WHERE idempotency_key = 's1-walk-in'), 5, 'walk-in receives canonical resolved duration');
-SELECT lives_ok($$ SELECT * FROM public.create_walk_in_with_consultation('73200000-0000-4000-8000-000000000002', '73100000-0000-4000-8000-000000000001', 's1-walk-in') $$, 'walk-in retry returns the existing checked-in visit');
+SELECT lives_ok($$ SELECT * FROM public.create_walk_in_with_consultation(p_patient_id => '73200000-0000-4000-8000-000000000002', p_doctor_id => '73100000-0000-4000-8000-000000000001', p_idempotency_key => 's1-walk-in') $$, 'walk-in retry returns the existing checked-in visit');
 SELECT is((SELECT count(*) FROM public.appointments WHERE idempotency_key = 's1-walk-in'), 1::bigint, 'walk-in retry does not create another Appointment');
 
 SELECT lives_ok($$ SELECT * FROM public.create_appointment_with_consultation_v2('73200000-0000-4000-8000-000000000003', '73100000-0000-4000-8000-000000000001', '2035-01-05T04:00:00Z', NULL, NULL, NULL, 's1-merge-replay') $$, 'merge-source appointment creation succeeds');

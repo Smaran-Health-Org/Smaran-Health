@@ -1,12 +1,13 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { extractClinicalDraft } from "@/lib/ai/extract-clinical-note";
-import { getConsultation, updateConsultation } from "@/lib/db/consultations";
-import { getClinicalNoteByConsultation, upsertClinicalNote } from "@/lib/db/clinical-notes";
+import { getConsultation } from "@/lib/db/consultations";
+import { getClinicalNoteByConsultation, createClinicalDraft, ClinicalNoteWriteError } from "@/lib/db/clinical-notes";
 import { getTranscriptByConsultation } from "@/lib/db/transcripts";
-import { createAuditLog } from "@/lib/db/audit";
+import { extractAndPersistDraft } from "./extract-and-persist-draft";
 import { logEvent, logWarn, logError } from "@/lib/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ClinicalNote } from "@/types";
 import type { NoteContent } from "@/lib/db/clinical-notes";
 import { DRAFT_SWEEP_AFTER_SECONDS, DRAFT_SWEEP_LOOKBACK_HOURS } from "./draft-policy";
 
@@ -43,9 +44,9 @@ function skipped(
 }
 
 export type GenerateDraftResult =
-  | { kind: "created"; noteId: string; draft: NoteContent }
-  | { kind: "fallback"; noteId: string; draft: NoteContent; reason: string }
-  | { kind: "skipped"; reason: string };
+  | { kind: "created"; noteId: string; note: ClinicalNote; draft: NoteContent }
+  | { kind: "fallback"; noteId: string; note: ClinicalNote; draft: NoteContent; reason: string }
+  | { kind: "skipped"; reason: string; note?: ClinicalNote };
 
 /**
  * Generates and stores a draft for one consultation.
@@ -73,13 +74,16 @@ export async function generateDraftForConsultation(input: {
 
   const consultation = await getConsultation(consultationId, clinicId, db);
   if (!consultation) return skipped(source, "consultation_not_found", consultationId);
+  if (source === "doctor" && actorId !== consultation.doctorId) {
+    throw new ClinicalNoteWriteError("42501", "Only the consultation doctor can generate a draft");
+  }
   if (SETTLED_STATUSES.includes(consultation.status)) {
     return skipped(source, "consultation_settled", consultationId);
   }
 
   // The clobber guard. A note of any status means a human is already in the loop.
   const existingNote = await getClinicalNoteByConsultation(consultationId, clinicId, db);
-  if (existingNote) return skipped(source, "note_already_exists", consultationId);
+  if (existingNote) return { ...skipped(source, "note_already_exists", consultationId), note: existingNote };
 
   const transcript = await getTranscriptByConsultation(consultationId, clinicId, db);
   const rawText = transcript?.rawText?.trim();
@@ -90,74 +94,21 @@ export async function generateDraftForConsultation(input: {
   const doctorId = consultation.doctorId;
   if (!doctorId) return skipped(source, "no_doctor", consultationId);
 
-  const auditActor = actorId ?? doctorId;
-
-  try {
-    const extraction = await extractClinicalDraft(rawText);
-    const note = await upsertClinicalNote(
-      { consultationId, doctorId, content: extraction.draft, status: "ai_draft" },
-      clinicId,
-      db
-    );
-    await updateConsultation(consultationId, { status: "draft_ready" }, clinicId, db);
-    await createAuditLog(clinicId, auditActor, "clinical_note.ai_generated", "clinical_note", note.id, {
-      provider: extraction.provider,
-      model: extraction.model,
-      promptVersion: extraction.promptVersion,
-      source,
-    }).catch(() => {
-      // Audit logging must never mask a successful generation.
-    });
-
-    logEvent("draft.generated", {
-      consultationId,
-      clinicId,
-      noteId: note.id,
-      source,
-    });
-
-    return { kind: "created", noteId: note.id, draft: extraction.draft };
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : "AI draft generation failed.";
-    logError("draft.ai_failed", error, { consultationId, clinicId, source, fallbackUsed: true });
-    await createAuditLog(clinicId, auditActor, "clinical_note.ai_generation_failed", "clinical_note", consultationId, {
-      error: reason,
-      fallbackUsed: true,
-      source,
-    }).catch(() => {
-      // Non-fatal.
-    });
-
-    // Fallback: keep the transcript in the summary so the visit is never lost.
-    // The doctor structures it during review.
-    const notExtracted = "Not extracted — AI was unavailable.";
-    const fallbackDraft: NoteContent = {
-      summary: rawText.slice(0, 4500),
-      chiefComplaint: notExtracted,
-      medicationChanges: notExtracted,
-      investigations: notExtracted,
-      followUpPlan: notExtracted,
-      patientInstructions: notExtracted,
-      uncertainItems: notExtracted,
-    };
-
-    const note = await upsertClinicalNote(
-      { consultationId, doctorId, content: fallbackDraft, status: "ai_draft" },
-      clinicId,
-      db
-    );
-    await updateConsultation(consultationId, { status: "draft_ready" }, clinicId, db);
-    await createAuditLog(clinicId, auditActor, "clinical_note.ai_fallback_created", "clinical_note", note.id, {
-      reason,
-      source,
-    }).catch(() => {
-      // Non-fatal.
-    });
-
-    logWarn("draft.fallback_created", { consultationId, clinicId, noteId: note.id, reason, source });
-
-    return { kind: "fallback", noteId: note.id, draft: fallbackDraft, reason };
+  // Authorization and the final existing-note/settled checks happen again in
+  // the DB transaction after the slow provider resolves. It never updates a note.
+  const { persisted, fallback } = await extractAndPersistDraft(rawText, {
+    extract: extractClinicalDraft,
+    persist: (draft, metadata) => createClinicalDraft(consultationId, clinicId, draft, source, metadata, db),
+  });
+  if (!persisted.created || !persisted.note) {
+    return { ...skipped(source, persisted.reason ?? "note_already_exists", consultationId),
+      ...(persisted.note ? { note: persisted.note } : {}) };
   }
+  const note = persisted.note;
+  const draft = note.content as NoteContent;
+  logEvent("draft.generated", { consultationId, clinicId, noteId: note.id, source, actorId, fallback });
+  if (fallback) return { kind: "fallback", noteId: note.id, note, draft, reason: "AI draft generation was unavailable." };
+  return { kind: "created", noteId: note.id, note, draft };
 }
 
 /**

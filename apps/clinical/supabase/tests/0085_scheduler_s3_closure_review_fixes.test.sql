@@ -57,7 +57,7 @@ SELECT is(
   'new S3-created Appointment still replays its lifecycle receipt'
 );
 SELECT is(
-  (SELECT count(*) FROM public.create_walk_in_with_consultation('85200000-0000-4000-8000-000000000002', '85100000-0000-4000-8000-000000000001', 'closure-walk-in')),
+  (SELECT count(*) FROM public.create_walk_in_with_consultation(p_patient_id => '85200000-0000-4000-8000-000000000002', p_doctor_id => '85100000-0000-4000-8000-000000000001', p_idempotency_key => 'closure-walk-in')),
   1::bigint,
   'Queue-owned walk-in still performs its guarded check-in and queue write'
 );

@@ -1,0 +1,16 @@
+{
+  "source": "Supported browser DOM measurement after page scroll",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "scrollWidth": 1280,
+  "scrollY": 187.5,
+  "book": {
+    "top": 617.3359375,
+    "bottom": 661.3359375,
+    "height": 44,
+    "hit": true
+  },
+  "modal": false
+}

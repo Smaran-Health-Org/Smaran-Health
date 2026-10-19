@@ -1,0 +1,176 @@
+
+> clinical@0.1.0 build
+> next build
+
+▲ Next.js 16.3.0 (Turbopack)
+✓ Running next.config.ts took 34ms
+- Experiments (use with caution):
+  · staleTimes
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.
+
+  To migrate automatically, run:
+  npx @next/codemod@canary middleware-to-proxy .
+
+  Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 1738ms
+  Running TypeScript ...
+  Finished TypeScript in 2.5s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/33) ...
+  Generating static pages using 7 workers (8/33) 
+  Generating static pages using 7 workers (16/33) 
+  Generating static pages using 7 workers (24/33) 
+✓ Generating static pages using 7 workers (33/33) in 172ms
+Turbopack build encountered 2 warnings:
+./src/lib/ai/sarvam-log.ts:217:23
+Warning: Dynamic filesystem access causes tracing of the whole project
+  [90m215 |[0m [36mexport[0m [36masync[0m [36mfunction[0m readSarvamLogFile(limit = [35m200[0m): [33mPromise[0m<[33mSarvamLogEntry[0m[]> {
+  [90m216 |[0m   [36mtry[0m {
+[33m[1m>[0m [90m217 |[0m     [36mconst[0m raw = [36mawait[0m readFile(sarvamLogFilePath(), [32m"utf8"[0m);
+  [90m    |[0m                       [33m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m218 |[0m     [36mreturn[0m raw
+  [90m219 |[0m       .split([32m"\n"[0m)
+  [90m220 |[0m       .filter((line) => line.trim().length > [35m0[0m)
+
+Static analysis determined that this filesystem access causes the whole project to be traced and included in the output.
+This is usually unintentional and leads to all source files (including the public folder) to be deployed as part of the server code.
+This can slow down deployments or lead to failures when size limits are exceeded.
+To resolve this, you can
+- make sure the path is statically scoped to some subfolder, for example path.join(process.cwd(), 'data', bar), or
+- only use them in development, or
+- opt out by adding an ignore comment to the highlighted call: fs.readFile(/*turbopackIgnore: true*/ ...), or
+- remove them.
+
+Import traces:
+  #1 [App Route]:
+    ./src/lib/ai/sarvam-log.ts
+    ./src/lib/debug-log.ts
+    ./src/app/api/consultations/[id]/recording/route.ts
+
+  #2 [App Route]:
+    ./src/lib/ai/sarvam-log.ts
+    ./src/lib/documents/pipeline.ts
+    ./src/app/api/documents/[id]/process/route.ts
+
+  #3 [Server Component]:
+    ./src/lib/ai/sarvam-log.ts
+    ./src/lib/documents/pipeline.ts
+    ./src/app/patients/[id]/preconsult/page.tsx
+
+
+./src/lib/debug-log.ts:202:23
+Warning: Dynamic filesystem access causes tracing of the whole project
+  [90m200 |[0m [36mexport[0m [36masync[0m [36mfunction[0m readDebugLogFile(limit = [35m200[0m): [33mPromise[0m<[33mDebugEntry[0m[]> {
+  [90m201 |[0m   [36mtry[0m {
+[33m[1m>[0m [90m202 |[0m     [36mconst[0m raw = [36mawait[0m readFile(debugLogFilePath(), [32m"utf8"[0m);
+  [90m    |[0m                       [33m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m203 |[0m     [36mreturn[0m raw
+  [90m204 |[0m       .split([32m"\n"[0m)
+  [90m205 |[0m       .filter([33mBoolean[0m)
+
+Static analysis determined that this filesystem access causes the whole project to be traced and included in the output.
+This is usually unintentional and leads to all source files (including the public folder) to be deployed as part of the server code.
+This can slow down deployments or lead to failures when size limits are exceeded.
+To resolve this, you can
+- make sure the path is statically scoped to some subfolder, for example path.join(process.cwd(), 'data', bar), or
+- only use them in development, or
+- opt out by adding an ignore comment to the highlighted call: fs.readFile(/*turbopackIgnore: true*/ ...), or
+- remove them.
+
+Import traces:
+  App Route:
+    ./src/lib/debug-log.ts
+    ./src/app/api/consultations/[id]/recording/route.ts
+
+  Server Component:
+    ./src/lib/debug-log.ts
+    ./src/lib/db/session.ts
+    ./src/app/scheduler/settings/page.tsx
+
+
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /api/appointments
+├ ƒ /api/appointments/[id]
+├ ƒ /api/appointments/[id]/assisted-intake
+├ ƒ /api/appointments/[id]/intake
+├ ƒ /api/appointments/[id]/priority
+├ ƒ /api/appointments/[id]/queue
+├ ƒ /api/clinical-observations/[id]/correction
+├ ƒ /api/clinical-state-deltas/[id]/decision
+├ ƒ /api/consultations
+├ ƒ /api/consultations/[id]
+├ ƒ /api/consultations/[id]/documents
+├ ƒ /api/consultations/[id]/generate
+├ ƒ /api/consultations/[id]/note
+├ ƒ /api/consultations/[id]/preconsult
+├ ƒ /api/consultations/[id]/recording
+├ ƒ /api/consultations/[id]/recording/[recordingId]/chunks
+├ ƒ /api/consultations/[id]/transcript
+├ ƒ /api/consultations/[id]/transcription/retry
+├ ƒ /api/documents/[id]
+├ ƒ /api/documents/[id]/extraction
+├ ƒ /api/documents/[id]/process
+├ ƒ /api/documents/[id]/view
+├ ƒ /api/intake/[token]
+├ ƒ /api/intake/[token]/documents
+├ ƒ /api/intake/[token]/documents/[id]/view
+├ ƒ /api/internal/debug-events
+├ ƒ /api/internal/document-pipeline
+├ ƒ /api/patients
+├ ƒ /api/patients/[id]
+├ ƒ /api/patients/[id]/clinical-state-deltas/batch
+├ ƒ /api/patients/[id]/confirmed-clinical-state
+├ ƒ /api/patients/[id]/merge
+├ ƒ /api/patients/[id]/portal-link
+├ ƒ /api/scheduler/appointments/[id]
+├ ƒ /api/scheduler/appointments/[id]/remediate-duration
+├ ƒ /api/scheduler/availability
+├ ƒ /api/scheduler/booking-options
+├ ƒ /api/scheduler/calendar
+├ ƒ /api/scheduler/configuration
+├ ƒ /api/scheduler/configuration/impact-preview
+├ ƒ /api/scheduler/search
+├ ƒ /api/walk-ins
+├ ƒ /auth/callback
+├ ƒ /consultations/[id]
+├ ƒ /dashboard
+├ ƒ /desk
+├ ƒ /desk/patients
+├ ƒ /desk/patients/[id]
+├ ƒ /desk/walk-in
+├ ○ /doctors
+├ ƒ /intake/[token]
+├ ○ /login
+├ ƒ /new-consultation
+├ ○ /patient
+├ ƒ /patient/access/[token]
+├ ƒ /patient/api/access/[token]/verify
+├ ƒ /patient/api/appointments
+├ ƒ /patient/api/appointments/[id]
+├ ƒ /patient/api/appointments/[id]/intake-handoff
+├ ƒ /patient/api/availability
+├ ƒ /patient/api/doctors
+├ ƒ /patient/api/logout
+├ ƒ /patient/api/portal
+├ ƒ /patient/api/scheduler/book
+├ ƒ /patients
+├ ƒ /patients/[id]
+├ ƒ /patients/[id]/preconsult
+├ ƒ /patients/[id]/preconsult/evidence
+├ ƒ /patients/[id]/preconsult/review-changes
+├ ƒ /patients/[id]/today
+├ ƒ /scheduler
+└ ƒ /scheduler/settings
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

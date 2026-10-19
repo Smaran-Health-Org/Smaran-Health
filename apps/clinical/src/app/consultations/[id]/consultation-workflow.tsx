@@ -7,6 +7,7 @@ import { Icon } from "@/components/icons";
 import { formatDate } from "@/lib/status";
 import type { PreconsultBriefAtConsultationStart } from "@/lib/preconsult/brief";
 import styles from "@/components/clinical.module.css";
+import { NoteReviewAccess } from "./note-review-access";
 import { ConsultationPreconsultContext } from "./consultation-preconsult-context";
 
 export type WorkflowState =
@@ -61,12 +62,14 @@ export type WorkflowMemory = {
 
 type ConsultationWorkflowProps = {
   consultationId: string;
+  canReviewNote: boolean;
   patient: WorkflowPatient;
   doctorName: string;
   clinicName: string;
   patientCount: number;
   timeline: WorkflowTimelineEvent[];
   initialNote: NoteContent | null;
+  initialNoteRevision: number | null;
   initialStatus: string;
   initialTranscript: string | null;
   memory?: WorkflowMemory | null;
@@ -389,12 +392,14 @@ function RecordingRail({
 
 export function ConsultationWorkflow({
   consultationId,
+  canReviewNote,
   patient,
   doctorName,
   clinicName,
   patientCount,
   timeline,
   initialNote,
+  initialNoteRevision,
   initialStatus,
   initialTranscript,
   memory,
@@ -408,6 +413,8 @@ export function ConsultationWorkflow({
     ...(initialNote ?? {}),
     summary: initialNote?.summary ?? initialTranscript ?? "",
   }));
+  const draftEditVersionRef = useRef(0);
+  const [noteRevision, setNoteRevision] = useState<number | null>(initialNoteRevision);
   const [transcript, setTranscript] = useState<string>(initialTranscript ?? "");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
@@ -751,6 +758,7 @@ export function ConsultationWorkflow({
   }
 
   async function saveNote(status: "approved" | "rejected") {
+    if (!canReviewNote) return;
     setSaving(status === "approved" ? "approve" : "reject");
     setError(null);
     try {
@@ -760,6 +768,7 @@ export function ConsultationWorkflow({
         body: JSON.stringify({
           status,
           content: draftFields,
+          expectedRevision: noteRevision,
           summary: draftFields.summary,
         }),
       });
@@ -767,6 +776,8 @@ export function ConsultationWorkflow({
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? "Could not save the note");
       }
+      const saved = await res.json();
+      setNoteRevision(saved.note.revision);
       if (status === "approved") setState("approved");
       else setState("rejected");
     } catch (err) {
@@ -777,6 +788,7 @@ export function ConsultationWorkflow({
   }
 
   async function saveDraft() {
+    if (!canReviewNote) return;
     setSaving("draft");
     setError(null);
     try {
@@ -786,6 +798,7 @@ export function ConsultationWorkflow({
         body: JSON.stringify({
           status: "edited",
           content: draftFields,
+          expectedRevision: noteRevision,
           summary: draftFields.summary,
         }),
       });
@@ -793,6 +806,8 @@ export function ConsultationWorkflow({
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? "Could not save the draft");
       }
+      const saved = await res.json();
+      setNoteRevision(saved.note.revision);
       setDraftSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save the draft");
@@ -802,12 +817,14 @@ export function ConsultationWorkflow({
   }
 
   function updateField(field: keyof NoteContent, value: string) {
+    draftEditVersionRef.current += 1;
     setDraftFields((current) => ({ ...current, [field]: value }));
     setReviewConfirmed(false);
     setDraftSaved(false);
   }
 
   function startManualReview() {
+    draftEditVersionRef.current += 1;
     setManualPath(true);
     setDraftFields(BLANK_NOTE);
     setReviewConfirmed(false);
@@ -1164,6 +1181,7 @@ export function ConsultationWorkflow({
   async function generateDraft() {
     if (generateBusyRef.current) return;
     generateBusyRef.current = true;
+    const editVersionAtStart = draftEditVersionRef.current;
     setError(null);
     setFallbackNotice(null);
     setGenerating(true);
@@ -1177,6 +1195,16 @@ export function ConsultationWorkflow({
         throw new Error(body?.error ?? "AI draft generation failed.");
       }
       const data = await res.json();
+      // A late response must also preserve unsaved text in the browser.
+      if (draftEditVersionRef.current !== editVersionAtStart) return;
+      if (data?.note) {
+        setNoteRevision(data.note.revision);
+        if (data.note.status === "approved" || data.note.status === "rejected") {
+          setState(data.note.status);
+          router.refresh();
+          return;
+        }
+      }
       if (data?.draft) {
         setDraftFields((current) => ({ ...current, ...data.draft }));
       }
@@ -1192,6 +1220,7 @@ export function ConsultationWorkflow({
       await new Promise((resolve) => setTimeout(resolve, 550));
       setState("review");
     } catch (err) {
+      if (draftEditVersionRef.current !== editVersionAtStart) return;
       setError(
         err instanceof Error
           ? `${err.message} You can write the note manually instead.`
@@ -1808,7 +1837,52 @@ export function ConsultationWorkflow({
         )}
 
         {(state === "review" || state === "manual_review") && (
-          <>
+          <NoteReviewAccess
+            canReviewNote={canReviewNote}
+            messageClassName={styles.warningBanner}
+            actions={<>
+            <label className={styles.reviewCheck}>
+              <input
+                type="checkbox"
+                checked={reviewConfirmed}
+                onChange={(event) => setReviewConfirmed(event.target.checked)}
+              />
+              <span>
+                {isManualReview
+                  ? "I wrote and reviewed this consultation note, and approve it for clinical memory."
+                  : "I reviewed this draft and approve it for clinical memory."}
+              </span>
+            </label>
+            <div className={styles.reviewActions}>
+              {!draftSaved && (
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  disabled={saving !== null}
+                  onClick={saveDraft}
+                >
+                  {saving === "draft" ? "Saving…" : "Save draft"}
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.rejectButton}
+                disabled={saving !== null}
+                onClick={() => saveNote("rejected")}
+              >
+                Reject draft
+              </button>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                disabled={!reviewConfirmed || saving !== null}
+                onClick={() => saveNote("approved")}
+              >
+                {saving === "approve" ? "Saving…" : "Approve note"}
+              </button>
+            </div>
+            </>}
+          >
             {fallbackNotice && !isManualReview && (
               <div className={styles.warningBanner} role="status">
                 <strong>AI was unavailable</strong>
@@ -1895,47 +1969,8 @@ export function ConsultationWorkflow({
               </section>
             </div>
 
-            <label className={styles.reviewCheck}>
-              <input
-                type="checkbox"
-                checked={reviewConfirmed}
-                onChange={(event) => setReviewConfirmed(event.target.checked)}
-              />
-              <span>
-                {isManualReview
-                  ? "I wrote and reviewed this consultation note, and approve it for clinical memory."
-                  : "I reviewed this draft and approve it for clinical memory."}
-              </span>
-            </label>
-            <div className={styles.reviewActions}>
-              {!draftSaved && (
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  disabled={saving !== null}
-                  onClick={saveDraft}
-                >
-                  {saving === "draft" ? "Saving…" : "Save draft"}
-                </button>
-              )}
-              <button
-                type="button"
-                className={styles.rejectButton}
-                disabled={saving !== null}
-                onClick={() => saveNote("rejected")}
-              >
-                Reject draft
-              </button>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                disabled={!reviewConfirmed || saving !== null}
-                onClick={() => saveNote("approved")}
-              >
-                {saving === "approve" ? "Saving…" : "Approve note"}
-              </button>
-            </div>
-          </>
+
+          </NoteReviewAccess>
         )}
 
         {state === "approved" && (

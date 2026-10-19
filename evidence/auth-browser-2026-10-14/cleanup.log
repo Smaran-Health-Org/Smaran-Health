@@ -1,0 +1,4 @@
+PASS: task-only Supabase project smaran-engineering-oct13 stopped with --no-backup; synthetic Auth users and DB destroyed.
+PASS: no listener remained on app port 56731.
+PASS: this attempt's four private credential/debug files removed.
+Prepared ignored source snapshot and credential-free recipe retained for retry.

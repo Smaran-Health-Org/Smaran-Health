@@ -5,8 +5,6 @@ import { getDashboardOverview } from "@/lib/db/dashboard";
 import { AppShell } from "@/components/app-shell";
 import { DoctorTodayList } from "@/components/doctor-today-list";
 import { PendingReviewList } from "@/components/pending-review-list";
-import { Icon } from "@/components/icons";
-import Link from "next/link";
 import styles from "@/components/clinical.module.css";
 
 function greeting(): string {
@@ -22,7 +20,7 @@ export default async function DashboardPage() {
   if (session.role !== "doctor") redirect("/desk");
 
   const [overview, clinicName] = await Promise.all([
-    getDashboardOverview(session.clinicId),
+    getDashboardOverview(session.clinicId, session.profileId),
     getClinicName(session.clinicId),
   ]);
 
@@ -45,7 +43,6 @@ export default async function DashboardPage() {
             </h1>
             <p>Your consultations, queue, and patient context in one place.</p>
           </div>
-          <Link href="/scheduler?workspace=clinical" className={styles.primaryButton}><Icon name="calendar" /> Open schedule</Link>
         </div>
 
         <div className={styles.doctorKpiGrid} aria-label="Today summary">

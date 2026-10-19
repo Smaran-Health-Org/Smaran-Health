@@ -121,6 +121,9 @@ export function ClinicDeskToday({ queue }: { queue: AppointmentQueue }) {
         aria-label={`${item.patientName}. Open operational patient view${waitingIndex !== undefined ? ". Use Alt plus Up or Down Arrow to change queue position." : ""}`}
         onClick={() => router.push(`/desk/patients/${item.patientId}`)}
         onKeyDown={(event) => {
+          // Nested controls own their keyboard events. Card shortcuts must not
+          // navigate away from a button activation or an in-progress edit.
+          if (event.target !== event.currentTarget) return;
           if (waitingIndex !== undefined && event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
             event.preventDefault();
             event.stopPropagation();
@@ -193,7 +196,7 @@ export function ClinicDeskToday({ queue }: { queue: AppointmentQueue }) {
         <div>{item.intakeStatus !== "submitted" ? <button className={styles.secondaryButton} disabled={busyId === item.appointmentId} onClick={() => void sendIntake(item)}>Send link</button> : null}<Link className={styles.secondaryButton} href={`/desk/patients/${item.patientId}`}>{item.documentStatus === "needs_review" ? "Review document" : "Open patient"}</Link></div>
       </li>)}</ul>
     </details> : null}
-    {queue.items.length > 0 ? <section className={styles.deskBoard} aria-label="Today’s patient journey board">
+    <section className={styles.deskBoard} aria-label="Today’s patient journey board">
       <div className={styles.deskBoardIntro}><div><p className={styles.eyebrow}>Today’s patient journey</p><h2>Move patients through the day</h2></div></div>
       <div className={styles.deskBoardColumns}>
         {renderBoardColumn("not-arrived-heading", "Expected", "Awaiting check-in", notArrived, "expected")}
@@ -201,7 +204,7 @@ export function ClinicDeskToday({ queue }: { queue: AppointmentQueue }) {
         {renderBoardColumn("with-doctor-heading", "With doctor", "Consultation in progress", withDoctor, "doctor")}
         {renderBoardColumn("completed-heading", "Completed", "Visit complete", completed, "completed")}
       </div>
-    </section> : null}
+    </section>
     {queue.items.length === 0 ? <div className={styles.panel}><div className={styles.emptyState}><strong>No visits today</strong><p>Add a walk-in when the first patient arrives.</p></div></div> : null}
   </div>;
 }

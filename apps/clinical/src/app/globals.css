@@ -33,8 +33,6 @@ body {
   color: var(--ink);
   font-family: "Aptos", "Segoe UI Variable Text", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
-  /* Keep the app edge-to-edge without any horizontal scroll on phones. */
-  overflow-x: hidden;
   /* Dynamic viewport height: tracks the mobile URL bar correctly. */
   min-height: 100dvh;
   -webkit-tap-highlight-color: transparent;
@@ -47,4 +45,8 @@ a {
 
 button {
   font-family: inherit;
+}
+
+@media (max-width: 767px) {
+  html { scroll-padding-bottom: calc(var(--mobile-navigation-space, 0px) + 16px); }
 }

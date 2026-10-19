@@ -73,11 +73,11 @@ INSERT INTO public.patient_portal_access_sessions (id, clinic_id, patient_id, or
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '99100000-0000-4000-8000-000000000003', true);
-SELECT set_config('test.s84_walk_in_one', (SELECT id::text FROM public.create_walk_in_with_consultation('99200000-0000-4000-8000-000000000003', '99100000-0000-4000-8000-000000000001', 's84-walk-in-one')), true);
+SELECT set_config('test.s84_walk_in_one', (SELECT id::text FROM public.create_walk_in_with_consultation(p_patient_id => '99200000-0000-4000-8000-000000000003', p_doctor_id => '99100000-0000-4000-8000-000000000001', p_idempotency_key => 's84-walk-in-one')), true);
 SELECT is(current_setting('test.s84_walk_in_one')::uuid, (SELECT id FROM public.appointments WHERE id = current_setting('test.s84_walk_in_one')::uuid), 'existing walk-in authority creates the first waiting Appointment');
-SELECT set_config('test.s84_walk_in_two', (SELECT id::text FROM public.create_walk_in_with_consultation('99200000-0000-4000-8000-000000000004', '99100000-0000-4000-8000-000000000001', 's84-walk-in-two')), true);
+SELECT set_config('test.s84_walk_in_two', (SELECT id::text FROM public.create_walk_in_with_consultation(p_patient_id => '99200000-0000-4000-8000-000000000004', p_doctor_id => '99100000-0000-4000-8000-000000000001', p_idempotency_key => 's84-walk-in-two')), true);
 SELECT is(current_setting('test.s84_walk_in_two')::uuid, (SELECT id FROM public.appointments WHERE id = current_setting('test.s84_walk_in_two')::uuid), 'existing walk-in authority creates the second waiting Appointment');
-SELECT is((SELECT id FROM public.create_walk_in_with_consultation('99200000-0000-4000-8000-000000000003', '99100000-0000-4000-8000-000000000001', 's84-walk-in-one')), current_setting('test.s84_walk_in_one')::uuid, 'walk-in idempotency replay returns the original Appointment');
+SELECT is((SELECT id FROM public.create_walk_in_with_consultation(p_patient_id => '99200000-0000-4000-8000-000000000003', p_doctor_id => '99100000-0000-4000-8000-000000000001', p_idempotency_key => 's84-walk-in-one')), current_setting('test.s84_walk_in_one')::uuid, 'walk-in idempotency replay returns the original Appointment');
 SELECT set_config('test.s84_queue_snapshot', (SELECT string_agg(id::text || ':' || queue_order::text, ',' ORDER BY id) FROM public.appointments WHERE id IN (current_setting('test.s84_walk_in_one')::uuid, current_setting('test.s84_walk_in_two')::uuid)), true);
 SELECT lives_ok($$ SELECT * FROM public.transition_appointment_queue((SELECT id FROM public.appointments WHERE idempotency_key = 's84-check-in-create'), 'mark_arrived') $$, 'Clinic Desk check-in remains owned by its existing authority');
 SELECT is((SELECT operational_status::text FROM public.consultations WHERE id = (SELECT consultation_id FROM public.appointments WHERE idempotency_key = 's84-check-in-create')), 'arrived', 'check-in changes only the existing Encounter operational state');

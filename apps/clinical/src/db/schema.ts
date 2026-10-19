@@ -1032,12 +1032,13 @@ export const transcripts = pgTable("transcripts", {
 
 export const clinicalNotes = pgTable("clinical_notes", {
   id: uuid("id").defaultRandom().primaryKey(),
-  consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "cascade" }).notNull(),
+  consultationId: uuid("consultation_id").references(() => consultations.id, { onDelete: "cascade" }).notNull().unique("clinical_notes_consultation_unique"),
   clinicId: uuid("clinic_id").references(() => clinics.id, { onDelete: "cascade" }).notNull(),
   doctorId: uuid("doctor_id").references(() => profiles.id).notNull(),
   status: clinicalNoteStatusEnum("status").notNull().default("ai_draft"),
   schemaVersion: text("schema_version").notNull().default("clinical-note-schema/v0.1.0"),
   content: jsonb("content").notNull(),
+  revision: integer("revision").notNull().default(1),
   editedAt: timestamp("edited_at", { withTimezone: true }),
   approvedAt: timestamp("approved_at", { withTimezone: true }),
   approvedBy: uuid("approved_by").references(() => profiles.id),

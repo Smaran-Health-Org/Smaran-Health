@@ -1,0 +1,12 @@
+supabase_db_smaran-clinical-local 0.0.0.0:54322->5432/tcp, [::]:54322->5432/tcp
+supabase_studio_smaran-clinical-local 0.0.0.0:54323->3000/tcp, [::]:54323->3000/tcp
+supabase_pg_meta_smaran-clinical-local 8080/tcp
+supabase_storage_smaran-clinical-local 5000/tcp
+supabase_rest_smaran-clinical-local 3000/tcp
+supabase_realtime_smaran-clinical-local 4000/tcp
+supabase_inbucket_smaran-clinical-local 0.0.0.0:54324->8025/tcp, [::]:54324->8025/tcp
+supabase_auth_smaran-clinical-local 9999/tcp
+supabase_kong_smaran-clinical-local 0.0.0.0:54321->8000/tcp, [::]:54321->8000/tcp
+supabase_vector_smaran-clinical-local
+supabase_analytics_smaran-clinical-local 0.0.0.0:54327->4000/tcp, [::]:54327->4000/tcp
+supabase_db_smaran-phase8-clean-0039 0.0.0.0:55422->5432/tcp, [::]:55422->5432/tcp

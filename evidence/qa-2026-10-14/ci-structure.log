@@ -1,0 +1,2 @@
+PASS: parsed workflow; dev-neelesh trigger, read-only permission, local SQL and journey commands, cleanup, no secret references.
+Cloud execution deferred: no push authorized.

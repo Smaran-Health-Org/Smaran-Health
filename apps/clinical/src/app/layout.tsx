@@ -7,14 +7,10 @@ export const metadata: Metadata = {
     "Smaran turns every consultation into structured clinical memory for follow-up care.",
 };
 
-// Prevent mobile browsers from auto-zooming (and "shrinking" the app) on input
-// focus, and expand into the iPhone notch/safe-area so the layout fits the
-// physical screen edge-to-edge.
+// Fit device width and safe areas while retaining browser zoom for accessibility.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   themeColor: "#f4f6f5",
 };

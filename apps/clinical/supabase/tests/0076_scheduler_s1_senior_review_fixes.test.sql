@@ -117,7 +117,7 @@ SELECT throws_ok(
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '76100000-0000-4000-8000-000000000001', true);
 SELECT lives_ok(
-  $$ SELECT * FROM public.create_walk_in_with_consultation('76200000-0000-4000-8000-000000000001', '76100000-0000-4000-8000-000000000001', 's1-review-walk-in-merge') $$,
+  $$ SELECT * FROM public.create_walk_in_with_consultation(p_patient_id => '76200000-0000-4000-8000-000000000001', p_doctor_id => '76100000-0000-4000-8000-000000000001', p_idempotency_key => 's1-review-walk-in-merge') $$,
   'receipt-backed walk-in is created before patient merge'
 );
 SELECT lives_ok(
@@ -125,7 +125,7 @@ SELECT lives_ok(
   'walk-in source patient can be merged into the canonical patient'
 );
 SELECT is(
-  (SELECT id FROM public.create_walk_in_with_consultation('76200000-0000-4000-8000-000000000001', '76100000-0000-4000-8000-000000000001', 's1-review-walk-in-merge')),
+  (SELECT id FROM public.create_walk_in_with_consultation(p_patient_id => '76200000-0000-4000-8000-000000000001', p_doctor_id => '76100000-0000-4000-8000-000000000001', p_idempotency_key => 's1-review-walk-in-merge')),
   (SELECT id FROM public.appointments WHERE idempotency_key = 's1-review-walk-in-merge'),
   'original receipt-backed walk-in retry returns the same Appointment after patient merge'
 );

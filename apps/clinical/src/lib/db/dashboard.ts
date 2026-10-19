@@ -43,7 +43,7 @@ export type DashboardOverview = {
  */
 const PENDING_REVIEW_LIMIT = 5;
 
-export async function getDashboardOverview(clinicId: string): Promise<DashboardOverview> {
+export async function getDashboardOverview(clinicId: string, doctorId: string): Promise<DashboardOverview> {
   const supabase = await createServerClient();
 
   const [todayQueue, patientCountResult, pendingRows] = await Promise.all([
@@ -59,7 +59,7 @@ export async function getDashboardOverview(clinicId: string): Promise<DashboardO
     // optional backlog panel must not be able to blank the whole surface. Logged
     // rather than swallowed, because a silent [] is indistinguishable from
     // "nothing pending" — the exact trap the background draft sweep fell into.
-    getPendingConsultations(clinicId, PENDING_REVIEW_LIMIT + 1).catch((error) => {
+    getPendingConsultations(clinicId, doctorId, PENDING_REVIEW_LIMIT + 1).catch((error) => {
       logWarn("dashboard.pending_review_unavailable", {
         message: error instanceof Error ? error.message : "unknown",
       });

@@ -166,12 +166,14 @@ export default async function ConsultationPage({
   return (
     <ConsultationWorkflow
       consultationId={id}
+      canReviewNote={consultation.doctorId === session.profileId}
       patient={workflowPatient}
       doctorName={session.fullName}
       clinicName={clinicName}
       patientCount={patientList.total}
       timeline={workflowTimeline}
       initialNote={initialNote}
+      initialNoteRevision={note?.revision ?? null}
       initialStatus={consultation.status}
       initialTranscript={transcript?.rawText ?? null}
       memory={memory}

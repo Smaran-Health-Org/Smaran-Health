@@ -1,0 +1,3871 @@
+[
+  {
+    "surface": "doctor",
+    "headings": [
+      {
+        "rect": {
+          "bottom": 203.328125,
+          "height": 39,
+          "left": 16,
+          "right": 304,
+          "top": 164.328125,
+          "width": 288,
+          "x": 16,
+          "y": 164.328125
+        },
+        "text": "Good evening, Synthetic"
+      },
+      {
+        "rect": {
+          "bottom": 701.8046875,
+          "height": 30,
+          "left": 33,
+          "right": 187.5625,
+          "top": 671.8046875,
+          "width": 154.5625,
+          "x": 33,
+          "y": 671.8046875
+        },
+        "text": "Patient sequence"
+      }
+    ],
+    "overflows": [],
+    "scrollWidth": 320,
+    "smallControls": [],
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "doctor",
+    "headings": [
+      {
+        "rect": {
+          "bottom": 203.328125,
+          "height": 39,
+          "left": 16,
+          "right": 344,
+          "top": 164.328125,
+          "width": 328,
+          "x": 16,
+          "y": 164.328125
+        },
+        "text": "Good evening, Synthetic"
+      },
+      {
+        "rect": {
+          "bottom": 538.8046875,
+          "height": 30,
+          "left": 33,
+          "right": 187.5625,
+          "top": 508.8046875,
+          "width": 154.5625,
+          "x": 33,
+          "y": 508.8046875
+        },
+        "text": "Patient sequence"
+      }
+    ],
+    "overflows": [],
+    "scrollWidth": 360,
+    "smallControls": [],
+    "viewport": {
+      "height": 800,
+      "width": 360
+    }
+  },
+  {
+    "surface": "doctor",
+    "headings": [
+      {
+        "rect": {
+          "bottom": 155.7734375,
+          "height": 42,
+          "left": 110,
+          "right": 473.6328125,
+          "top": 113.7734375,
+          "width": 363.6328125,
+          "x": 110,
+          "y": 113.7734375
+        },
+        "text": "Good evening, Synthetic"
+      },
+      {
+        "rect": {
+          "bottom": 474.265625,
+          "height": 25.921875,
+          "left": 131,
+          "right": 264.546875,
+          "top": 448.34375,
+          "width": 133.546875,
+          "x": 131,
+          "y": 448.34375
+        },
+        "text": "Patient sequence"
+      }
+    ],
+    "overflows": [],
+    "scrollWidth": 768,
+    "smallControls": [
+      {
+        "height": 36,
+        "text": "SmaranClinical workspace",
+        "width": 36
+      },
+      {
+        "height": 42,
+        "text": "Today",
+        "width": 45
+      },
+      {
+        "height": 42,
+        "text": "Scheduler",
+        "width": 45
+      },
+      {
+        "height": 27.28125,
+        "text": "Reception",
+        "width": 79.6875
+      },
+      {
+        "height": 27.28125,
+        "text": "Doctor",
+        "width": 61.125
+      },
+      {
+        "height": 36,
+        "text": "SB",
+        "width": 36
+      }
+    ],
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "doctor",
+    "headings": [
+      {
+        "rect": {
+          "bottom": 155.7734375,
+          "height": 42,
+          "left": 110,
+          "right": 473.6328125,
+          "top": 113.7734375,
+          "width": 363.6328125,
+          "x": 110,
+          "y": 113.7734375
+        },
+        "text": "Good evening, Synthetic"
+      },
+      {
+        "rect": {
+          "bottom": 372.265625,
+          "height": 25.921875,
+          "left": 131,
+          "right": 264.546875,
+          "top": 346.34375,
+          "width": 133.546875,
+          "x": 131,
+          "y": 346.34375
+        },
+        "text": "Patient sequence"
+      }
+    ],
+    "overflows": [],
+    "scrollWidth": 1024,
+    "smallControls": [
+      {
+        "height": 36,
+        "text": "SmaranClinical workspace",
+        "width": 36
+      },
+      {
+        "height": 42,
+        "text": "Today",
+        "width": 45
+      },
+      {
+        "height": 42,
+        "text": "Scheduler",
+        "width": 45
+      },
+      {
+        "height": 27.28125,
+        "text": "Reception",
+        "width": 79.6875
+      },
+      {
+        "height": 27.28125,
+        "text": "Doctor",
+        "width": 61.125
+      },
+      {
+        "height": 36,
+        "text": "SB",
+        "width": 36
+      }
+    ],
+    "viewport": {
+      "height": 768,
+      "width": 1024
+    }
+  },
+  {
+    "surface": "doctor",
+    "overflows": [],
+    "scrollWidth": 390,
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "doctor",
+    "overflows": [],
+    "scrollWidth": 1280,
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  },
+  {
+    "surface": "doctor",
+    "overflows": [],
+    "scrollWidth": 1440,
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "surface": "doctor",
+    "overflows": [],
+    "scrollWidth": 844,
+    "viewport": {
+      "height": 390,
+      "width": 844
+    }
+  },
+  {
+    "surface": "booking",
+    "bodyOverflow": "hidden",
+    "book": {
+      "hit": true,
+      "rect": {
+        "bottom": 543.1796875,
+        "height": 44,
+        "left": 17,
+        "right": 303,
+        "top": 499.1796875,
+        "width": 286,
+        "x": 17,
+        "y": 499.1796875
+      }
+    },
+    "modal": "true",
+    "navDisplay": "none",
+    "overflows": [],
+    "panel": {
+      "bottom": 568,
+      "height": 568,
+      "left": 0,
+      "right": 320,
+      "top": 0,
+      "width": 320,
+      "x": 0,
+      "y": 0
+    },
+    "scrollWidth": 320,
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "booking",
+    "bodyOverflow": "hidden",
+    "book": {
+      "hit": true,
+      "rect": {
+        "bottom": 774.9765625,
+        "height": 44,
+        "left": 17,
+        "right": 343,
+        "top": 730.9765625,
+        "width": 326,
+        "x": 17,
+        "y": 730.9765625
+      }
+    },
+    "modal": "true",
+    "navDisplay": "none",
+    "overflows": [],
+    "panel": {
+      "bottom": 800,
+      "height": 800,
+      "left": 0,
+      "right": 360,
+      "top": 0,
+      "width": 360,
+      "x": 0,
+      "y": 0
+    },
+    "scrollWidth": 360,
+    "viewport": {
+      "height": 800,
+      "width": 360
+    }
+  },
+  {
+    "surface": "booking",
+    "bodyOverflow": "hidden",
+    "book": {
+      "hit": true,
+      "rect": {
+        "bottom": 819.1796875,
+        "height": 44,
+        "left": 17,
+        "right": 373,
+        "top": 775.1796875,
+        "width": 356,
+        "x": 17,
+        "y": 775.1796875
+      }
+    },
+    "modal": "true",
+    "navDisplay": "none",
+    "overflows": [],
+    "panel": {
+      "bottom": 844,
+      "height": 844,
+      "left": 0,
+      "right": 390,
+      "top": 0,
+      "width": 390,
+      "x": 0,
+      "y": 0
+    },
+    "scrollWidth": 390,
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "booking",
+    "bodyOverflow": "hidden",
+    "book": {
+      "hit": true,
+      "rect": {
+        "bottom": 993.1796875,
+        "height": 44,
+        "left": 391,
+        "right": 741,
+        "top": 949.1796875,
+        "width": 350,
+        "x": 391,
+        "y": 949.1796875
+      }
+    },
+    "modal": "true",
+    "navDisplay": "none",
+    "overflows": [],
+    "panel": {
+      "bottom": 1012,
+      "height": 1000,
+      "left": 376,
+      "right": 756,
+      "top": 12,
+      "width": 380,
+      "x": 376,
+      "y": 12
+    },
+    "scrollWidth": 768,
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "booking",
+    "bodyOverflow": "hidden",
+    "book": {
+      "hit": true,
+      "rect": {
+        "bottom": 737.1796875,
+        "height": 44,
+        "left": 647,
+        "right": 997,
+        "top": 693.1796875,
+        "width": 350,
+        "x": 647,
+        "y": 693.1796875
+      }
+    },
+    "modal": "true",
+    "navDisplay": "none",
+    "overflows": [],
+    "panel": {
+      "bottom": 756,
+      "height": 744,
+      "left": 632,
+      "right": 1012,
+      "top": 12,
+      "width": 380,
+      "x": 632,
+      "y": 12
+    },
+    "scrollWidth": 1024,
+    "viewport": {
+      "height": 768,
+      "width": 1024
+    }
+  },
+  {
+    "surface": "booking",
+    "bodyOverflow": "visible",
+    "book": {
+      "hit": false,
+      "rect": {
+        "bottom": 822.515625,
+        "height": 44,
+        "left": 917,
+        "right": 1237,
+        "top": 778.515625,
+        "width": 320,
+        "x": 917,
+        "y": 778.515625
+      }
+    },
+    "modal": null,
+    "navDisplay": "none",
+    "overflows": [],
+    "panel": {
+      "bottom": 841.234375,
+      "height": 518.3984375,
+      "left": 902,
+      "right": 1252,
+      "top": 322.8359375,
+      "width": 350,
+      "x": 902,
+      "y": 322.8359375
+    },
+    "scrollWidth": 1280,
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  },
+  {
+    "surface": "booking",
+    "bodyOverflow": "visible",
+    "book": {
+      "hit": true,
+      "rect": {
+        "bottom": 841.015625,
+        "height": 44,
+        "left": 1077,
+        "right": 1397,
+        "top": 797.015625,
+        "width": 320,
+        "x": 1077,
+        "y": 797.015625
+      }
+    },
+    "modal": null,
+    "navDisplay": "none",
+    "overflows": [],
+    "panel": {
+      "bottom": 859.8359375,
+      "height": 648,
+      "left": 1062,
+      "right": 1412,
+      "top": 211.8359375,
+      "width": 350,
+      "x": 1062,
+      "y": 211.8359375
+    },
+    "scrollWidth": 1440,
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "surface": "booking",
+    "bodyOverflow": "hidden",
+    "book": {
+      "hit": true,
+      "rect": {
+        "bottom": 359.1796875,
+        "height": 44,
+        "left": 467,
+        "right": 817,
+        "top": 315.1796875,
+        "width": 350,
+        "x": 467,
+        "y": 315.1796875
+      }
+    },
+    "modal": "true",
+    "navDisplay": "none",
+    "overflows": [],
+    "panel": {
+      "bottom": 378,
+      "height": 366,
+      "left": 452,
+      "right": 832,
+      "top": 12,
+      "width": 380,
+      "x": 452,
+      "y": 12
+    },
+    "scrollWidth": 844,
+    "viewport": {
+      "height": 390,
+      "width": 844
+    }
+  },
+  {
+    "surface": "exceptions20",
+    "exceptions": 20,
+    "overflows": [],
+    "scrollWidth": 320,
+    "smallControls": [],
+    "stages": [
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 8381.0625,
+          "height": 2503.5703125,
+          "left": 31,
+          "right": 289,
+          "top": 5877.4921875,
+          "width": 258,
+          "x": 31,
+          "y": 5877.4921875
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 10482.6328125,
+          "height": 2091.5703125,
+          "left": 31,
+          "right": 289,
+          "top": 8391.0625,
+          "width": 258,
+          "x": 31,
+          "y": 8391.0625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "6",
+        "rect": {
+          "bottom": 12296.765625,
+          "height": 1804.1328125,
+          "left": 31,
+          "right": 289,
+          "top": 10492.6328125,
+          "width": 258,
+          "x": 31,
+          "y": 10492.6328125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 12438.46875,
+          "height": 131.703125,
+          "left": 31,
+          "right": 289,
+          "top": 12306.765625,
+          "width": 258,
+          "x": 31,
+          "y": 12306.765625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "exceptions20",
+    "exceptions": 20,
+    "overflows": [],
+    "scrollWidth": 360,
+    "smallControls": [],
+    "stages": [
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 7130.0625,
+          "height": 2479.5703125,
+          "left": 31,
+          "right": 329,
+          "top": 4650.4921875,
+          "width": 298,
+          "x": 31,
+          "y": 4650.4921875
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 9231.6328125,
+          "height": 2091.5703125,
+          "left": 31,
+          "right": 329,
+          "top": 7140.0625,
+          "width": 298,
+          "x": 31,
+          "y": 7140.0625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "6",
+        "rect": {
+          "bottom": 11045.765625,
+          "height": 1804.1328125,
+          "left": 31,
+          "right": 329,
+          "top": 9241.6328125,
+          "width": 298,
+          "x": 31,
+          "y": 9241.6328125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 11187.46875,
+          "height": 131.703125,
+          "left": 31,
+          "right": 329,
+          "top": 11055.765625,
+          "width": 298,
+          "x": 31,
+          "y": 11055.765625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 800,
+      "width": 360
+    }
+  },
+  {
+    "surface": "exceptions20",
+    "exceptions": 20,
+    "overflows": [],
+    "scrollWidth": 390,
+    "smallControls": [],
+    "stages": [
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 6586.5625,
+          "height": 2479.5703125,
+          "left": 31,
+          "right": 359,
+          "top": 4106.9921875,
+          "width": 328,
+          "x": 31,
+          "y": 4106.9921875
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 8688.1328125,
+          "height": 2091.5703125,
+          "left": 31,
+          "right": 359,
+          "top": 6596.5625,
+          "width": 328,
+          "x": 31,
+          "y": 6596.5625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "6",
+        "rect": {
+          "bottom": 10502.265625,
+          "height": 1804.1328125,
+          "left": 31,
+          "right": 359,
+          "top": 8698.1328125,
+          "width": 328,
+          "x": 31,
+          "y": 8698.1328125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 10643.96875,
+          "height": 131.703125,
+          "left": 31,
+          "right": 359,
+          "top": 10512.265625,
+          "width": 328,
+          "x": 31,
+          "y": 10512.265625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "exceptions20",
+    "exceptions": 20,
+    "overflows": [],
+    "scrollWidth": 768,
+    "smallControls": [],
+    "stages": [
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 4385.1328125,
+          "height": 2108.53125,
+          "left": 125,
+          "right": 420,
+          "top": 2276.6015625,
+          "width": 295,
+          "x": 125,
+          "y": 2276.6015625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 4385.1328125,
+          "height": 2108.53125,
+          "left": 430,
+          "right": 725,
+          "top": 2276.6015625,
+          "width": 295,
+          "x": 430,
+          "y": 2276.6015625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "6",
+        "rect": {
+          "bottom": 5887.4140625,
+          "height": 1492.28125,
+          "left": 125,
+          "right": 420,
+          "top": 4395.1328125,
+          "width": 295,
+          "x": 125,
+          "y": 4395.1328125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 5887.4140625,
+          "height": 1492.28125,
+          "left": 430,
+          "right": 725,
+          "top": 4395.1328125,
+          "width": 295,
+          "x": 430,
+          "y": 4395.1328125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "exceptions20",
+    "exceptions": 20,
+    "overflows": [],
+    "scrollWidth": 1024,
+    "smallControls": [],
+    "stages": [
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 4025.8515625,
+          "height": 2088.1328125,
+          "left": 125,
+          "right": 548,
+          "top": 1937.71875,
+          "width": 423,
+          "x": 125,
+          "y": 1937.71875
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 4025.8515625,
+          "height": 2088.1328125,
+          "left": 558,
+          "right": 981,
+          "top": 1937.71875,
+          "width": 423,
+          "x": 558,
+          "y": 1937.71875
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "6",
+        "rect": {
+          "bottom": 5528.1328125,
+          "height": 1492.28125,
+          "left": 125,
+          "right": 548,
+          "top": 4035.8515625,
+          "width": 423,
+          "x": 125,
+          "y": 4035.8515625
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 5528.1328125,
+          "height": 1492.28125,
+          "left": 558,
+          "right": 981,
+          "top": 4035.8515625,
+          "width": 423,
+          "x": 558,
+          "y": 4035.8515625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 768,
+      "width": 1024
+    }
+  },
+  {
+    "surface": "exceptions20",
+    "exceptions": 20,
+    "overflows": [],
+    "scrollWidth": 1280,
+    "smallControls": [
+      {
+        "height": 42,
+        "text": "Today"
+      },
+      {
+        "height": 42,
+        "text": "Patients20"
+      },
+      {
+        "height": 42,
+        "text": "Scheduler"
+      },
+      {
+        "height": 27.28125,
+        "text": "Reception"
+      },
+      {
+        "height": 27.28125,
+        "text": "Doctor"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      }
+    ],
+    "stages": [
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 3836.25,
+          "height": 1925.9296875,
+          "left": 307,
+          "right": 610.328125,
+          "top": 1910.3203125,
+          "width": 303.328125,
+          "x": 307,
+          "y": 1910.3203125
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 3836.25,
+          "height": 1925.9296875,
+          "left": 620.328125,
+          "right": 923.6640625,
+          "top": 1910.3203125,
+          "width": 303.3359375,
+          "x": 620.328125,
+          "y": 1910.3203125
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "6",
+        "rect": {
+          "bottom": 3836.25,
+          "height": 1925.9296875,
+          "left": 933.6640625,
+          "right": 1237,
+          "top": 1910.3203125,
+          "width": 303.3359375,
+          "x": 933.6640625,
+          "y": 1910.3203125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 3960.1796875,
+          "height": 113.9296875,
+          "left": 307,
+          "right": 610.328125,
+          "top": 3846.25,
+          "width": 303.328125,
+          "x": 307,
+          "y": 3846.25
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  },
+  {
+    "surface": "exceptions20",
+    "exceptions": 20,
+    "overflows": [],
+    "scrollWidth": 1440,
+    "smallControls": [
+      {
+        "height": 42,
+        "text": "Today"
+      },
+      {
+        "height": 42,
+        "text": "Patients20"
+      },
+      {
+        "height": 42,
+        "text": "Scheduler"
+      },
+      {
+        "height": 27.28125,
+        "text": "Reception"
+      },
+      {
+        "height": 27.28125,
+        "text": "Doctor"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Send link"
+      },
+      {
+        "height": 42.4609375,
+        "text": "Review document"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 34,
+        "text": "Check in →"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 32,
+        "text": ""
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      },
+      {
+        "height": 27.9140625,
+        "text": "Mark Priority"
+      }
+    ],
+    "stages": [
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 3970.546875,
+          "height": 2068.71875,
+          "left": 307,
+          "right": 572,
+          "top": 1901.828125,
+          "width": 265,
+          "x": 307,
+          "y": 1901.828125
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 3970.546875,
+          "height": 2068.71875,
+          "left": 582,
+          "right": 847,
+          "top": 1901.828125,
+          "width": 265,
+          "x": 582,
+          "y": 1901.828125
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "6",
+        "rect": {
+          "bottom": 3970.546875,
+          "height": 2068.71875,
+          "left": 857,
+          "right": 1122,
+          "top": 1901.828125,
+          "width": 265,
+          "x": 857,
+          "y": 1901.828125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 3970.546875,
+          "height": 2068.71875,
+          "left": 1132,
+          "right": 1397,
+          "top": 1901.828125,
+          "width": 265,
+          "x": 1132,
+          "y": 1901.828125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "surface": "exceptions20",
+    "exceptions": 20,
+    "overflows": [],
+    "scrollWidth": 844,
+    "smallControls": [],
+    "stages": [
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 4366.8984375,
+          "height": 2108.53125,
+          "left": 125,
+          "right": 458,
+          "top": 2258.3671875,
+          "width": 333,
+          "x": 125,
+          "y": 2258.3671875
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "7",
+        "rect": {
+          "bottom": 4366.8984375,
+          "height": 2108.53125,
+          "left": 468,
+          "right": 801,
+          "top": 2258.3671875,
+          "width": 333,
+          "x": 468,
+          "y": 2258.3671875
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "6",
+        "rect": {
+          "bottom": 5869.1796875,
+          "height": 1492.28125,
+          "left": 125,
+          "right": 458,
+          "top": 4376.8984375,
+          "width": 333,
+          "x": 125,
+          "y": 4376.8984375
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 5869.1796875,
+          "height": 1492.28125,
+          "left": 468,
+          "right": 801,
+          "top": 4376.8984375,
+          "width": 333,
+          "x": 468,
+          "y": 4376.8984375
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 390,
+      "width": 844
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 0,
+    "overflows": [],
+    "scrollWidth": 320,
+    "stages": [
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 917.1015625,
+          "height": 131.703125,
+          "left": 31,
+          "right": 289,
+          "top": 785.3984375,
+          "width": 258,
+          "x": 31,
+          "y": 785.3984375
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 1058.8046875,
+          "height": 131.703125,
+          "left": 31,
+          "right": 289,
+          "top": 927.1015625,
+          "width": 258,
+          "x": 31,
+          "y": 927.1015625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 1200.5078125,
+          "height": 131.703125,
+          "left": 31,
+          "right": 289,
+          "top": 1068.8046875,
+          "width": 258,
+          "x": 31,
+          "y": 1068.8046875
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 1342.2109375,
+          "height": 131.703125,
+          "left": 31,
+          "right": 289,
+          "top": 1210.5078125,
+          "width": 258,
+          "x": 31,
+          "y": 1210.5078125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 0,
+    "overflows": [],
+    "scrollWidth": 360,
+    "stages": [
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 730.1015625,
+          "height": 131.703125,
+          "left": 31,
+          "right": 329,
+          "top": 598.3984375,
+          "width": 298,
+          "x": 31,
+          "y": 598.3984375
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 871.8046875,
+          "height": 131.703125,
+          "left": 31,
+          "right": 329,
+          "top": 740.1015625,
+          "width": 298,
+          "x": 31,
+          "y": 740.1015625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 1013.5078125,
+          "height": 131.703125,
+          "left": 31,
+          "right": 329,
+          "top": 881.8046875,
+          "width": 298,
+          "x": 31,
+          "y": 881.8046875
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 1155.2109375,
+          "height": 131.703125,
+          "left": 31,
+          "right": 329,
+          "top": 1023.5078125,
+          "width": 298,
+          "x": 31,
+          "y": 1023.5078125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 800,
+      "width": 360
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 0,
+    "overflows": [],
+    "scrollWidth": 390,
+    "stages": [
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 666.6015625,
+          "height": 131.703125,
+          "left": 31,
+          "right": 359,
+          "top": 534.8984375,
+          "width": 328,
+          "x": 31,
+          "y": 534.8984375
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 808.3046875,
+          "height": 131.703125,
+          "left": 31,
+          "right": 359,
+          "top": 676.6015625,
+          "width": 328,
+          "x": 31,
+          "y": 676.6015625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 950.0078125,
+          "height": 131.703125,
+          "left": 31,
+          "right": 359,
+          "top": 818.3046875,
+          "width": 328,
+          "x": 31,
+          "y": 818.3046875
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 1091.7109375,
+          "height": 131.703125,
+          "left": 31,
+          "right": 359,
+          "top": 960.0078125,
+          "width": 328,
+          "x": 31,
+          "y": 960.0078125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 0,
+    "overflows": [],
+    "scrollWidth": 768,
+    "stages": [
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 633.828125,
+          "height": 113.9296875,
+          "left": 125,
+          "right": 420,
+          "top": 519.8984375,
+          "width": 295,
+          "x": 125,
+          "y": 519.8984375
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 633.828125,
+          "height": 113.9296875,
+          "left": 430,
+          "right": 725,
+          "top": 519.8984375,
+          "width": 295,
+          "x": 430,
+          "y": 519.8984375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 757.7578125,
+          "height": 113.9296875,
+          "left": 125,
+          "right": 420,
+          "top": 643.828125,
+          "width": 295,
+          "x": 125,
+          "y": 643.828125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 757.7578125,
+          "height": 113.9296875,
+          "left": 430,
+          "right": 725,
+          "top": 643.828125,
+          "width": 295,
+          "x": 430,
+          "y": 643.828125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 0,
+    "overflows": [],
+    "scrollWidth": 1024,
+    "stages": [
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 531.828125,
+          "height": 113.9296875,
+          "left": 125,
+          "right": 548,
+          "top": 417.8984375,
+          "width": 423,
+          "x": 125,
+          "y": 417.8984375
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 531.828125,
+          "height": 113.9296875,
+          "left": 558,
+          "right": 981,
+          "top": 417.8984375,
+          "width": 423,
+          "x": 558,
+          "y": 417.8984375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 655.7578125,
+          "height": 113.9296875,
+          "left": 125,
+          "right": 548,
+          "top": 541.828125,
+          "width": 423,
+          "x": 125,
+          "y": 541.828125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 655.7578125,
+          "height": 113.9296875,
+          "left": 558,
+          "right": 981,
+          "top": 541.828125,
+          "width": 423,
+          "x": 558,
+          "y": 541.828125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 768,
+      "width": 1024
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 0,
+    "overflows": [],
+    "scrollWidth": 1280,
+    "stages": [
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 533.671875,
+          "height": 113.9296875,
+          "left": 307,
+          "right": 610.328125,
+          "top": 419.7421875,
+          "width": 303.328125,
+          "x": 307,
+          "y": 419.7421875
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 533.671875,
+          "height": 113.9296875,
+          "left": 620.328125,
+          "right": 923.6640625,
+          "top": 419.7421875,
+          "width": 303.3359375,
+          "x": 620.328125,
+          "y": 419.7421875
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 533.671875,
+          "height": 113.9296875,
+          "left": 933.6640625,
+          "right": 1237,
+          "top": 419.7421875,
+          "width": 303.3359375,
+          "x": 933.6640625,
+          "y": 419.7421875
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 657.6015625,
+          "height": 113.9296875,
+          "left": 307,
+          "right": 610.328125,
+          "top": 543.671875,
+          "width": 303.328125,
+          "x": 307,
+          "y": 543.671875
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 0,
+    "overflows": [],
+    "scrollWidth": 1440,
+    "stages": [
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 538.2265625,
+          "height": 113.9296875,
+          "left": 307,
+          "right": 572,
+          "top": 424.296875,
+          "width": 265,
+          "x": 307,
+          "y": 424.296875
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 538.2265625,
+          "height": 113.9296875,
+          "left": 582,
+          "right": 847,
+          "top": 424.296875,
+          "width": 265,
+          "x": 582,
+          "y": 424.296875
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 538.2265625,
+          "height": 113.9296875,
+          "left": 857,
+          "right": 1122,
+          "top": 424.296875,
+          "width": 265,
+          "x": 857,
+          "y": 424.296875
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 538.2265625,
+          "height": 113.9296875,
+          "left": 1132,
+          "right": 1397,
+          "top": 424.296875,
+          "width": 265,
+          "x": 1132,
+          "y": 424.296875
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 0,
+    "overflows": [],
+    "scrollWidth": 844,
+    "stages": [
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 633.828125,
+          "height": 113.9296875,
+          "left": 125,
+          "right": 458,
+          "top": 519.8984375,
+          "width": 333,
+          "x": 125,
+          "y": 519.8984375
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 633.828125,
+          "height": 113.9296875,
+          "left": 468,
+          "right": 801,
+          "top": 519.8984375,
+          "width": 333,
+          "x": 468,
+          "y": 519.8984375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 757.7578125,
+          "height": 113.9296875,
+          "left": 125,
+          "right": 458,
+          "top": 643.828125,
+          "width": 333,
+          "x": 125,
+          "y": 643.828125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "0",
+        "rect": {
+          "bottom": 757.7578125,
+          "height": 113.9296875,
+          "left": 468,
+          "right": 801,
+          "top": 643.828125,
+          "width": 333,
+          "x": 468,
+          "y": 643.828125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 390,
+      "width": 844
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 1,
+    "overflows": [],
+    "scrollWidth": 320,
+    "stages": [
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1030.9609375,
+          "height": 466.9453125,
+          "left": 31,
+          "right": 289,
+          "top": 564.015625,
+          "width": 258,
+          "x": 31,
+          "y": 564.015625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1407.90625,
+          "height": 366.9453125,
+          "left": 31,
+          "right": 289,
+          "top": 1040.9609375,
+          "width": 258,
+          "x": 31,
+          "y": 1040.9609375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1784.8515625,
+          "height": 366.9453125,
+          "left": 31,
+          "right": 289,
+          "top": 1417.90625,
+          "width": 258,
+          "x": 31,
+          "y": 1417.90625
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 2144.1953125,
+          "height": 349.34375,
+          "left": 31,
+          "right": 289,
+          "top": 1794.8515625,
+          "width": 258,
+          "x": 31,
+          "y": 1794.8515625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 1,
+    "overflows": [],
+    "scrollWidth": 360,
+    "stages": [
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 819.9609375,
+          "height": 442.9453125,
+          "left": 31,
+          "right": 329,
+          "top": 377.015625,
+          "width": 298,
+          "x": 31,
+          "y": 377.015625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1196.90625,
+          "height": 366.9453125,
+          "left": 31,
+          "right": 329,
+          "top": 829.9609375,
+          "width": 298,
+          "x": 31,
+          "y": 829.9609375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1573.8515625,
+          "height": 366.9453125,
+          "left": 31,
+          "right": 329,
+          "top": 1206.90625,
+          "width": 298,
+          "x": 31,
+          "y": 1206.90625
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1933.1953125,
+          "height": 349.34375,
+          "left": 31,
+          "right": 329,
+          "top": 1583.8515625,
+          "width": 298,
+          "x": 31,
+          "y": 1583.8515625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 800,
+      "width": 360
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 1,
+    "overflows": [],
+    "scrollWidth": 390,
+    "stages": [
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 756.4609375,
+          "height": 442.9453125,
+          "left": 31,
+          "right": 359,
+          "top": 313.515625,
+          "width": 328,
+          "x": 31,
+          "y": 313.515625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1133.40625,
+          "height": 366.9453125,
+          "left": 31,
+          "right": 359,
+          "top": 766.4609375,
+          "width": 328,
+          "x": 31,
+          "y": 766.4609375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1510.3515625,
+          "height": 366.9453125,
+          "left": 31,
+          "right": 359,
+          "top": 1143.40625,
+          "width": 328,
+          "x": 31,
+          "y": 1143.40625
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1869.6953125,
+          "height": 349.34375,
+          "left": 31,
+          "right": 359,
+          "top": 1520.3515625,
+          "width": 328,
+          "x": 31,
+          "y": 1520.3515625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 1,
+    "overflows": [],
+    "scrollWidth": 768,
+    "stages": [
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 710.96875,
+          "height": 376.453125,
+          "left": 125,
+          "right": 420,
+          "top": 334.515625,
+          "width": 295,
+          "x": 125,
+          "y": 334.515625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 710.96875,
+          "height": 376.453125,
+          "left": 430,
+          "right": 725,
+          "top": 334.515625,
+          "width": 295,
+          "x": 430,
+          "y": 334.515625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1025.828125,
+          "height": 304.859375,
+          "left": 125,
+          "right": 420,
+          "top": 720.96875,
+          "width": 295,
+          "x": 125,
+          "y": 720.96875
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1025.828125,
+          "height": 304.859375,
+          "left": 430,
+          "right": 725,
+          "top": 720.96875,
+          "width": 295,
+          "x": 430,
+          "y": 720.96875
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 1,
+    "overflows": [],
+    "scrollWidth": 1024,
+    "stages": [
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 588.5703125,
+          "height": 356.0546875,
+          "left": 125,
+          "right": 548,
+          "top": 232.515625,
+          "width": 423,
+          "x": 125,
+          "y": 232.515625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 588.5703125,
+          "height": 356.0546875,
+          "left": 558,
+          "right": 981,
+          "top": 232.515625,
+          "width": 423,
+          "x": 558,
+          "y": 232.515625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 903.4296875,
+          "height": 304.859375,
+          "left": 125,
+          "right": 548,
+          "top": 598.5703125,
+          "width": 423,
+          "x": 125,
+          "y": 598.5703125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 903.4296875,
+          "height": 304.859375,
+          "left": 558,
+          "right": 981,
+          "top": 598.5703125,
+          "width": 423,
+          "x": 558,
+          "y": 598.5703125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 768,
+      "width": 1024
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 1,
+    "overflows": [],
+    "scrollWidth": 1280,
+    "stages": [
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 584.7265625,
+          "height": 350.3671875,
+          "left": 307,
+          "right": 610.328125,
+          "top": 234.359375,
+          "width": 303.328125,
+          "x": 307,
+          "y": 234.359375
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 584.7265625,
+          "height": 350.3671875,
+          "left": 620.328125,
+          "right": 923.6640625,
+          "top": 234.359375,
+          "width": 303.3359375,
+          "x": 620.328125,
+          "y": 234.359375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 584.7265625,
+          "height": 350.3671875,
+          "left": 933.6640625,
+          "right": 1237,
+          "top": 234.359375,
+          "width": 303.3359375,
+          "x": 933.6640625,
+          "y": 234.359375
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 881.984375,
+          "height": 287.2578125,
+          "left": 307,
+          "right": 610.328125,
+          "top": 594.7265625,
+          "width": 303.328125,
+          "x": 307,
+          "y": 594.7265625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 1,
+    "overflows": [],
+    "scrollWidth": 1440,
+    "stages": [
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 845.1796875,
+          "height": 370.765625,
+          "left": 307,
+          "right": 572,
+          "top": 474.4140625,
+          "width": 265,
+          "x": 307,
+          "y": 474.4140625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 845.1796875,
+          "height": 370.765625,
+          "left": 582,
+          "right": 847,
+          "top": 474.4140625,
+          "width": 265,
+          "x": 582,
+          "y": 474.4140625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 845.1796875,
+          "height": 370.765625,
+          "left": 857,
+          "right": 1122,
+          "top": 474.4140625,
+          "width": 265,
+          "x": 857,
+          "y": 474.4140625
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 845.1796875,
+          "height": 370.765625,
+          "left": 1132,
+          "right": 1397,
+          "top": 474.4140625,
+          "width": 265,
+          "x": 1132,
+          "y": 474.4140625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 1,
+    "overflows": [],
+    "scrollWidth": 844,
+    "stages": [
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 946.46875,
+          "height": 376.453125,
+          "left": 125,
+          "right": 458,
+          "top": 570.015625,
+          "width": 333,
+          "x": 125,
+          "y": 570.015625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 946.46875,
+          "height": 376.453125,
+          "left": 468,
+          "right": 801,
+          "top": 570.015625,
+          "width": 333,
+          "x": 468,
+          "y": 570.015625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1261.328125,
+          "height": 304.859375,
+          "left": 125,
+          "right": 458,
+          "top": 956.46875,
+          "width": 333,
+          "x": 125,
+          "y": 956.46875
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "1",
+        "rect": {
+          "bottom": 1261.328125,
+          "height": 304.859375,
+          "left": 468,
+          "right": 801,
+          "top": 956.46875,
+          "width": 333,
+          "x": 468,
+          "y": 956.46875
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 390,
+      "width": 844
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 20,
+    "overflows": [],
+    "scrollWidth": 320,
+    "stages": [
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 7480.2734375,
+          "height": 6916.2578125,
+          "left": 31,
+          "right": 289,
+          "top": 564.015625,
+          "width": 258,
+          "x": 31,
+          "y": 564.015625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 13318.53125,
+          "height": 5828.2578125,
+          "left": 31,
+          "right": 289,
+          "top": 7490.2734375,
+          "width": 258,
+          "x": 31,
+          "y": 7490.2734375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 19156.7890625,
+          "height": 5828.2578125,
+          "left": 31,
+          "right": 289,
+          "top": 13328.53125,
+          "width": 258,
+          "x": 31,
+          "y": 13328.53125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 24643.015625,
+          "height": 5476.2265625,
+          "left": 31,
+          "right": 289,
+          "top": 19166.7890625,
+          "width": 258,
+          "x": 31,
+          "y": 19166.7890625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 20,
+    "overflows": [],
+    "scrollWidth": 360,
+    "stages": [
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 7269.2734375,
+          "height": 6892.2578125,
+          "left": 31,
+          "right": 329,
+          "top": 377.015625,
+          "width": 298,
+          "x": 31,
+          "y": 377.015625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 13107.53125,
+          "height": 5828.2578125,
+          "left": 31,
+          "right": 329,
+          "top": 7279.2734375,
+          "width": 298,
+          "x": 31,
+          "y": 7279.2734375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 18945.7890625,
+          "height": 5828.2578125,
+          "left": 31,
+          "right": 329,
+          "top": 13117.53125,
+          "width": 298,
+          "x": 31,
+          "y": 13117.53125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 24432.015625,
+          "height": 5476.2265625,
+          "left": 31,
+          "right": 329,
+          "top": 18955.7890625,
+          "width": 298,
+          "x": 31,
+          "y": 18955.7890625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 800,
+      "width": 360
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 20,
+    "overflows": [],
+    "scrollWidth": 390,
+    "stages": [
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 7205.7734375,
+          "height": 6892.2578125,
+          "left": 31,
+          "right": 359,
+          "top": 313.515625,
+          "width": 328,
+          "x": 31,
+          "y": 313.515625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 13044.03125,
+          "height": 5828.2578125,
+          "left": 31,
+          "right": 359,
+          "top": 7215.7734375,
+          "width": 328,
+          "x": 31,
+          "y": 7215.7734375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 18882.2890625,
+          "height": 5828.2578125,
+          "left": 31,
+          "right": 359,
+          "top": 13054.03125,
+          "width": 328,
+          "x": 31,
+          "y": 13054.03125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 24368.515625,
+          "height": 5476.2265625,
+          "left": 31,
+          "right": 359,
+          "top": 18892.2890625,
+          "width": 328,
+          "x": 31,
+          "y": 18892.2890625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 20,
+    "overflows": [],
+    "scrollWidth": 768,
+    "stages": [
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 6195.8828125,
+          "height": 5861.3671875,
+          "left": 125,
+          "right": 420,
+          "top": 334.515625,
+          "width": 295,
+          "x": 125,
+          "y": 334.515625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 6195.8828125,
+          "height": 5861.3671875,
+          "left": 430,
+          "right": 725,
+          "top": 334.515625,
+          "width": 295,
+          "x": 430,
+          "y": 334.515625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 11022.9453125,
+          "height": 4817.0625,
+          "left": 125,
+          "right": 420,
+          "top": 6205.8828125,
+          "width": 295,
+          "x": 125,
+          "y": 6205.8828125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 11022.9453125,
+          "height": 4817.0625,
+          "left": 430,
+          "right": 725,
+          "top": 6205.8828125,
+          "width": 295,
+          "x": 430,
+          "y": 6205.8828125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 20,
+    "overflows": [],
+    "scrollWidth": 1024,
+    "stages": [
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 6073.484375,
+          "height": 5840.96875,
+          "left": 125,
+          "right": 548,
+          "top": 232.515625,
+          "width": 423,
+          "x": 125,
+          "y": 232.515625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 6073.484375,
+          "height": 5840.96875,
+          "left": 558,
+          "right": 981,
+          "top": 232.515625,
+          "width": 423,
+          "x": 558,
+          "y": 232.515625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 10900.546875,
+          "height": 4817.0625,
+          "left": 125,
+          "right": 548,
+          "top": 6083.484375,
+          "width": 423,
+          "x": 125,
+          "y": 6083.484375
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 10900.546875,
+          "height": 4817.0625,
+          "left": 558,
+          "right": 981,
+          "top": 6083.484375,
+          "width": 423,
+          "x": 558,
+          "y": 6083.484375
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 768,
+      "width": 1024
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 20,
+    "overflows": [],
+    "scrollWidth": 1280,
+    "stages": [
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 5574.0078125,
+          "height": 5339.6484375,
+          "left": 307,
+          "right": 610.328125,
+          "top": 234.359375,
+          "width": 303.328125,
+          "x": 307,
+          "y": 234.359375
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 5574.0078125,
+          "height": 5339.6484375,
+          "left": 620.328125,
+          "right": 923.6640625,
+          "top": 234.359375,
+          "width": 303.3359375,
+          "x": 620.328125,
+          "y": 234.359375
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 5574.0078125,
+          "height": 5339.6484375,
+          "left": 933.6640625,
+          "right": 1237,
+          "top": 234.359375,
+          "width": 303.3359375,
+          "x": 933.6640625,
+          "y": 234.359375
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 10049.0390625,
+          "height": 4465.03125,
+          "left": 307,
+          "right": 610.328125,
+          "top": 5584.0078125,
+          "width": 303.328125,
+          "x": 307,
+          "y": 5584.0078125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 20,
+    "overflows": [],
+    "scrollWidth": 1440,
+    "stages": [
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 5986.53125,
+          "height": 5747.6171875,
+          "left": 307,
+          "right": 572,
+          "top": 238.9140625,
+          "width": 265,
+          "x": 307,
+          "y": 238.9140625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 5986.53125,
+          "height": 5747.6171875,
+          "left": 582,
+          "right": 847,
+          "top": 238.9140625,
+          "width": 265,
+          "x": 582,
+          "y": 238.9140625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 5986.53125,
+          "height": 5747.6171875,
+          "left": 857,
+          "right": 1122,
+          "top": 238.9140625,
+          "width": 265,
+          "x": 857,
+          "y": 238.9140625
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 5986.53125,
+          "height": 5747.6171875,
+          "left": 1132,
+          "right": 1397,
+          "top": 238.9140625,
+          "width": 265,
+          "x": 1132,
+          "y": 238.9140625
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "surface": "stages",
+    "fixtureCountPerStage": 20,
+    "overflows": [],
+    "scrollWidth": 844,
+    "stages": [
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 6195.8828125,
+          "height": 5861.3671875,
+          "left": 125,
+          "right": 458,
+          "top": 334.515625,
+          "width": 333,
+          "x": 125,
+          "y": 334.515625
+        },
+        "stage": "expected",
+        "title": "Expected"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 6195.8828125,
+          "height": 5861.3671875,
+          "left": 468,
+          "right": 801,
+          "top": 334.515625,
+          "width": 333,
+          "x": 468,
+          "y": 334.515625
+        },
+        "stage": "waiting",
+        "title": "Waiting"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 11022.9453125,
+          "height": 4817.0625,
+          "left": 125,
+          "right": 458,
+          "top": 6205.8828125,
+          "width": 333,
+          "x": 125,
+          "y": 6205.8828125
+        },
+        "stage": "doctor",
+        "title": "With doctor"
+      },
+      {
+        "count": "20",
+        "rect": {
+          "bottom": 11022.9453125,
+          "height": 4817.0625,
+          "left": 468,
+          "right": 801,
+          "top": 6205.8828125,
+          "width": 333,
+          "x": 468,
+          "y": 6205.8828125
+        },
+        "stage": "completed",
+        "title": "Completed"
+      }
+    ],
+    "viewport": {
+      "height": 390,
+      "width": 844
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 0,
+    "overflows": [],
+    "scrollWidth": 320,
+    "stages": [],
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 0,
+    "overflows": [],
+    "scrollWidth": 360,
+    "stages": [],
+    "viewport": {
+      "height": 800,
+      "width": 360
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 0,
+    "overflows": [],
+    "scrollWidth": 390,
+    "stages": [],
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 0,
+    "overflows": [],
+    "scrollWidth": 768,
+    "stages": [],
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 0,
+    "overflows": [],
+    "scrollWidth": 1024,
+    "stages": [],
+    "viewport": {
+      "height": 768,
+      "width": 1024
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 0,
+    "overflows": [],
+    "scrollWidth": 1280,
+    "stages": [],
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 0,
+    "overflows": [],
+    "scrollWidth": 1440,
+    "stages": [],
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 0,
+    "overflows": [],
+    "scrollWidth": 844,
+    "stages": [],
+    "viewport": {
+      "height": 390,
+      "width": 844
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 20,
+    "overflows": [],
+    "scrollWidth": 320,
+    "stages": [],
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 20,
+    "overflows": [],
+    "scrollWidth": 360,
+    "stages": [],
+    "viewport": {
+      "height": 800,
+      "width": 360
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 20,
+    "overflows": [],
+    "scrollWidth": 390,
+    "stages": [],
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 20,
+    "overflows": [],
+    "scrollWidth": 768,
+    "stages": [],
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 20,
+    "overflows": [],
+    "scrollWidth": 1024,
+    "stages": [],
+    "viewport": {
+      "height": 768,
+      "width": 1024
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 20,
+    "overflows": [],
+    "scrollWidth": 1280,
+    "stages": [],
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 20,
+    "overflows": [],
+    "scrollWidth": 1440,
+    "stages": [],
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "surface": "doctorFixture",
+    "fixtureCount": 20,
+    "overflows": [],
+    "scrollWidth": 844,
+    "stages": [],
+    "viewport": {
+      "height": 390,
+      "width": 844
+    }
+  },
+  {
+    "surface": "patientPreview",
+    "overflows": [],
+    "scrollWidth": 320,
+    "stages": [],
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "patientPreview",
+    "overflows": [],
+    "scrollWidth": 360,
+    "stages": [],
+    "viewport": {
+      "height": 800,
+      "width": 360
+    }
+  },
+  {
+    "surface": "patientPreview",
+    "overflows": [],
+    "scrollWidth": 390,
+    "stages": [],
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "patientPreview",
+    "overflows": [],
+    "scrollWidth": 768,
+    "stages": [],
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "patientPreview",
+    "overflows": [],
+    "scrollWidth": 1024,
+    "stages": [],
+    "viewport": {
+      "height": 768,
+      "width": 1024
+    }
+  },
+  {
+    "surface": "patientPreview",
+    "overflows": [],
+    "scrollWidth": 1280,
+    "stages": [],
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  },
+  {
+    "surface": "patientPreview",
+    "overflows": [],
+    "scrollWidth": 1440,
+    "stages": [],
+    "viewport": {
+      "height": 900,
+      "width": 1440
+    }
+  },
+  {
+    "surface": "patientPreview",
+    "overflows": [],
+    "scrollWidth": 844,
+    "stages": [],
+    "viewport": {
+      "height": 390,
+      "width": 844
+    }
+  },
+  {
+    "surface": "patientPreview",
+    "equivalentReflowOnly": true,
+    "overflows": [],
+    "scrollWidth": 640,
+    "stages": [],
+    "viewport": {
+      "height": 360,
+      "width": 640
+    }
+  },
+  {
+    "surface": "priorityEditor",
+    "font": "16px",
+    "input": {
+      "bottom": 689.40625,
+      "height": 44,
+      "left": 62.1953125,
+      "right": 257.8046875,
+      "top": 645.40625,
+      "width": 195.609375,
+      "x": 62.1953125,
+      "y": 645.40625
+    },
+    "reasonLength": 200,
+    "scrollWidth": 320,
+    "viewport": {
+      "height": 568,
+      "width": 320
+    }
+  },
+  {
+    "surface": "priorityEditor",
+    "font": "16px",
+    "input": {
+      "bottom": 357.8515625,
+      "height": 44,
+      "left": 62.1953125,
+      "right": 327.8046875,
+      "top": 313.8515625,
+      "width": 265.609375,
+      "x": 62.1953125,
+      "y": 313.8515625
+    },
+    "reasonLength": 200,
+    "scrollWidth": 390,
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  {
+    "surface": "priorityEditor",
+    "font": "11.52px",
+    "input": {
+      "bottom": 709.6640625,
+      "height": 44,
+      "left": 461.1953125,
+      "right": 693.8046875,
+      "top": 665.6640625,
+      "width": 232.609375,
+      "x": 461.1953125,
+      "y": 665.6640625
+    },
+    "reasonLength": 200,
+    "scrollWidth": 768,
+    "viewport": {
+      "height": 1024,
+      "width": 768
+    }
+  },
+  {
+    "surface": "assistantPatient",
+    "overflows": [],
+    "scrollWidth": 390,
+    "stages": [],
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  }
+]

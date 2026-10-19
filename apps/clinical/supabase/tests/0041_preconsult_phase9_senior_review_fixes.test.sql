@@ -56,18 +56,11 @@ DELETE FROM public.preconsult_brief_generation_work WHERE patient_id = '94300000
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '94200000-0000-4000-8000-000000000001', true);
-SELECT lives_ok($$ SELECT * FROM public.create_walk_in_with_consultation('94300000-0000-4000-8000-000000000001', '94200000-0000-4000-8000-000000000001', 'phase9-trigger-walk-in') $$, 'authenticated doctor can create a consultation through the permitted walk-in path');
+SELECT lives_ok($$ SELECT * FROM public.create_walk_in_with_consultation(p_patient_id => '94300000-0000-4000-8000-000000000001', p_doctor_id => '94200000-0000-4000-8000-000000000001', p_idempotency_key => 'phase9-trigger-walk-in') $$, 'authenticated doctor can create a consultation through the permitted walk-in path');
 RESET ROLE;
 SELECT is((SELECT count(*) FROM public.appointments WHERE idempotency_key = 'phase9-trigger-walk-in'), 1::bigint, 'authoritative walk-in consultation creation committed');
 SELECT ok((SELECT count(*) > 0 FROM public.preconsult_brief_generation_work WHERE clinic_id = '94100000-0000-4000-8000-000000000001' AND patient_id = '94300000-0000-4000-8000-000000000001'), 'consultation creation enqueued clinic-scoped Phase 9 work');
 
-DELETE FROM public.preconsult_brief_generation_work WHERE patient_id = '94300000-0000-4000-8000-000000000001';
-SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', '94200000-0000-4000-8000-000000000001', true);
-SELECT lives_ok($$ UPDATE public.clinical_notes SET status = 'approved', approved_by = '94200000-0000-4000-8000-000000000001', approved_at = now() WHERE id = '94700000-0000-4000-8000-000000000001' $$, 'authenticated doctor approved-note path commits with Phase 9 trigger active');
-RESET ROLE;
-SELECT is((SELECT status::text FROM public.clinical_notes WHERE id = '94700000-0000-4000-8000-000000000001'), 'approved', 'approved-note source write committed');
-SELECT ok((SELECT count(*) > 0 FROM public.preconsult_brief_generation_work WHERE consultation_id = '94400000-0000-4000-8000-000000000001'), 'approved-note path enqueued Phase 9 work');
 
 DELETE FROM public.preconsult_brief_generation_work WHERE patient_id = '94300000-0000-4000-8000-000000000001';
 SET LOCAL ROLE authenticated;
@@ -94,6 +87,16 @@ RESET ROLE;
 SELECT is((SELECT count(*) FROM public.current_confirmed_clinical_state WHERE patient_id = '94300000-0000-4000-8000-000000000001' AND state_key = 'synthetic-condition'), 1::bigint, 'doctor-controlled confirmed state committed');
 SELECT ok((SELECT count(*) > 0 FROM public.preconsult_brief_generation_work WHERE consultation_id = '94400000-0000-4000-8000-000000000001'), 'confirmed-state operation enqueued Phase 9 work');
 SELECT is((SELECT count(*) FROM public.preconsult_brief_generation_work WHERE consultation_id IN (SELECT id FROM public.consultations WHERE patient_id = '94300000-0000-4000-8000-000000000001') AND (clinic_id <> '94100000-0000-4000-8000-000000000001' OR patient_id <> '94300000-0000-4000-8000-000000000001')), 0::bigint, 'fixture-triggered work remains clinic and patient scoped');
+
+-- Approval now completes the Encounter atomically. Exercise the other source
+-- triggers while it is still open, then prove the terminal approval path.
+DELETE FROM public.preconsult_brief_generation_work WHERE patient_id = '94300000-0000-4000-8000-000000000001';
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '94200000-0000-4000-8000-000000000001', true);
+SELECT lives_ok($$ SELECT public.review_clinical_note('94400000-0000-4000-8000-000000000001', '94100000-0000-4000-8000-000000000001', '{"summary":"Synthetic approved note"}'::jsonb, 'approved', 'Synthetic approved note', 1) $$, 'authenticated doctor approved-note path commits with Phase 9 trigger active');
+RESET ROLE;
+SELECT is((SELECT status::text FROM public.clinical_notes WHERE id = '94700000-0000-4000-8000-000000000001'), 'approved', 'approved-note source write committed');
+SELECT ok((SELECT count(*) > 0 FROM public.preconsult_brief_generation_work WHERE consultation_id = '94400000-0000-4000-8000-000000000001'), 'approved-note path enqueued Phase 9 work');
 
 SELECT * FROM finish();
 ROLLBACK;

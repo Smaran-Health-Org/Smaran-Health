@@ -1,0 +1,9 @@
+2026-10-14 ~09:03 UTC: Chrome extension browser id 1, agent tab 232606310.
+Real receptionist login reached /desk; correct synthetic clinic shown and independently verified in local Auth.
+Add walk-in Playwright click: timed out waiting for Input.dispatchMouseEvent; operation left browser on /desk.
+Documented AX click focused Add walk-in but did not complete navigation.
+Documented Return key activation: CUA tool failed, Transport closed (73-second call).
+Bounded recovery check cua.getState() with 10-second tool timeout: immediately failed, Transport closed.
+No alternate browser control, raw protocol command, browser HTTP simulation, or production account was used.
+Remaining browser work is blocked by the unavailable CUA tool transport, not a demonstrated Auth/app/database failure.
+Required input: restore/reconnect desktop computer-use/browser tool, then resume supported CUA controls.

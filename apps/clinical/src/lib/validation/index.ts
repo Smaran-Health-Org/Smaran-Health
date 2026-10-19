@@ -346,7 +346,8 @@ export const clinicalNoteContentSchema = z.object({
 });
 
 export const saveClinicalNoteSchema = z.object({
-  status: z.enum(["ai_draft", "edited", "approved", "rejected"]),
+  status: z.enum(["edited", "approved", "rejected"]),
+  expectedRevision: z.number().int().positive().nullable(),
   content: clinicalNoteContentSchema,
   summary: z.string().max(5000),
 });

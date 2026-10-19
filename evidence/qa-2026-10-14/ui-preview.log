@@ -1,0 +1,90 @@
+▲ Next.js 16.3.0 (Turbopack)
+- Local:         http://localhost:56730
+- Network:       http://192.168.1.11:56730
+✓ Ready in 556ms
+✓ Running next.config.ts took 198ms
+
+  We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+    - lib was set to dom,dom.iterable,esnext
+    - incremental was set to true
+    - include was updated to add '.next/types/**/*.ts'
+    - include was updated to add '.next/dev/types/**/*.ts'
+    - plugins was updated to add { name: 'next' }
+
+  The following mandatory changes were made to your tsconfig.json:
+
+    - isolatedModules was set to true (requirement for SWC / Babel)
+    - jsx was set to react-jsx (next.js uses the React automatic runtime)
+
+
+✓ Generated AGENTS.md and CLAUDE.md for AI agents. Set `agentRules: false` in next.config to disable.
+○ Compiling / ...
+ GET / 200 in 8.7s (next.js: 8.5s, application-code: 209ms)
+⚠ Blocked cross-origin request to Next.js dev resource /_next/static/chunks/1cgf_next_dist_21c0jv7._.js from "127.0.0.1".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['127.0.0.1'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+⚠ Blocked cross-origin request to Next.js dev resource /_next/static/chunks/_10a62zx._.js from "127.0.0.1".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['127.0.0.1'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+⚠ Blocked cross-origin request to Next.js dev resource /_next/static/chunks/1cgf_next_0k924dv._.js from "127.0.0.1".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['127.0.0.1'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+⚠ Blocked cross-origin request to Next.js dev resource /_next/hmr from "127.0.0.1".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['127.0.0.1'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+⚠ Blocked cross-origin request to Next.js dev resource /__nextjs_font/geist-latin.woff2 from "127.0.0.1".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['127.0.0.1'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ GET / 200 in 75ms (next.js: 49ms, application-code: 26ms)
+ GET / 200 in 145ms (next.js: 85ms, application-code: 61ms)
+⚠ Found a change in next.config.ts. Restarting the server to apply the changes...
+▲ Next.js 16.3.0 (Turbopack)
+- Local:         http://localhost:56730
+- Network:       http://192.168.1.11:56730
+✓ Ready in 484ms
+✓ Running next.config.ts took 100ms
+
+ GET / 200 in 490ms (next.js: 273ms, application-code: 218ms)
+[?25h
