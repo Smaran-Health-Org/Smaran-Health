@@ -38,6 +38,11 @@
 **/clinical-data/
 **/local-data/
 **/recordings/
+# …except the recording-history source routes, which are code, not audio.
+!apps/clinical/src/app/recordings/
+!apps/clinical/src/app/recordings/**
+!apps/clinical/src/app/api/recordings/
+!apps/clinical/src/app/api/recordings/**
 **/uploads/
 **/exports/
 **/.backups/
