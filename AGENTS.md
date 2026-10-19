@@ -76,6 +76,14 @@ Never report a run as successful if you did not actually make the Sarvam call.
 3. **Never log or print a full transcript** in a way that reaches a commit, a test
    fixture, or a shared log.
 4. **No secrets in code.** The key comes from `process.env.SARVAM_API_KEY` only.
+   - **Approved tester-only exception:** the `Hybrid · stream` mode returns
+     `SARVAM_API_KEY` from `/api/config` because Sarvam's realtime WebSocket
+     authenticates from the browser via the `api-subscription-key.<key>`
+     subprotocol. This is acceptable **only** in this throwaway probe, where the
+     key is already approved to be visible in devtools. It is never acceptable in
+     `apps/clinical`; any product implementation must use a server-side relay.
+     The deployment URL and key are treated as disposable: rotate the key after
+     the experiment or keep the deployment private.
 5. **No new dependencies.** If you think one is needed, explain why and stop.
 6. **Do not silently change the protocol.** If you alter the order of Sarvam calls,
    say so explicitly — every timing number becomes incomparable.
