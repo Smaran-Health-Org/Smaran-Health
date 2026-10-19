@@ -125,6 +125,57 @@ const BLANK_NOTE: NoteContent = {
 // Symmetric "voice" equalizer bar count for the mic check and live recording.
 const LEVEL_BAR_COUNT = 25;
 
+// Demo-only realtime preview. Loaded from a Blob URL so no static asset is
+// needed; posts ~100 ms PCM16 chunks for Sarvam's realtime WebSocket.
+const LIVE_PREVIEW_WORKLET = `
+class PcmStreamProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.size = Math.round(0.1 * sampleRate);
+    this.buffer = new Int16Array(this.size);
+    this.writeIdx = 0;
+    this.active = true;
+    this.port.onmessage = (event) => {
+      if (event.data && event.data.type === "STOP") {
+        this.active = false;
+        this.flush();
+        this.port.postMessage({ type: "STOPPED" });
+      }
+    };
+  }
+  flush() {
+    if (!this.writeIdx) return;
+    const out = this.buffer.slice(0, this.writeIdx);
+    this.port.postMessage({ type: "PCM_CHUNK", pcm16: out.buffer }, [out.buffer]);
+    this.writeIdx = 0;
+    this.buffer = new Int16Array(this.size);
+  }
+  process(inputs) {
+    if (!this.active) return true;
+    const channel = inputs[0] && inputs[0][0];
+    if (!channel) return true;
+    for (let i = 0; i < channel.length; i += 1) {
+      const raw = channel[i] > 1 ? 1 : channel[i] < -1 ? -1 : channel[i];
+      this.buffer[this.writeIdx++] = raw < 0 ? raw * 0x8000 : raw * 0x7fff;
+      if (this.writeIdx === this.size) this.flush();
+    }
+    return true;
+  }
+}
+registerProcessor("pcm-stream", PcmStreamProcessor);
+`;
+
+type LivePreviewHandle = {
+  ctx: AudioContext;
+  node: AudioWorkletNode;
+  source: MediaStreamAudioSourceNode;
+  ws: WebSocket;
+  finals: string[];
+  partial: string;
+  paused: boolean;
+  ready: boolean;
+};
+
 // Recording safeguards. The doctor gets a 15-minute heads-up and the
 // recording stops itself at 30 minutes so transcripts never grow unbounded.
 const LENGTH_WARN_SECONDS = 15 * 60;
@@ -425,6 +476,9 @@ export function ConsultationWorkflow({
   const [micLevel, setMicLevel] = useState(0);
   const [micLowLevel, setMicLowLevel] = useState(false);
   const [audioCaptureError, setAudioCaptureError] = useState<string | null>(null);
+  const [livePreviewStatus, setLivePreviewStatus] = useState<"idle" | "connecting" | "live" | "unavailable">("idle");
+  const [livePreviewFinals, setLivePreviewFinals] = useState<string[]>([]);
+  const [livePreviewPartial, setLivePreviewPartial] = useState("");
   const [draftSaved, setDraftSaved] = useState(false);
   const [saving, setSaving] = useState<"draft" | "approve" | "reject" | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -471,6 +525,7 @@ export function ConsultationWorkflow({
   // Screen Wake Lock keeps the display on during a consultation so the phone
   // doesn't auto-sleep (and cut the recording) mid-visit. Best-effort.
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  const livePreviewRef = useRef<LivePreviewHandle | null>(null);
 
   const recordedStep = activeStep[state];
   const isManualReview = state === "manual_review";
@@ -551,6 +606,12 @@ export function ConsultationWorkflow({
     return () => {
       recordingActiveRef.current = false;
       stopLevelMeter();
+      const live = livePreviewRef.current;
+      livePreviewRef.current = null;
+      if (live) {
+        try { live.ws.close(); } catch { /* already closed */ }
+        live.ctx.close().catch(() => undefined);
+      }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
         try {
           mediaRecorderRef.current.stop();
@@ -1066,6 +1127,7 @@ export function ConsultationWorkflow({
   }
 
   function stopMicCapture(): void {
+    stopLivePreview();
     recordingActiveRef.current = false;
     releaseWakeLock();
     stopLevelMeter();
@@ -1080,6 +1142,130 @@ export function ConsultationWorkflow({
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+    }
+  }
+
+  function stopLivePreview(): void {
+    const handle = livePreviewRef.current;
+    livePreviewRef.current = null;
+    setLivePreviewStatus("idle");
+    setLivePreviewFinals([]);
+    setLivePreviewPartial("");
+    if (!handle) return;
+    try {
+      if (handle.ws.readyState === WebSocket.OPEN) {
+        handle.ws.send(JSON.stringify({ event: "end" }));
+      }
+    } catch {
+      // Socket already closing.
+    }
+    try {
+      handle.ws.close();
+    } catch {
+      // Already closed.
+    }
+    handle.node.port.onmessage = null;
+    handle.ctx.close().catch(() => undefined);
+  }
+
+  /**
+   * DEMO-ONLY live preview. The vendor key comes from an authenticated,
+   * doctor-only, clinic-scoped route. Provisional text is never sent to the
+   * server, never persisted, and never used to build the note — the durable
+   * batch transcript remains authoritative.
+   */
+  async function startLivePreview(stream: MediaStream): Promise<void> {
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/live-transcript`, {
+        cache: "no-store",
+      });
+      const config = (await response.json().catch(() => null)) as
+        | { enabled?: boolean; url?: string; key?: string; model?: string; language?: string }
+        | null;
+      if (!response.ok || !config?.enabled || !config.url || !config.key) {
+        setLivePreviewStatus("unavailable");
+        return;
+      }
+
+      setLivePreviewStatus("connecting");
+      const ctx = new AudioContext({ sampleRate: 16000 });
+      const moduleUrl = URL.createObjectURL(
+        new Blob([LIVE_PREVIEW_WORKLET], { type: "text/javascript" })
+      );
+      try {
+        await ctx.audioWorklet.addModule(moduleUrl);
+      } finally {
+        URL.revokeObjectURL(moduleUrl);
+      }
+      const node = new AudioWorkletNode(ctx, "pcm-stream", { channelCount: 1 });
+      const source = ctx.createMediaStreamSource(stream);
+      source.connect(node);
+      node.connect(ctx.destination);
+
+      const params = new URLSearchParams({
+        language_code: config.language || "auto",
+        model: config.model || "saaras:v3-realtime",
+        mode: "codemix",
+        encoding: "linear16",
+        sample_rate: "16000",
+        endpointing: "vad",
+      });
+      const ws = new WebSocket(`${config.url}?${params.toString()}`, [
+        `api-subscription-key.${config.key}`,
+      ]);
+
+      const handle: LivePreviewHandle = {
+        ctx,
+        node,
+        source,
+        ws,
+        finals: [],
+        partial: "",
+        paused: false,
+        ready: false,
+      };
+      livePreviewRef.current = handle;
+
+      ws.onerror = () => setLivePreviewStatus("unavailable");
+      ws.onclose = () => {
+        if (livePreviewRef.current === handle) setLivePreviewStatus("idle");
+      };
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data) as { event?: string; text?: string };
+          if (livePreviewRef.current !== handle) return;
+          if (message.event === "session.begin") {
+            handle.ready = true;
+            setLivePreviewStatus("live");
+          } else if (message.event === "transcript.partial") {
+            handle.partial = message.text ?? "";
+            setLivePreviewPartial(handle.partial);
+          } else if (message.event === "transcript.final") {
+            if (message.text) handle.finals.push(message.text);
+            handle.partial = "";
+            setLivePreviewFinals([...handle.finals]);
+            setLivePreviewPartial("");
+          }
+        } catch {
+          // Ignore malformed provider frames.
+        }
+      };
+
+      node.port.onmessage = (event) => {
+        const message = event.data as { type?: string; pcm16?: ArrayBuffer };
+        if (message?.type !== "PCM_CHUNK" || !message.pcm16 || handle.paused || !handle.ready) return;
+        if (ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 1_000_000) return;
+        const bytes = new Uint8Array(message.pcm16);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+        try {
+          ws.send(JSON.stringify({ event: "audio_input", audio: btoa(binary) }));
+        } catch {
+          // Socket closed between the check and the send.
+        }
+      };
+    } catch {
+      setLivePreviewStatus("unavailable");
     }
   }
 
@@ -1114,6 +1300,7 @@ export function ConsultationWorkflow({
       await handleRecordingInterruption("Audio capture could not start securely. The recording session was stopped.");
       return; // startMicCapture already set a mapped mic error.
     }
+    if (streamRef.current) void startLivePreview(streamRef.current);
     setElapsedSeconds(0);
     setPaused(false);
     setRecordingWarningDismissed(false);
@@ -1126,6 +1313,7 @@ export function ConsultationWorkflow({
   function togglePause() {
     const next = !isRecordingPaused;
     setPaused(next);
+    if (livePreviewRef.current) livePreviewRef.current.paused = next;
     if (next) {
       reportRecordingState("paused");
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
@@ -1639,6 +1827,22 @@ export function ConsultationWorkflow({
                     <Icon name="micOff" />
                     <span>Paused — audio is not being captured</span>
                   </div>
+                ) : livePreviewStatus === "live" && (livePreviewFinals.length > 0 || livePreviewPartial) ? (
+                  <>
+                    <p>
+                      {livePreviewFinals.join(" ")}
+                      {livePreviewPartial && (
+                        <span className={styles.interim}>
+                          {livePreviewFinals.length ? ` ${livePreviewPartial}` : livePreviewPartial}
+                        </span>
+                      )}
+                    </p>
+                    <p className={styles.livePreviewNote}>
+                      Live preview — unconfirmed, no speaker labels. The final transcript replaces this.
+                    </p>
+                  </>
+                ) : livePreviewStatus === "connecting" ? (
+                  <p className={styles.liveTranscriptEmpty}>Connecting live preview…</p>
                 ) : (
                   <p className={styles.liveTranscriptEmpty}>
                     Audio is saved securely as you speak. The transcript is prepared after the

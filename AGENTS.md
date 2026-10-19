@@ -104,6 +104,11 @@ AI-generated clinical content is draft/unconfirmed until the applicable doctor-r
 - All patient-related data must remain clinic-scoped.
 - Enforce authorization server-side; hidden UI is not authorization.
 - Never expose service-role credentials to the browser.
+  - **Scoped demo exception:** the private hackathon build may expose the Sarvam
+    key to an authenticated, doctor-only live-preview client when
+    `LIVE_TRANSCRIPT_DEMO=1`. It must stay off for real patient use, the key must
+    be rotated after the demo, and no URL or repository access may be shared
+    publicly. Any production implementation must use a server-side relay.
 - Keep medical source files in private storage and use authorized signed access.
 - Preserve patient-merge provenance and original identities.
 - Keep doctor-only clinical interpretation inaccessible to admin/assistant roles.
