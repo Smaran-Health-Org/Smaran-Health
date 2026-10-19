@@ -38,6 +38,7 @@ const state = {
   lastBlob: null,
   lastMime: "audio/webm",
   lastDuration: 0,
+  lastFileName: "",
   busy: false,
   clips: [],
   selectedClip: null,
@@ -1891,7 +1892,13 @@ async function runPipeline(blob, mimeType, durationSec) {
 
   const host = el("run-panel");
   host.innerHTML = "";
-  const label = el("label").value.trim();
+  const label =
+    el("label").value.trim() ||
+    state.activeClip?.name ||
+    el("clip-name").value.trim() ||
+    state.lastFileName ||
+    "run";
+  if (!el("label").value.trim()) el("label").value = label;
   const mode = runMode();
   const diarization = diarizationForMode(mode);
 
@@ -2040,6 +2047,7 @@ function modeLabel(mode) {
       "batch-off": "batch · DIA OFF",
       "hybrid-rest": "hybrid · REST",
       "hybrid-stream": "hybrid · stream",
+      hybrid: "hybrid · REST",
     }[mode] || mode || "batch"
   );
 }
@@ -2098,7 +2106,8 @@ const BUCKETS = [
 const MODES = ["batch-on", "batch-off", "hybrid-rest", "hybrid-stream"];
 
 function modeOf(run) {
-  return run.runMode || (run.diarization ? "batch-on" : "batch-off");
+  const mode = run.runMode || (run.diarization ? "batch-on" : "batch-off");
+  return mode === "hybrid" ? "hybrid-rest" : mode;
 }
 
 function renderBenchmarks() {
@@ -2324,6 +2333,7 @@ el("file-input").addEventListener("change", async (event) => {
   if (!file) return;
   state.lastBlob = file;
   state.lastMime = mimeForFile(file);
+  state.lastFileName = file.name;
   const probed = await probeDuration(file);
   state.lastDuration = probed ?? 0;
   el("clip-seconds").value = probed ? probed.toFixed(1) : "";
