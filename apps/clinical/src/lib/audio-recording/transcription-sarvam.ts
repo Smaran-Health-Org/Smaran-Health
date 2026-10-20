@@ -27,9 +27,14 @@ import {
  * How long one claim may spend waiting for a batch job, and how often it looks.
  * The budget sits far below the route's execution limit so a slow job is
  * released back to the durable queue rather than killed mid-flight.
+ *
+ * The cadence starts fast because the provider usually finishes short visits in
+ * a few seconds: a flat 5 s sleep spent most of a 6.7 s step asleep, having
+ * already polled a "Pending" job at the moment it was about to complete. Later
+ * intervals back off so a long visit does not hammer the status endpoint.
  */
 const PROBE_BUDGET_MS = 25_000;
-const PROBE_INTERVAL_MS = 5_000;
+const PROBE_INTERVALS_MS = [500, 700, 900, 1_200, 1_800, 2_500, 3_000];
 
 async function downloadRecordingChunk(storagePath: string): Promise<Uint8Array> {
   const { data, error } = await createStorageAdminClient()
@@ -246,6 +251,7 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
           const probeStartedAt = Date.now();
           let status = await getBatchJobStatus(jobId);
           let probes = 1;
+          let backoffIndex = 0;
 
           while (
             (status.jobState === "Accepted" ||
@@ -253,7 +259,9 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
               status.jobState === "Running") &&
             Date.now() - probeStartedAt < PROBE_BUDGET_MS
           ) {
-            await new Promise((resolve) => setTimeout(resolve, PROBE_INTERVAL_MS));
+            const waitMs = PROBE_INTERVALS_MS[Math.min(backoffIndex, PROBE_INTERVALS_MS.length - 1)];
+            backoffIndex += 1;
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
             status = await getBatchJobStatus(jobId);
             probes += 1;
           }

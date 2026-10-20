@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
 import { getConsultation } from "@/lib/db/consultations";
 import { createStorageAdminClient } from "@/lib/supabase/storage-admin";
@@ -69,6 +69,43 @@ export async function GET(request: NextRequest) {
       storagePath: String(chunk.storage_path),
     })),
   };
+
+  // `mode=after` replays the step inside `after()` — the execution context the
+  // real worker uses. Production runs where every outbound call cost ~4.2 s did
+  // so in that context while an identical step in a normal handler ran in 6.7 s,
+  // so this isolates post-response execution as the cause.
+  const mode = request.nextUrl.searchParams.get("mode") ?? "inline";
+  if (mode === "after") {
+    after(async () => {
+      const startedAt = Date.now();
+      try {
+        const deferred = await sarvamAudioTranscriptionStepAdapter().step(
+          recording,
+          { jobId: null, phase: null, outputFiles: null },
+          async () => undefined
+        );
+        logEvent("diag.transcription_benchmark", {
+          consultationId,
+          recordingId,
+          mode: "after",
+          ok: deferred.kind === "completed",
+          chunkCount: recording.chunks.length,
+          totalMs: Date.now() - startedAt,
+          transcriptChars: deferred.kind === "completed" ? deferred.rawText.length : null,
+        });
+      } catch (error) {
+        logEvent("diag.transcription_benchmark", {
+          consultationId,
+          recordingId,
+          mode: "after",
+          ok: false,
+          totalMs: Date.now() - startedAt,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
+    return NextResponse.json({ ok: true, mode: "after", note: "timings are written to the server log" });
+  }
 
   const startedAt = Date.now();
   const outcome = await sarvamAudioTranscriptionStepAdapter().step(
