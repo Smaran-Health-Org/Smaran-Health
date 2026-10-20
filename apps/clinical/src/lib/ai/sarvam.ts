@@ -348,6 +348,11 @@ async function sarvamJson<T>(
   if (options.body !== undefined) {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(options.body);
+    // An explicit length keeps the body out of chunked transfer encoding. A
+    // gateway that buffers chunked uploads before forwarding is invisible in a
+    // short local test and shows up in production as a fixed multi-second delay
+    // on every control call.
+    headers["Content-Length"] = String(Buffer.byteLength(body, "utf8"));
   }
   const { response } = await sarvamRequest({
     step: options.step,

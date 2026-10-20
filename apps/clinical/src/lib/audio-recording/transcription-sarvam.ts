@@ -47,7 +47,20 @@ const PROBE_INTERVALS_MS = [500, 700, 900, 1_200, 1_800, 2_500, 3_000];
  * inferring it from aggregated timings. Remove once the cause is known.
  */
 async function logEgressProbe(): Promise<void> {
-  const url = "https://api.sarvam.ai/speech-to-text/job/v1";
+  const base = "https://api.sarvam.ai/speech-to-text/job/v1";
+  const apiKey = process.env.SARVAM_API_KEY?.trim() ?? "";
+
+  const time = async (url: string, init: RequestInit) => {
+    const startedAt = Date.now();
+    try {
+      const response = await fetch(url, { ...init, cache: "no-store" });
+      await response.arrayBuffer();
+      return { ms: Date.now() - startedAt, status: response.status };
+    } catch (error) {
+      return { ms: Date.now() - startedAt, status: error instanceof Error ? error.message : "error" };
+    }
+  };
+
   const dnsStartedAt = Date.now();
   let dnsMs: number | string;
   try {
@@ -57,20 +70,36 @@ async function logEgressProbe(): Promise<void> {
     dnsMs = error instanceof Error ? `error:${error.message}` : "error";
   }
 
-  const attempt = async () => {
-    const startedAt = Date.now();
-    try {
-      const response = await fetch(url, { method: "GET", cache: "no-store" });
-      await response.arrayBuffer();
-      return { ms: Date.now() - startedAt, status: response.status };
-    } catch (error) {
-      return { ms: Date.now() - startedAt, status: error instanceof Error ? error.message : "error" };
-    }
-  };
+  // Non-mutating probes only: a status GET names a job that does not exist, and
+  // upload-files for a job that does not exist is rejected without side effects.
+  const authHeaders = { "api-subscription-key": apiKey };
+  const getAuth = await time(`${base}/does-not-exist/status`, { method: "GET", headers: authHeaders });
 
-  const cold = await attempt();
-  const warm = await attempt();
-  logSarvam("net_probe", { dnsMs, coldMs: cold.ms, coldStatus: cold.status, warmMs: warm.ms, warmStatus: warm.status });
+  const jsonBody = JSON.stringify({ job_id: "does-not-exist", files: ["probe.webm"] });
+  const postString = await time(`${base}/upload-files`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "Content-Type": "application/json",
+      "Content-Length": String(Buffer.byteLength(jsonBody, "utf8")),
+    },
+    body: jsonBody,
+  });
+  const postBytes = await time(`${base}/upload-files`, {
+    method: "POST",
+    headers: { ...authHeaders, "Content-Type": "application/json" },
+    body: new Uint8Array(Buffer.from(jsonBody, "utf8")),
+  });
+
+  logSarvam("net_probe", {
+    dnsMs,
+    getAuthMs: getAuth.ms,
+    getAuthStatus: getAuth.status,
+    postStringMs: postString.ms,
+    postStringStatus: postString.status,
+    postBytesMs: postBytes.ms,
+    postBytesStatus: postBytes.status,
+  });
 }
 
 async function downloadRecordingChunk(storagePath: string): Promise<Uint8Array> {
