@@ -94,19 +94,37 @@ export async function generateDraftForConsultation(input: {
   const doctorId = consultation.doctorId;
   if (!doctorId) return skipped(source, "no_doctor", consultationId);
 
+  // Timing split matters operationally: `draft.generated` used to carry no
+  // duration, so the AI cost could only be inferred by differencing unrelated
+  // events. `providerMs` is the model + persist call; `durationMs` also includes
+  // the transcript read that precedes it.
+  const startedAt = Date.now();
+
   // Authorization and the final existing-note/settled checks happen again in
   // the DB transaction after the slow provider resolves. It never updates a note.
+  const providerStartedAt = Date.now();
   const { persisted, fallback } = await extractAndPersistDraft(rawText, {
     extract: extractClinicalDraft,
     persist: (draft, metadata) => createClinicalDraft(consultationId, clinicId, draft, source, metadata, db),
   });
+  const providerMs = Date.now() - providerStartedAt;
   if (!persisted.created || !persisted.note) {
     return { ...skipped(source, persisted.reason ?? "note_already_exists", consultationId),
       ...(persisted.note ? { note: persisted.note } : {}) };
   }
   const note = persisted.note;
   const draft = note.content as NoteContent;
-  logEvent("draft.generated", { consultationId, clinicId, noteId: note.id, source, actorId, fallback });
+  logEvent("draft.generated", {
+    consultationId,
+    clinicId,
+    noteId: note.id,
+    source,
+    actorId,
+    fallback,
+    transcriptChars: rawText.length,
+    providerMs,
+    durationMs: Date.now() - startedAt,
+  });
   if (fallback) return { kind: "fallback", noteId: note.id, note, draft, reason: "AI draft generation was unavailable." };
   return { kind: "created", noteId: note.id, note, draft };
 }

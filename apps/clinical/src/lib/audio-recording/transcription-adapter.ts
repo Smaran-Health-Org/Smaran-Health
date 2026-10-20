@@ -17,7 +17,7 @@ export type DurableRecording = { recordingId: string; consultationId: string; cl
  * Keep it >= 1 (do not hammer the provider) and <= 10 (stay inside the client's
  * cadence). `transcription-pacing.test.ts` enforces both bounds.
  */
-export const TRANSCRIPTION_REPOLL_SECONDS = 8;
+export const TRANSCRIPTION_REPOLL_SECONDS = 3;
 
 export class AudioTranscriptionUnavailableError extends Error {
   constructor() { super("No approved audio transcription provider is configured"); }

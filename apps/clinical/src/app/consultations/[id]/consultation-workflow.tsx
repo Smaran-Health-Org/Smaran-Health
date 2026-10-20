@@ -713,7 +713,9 @@ export function ConsultationWorkflow({
 
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
       // Gentle backoff: responsive at first, quieter once it is clearly a long job.
-      intervalMs = Math.min(intervalMs + 1000, 8000);
+      // Capped low enough that the transcript is noticed promptly once it lands —
+      // the draft generation only starts on the poll that sees it.
+      intervalMs = Math.min(intervalMs + 1000, 4000);
     }
 
     return {

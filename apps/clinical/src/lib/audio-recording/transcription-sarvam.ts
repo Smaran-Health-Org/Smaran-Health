@@ -39,9 +39,26 @@ async function downloadRecordingChunk(storagePath: string): Promise<Uint8Array> 
 }
 
 /**
+ * How many chunk downloads may be in flight at once.
+ *
+ * The recorder slices audio every 10 s, so an ordinary consultation is 100+
+ * chunks. Fetching them one at a time made the doctor's wait the sum of every
+ * Storage round trip, which was the largest avoidable cost in the pipeline.
+ * Still bounded: an unbounded fan-out would open 100+ sockets from a single
+ * invocation and multiply peak memory pressure for no extra throughput.
+ */
+const CHUNK_DOWNLOAD_CONCURRENCY = 8;
+
+/**
  * Concatenates the ordered chunk blobs into one continuous audio buffer. Chunks
  * are stored raw in sequence order, so byte-wise concatenation reconstructs the
  * original MediaRecorder stream.
+ *
+ * Downloads run concurrently, so completion order is arbitrary — ordering comes
+ * only from `sequenceNumber`, because each download writes into the slot for its
+ * own position instead of being appended. A chunk that fails aborts the step
+ * before anything is uploaded, so a partial assembly can never reach the
+ * provider.
  */
 async function assembleRecording(
   recording: DurableRecording
@@ -51,27 +68,53 @@ async function assembleRecording(
   );
   if (ordered.length === 0) throw new Error("recording_chunks_unavailable");
 
-  const parts: Uint8Array[] = [];
-  for (const chunk of ordered) {
-    try {
-      parts.push(await downloadRecordingChunk(chunk.storagePath));
-    } catch (error) {
-      // A missing or un-finalized chunk is a distinct, actionable failure that
-      // would otherwise be invisible behind a generic pipeline error.
-      logSarvamError("adapter.chunk_download_failed", {
-        traceId: recording.recordingId,
-        sequenceNumber: chunk.sequenceNumber,
-        storagePath: chunk.storagePath,
-        errorMessage: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
+  const parts = new Array<Uint8Array | undefined>(ordered.length);
+  let nextIndex = 0;
+  let failure: unknown = null;
+
+  async function drain(): Promise<void> {
+    while (failure === null) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= ordered.length) return;
+      const chunk = ordered[index];
+      try {
+        parts[index] = await downloadRecordingChunk(chunk.storagePath);
+      } catch (error) {
+        // A missing or un-finalized chunk is a distinct, actionable failure that
+        // would otherwise be invisible behind a generic pipeline error. Keep the
+        // first failure and stop pulling new work.
+        failure ??= error;
+        logSarvamError("adapter.chunk_download_failed", {
+          traceId: recording.recordingId,
+          sequenceNumber: chunk.sequenceNumber,
+          storagePath: chunk.storagePath,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+        return;
+      }
     }
   }
 
-  const totalBytes = parts.reduce((sum, part) => sum + part.byteLength, 0);
+  await Promise.all(
+    Array.from(
+      { length: Math.min(CHUNK_DOWNLOAD_CONCURRENCY, ordered.length) },
+      drain
+    )
+  );
+  if (failure) throw failure;
+
+  // `filter` preserves index order, so this is still sequence order. The length
+  // check makes a silently-dropped slot impossible to stitch into a short file.
+  const present = parts.filter((part): part is Uint8Array => part !== undefined);
+  if (present.length !== ordered.length) {
+    throw new Error("recording_chunks_incomplete");
+  }
+
+  const totalBytes = present.reduce((sum, part) => sum + part.byteLength, 0);
   const combined = new Uint8Array(totalBytes);
   let offset = 0;
-  for (const part of parts) {
+  for (const part of present) {
     combined.set(part, offset);
     offset += part.byteLength;
   }
