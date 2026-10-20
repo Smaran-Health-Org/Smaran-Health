@@ -1,4 +1,5 @@
 import "server-only";
+import { lookup } from "node:dns/promises";
 import {
   logSarvam,
   logSarvamError,
@@ -35,6 +36,42 @@ import {
  */
 const PROBE_BUDGET_MS = 25_000;
 const PROBE_INTERVALS_MS = [500, 700, 900, 1_200, 1_800, 2_500, 3_000];
+
+/**
+ * TEMPORARY: measures the sandbox's own egress before the provider flow starts.
+ *
+ * Production runs have shown every control call taking ~2.7 s (and the first one
+ * ~15 s) in this invocation while an identical call from a normal route handler
+ * answers in ~250 ms. Timing DNS and two unauthenticated GETs here separates
+ * "this sandbox's network" from "Sarvam's authenticated backend" instead of
+ * inferring it from aggregated timings. Remove once the cause is known.
+ */
+async function logEgressProbe(): Promise<void> {
+  const url = "https://api.sarvam.ai/speech-to-text/job/v1";
+  const dnsStartedAt = Date.now();
+  let dnsMs: number | string;
+  try {
+    await lookup("api.sarvam.ai", { all: true });
+    dnsMs = Date.now() - dnsStartedAt;
+  } catch (error) {
+    dnsMs = error instanceof Error ? `error:${error.message}` : "error";
+  }
+
+  const attempt = async () => {
+    const startedAt = Date.now();
+    try {
+      const response = await fetch(url, { method: "GET", cache: "no-store" });
+      await response.arrayBuffer();
+      return { ms: Date.now() - startedAt, status: response.status };
+    } catch (error) {
+      return { ms: Date.now() - startedAt, status: error instanceof Error ? error.message : "error" };
+    }
+  };
+
+  const cold = await attempt();
+  const warm = await attempt();
+  logSarvam("net_probe", { dnsMs, coldMs: cold.ms, coldStatus: cold.status, warmMs: warm.ms, warmStatus: warm.status });
+}
 
 async function downloadRecordingChunk(storagePath: string): Promise<Uint8Array> {
   const { data, error } = await createStorageAdminClient()
@@ -168,6 +205,10 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
 
       try {
         const needsUpload = resume.phase === null || resume.phase === "initiated";
+
+        // TEMPORARY: separates a slow sandbox from a slow provider for this exact
+        // invocation. Cheap (one DNS lookup, two unauthenticated GETs).
+        await logEgressProbe();
 
         // ── Steps 1–2: prepare the job while the audio is being assembled ─────
         // Creating the job and presigning the upload URL depend on each other but

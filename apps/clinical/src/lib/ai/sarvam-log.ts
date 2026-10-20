@@ -152,6 +152,11 @@ export function registerSarvamLogSink(sink: SarvamLogSink | null): void {
 }
 
 async function appendToFile(line: string): Promise<void> {
+  // On a deployed platform `/tmp` is per-instance and discarded when the
+  // instance goes away, so the file is not evidence there — the database sink is.
+  // Keeping it cost two threadpool operations per event on the consultation path
+  // and queued behind DNS lookups, which share the same small pool.
+  if (process.env.VERCEL) return;
   const target = sarvamLogFilePath();
   try {
     await mkdir(dirname(target), { recursive: true });

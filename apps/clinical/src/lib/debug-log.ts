@@ -106,6 +106,11 @@ export function registerDebugLogSink(sink: DebugLogSink | null): void {
 
 async function appendToFile(line: string): Promise<void> {
   if (appendedBytes > MAX_FILE_BYTES) return;
+  // On a deployed platform `/tmp` is per-instance and discarded when the
+  // instance goes away, so the file is not evidence there — the database sink is.
+  // Keeping it cost two threadpool operations per event on the consultation path
+  // and queued behind DNS lookups, which share the same small pool.
+  if (process.env.VERCEL) return;
   try {
     const target = debugLogFilePath();
     await mkdir(dirname(target), { recursive: true });
