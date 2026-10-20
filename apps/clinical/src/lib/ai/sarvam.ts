@@ -417,14 +417,16 @@ export async function initiateBatchJob(
   return data.job_id;
 }
 
-/** Steps 2–3: obtain a presigned upload URL and PUT the raw audio to it. */
-export async function uploadBatchFile(input: {
+/**
+ * Step 2a: obtain a presigned upload URL for the assembled audio.
+ *
+ * Split out from the PUT because presigning needs only the job id, so it can run
+ * while the recording chunks are still being assembled instead of after them.
+ */
+export async function createBatchUploadUrl(input: {
   jobId: string;
   fileName: string;
-  audioBuffer: ArrayBuffer;
-  mimeType: string;
-}): Promise<void> {
-  const uploadStartedAt = Date.now();
+}): Promise<string> {
   const data = await sarvamJson<{
     upload_urls?: Record<string, { file_url?: unknown }>;
   }>(`${SARVAM_BATCH_PATH}/upload-files`, {
@@ -440,10 +442,20 @@ export async function uploadBatchFile(input: {
     });
     throw new Error("Sarvam did not return an upload URL for the audio file.");
   }
+  return fileUrl;
+}
 
+/** Step 2b: PUT the assembled audio to the presigned URL. */
+export async function putBatchFile(input: {
+  jobId: string;
+  fileUrl: string;
+  audioBuffer: ArrayBuffer;
+  mimeType: string;
+}): Promise<{ durationMs: number }> {
+  const uploadStartedAt = Date.now();
   const { response: putResponse, durationMs } = await sarvamRequest({
     step: "batch.upload_put",
-    url: fileUrl,
+    url: input.fileUrl,
     method: "PUT",
     headers: {
       "Content-Type": input.mimeType,
@@ -475,6 +487,7 @@ export async function uploadBatchFile(input: {
     audioBytes: input.audioBuffer.byteLength,
     totalMs: Date.now() - uploadStartedAt,
   });
+  return { durationMs };
 }
 
 /**

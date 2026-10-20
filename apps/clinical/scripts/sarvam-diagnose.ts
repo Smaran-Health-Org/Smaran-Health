@@ -13,11 +13,12 @@
 import { config } from "dotenv";
 import {
   SARVAM_STT_MODEL,
+  createBatchUploadUrl,
   downloadBatchTranscript,
   getBatchJobStatus,
   initiateBatchJob,
+  putBatchFile,
   startBatchJob,
-  uploadBatchFile,
 } from "../src/lib/ai/sarvam";
 import { recentSarvamLog } from "../src/lib/ai/sarvam-log";
 
@@ -70,7 +71,12 @@ async function main() {
   const jobId = await initiateBatchJob({ mode: "codemix" });
   console.log(`1/5 initiated        jobId=${jobId}`);
 
-  await uploadBatchFile({ jobId, fileName, audioBuffer: audio, mimeType: "audio/wav" });
+  await putBatchFile({
+    jobId,
+    fileUrl: await createBatchUploadUrl({ jobId, fileName }),
+    audioBuffer: audio,
+    mimeType: "audio/wav",
+  });
   console.log("2/5 uploaded         ok");
 
   await startBatchJob(jobId);

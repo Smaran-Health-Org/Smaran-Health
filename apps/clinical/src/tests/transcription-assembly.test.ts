@@ -46,7 +46,7 @@ test("concurrent downloads are bounded and an incomplete assembly cannot be uplo
   assert.ok(match, "the download concurrency must be a named constant");
   const concurrency = Number(match[1]);
   assert.ok(concurrency >= 2, "concurrency below 2 does not remove the serial cost");
-  assert.ok(concurrency <= 8, "an unbounded fan-out opens too many sockets from one invocation");
+  assert.ok(concurrency <= 16, "an unbounded fan-out opens too many sockets from one invocation");
 
   assert.match(
     source,

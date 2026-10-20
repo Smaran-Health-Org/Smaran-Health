@@ -6,12 +6,13 @@ import {
 import { createStorageAdminClient } from "@/lib/supabase/storage-admin";
 import {
   SARVAM_STT_MODEL,
+  createBatchUploadUrl,
   downloadBatchTranscript,
   getBatchJobStatus,
   initiateBatchJob,
   mimeTypeToExtension,
+  putBatchFile,
   startBatchJob,
-  uploadBatchFile,
 } from "@/lib/ai/sarvam";
 import { classifyTranscriptionFailure } from "./failure-codes";
 import { AUDIO_BUCKET } from "./storage";
@@ -47,7 +48,7 @@ async function downloadRecordingChunk(storagePath: string): Promise<Uint8Array> 
  * Still bounded: an unbounded fan-out would open 100+ sockets from a single
  * invocation and multiply peak memory pressure for no extra throughput.
  */
-const CHUNK_DOWNLOAD_CONCURRENCY = 8;
+const CHUNK_DOWNLOAD_CONCURRENCY = 16;
 
 /**
  * Concatenates the ordered chunk blobs into one continuous audio buffer. Chunks
@@ -161,32 +162,65 @@ export function sarvamAudioTranscriptionStepAdapter(): AudioTranscriptionStepAda
       const fileName = `recording-${recording.recordingId}.${mimeTypeToExtension(mimeType)}`;
 
       try {
-        // ── Step 1: ensure a job exists ──────────────────────────────────────
-        let jobId = resume.jobId;
-        if (!jobId) {
-          logSarvam("adapter.start", {
-            traceId,
-            consultationId: recording.consultationId,
-            format: mimeType,
-            chunkCount: recording.chunks.length,
-          });
-          jobId = await initiateBatchJob({ mode: "codemix", withDiarization: true });
-          // Persisted before anything billable follows, so a crash here leaves a
-          // resumable job id rather than an orphaned, paid-for job.
-          await record({ jobId, phase: "initiated" });
-        } else {
-          logSarvam("adapter.resuming", { traceId, jobId, phase: resume.phase });
-        }
+        const needsUpload = resume.phase === null || resume.phase === "initiated";
+
+        // ── Steps 1–2: prepare the job while the audio is being assembled ─────
+        // Creating the job and presigning the upload URL depend on each other but
+        // not on the audio, so they run concurrently with the chunk downloads. The
+        // doctor's wait becomes the slower of the two instead of their sum.
+        const prepareStartedAt = Date.now();
+        const preparation = (async () => {
+          let preparedJobId = resume.jobId;
+          if (!preparedJobId) {
+            logSarvam("adapter.start", {
+              traceId,
+              consultationId: recording.consultationId,
+              format: mimeType,
+              chunkCount: recording.chunks.length,
+            });
+            preparedJobId = await initiateBatchJob({ mode: "codemix", withDiarization: true });
+            // Persisted before anything billable follows, so a crash here leaves a
+            // resumable job id rather than an orphaned, paid-for job.
+            await record({ jobId: preparedJobId, phase: "initiated" });
+          } else {
+            logSarvam("adapter.resuming", {
+              traceId,
+              jobId: preparedJobId,
+              phase: resume.phase,
+            });
+          }
+          if (!needsUpload) {
+            return { jobId: preparedJobId, uploadUrl: null, prepareMs: Date.now() - prepareStartedAt };
+          }
+          const uploadUrl = await createBatchUploadUrl({ jobId: preparedJobId, fileName });
+          return { jobId: preparedJobId, uploadUrl, prepareMs: Date.now() - prepareStartedAt };
+        })();
+        // Keeps a preparation failure from surfacing as an unhandled rejection if
+        // the assembly below throws first; the awaited value still reports it.
+        void preparation.catch(() => undefined);
+
+        const assembleStartedAt = Date.now();
+        const assembled = needsUpload ? await assembleRecording(recording) : null;
+        const assembleMs = assembled ? Date.now() - assembleStartedAt : 0;
+        const { jobId, uploadUrl, prepareMs } = await preparation;
 
         // ── Step 2: get the audio to Sarvam ──────────────────────────────────
-        if (resume.phase === null || resume.phase === "initiated") {
-          const { audioBuffer, totalBytes } = await assembleRecording(recording);
-          await uploadBatchFile({ jobId, fileName, audioBuffer, mimeType });
+        if (assembled && uploadUrl) {
+          const put = await putBatchFile({
+            jobId,
+            fileUrl: uploadUrl,
+            audioBuffer: assembled.audioBuffer,
+            mimeType,
+          });
           logSarvam("adapter.assembled", {
             traceId,
             mimeType,
-            totalBytes,
-            downloadMs: Date.now() - startedAt,
+            totalBytes: assembled.totalBytes,
+            chunkCount: recording.chunks.length,
+            assembleMs,
+            prepareMs,
+            uploadMs: put.durationMs,
+            totalMs: Date.now() - startedAt,
           });
           await record({ jobId, phase: "uploaded" });
         }
