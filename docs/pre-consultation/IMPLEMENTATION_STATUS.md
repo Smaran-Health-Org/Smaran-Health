@@ -9,6 +9,8 @@ Baseline commit reviewed: `bbf2a07`
 
 **Post-Phase-12 addition — consultation capture reliability and dashboard discoverability (`dev-keshav`).** Recorded in the section at the end of this document. This work sits on `dev-keshav` at `2fcc706` (`b08fcaf..2fcc706`), not on the Phase 1–12 baseline `dev-neelesh` (`bbf2a07`). It introduces no phase, changes no Phase 1–12 acceptance-criteria status, and does not alter the Phase 12 pilot-readiness gates.
 
+**Post-Phase-12 addition — trial access and per-doctor isolation (`dev-keshav`, `a00f4c8`).** Also outside the Phase 1–12 baseline. Two product rules that did not previously exist: a doctor account can be granted on trial and revoked later (no expiry — revocation is manual), and two doctors signing in with different credentials no longer see each other's patients. Reception belongs to exactly one doctor and inherits that doctor's scope. This narrows the clinic-wide RLS that every policy had until now, so it is a real change to the tenancy model rather than an additive feature. Applied to production and deployed. It changes no Phase 1–12 acceptance criterion, but it does mean a second doctor in a clinic no longer sees the first doctor's patients — worth confirming against the pilot assumption that a clinic is one shared record set.
+
 ## Phase tracker
 
 | Phase | Scope | Status | Acceptance criteria | Notes |
