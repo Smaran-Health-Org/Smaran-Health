@@ -58,3 +58,4 @@
 
 # Throwaway local prototype screenshots
 tmp/demo-record-*.png
+.vercel
