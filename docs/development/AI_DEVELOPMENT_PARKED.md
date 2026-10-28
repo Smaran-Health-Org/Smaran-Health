@@ -8,7 +8,7 @@ This is a temporary parking decision, not abandonment. The prior automation rema
 - Archive branch: `archive/ai-development-pre-scheduler`
 - Archive commit: `9968053052b3b4d8e944c0b88f784b0683338fa3`
 - Published pre-parking `dev-neelesh` SHA: `9968053052b3b4d8e944c0b88f784b0683338fa3`
-- Former refinement PR: [#9](https://github.com/DrSmaranAI/Smaran-Health/pull/9) (closed as parked/deferred, not merged). The repository has since moved to `Smaran-Health/Smaran-Health`; this link points at the original host and is kept as history.
+- Former refinement PR: [#9](https://github.com/DrSmaranAI/Smaran-Health/pull/9) (closed as parked/deferred, not merged). The repository has since moved to `Smaran-Health-Org/Smaran-Health`; this link points at the original host and is kept as history.
 - Former candidate branch: `codex/sch-s1-refinement-approval-v4`
 
 ## Manual Scheduler workflow while parked
