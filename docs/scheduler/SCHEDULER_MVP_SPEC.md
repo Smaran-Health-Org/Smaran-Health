@@ -1,6 +1,6 @@
 # Smaran Scheduler — MVP Technical Specification
 
-Target repository: `DrSmaranAI/Smaran-Health`  
+Target repository: `Smaran-Health/Smaran-Health`  
 Target branch: `dev-neelesh`  
 Status: **Approved product refinement; S1 architecture synchronized; product implementation not started**  
 Timezone: `Asia/Kolkata`

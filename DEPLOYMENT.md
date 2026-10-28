@@ -144,7 +144,7 @@ Dashboard → **Authentication → Policies**: default session settings are fine
 
 ### B1. Push the repo
 
-The repo already has a remote: `https://github.com/DrSmaranAI/Smaran-Health.git`.
+The repo already has a remote: `https://github.com/Smaran-Health/Smaran-Health.git`.
 
 ### B0. Deploy without GitHub (Vercel CLI) — chosen path for this deployment
 
@@ -172,7 +172,7 @@ involvement, and nothing needs to be pushed:
 ### B2. Import into Vercel
 
 1. Sign up at <https://vercel.com> with GitHub.
-2. **Add New → Project → Import** the `DrSmaranAI/Smaran-Health` repo.
+2. **Add New → Project → Import** the `Smaran-Health/Smaran-Health` repo.
 3. Project configuration (this is a monorepo — the important settings):
    - **Root Directory:** `apps/clinical`
    - Framework preset: **Next.js** (auto-detected)
