@@ -143,6 +143,8 @@ async function fixture(t: {
     role,
     email: `synthetic-${id}@example.invalid`,
     fullName: "Synthetic QA staff",
+    accessState: "active",
+    ownerDoctorId: null,
   });
   const f = {
     clinic,

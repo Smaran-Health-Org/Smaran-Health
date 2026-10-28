@@ -47,11 +47,12 @@ export async function getDashboardOverview(clinicId: string, doctorId: string): 
   const supabase = await createServerClient();
 
   const [todayQueue, patientCountResult, pendingRows] = await Promise.all([
-    getAppointmentQueue(clinicId),
+    getAppointmentQueue(clinicId, new Date(), doctorId),
     supabase
       .from("patients")
       .select("id", { count: "exact", head: true })
-      .eq("clinic_id", clinicId),
+      .eq("clinic_id", clinicId)
+      .eq("primary_doctor_id", doctorId),
     // One extra row is the cheapest way to tell "exactly N" from "at least N"
     // without issuing a second counting query on every dashboard load.
     //

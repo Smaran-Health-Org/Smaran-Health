@@ -5,7 +5,10 @@ INSERT INTO public.clinics (id, name) VALUES
   ('d5500000-0000-4000-8000-000000000001', 'Phase 12 Reconciliation Clinic');
 INSERT INTO public.profiles (id, clinic_id, email, full_name, role) VALUES
   ('d5510000-0000-4000-8000-000000000001', 'd5500000-0000-4000-8000-000000000001', 'p12-reconciliation@example.invalid', 'P12 Reconciliation Doctor', 'doctor'),
-  ('d5510000-0000-4000-8000-000000000002', 'd5500000-0000-4000-8000-000000000001', 'p12-reconciliation-other@example.invalid', 'P12 Other Doctor', 'doctor');
+  -- Reception owned by the same doctor. Since 0108 a second doctor no longer
+  -- sees this patient, so a different *uploader identity* has to be staff of the
+  -- owning doctor to reach the consultation at all.
+  ('d5510000-0000-4000-8000-000000000002', 'd5500000-0000-4000-8000-000000000001', 'p12-reconciliation-other@example.invalid', 'P12 Other Staff', 'assistant');
 INSERT INTO public.patients (id, clinic_id, full_name, phone) VALUES
   ('d5520000-0000-4000-8000-000000000001', 'd5500000-0000-4000-8000-000000000001', 'P12 Reconciliation Patient', '+919911110055');
 

@@ -5,6 +5,7 @@ import { StartQueuedConsultation } from "@/components/start-queued-consultation"
 import { ReviewClinicalChanges } from "@/components/review-clinical-changes";
 import styles from "@/components/clinical.module.css";
 import { getSessionContext } from "@/lib/db/session";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatients } from "@/lib/db/patients";
 import { getCurrentClinicalStateForReview, getPendingClinicalStateDeltas } from "@/lib/db/clinical-state";
@@ -15,6 +16,7 @@ export default async function ReviewChangesPage({ params, searchParams }: { para
   const [{ id: patientId }, { consultation: consultationId }] = await Promise.all([params, searchParams]);
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
   if (session.role !== "doctor") redirect("/desk");
   if (!consultationId) notFound();
   const client = await createServerClient();

@@ -10,6 +10,7 @@ import { getPatientTimeline } from "@/lib/db/timeline";
 import { getClinicalNoteByConsultation } from "@/lib/db/clinical-notes";
 import { getTranscriptByConsultation } from "@/lib/db/transcripts";
 import { getConsultationAudioMeta } from "@/lib/db/audio-files";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { getFollowUpMemory } from "@/lib/db/follow-up-memory";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
@@ -37,6 +38,7 @@ export default async function ConsultationPage({
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
   if (session.role !== "doctor") redirect("/desk");
 
   const consultation = await getConsultation(id, session.clinicId);

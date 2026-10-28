@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/db/session";
 import { getClinicDoctors, getClinicName } from "@/lib/db/clinics";
 import { getPatientDirectory } from "@/lib/db/patients";
+import { effectiveDoctorId } from "@/lib/auth/capabilities";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { AppShell } from "@/components/app-shell";
 import { WalkInFlow } from "@/components/walk-in-flow";
 import styles from "@/components/clinical.module.css";
@@ -10,10 +12,14 @@ import styles from "@/components/clinical.module.css";
 export default async function WalkInPage() {
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
+
+  const doctorId = effectiveDoctorId(session);
+
   const [clinicName, doctors, patientResult] = await Promise.all([
     getClinicName(session.clinicId),
     getClinicDoctors(session.clinicId),
-    getPatientDirectory(session.clinicId, { page: 1, pageSize: 20 }),
+    getPatientDirectory(session.clinicId, { page: 1, pageSize: 20, doctorId }),
   ]);
 
   return (

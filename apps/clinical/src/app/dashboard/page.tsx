@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
 import { getDashboardOverview } from "@/lib/db/dashboard";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { AppShell } from "@/components/app-shell";
 import { DoctorTodayList } from "@/components/doctor-today-list";
 import { PendingReviewList } from "@/components/pending-review-list";
@@ -17,6 +18,7 @@ function greeting(): string {
 export default async function DashboardPage() {
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
   if (session.role !== "doctor") redirect("/desk");
 
   const [overview, clinicName] = await Promise.all([

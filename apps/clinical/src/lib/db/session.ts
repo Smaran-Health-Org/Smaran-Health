@@ -17,7 +17,7 @@ export const getSessionContext = cache(async (): Promise<SessionContext | null> 
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, clinic_id, email, full_name, role")
+    .select("id, clinic_id, email, full_name, role, access_state, owner_doctor_id")
     .eq("id", user.id)
     .single();
 
@@ -36,5 +36,7 @@ export const getSessionContext = cache(async (): Promise<SessionContext | null> 
     email: profile.email,
     fullName: profile.full_name,
     role: profile.role,
+    accessState: profile.access_state,
+    ownerDoctorId: profile.owner_doctor_id,
   };
 });

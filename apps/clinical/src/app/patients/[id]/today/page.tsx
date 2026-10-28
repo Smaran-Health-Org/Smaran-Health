@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/db/session";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatientDetail } from "@/lib/db/patient-detail";
 import { getPatients } from "@/lib/db/patients";
@@ -24,6 +25,7 @@ export default async function TodayPatientPage({
   const [{ id }, { consultation: consultationId }] = await Promise.all([params, searchParams]);
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
   if (session.role !== "doctor") redirect("/desk");
 
   const detail = await getPatientDetail(id, session.clinicId);

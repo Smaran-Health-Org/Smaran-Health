@@ -5,7 +5,7 @@ import { calendarAppointmentGeometry, calendarAppointmentOverlapLayout, CALENDAR
 import { bookingSemanticIdentity, displayedBookingDuration, hasValidDurationOverride, optionalDurationOverride, selectedDoctorTypeId } from "../lib/scheduler/workspace-payloads";
 import type { SessionContext } from "../types";
 
-const session: SessionContext = { userId: "actor", profileId: "actor", clinicId: "clinic-a", email: "staff@example.test", fullName: "Staff", role: "assistant" };
+const session: SessionContext = { userId: "actor", profileId: "actor", clinicId: "clinic-a", email: "staff@example.test", fullName: "Staff", role: "assistant", accessState: "active", ownerDoctorId: null };
 
 function fakeClient(rows: Record<string, unknown[]>) {
   const response = (table: string) => ({ data: rows[table] ?? [], error: null });

@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { isApiRoute, isPublicRoute } from "@/lib/auth/route-access";
+import { ACCESS_REVOKED_PATH, isApiRoute, isPublicRoute } from "@/lib/auth/route-access";
 
 // Public routes that don't require authentication are defined in
 // `lib/auth/route-access` alongside the patient-portal rule. `/api/internal` is
@@ -60,6 +60,27 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // A revoked account keeps a valid session, so the check above cannot catch it.
+  // Enforced here as well as in pages because a deep link or a background fetch
+  // never renders a page guard.
+  if (pathname !== ACCESS_REVOKED_PATH) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("access_state")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.access_state === "suspended") {
+      if (isApiRoute(pathname)) {
+        return NextResponse.json(
+          { error: "Access revoked.", code: "access_revoked" },
+          { status: 403, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      return NextResponse.redirect(new URL(ACCESS_REVOKED_PATH, request.url));
+    }
   }
 
   return response;

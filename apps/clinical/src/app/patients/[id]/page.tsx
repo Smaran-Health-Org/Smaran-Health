@@ -4,6 +4,7 @@ import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatientDetail } from "@/lib/db/patient-detail";
 import { getPatients } from "@/lib/db/patients";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Icon } from "@/components/icons";
@@ -29,6 +30,7 @@ export default async function PatientDetailPage({
   const { id } = await params;
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
   if (session.role !== "doctor") redirect("/desk");
 
   const detail = await getPatientDetail(id, session.clinicId);

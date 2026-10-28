@@ -286,17 +286,27 @@ export function orderQueueItems(items: AppointmentQueueItem[]): AppointmentQueue
   });
 }
 
-export async function getAppointmentQueue(clinicId: string, now = new Date()): Promise<AppointmentQueue> {
+export async function getAppointmentQueue(
+  clinicId: string,
+  now = new Date(),
+  doctorId?: string | null
+): Promise<AppointmentQueue> {
   const supabase = await createServerClient();
   const { start, end } = clinicDayBounds(now);
 
-  const { data: appointments, error: appointmentsError } = await supabase
+  let appointmentQuery = supabase
     .from("appointments")
     .select("id, patient_id, consultation_id, scheduled_at, status, checked_in_at, queue_order")
     .eq("clinic_id", clinicId)
     .gte("scheduled_at", start)
     .lt("scheduled_at", end)
     .order("scheduled_at", { ascending: true });
+
+  // RLS already narrows this for the signed-in actor. Passing the doctor keeps
+  // the intent explicit and keeps the query correct under the service role.
+  if (doctorId) appointmentQuery = appointmentQuery.eq("doctor_id", doctorId);
+
+  const { data: appointments, error: appointmentsError } = await appointmentQuery;
 
   if (appointmentsError) throw new Error("Failed to load today's appointment queue");
   const appointmentRows = (appointments ?? []) as AppointmentRow[];

@@ -15,7 +15,7 @@ const base = (patch: Partial<AvailabilityInput> = {}): AvailabilityInput => ({
   localDate: DATE, workingHours: [{ weekday: 1, startTime: "09:00", endTime: "12:00" }],
   exceptions: [], doctorAppointments: [], effectiveIntervalMinutes: 5, resolvedDurationMinutes: 5, asOf: at(8), ...patch,
 });
-const session: SessionContext = { userId: "actor", profileId: "actor", clinicId: "clinic-a", email: "staff@example.test", fullName: "Staff", role: "assistant" };
+const session: SessionContext = { userId: "actor", profileId: "actor", clinicId: "clinic-a", email: "staff@example.test", fullName: "Staff", role: "assistant", accessState: "active", ownerDoctorId: null };
 
 test("Phase 2 keeps working, dated special working, blocks, leave and clean intervals semantically separate", () => {
   const input = base({

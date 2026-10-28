@@ -3,6 +3,7 @@ import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
 import { getDashboardOverview } from "@/lib/db/dashboard";
 import { listRecordingHistory } from "@/lib/db/recording-history";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { AppShell } from "@/components/app-shell";
 import { RecordingHistory } from "@/components/recording-history";
 import styles from "@/components/clinical.module.css";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function RecordingsPage() {
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
   if (session.role !== "doctor") redirect("/desk");
 
   const [items, clinicName, overview] = await Promise.all([

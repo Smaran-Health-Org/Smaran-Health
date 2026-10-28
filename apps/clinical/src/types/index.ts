@@ -111,4 +111,8 @@ export type SessionContext = {
   email: string;
   fullName: string;
   role: "doctor" | "assistant" | "admin";
+  /** `trial` narrows capabilities; `suspended` blocks the workspace entirely. */
+  accessState: "active" | "trial" | "suspended";
+  /** The doctor this account is scoped to. Null for doctors (they own themselves). */
+  ownerDoctorId: string | null;
 };

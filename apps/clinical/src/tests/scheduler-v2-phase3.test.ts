@@ -8,7 +8,7 @@ import { refreshPanelAppointment, selectAppointment, type SchedulerPanel } from 
 import { inspectorActions, inspectorOriginLabel, inspectorQueueLabel } from "../lib/scheduler/inspector-view-model";
 import type { SessionContext } from "../types";
 
-const staff: SessionContext = { userId: "actor", profileId: "actor", clinicId: "clinic-a", email: "staff@example.test", fullName: "Staff", role: "assistant" };
+const staff: SessionContext = { userId: "actor", profileId: "actor", clinicId: "clinic-a", email: "staff@example.test", fullName: "Staff", role: "assistant", accessState: "active", ownerDoctorId: null };
 const appointment = (patch: Partial<SchedulerAppointmentSummary> = {}): SchedulerAppointmentSummary => ({
   id: "appointment-1", patientId: "patient-1", patientName: "Asha Patel", patientPhone: null,
   doctorId: "doctor-1", doctorName: "Dr Shah", scheduledAt: "2026-09-20T04:30:00Z", durationMinutes: 15,

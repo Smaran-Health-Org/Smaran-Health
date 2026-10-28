@@ -4,6 +4,8 @@ import { getSessionContext } from "@/lib/db/session";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatients } from "@/lib/db/patients";
 import { getAppointmentQueue } from "@/lib/db/appointment-queue";
+import { effectiveDoctorId } from "@/lib/auth/capabilities";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { AppShell } from "@/components/app-shell";
 import { ClinicDeskToday } from "@/components/clinic-desk-today";
 import { Icon } from "@/components/icons";
@@ -12,11 +14,15 @@ import styles from "@/components/clinical.module.css";
 export default async function ClinicDeskPage() {
   const session = await getSessionContext();
   if (!session) redirect("/login?redirect=/desk");
+  requireUsableAccess(session);
+
+  // Reception is scoped to the doctor who created it; a doctor sees their own.
+  const doctorId = effectiveDoctorId(session);
 
   const [queue, clinicName, patients] = await Promise.all([
-    getAppointmentQueue(session.clinicId),
+    getAppointmentQueue(session.clinicId, new Date(), doctorId),
     getClinicName(session.clinicId),
-    getPatients(session.clinicId, { page: 1, pageSize: 1 }),
+    getPatients(session.clinicId, { page: 1, pageSize: 1, doctorId }),
   ]);
 
   return (

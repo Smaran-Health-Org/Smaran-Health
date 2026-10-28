@@ -9,6 +9,12 @@
 const PUBLIC_ROUTE_PREFIXES = ["/login", "/auth/callback", "/intake", "/api/intake", "/api/internal"] as const;
 
 /**
+ * The revoked-access page needs a session but must not be redirected away from
+ * itself, so it is exempt from the usable-access guard rather than public.
+ */
+export const ACCESS_REVOKED_PATH = "/access-revoked";
+
+/**
  * The patient portal authenticates patients with its own one-time code and portal
  * session cookie, and every portal page/handler enforces that check server-side.
  * It must therefore bypass the staff auth gate.

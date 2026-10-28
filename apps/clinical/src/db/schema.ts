@@ -49,6 +49,16 @@ export const profileRoleEnum = pgEnum("profile_role", [
   "admin",
 ]);
 
+/**
+ * `trial` is a grant, not a clock: there is no expiry column, so a trial never
+ * lapses mid-consultation. Revocation is a human action that sets `suspended`.
+ */
+export const profileAccessStateEnum = pgEnum("profile_access_state", [
+  "active",
+  "trial",
+  "suspended",
+]);
+
 export const appointmentStatusEnum = pgEnum("appointment_status", [
   "scheduled",
   "cancelled",
@@ -193,6 +203,15 @@ export const profiles = pgTable("profiles", {
   email: text("email").notNull(),
   fullName: text("full_name").notNull(),
   role: profileRoleEnum("role").notNull().default("doctor"),
+  accessState: profileAccessStateEnum("access_state").notNull().default("active"),
+  /**
+   * The doctor whose patients this account may see. NULL for doctors (they own
+   * themselves); required for operational staff, who belong to exactly one
+   * doctor and are mutually invisible to other doctors' reception.
+   */
+  ownerDoctorId: uuid("owner_doctor_id").references((): AnyPgColumn => profiles.id, {
+    onDelete: "restrict",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -224,6 +243,13 @@ export const patients = pgTable(
     bloodPressure: text("blood_pressure"),
     bloodGroup: text("blood_group"),
     hasDiabetes: boolean("has_diabetes"),
+    /**
+     * The doctor who owns this patient. Set from the acting staff member's
+     * effective doctor on insert, so reception never supplies it.
+     */
+    primaryDoctorId: uuid("primary_doctor_id").references(() => profiles.id, {
+      onDelete: "restrict",
+    }),
     mergedIntoPatientId: uuid("merged_into_patient_id").references(
       (): AnyPgColumn => patients.id,
       { onDelete: "restrict" }
@@ -249,6 +275,10 @@ export const patients = pgTable(
       table.normalizedName
     ),
     index("patients_merged_into_patient_id_idx").on(table.mergedIntoPatientId),
+    index("patients_clinic_primary_doctor_idx").on(
+      table.clinicId,
+      table.primaryDoctorId
+    ),
   ]
 );
 

@@ -6,6 +6,7 @@ import { StartQueuedConsultation } from "@/components/start-queued-consultation"
 import { PreconsultTrends } from "@/components/preconsult-trends";
 import styles from "@/components/clinical.module.css";
 import { getSessionContext } from "@/lib/db/session";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatients } from "@/lib/db/patients";
 import { createClient as createServerClient } from "@/lib/supabase/server";
@@ -30,6 +31,7 @@ export default async function PreconsultPage({ params, searchParams }: { params:
   const [{ id: patientId }, { consultation: consultationId }] = await Promise.all([params, searchParams]);
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
   if (session.role !== "doctor") redirect("/desk");
   if (!consultationId) notFound();
   const client = await createServerClient();

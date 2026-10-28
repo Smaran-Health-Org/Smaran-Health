@@ -114,7 +114,17 @@ export async function findPossiblePatientDuplicates(
   return findPossiblePatientDuplicatesWithClient(supabase, clinicId, input);
 }
 
-export type PatientQueryOptions = { search?: string; page?: number; pageSize?: number };
+export type PatientQueryOptions = {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  /**
+   * Restrict to one doctor's patients. RLS already does this for the signed-in
+   * actor; passing it explicitly keeps the intent visible at the call site and
+   * keeps the query correct if it is ever run with the service role.
+   */
+  doctorId?: string | null;
+};
 
 async function queryPatients<T>(
   columns: string,
@@ -134,6 +144,8 @@ async function queryPatients<T>(
     .is("merged_into_patient_id", null)
     .order("created_at", { ascending: false })
     .range(from, to);
+
+  if (opts?.doctorId) query = query.eq("primary_doctor_id", opts.doctorId);
 
   if (opts?.search) {
     const safeSearch = opts.search.replace(/[%_,().]/g, " ").trim();

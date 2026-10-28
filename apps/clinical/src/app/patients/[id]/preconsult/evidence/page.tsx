@@ -5,6 +5,7 @@ import styles from "@/components/clinical.module.css";
 import { getClinicName } from "@/lib/db/clinics";
 import { getPatients } from "@/lib/db/patients";
 import { getSessionContext } from "@/lib/db/session";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { deltaEvidenceSources, preconsultEvidenceHref, preconsultEvidenceLabel, preconsultEvidenceSourceTypeSchema, getPreconsultEvidenceSource, type PreconsultEvidenceSource } from "@/lib/preconsult/evidence";
 
 function fieldLabel(key: string) {
@@ -42,6 +43,7 @@ export default async function PreconsultEvidencePage({
   const [{ id: patientId }, query] = await Promise.all([params, searchParams]);
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
   if (session.role !== "doctor") redirect("/desk");
   const sourceType = preconsultEvidenceSourceTypeSchema.safeParse(query.type);
   if (!sourceType.success || !query.source) notFound();

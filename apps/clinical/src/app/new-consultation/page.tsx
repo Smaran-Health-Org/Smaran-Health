@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/db/session";
 import { getPatients } from "@/lib/db/patients";
 import { getClinicName } from "@/lib/db/clinics";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { AppShell } from "@/components/app-shell";
 import { NewConsultationFlow } from "@/components/new-consultation-flow";
 
@@ -12,6 +13,7 @@ export default async function NewConsultationPage({
 }) {
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
   if (session.role !== "doctor") redirect("/desk");
 
   const { new: isNew } = await searchParams;

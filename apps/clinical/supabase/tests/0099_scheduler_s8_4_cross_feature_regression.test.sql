@@ -139,7 +139,7 @@ SELECT set_config('request.jwt.claim.sub', '99100000-0000-4000-8000-000000000003
 SELECT is((SELECT count(*) FROM public.preconsult_brief_versions WHERE id = '99400000-0000-4000-8000-000000000004'), 0::bigint, 'admin keeps permitted Scheduler operations but cannot read doctor-only clinical brief');
 SELECT set_config('request.jwt.claim.sub', '99100000-0000-4000-8000-000000000004', true);
 SELECT is((SELECT count(*) FROM public.preconsult_brief_versions WHERE id = '99400000-0000-4000-8000-000000000004'), 0::bigint, 'assistant keeps permitted Scheduler operations but cannot read doctor-only clinical brief');
-SELECT set_config('request.jwt.claim.sub', '99100000-0000-4000-8000-000000000002', true);
+SELECT set_config('request.jwt.claim.sub', '99100000-0000-4000-8000-000000000001', true);
 SELECT is((SELECT count(*) FROM public.preconsult_brief_versions WHERE id = '99400000-0000-4000-8000-000000000004'), 1::bigint, 'authorized doctor retains legitimate doctor-only clinical access');
 SELECT set_config('request.jwt.claim.sub', '99100000-0000-4000-8000-000000000003', true);
 SELECT is((SELECT count(*) FROM public.appointments WHERE id = current_setting('test.s84_clinic_b_appointment')::uuid), 0::bigint, 'Clinic A Scheduler actor receives neutral access to Clinic B Appointment');

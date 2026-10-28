@@ -6,6 +6,8 @@ import { getPatient, getPatients } from "@/lib/db/patients";
 import { getAppointmentQueue } from "@/lib/db/appointment-queue";
 import { getConsultations } from "@/lib/db/consultations";
 import { getAssistedIntakeContext } from "@/lib/db/patient-intake";
+import { effectiveDoctorId } from "@/lib/auth/capabilities";
+import { requireUsableAccess } from "@/lib/auth/access-guard";
 import { AppShell } from "@/components/app-shell";
 import { DocumentManager } from "@/components/document-manager";
 import { AssistedIntake } from "@/components/assisted-intake";
@@ -21,13 +23,16 @@ function kolkataTime(value: string | Date | null | undefined): string {
 export default async function DeskPatientPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionContext();
   if (!session) redirect("/login");
+  requireUsableAccess(session);
   const { id } = await params;
+
+  const doctorId = effectiveDoctorId(session);
 
   const [patient, clinicName, patientCountResult, queue, consultations, doctors] = await Promise.all([
     getPatient(id, session.clinicId),
     getClinicName(session.clinicId),
-    getPatients(session.clinicId, { page: 1, pageSize: 1 }),
-    getAppointmentQueue(session.clinicId),
+    getPatients(session.clinicId, { page: 1, pageSize: 1, doctorId }),
+    getAppointmentQueue(session.clinicId, new Date(), doctorId),
     getConsultations(id, session.clinicId),
     getClinicDoctors(session.clinicId).catch(() => []),
   ]);
