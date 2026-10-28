@@ -35,6 +35,18 @@ Do not run `vercel link --confirm` from the repository root or under a guessed n
 
 `apps/clinical/vercel.json` pins serverless functions to `bom1`, next to Supabase `ap-south-1`. If that file is dropped or its region changed, every database round trip crosses the Pacific and page latency multiplies. Confirm the region is still applied after any change to deployment configuration.
 
+### Test doctor accounts
+
+Three doctor accounts exist in the production Supabase project for demo and QA. Their credentials are stored as **GitHub Actions secrets** on `Smaran-Health-Org/Smaran-Health` so a workflow can sign in without them being committed:
+
+| Secret | Account |
+| --- | --- |
+| `TEST_DOCTOR_1_EMAIL` / `TEST_DOCTOR_1_PASSWORD` | `neelesh@test.com` |
+| `TEST_DOCTOR_2_EMAIL` / `TEST_DOCTOR_2_PASSWORD` | `bipin@test.com` |
+| `TEST_DOCTOR_3_EMAIL` / `TEST_DOCTOR_3_PASSWORD` | `kapil@test.com` |
+
+All three are `doctor` role, `active` access, in the seeded clinic. They are synthetic accounts with weak passwords — fine for a demo, not for real patient data. Read them in a workflow with `${{ secrets.TEST_DOCTOR_1_EMAIL }}`; locally they are not in `.env.local`.
+
 This document explains how to host this project **entirely on free-tier cloud services**, and exactly how to do it step by step. It matches the architecture decision already locked in `PROJECT_MEMORY.md` (Next.js App Router + Supabase Postgres/Auth/Storage) and the stack recommended in `AGENTS.md` (Vercel deployment).
 
 > **Cost today: ₹0 / $0 per month.** The only future paid item is the OpenAI API key (pay-per-use) when server-side AI transcription/extraction is enabled — that is an AI cost, not a hosting cost.
