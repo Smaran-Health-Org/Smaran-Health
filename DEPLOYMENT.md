@@ -34,10 +34,24 @@
 ### Branch strategy
 
 - **`dev-local`** — local development & fast UI iteration (local Supabase via Docker, `SETUP.md`).
-- **`dev-keshav`** — the deployable branch; deploy it with the Vercel CLI command below.
-- Flow: iterate on `dev-local` → sync `apps/clinical` into `dev-keshav` → `vercel deploy --prod`.
+- **`dev-keshav`** — integration branch. Pushes here produce a **preview** deployment
+  (`smaran-health-git-dev-keshav-smaran-health.vercel.app`), so work can be reviewed
+  on a real URL before it reaches users.
+- **`main`** — **production**. `productionBranch` is `main`, so a push to `main`
+  deploys `smaranhealth.com` automatically
+  (`smaran-health-git-main-smaran-health.vercel.app`).
+- Flow: iterate on `dev-local` → sync `apps/clinical` into `dev-keshav` → review the
+  preview → merge `dev-keshav` into `main` → production deploys itself.
 
-### Deploying with the Vercel CLI — required flags
+Merging is a fast-forward while `main` holds no commits of its own; if it ever
+diverges, resolve on `dev-keshav` first rather than on `main`, so production never
+receives an untested merge commit.
+
+### Deploying manually with the Vercel CLI
+
+The CLI path still works and is the escape hatch when Git is unavailable or you need
+to ship without committing. It deploys whatever is in your working tree, not a commit,
+so prefer the Git flow above when the change is already merged.
 
 Run from `apps/clinical`. The `--scope` flag is **not optional**: without it the deploy fails with `Error: Not authorized` even when `.vercel/project.json` is correct. Vercel CLI 65 also requires **Node ≥ 20** (`nvm use 20.11.0`).
 
@@ -56,7 +70,7 @@ reviewed in a diff and a fresh project will not have them:
 | Setting | Value | Why |
 | --- | --- | --- |
 | **Root Directory** | `apps/clinical` | This is a monorepo and there is no `package.json` at the repository root. With the field empty, every Git-triggered build fails (`ERROR`) because Vercel has no app to build. CLI deploys are unaffected, because they run from `apps/clinical`. |
-| **Production Branch** | `main` (unchanged) | Deliberate: production is promoted by an explicit `vercel deploy --prod` from `dev-keshav`, so a push cannot ship to real users. Pushes to `dev-keshav` create preview deployments only. |
+| **Production Branch** | `main` | A push to `main` deploys `smaranhealth.com`. Pushes to `dev-keshav` create preview deployments only, so integration work never reaches users. |
 
 Set the root directory with:
 
