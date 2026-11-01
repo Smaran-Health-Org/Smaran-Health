@@ -80,11 +80,12 @@ Use the local synthetic fixture credentials configured by your development envir
 git checkout dev-keshav
 git merge dev-local
 git push origin dev-keshav
-# 3. deploy to cloud (from apps/clinical):
-npx vercel deploy --prod --yes --token <vercel-token> \
-  -b NEXT_PUBLIC_SUPABASE_URL=https://fkdfhojrlbdckrodufkj.supabase.co \
-  -b NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon> \
-  -e SUPABASE_SERVICE_ROLE_KEY=<service-role>
+# 3. deploy to cloud (from apps/clinical, Node >= 20):
+npx vercel deploy --prod --yes --scope smaran-health
+# Env vars live on the Vercel project (team smaran-health), not on the command line:
+#   NEXT_PUBLIC_SUPABASE_URL=https://traorcuxhkmpvxykfjjg.supabase.co
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key>
+#   SUPABASE_SERVICE_ROLE_KEY=<legacy service_role key>
 ```
 
 ## 5. Troubleshooting

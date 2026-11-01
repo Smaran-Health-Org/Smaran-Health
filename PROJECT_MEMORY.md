@@ -151,7 +151,7 @@ Fifty consultations may validate workflow usability but must not be presented as
 
 - Founder documentation, `AGENTS.md`, and project memory exist.
 - A public-facing landing-page prototype exists under `apps/website`.
-- A **working end-to-end clinical app** exists under `apps/clinical` and is **deployed** at https://smaran-health.vercel.app (Vercel + Supabase cloud). See `DEPLOYMENT.md`.
+- A **working end-to-end clinical app** exists under `apps/clinical` and is **deployed** at https://smaranhealth.com (Vercel + Supabase cloud). See `DEPLOYMENT.md`.
 - Implemented: doctor auth (admin-provisioned, no signup), clinic-scoped patients/consultations, browser recording + live transcription, DeepSeek AI structured draft (7 fields incl. uncertain items), consent checkpoint, doctor review/approval (approval-only memory), follow-up memory card, unified consultation history, audit logging + RLS.
 - Branch strategy: `dev-local` (local iteration) and `dev-keshav` (deployable).
 - Not yet built: audio persistence, print/PDF export, patient-facing consent script, feedback form, pending-investigations tracker, data export/deletion (see `ROADMAP.md`).
@@ -161,7 +161,7 @@ Fifty consultations may validate workflow usability but must not be presented as
 
 Supersedes the 18 August snapshot only where the two differ. The Phase 1–12 pre-consultation, Clinic Desk, and Scheduler-boundary work landed on `dev-neelesh`; the reliability set below is on `dev-keshav`.
 
-- Still deployed at https://smaran-health.vercel.app, with Vercel functions pinned to `bom1` (Mumbai) so they co-locate with Supabase `ap-south-1`. Measured round trip improved from ~217 ms to ~23 ms.
+- Still deployed at https://smaranhealth.com (**migrated 1 Nov 2026** to Vercel team `smaran-health` and Supabase project `traorcuxhkmpvxykfjjg`), with Vercel functions pinned to `bom1` (Mumbai) so they co-locate with Supabase `ap-south-1`. Measured round trip improved from ~217 ms to ~23 ms.
 - **Live transcription no longer exists.** It was removed (`D-057`) after it silently forced English-India recognition onto Marathi. Nothing about that failure reached the server, so it never appeared in any log or in `sarvam_api_events`.
 - **Audio persistence is built**, which corrects the "not yet built" item in the August snapshot. Recording stores audio; transcription runs after the visit on the server-side Sarvam pipeline, on a durable queue with claim, backoff, and retry semantics.
 - **Indic languages are supported** through server-side Sarvam auto-detection, and the detected language code is now persisted on the transcript. It had previously been computed, logged, and then discarded.

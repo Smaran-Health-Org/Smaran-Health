@@ -490,7 +490,7 @@ Do not position the product as only a transcription app. The durable value is in
 ```text
 Status: Working end-to-end prototype (deployed)
 Founder: Solo founder
-Live: https://smaran-health.vercel.app  (Supabase cloud backend)
+Live: https://smaranhealth.com  (Supabase cloud backend, project traorcuxhkmpvxykfjjg)
 Local: apps/clinical → npm run dev (local Supabase via Docker, see SETUP.md)
 Primary goal: Validate doctor trust and repeat usage
 ```

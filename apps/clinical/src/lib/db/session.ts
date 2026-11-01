@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getVerifiedCaller } from "@/lib/supabase/verified-caller";
 import { debugWarn } from "@/lib/debug-log";
 import type { SessionContext } from "@/types";
 
@@ -9,11 +10,12 @@ import type { SessionContext } from "@/types";
 export const getSessionContext = cache(async (): Promise<SessionContext | null> => {
   const supabase = await createServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user?.email) return null;
+  // Local JWT verification rather than a GoTrue round trip. The returned identity
+  // is only trusted for "who is this"; authorization still comes from the profile
+  // row below and from RLS. See lib/supabase/verified-caller.ts.
+  const caller = await getVerifiedCaller(supabase);
+  if (!caller?.email) return null;
+  const user = { id: caller.userId };
 
   const { data: profile } = await supabase
     .from("profiles")

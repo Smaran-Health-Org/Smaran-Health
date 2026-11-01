@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/db/session";
+import { can } from "@/lib/auth/capabilities";
 import { mergePatients, PatientMergeError } from "@/lib/db/patient-merges";
 import { mergePatientsSchema } from "@/lib/validation";
 import {
@@ -18,8 +19,12 @@ export async function POST(
   const { id: sourcePatientId } = await params;
   const session = await getSessionContext();
   if (!session) return unauthorized();
-  if (session.role !== "doctor" && session.role !== "admin") {
-    return forbidden("Only doctors and clinic admins may merge patients");
+
+  // Capability, not role: a trial doctor is a doctor, and `patient.merge` is
+  // withheld from trial. Checking the role alone let a trial account merge —
+  // and the UI simply not offering the button is not an access control.
+  if (!can(session, "patient.merge")) {
+    return forbidden("Patient merge is not available on this account");
   }
 
   const body = await request.json();

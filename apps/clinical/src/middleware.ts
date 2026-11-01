@@ -35,6 +35,14 @@ export async function middleware(request: NextRequest) {
 
   // Refreshing the session token also validates the user (cheap, no DB hit
   // when the token is valid; hits GoTrue only when a refresh is required).
+  //
+  // Deliberately `getUser()` and not `getClaims()`. `getClaims()` verifies the
+  // JWT locally in the Node runtime and is used by `getSessionContext`, but in
+  // edge middleware on this project it failed every request with
+  // MIDDLEWARE_INVOCATION_FAILED — including unauthenticated ones — which takes
+  // the login page down with it. Middleware is the one place that must never
+  // fail closed on an unauthenticated request, so it stays on the path that is
+  // known to work in this runtime. The ~63 ms it costs is measured and accepted.
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -11,7 +11,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const REF = process.argv[2] || process.env.SUPABASE_PROJECT_REF || "fkdfhojrlbdckrodufkj";
+const REF = process.argv[2] || process.env.SUPABASE_PROJECT_REF || "traorcuxhkmpvxykfjjg";
 const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
 if (!TOKEN) {
   console.error("SUPABASE_ACCESS_TOKEN env var is required.");

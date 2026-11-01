@@ -2,13 +2,30 @@
 
 **Status:** Draft guide (16 Aug 2026) · **Applies to:** the clinical app (`apps/clinical`) and the marketing site (`apps/website`)
 
-## Deployment record (17 Aug 2026)
+## Deployment record (1 Nov 2026 — new Smaran Health accounts)
 
 | Item | Value |
 | --- | --- |
-| Clinical app (live) | **https://smaran-health.vercel.app** |
-| Vercel project | `kshav99s-projects/smaran-health` (deployed via CLI from `dev-keshav` branch) |
-| Supabase project | `fkdfhojrlbdckrodufkj` (region: **`ap-south-1` / Mumbai**) |
+| Clinical app (live) | **https://smaranhealth.com** (custom domain; apex + `www`, no redirect) |
+| Vercel account | `smaranhealth-6318`, team **`smaran-health`** (Hobby) |
+| Vercel project | `smaran-health/smaran-health` (`prj_Mxebi2qyRyPIL4W0Y4MCUniJqHLp`) |
+| Supabase project | `traorcuxhkmpvxykfjjg` (region: **`ap-south-1` / Mumbai**, Postgres 17) |
+| Supabase API keys | publishable key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`; legacy `service_role` → `SUPABASE_SERVICE_ROLE_KEY` |
+| Migrations | all 108 files applied via `node scripts/cloud-migrate.cjs traorcuxhkmpvxykfjjg` (Management API, no DB password needed) |
+| Storage | private `audio` (50 MB/file) and `medical-documents` (4 MB/file) buckets |
+| Supabase auth | signups disabled; Site URL `https://smaranhealth.com`; redirect allow-list covers apex, `www`, the `*.vercel.app` domain and localhost |
+| First doctor account | `smaranhealth@gmail.com` — role `doctor`, access `active`, clinic "Smaran Health Clinic" |
+| AI provider | `DEEPSEEK_API_KEY` set (prod + preview) |
+
+> `cloud-bootstrap.sql` in `apps/clinical/supabase/` is **stale** (only migrations `0000`–`0003`). Never use it for a new cloud project — use `scripts/cloud-migrate.cjs`, which applies every migration in order.
+
+### Deployment record (17 Aug 2026 — superseded, old accounts)
+
+| Item | Value |
+| --- | --- |
+| Clinical app (live) | **https://smaran-health.vercel.app** (old account) |
+| Vercel project | `kshav99s-projects/smaran-health` (old account; domain released 1 Nov 2026) |
+| Supabase project | `fkdfhojrlbdckrodufkj` (old account) |
 | Vercel function region | **`bom1` (Mumbai)**, pinned in `apps/clinical/vercel.json` — co-located with Supabase `ap-south-1`. Measured database round trip ~23 ms versus ~217 ms from the previous default region. |
 | Supabase auth | signups disabled; seed accounts `doctor1@pilot.test` / `pilot123!`, `doctor2@pilot.test` / `pilot123!` |
 | Storage | private `audio` bucket (50 MB file cap — free tier) |
@@ -22,30 +39,100 @@
 
 ### Deploying with the Vercel CLI — required flags
 
-Run from `apps/clinical`. The `--scope` flag is **not optional**: without it the deploy fails with `Error: Not authorized` even when `.vercel/project.json` is correct.
+Run from `apps/clinical`. The `--scope` flag is **not optional**: without it the deploy fails with `Error: Not authorized` even when `.vercel/project.json` is correct. Vercel CLI 65 also requires **Node ≥ 20** (`nvm use 20.11.0`).
 
 ```bash
 cd apps/clinical
-npx vercel deploy --prod --yes --scope kshav99s-projects
+npx vercel deploy --prod --yes --scope smaran-health
 ```
 
-Do not run `vercel link --confirm` from the repository root or under a guessed name — it silently creates a second project (`kshav99s-projects/clinical`) instead of linking the real one. Remove a stray project with `npx vercel project rm <name> --non-interactive`.
+Do not run `vercel link --confirm` from the repository root or under a guessed name — it silently creates a second project (`smaran-health/clinical`) instead of linking the real one. Remove a stray project with `npx vercel project rm <name> --non-interactive`.
 
 ### Function region
 
 `apps/clinical/vercel.json` pins serverless functions to `bom1`, next to Supabase `ap-south-1`. If that file is dropped or its region changed, every database round trip crosses the Pacific and page latency multiplies. Confirm the region is still applied after any change to deployment configuration.
 
-### Test doctor accounts
+### Pilot doctor accounts
 
-Three doctor accounts exist in the production Supabase project for demo and QA. Their credentials are stored as **GitHub Actions secrets** on `Smaran-Health-Org/Smaran-Health` so a workflow can sign in without them being committed:
+Three named doctor accounts exist in the production Supabase project so a pilot
+doctor can sign in without an admin provisioning them. Their credentials are
+stored as **GitHub Actions secrets** on `Smaran-Health-Org/Smaran-Health` — never
+committed, never in `.env.local`:
 
-| Secret | Account |
-| --- | --- |
-| `TEST_DOCTOR_1_EMAIL` / `TEST_DOCTOR_1_PASSWORD` | `neelesh@test.com` |
-| `TEST_DOCTOR_2_EMAIL` / `TEST_DOCTOR_2_PASSWORD` | `bipin@test.com` |
-| `TEST_DOCTOR_3_EMAIL` / `TEST_DOCTOR_3_PASSWORD` | `kapil@test.com` |
+| Secret | Account | Clinic |
+| --- | --- | --- |
+| `TEST_DOCTOR_1_EMAIL` / `TEST_DOCTOR_1_PASSWORD` | `neelesh@test.com` | Dr. Neelesh Clinic |
+| `TEST_DOCTOR_2_EMAIL` / `TEST_DOCTOR_2_PASSWORD` | `bipin@test.com` | Dr. Bipin Clinic |
+| `TEST_DOCTOR_3_EMAIL` / `TEST_DOCTOR_3_PASSWORD` | `kapil@test.com` | Dr. Kapil Clinic |
+| `TEST_SUPABASE_URL` | `https://traorcuxhkmpvxykfjjg.supabase.co` | — |
+| `TEST_APP_URL` | `https://smaranhealth.com` | — |
 
-All three are `doctor` role, `active` access, in the seeded clinic. They are synthetic accounts with weak passwords — fine for a demo, not for real patient data. Read them in a workflow with `${{ secrets.TEST_DOCTOR_1_EMAIL }}`; locally they are not in `.env.local`.
+All three are `doctor` role with `access_state = 'trial'`, and each owns a
+**private clinic** (see `0110_personal_clinic_tenancy.sql`) so no two doctors
+share a tenant. Trial is the pilot posture on purpose: the account works normally
+but is denied patient merge and Scheduler settings, and can be revoked with one
+row update (`npm run trial:revoke`). Read them in a workflow with
+`${{ secrets.TEST_DOCTOR_1_EMAIL }}`.
+
+The allowlist that grants trial is `TRIAL_ACCESS_ENABLED=1` plus
+`TRIAL_DOCTOR_EMAILS` on the Vercel project. The switch fails closed: an enabled
+flag with an empty list grants nobody. Adding a doctor is therefore two steps —
+create the auth user (they land as `trial` automatically via the `handle_new_user`
+trigger, with their own clinic), then add the address to `TRIAL_DOCTOR_EMAILS`.
+
+The accounts are provisioned from a JSON file rather than command-line arguments,
+because the display name contains a space and no combination of PowerShell → cmd →
+node quoting survived it reliably:
+
+```bash
+# accounts.json: [{ "email": "...", "password": "...", "fullName": "Dr. ..." }]
+SUPABASE_ACCESS_TOKEN=... node scripts/provision-doctor-accounts.cjs \
+  traorcuxhkmpvxykfjjg accounts.json --purge-unlisted --keep <admin-email>
+```
+
+`--purge-unlisted` deletes any other auth user in the project, so "replace the
+pilot set" means the old credentials stop existing rather than merely being
+revoked. It refuses to delete an account that owns patient records, and
+`scripts/reset-demo-tenant.cjs` clears one doctor's tenant data without touching
+their credentials.
+
+### Verifying per-doctor isolation
+
+Every doctor sees only their own patients, queue, schedule and staff. Reception
+sees exactly one doctor's data — the doctor who created it. This is enforced in
+RLS (`0108`, `0109`) and re-checked against the live project with real user
+tokens:
+
+```bash
+SUPABASE_ACCESS_TOKEN=... node scripts/verify-doctor-isolation.cjs traorcuxhkmpvxykfjjg \
+  neelesh@test.com '<password>' kapil@test.com '<password>'
+```
+
+The script signs in as both doctors, inserts a patient through RLS as one, and
+asserts the other cannot list it, fetch it by id, or read the first doctor's
+profile row. Run it after any change to an RLS policy.
+
+Tenant and trial boundaries are checked separately:
+
+```bash
+SUPABASE_ACCESS_TOKEN=... node scripts/verify-demo-boundaries.cjs traorcuxhkmpvxykfjjg \
+  neelesh@test.com '<password>' <admin-email> '<admin-password>'
+```
+
+That asserts the doctor's clinic is private, that a patient merge and a Scheduler
+save are both refused, and — as a positive control — that an active doctor is
+still allowed to configure the Scheduler, so the result is about `trial` rather
+than about doctors generally.
+
+### Middleware and session paths
+
+`scripts/test-middleware-session-paths.cjs <baseUrl>` checks the four
+unauthenticated paths (`/login`, a protected page, an API route, a garbage session
+cookie). It exists because local JWT verification in edge middleware took the
+whole site down with `MIDDLEWARE_INVOCATION_FAILED`, including the login page —
+so there was no way to sign in and recover without a redeploy. Middleware
+deliberately keeps `getUser()` for this reason; see the comment in
+`src/middleware.ts`.
 
 This document explains how to host this project **entirely on free-tier cloud services**, and exactly how to do it step by step. It matches the architecture decision already locked in `PROJECT_MEMORY.md` (Next.js App Router + Supabase Postgres/Auth/Storage) and the stack recommended in `AGENTS.md` (Vercel deployment).
 
@@ -141,8 +228,8 @@ There is no migration for this bucket (local `supabase/config.toml` defines it f
 
 Dashboard → **Authentication → URL Configuration**:
 
-- Site URL: your Vercel URL, e.g. `https://smaran-clinical.vercel.app` (set this after Part B; you can come back)
-- Redirect URLs: add `https://smaran-clinical.vercel.app/auth/callback` (and `http://localhost:3000/auth/callback` for local dev)
+- Site URL: your Vercel URL, e.g. `https://smaranhealth.com` (set this after Part B; you can come back)
+- Redirect URLs: add `https://smaranhealth.com/auth/callback` and `https://www.smaranhealth.com/auth/callback` (and `http://localhost:3000/auth/callback` for local dev)
 
 Dashboard → **Authentication → Providers → Email**:
 
@@ -165,12 +252,12 @@ link the repo, the Vercel CLI deploys the local directory directly — no GitHub
 involvement, and nothing needs to be pushed:
 
 1. Create an access token at <https://vercel.com/account/tokens> (name it e.g. `cli-deploy`).
-2. From `apps/clinical` (project ref `fkdfhojrlbdckrodufkj`):
+2. From `apps/clinical` (project ref `traorcuxhkmpvxykfjjg`):
 
    ```bash
-   npx vercel deploy --prod --yes --token <token> \
-     -b NEXT_PUBLIC_SUPABASE_URL=https://fkdfhojrlbdckrodufkj.supabase.co \
-     -b NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key> \
+   npx vercel deploy --prod --yes --scope smaran-health \
+     -b NEXT_PUBLIC_SUPABASE_URL=https://traorcuxhkmpvxykfjjg.supabase.co \
+     -b NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key> \
      -e SUPABASE_SERVICE_ROLE_KEY=<service-role key> \
      -e DEEPSEEK_API_KEY=<deepseek key>
    ```

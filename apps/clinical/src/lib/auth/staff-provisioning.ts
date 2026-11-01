@@ -72,6 +72,12 @@ export async function createReceptionAccount(input: {
     password: input.password,
     email_confirm: true,
     user_metadata: { full_name: fullName },
+    // Tenant routing travels in `app_metadata`, which only the service role can
+    // write. The provisioning trigger reads it from there and, absent it, would
+    // create a personal clinic — which for a reception account would be a stray
+    // tenant. Passing the inviting doctor's clinic keeps this account inside the
+    // doctor's practice and leaves nothing behind to clean up.
+    app_metadata: { clinic_id: input.session.clinicId },
   });
 
   if (error || !created.user) {

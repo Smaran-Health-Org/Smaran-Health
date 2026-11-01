@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionContext } from "@/lib/db/session";
 import { getSchedulerConfigurationWithClient, normalizeSchedulerConfigurationCommand, saveSchedulerConfigurationWithClient, SchedulerConfigurationError } from "@/lib/db/scheduler-configuration";
 import { badRequest, forbidden, internalError } from "@/lib/api/error-handler";
+import { can } from "@/lib/auth/capabilities";
 
 function responseFor(error: unknown) {
   if (!(error instanceof SchedulerConfigurationError)) return internalError("Could not update Scheduler settings.");
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body || typeof body.previewFingerprint !== "string") return badRequest("Preview confirmation is required.");
   const session = await getSessionContext(); if (!session) return forbidden();
+  // The settings page redirects a trial doctor, but the write lived here
+  // unguarded — a direct POST reconfigured the clinic regardless of the page.
+  if (!can(session, "scheduler.configure")) return forbidden("Scheduler settings are not available on this account");
   try {
     const command = normalizeSchedulerConfigurationCommand(body.command);
     return NextResponse.json({ data: await saveSchedulerConfigurationWithClient(await createClient(), session, command, body.previewFingerprint) });
