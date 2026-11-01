@@ -48,6 +48,26 @@ npx vercel deploy --prod --yes --scope smaran-health
 
 Do not run `vercel link --confirm` from the repository root or under a guessed name — it silently creates a second project (`smaran-health/clinical`) instead of linking the real one. Remove a stray project with `npx vercel project rm <name> --non-interactive`.
 
+### Project settings that are not in this repository
+
+Two Vercel project settings are configuration, not code, so they cannot be
+reviewed in a diff and a fresh project will not have them:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| **Root Directory** | `apps/clinical` | This is a monorepo and there is no `package.json` at the repository root. With the field empty, every Git-triggered build fails (`ERROR`) because Vercel has no app to build. CLI deploys are unaffected, because they run from `apps/clinical`. |
+| **Production Branch** | `main` (unchanged) | Deliberate: production is promoted by an explicit `vercel deploy --prod` from `dev-keshav`, so a push cannot ship to real users. Pushes to `dev-keshav` create preview deployments only. |
+
+Set the root directory with:
+
+```bash
+curl -X PATCH "https://api.vercel.com/v9/projects/<projectId>?teamId=<teamId>" \
+  -H "Authorization: Bearer <vercel-token>" -H "Content-Type: application/json" \
+  -d '{"rootDirectory":"apps/clinical"}'
+```
+
+Confirm after any project re-creation, or previews will silently stop building.
+
 ### Function region
 
 `apps/clinical/vercel.json` pins serverless functions to `bom1`, next to Supabase `ap-south-1`. If that file is dropped or its region changed, every database round trip crosses the Pacific and page latency multiplies. Confirm the region is still applied after any change to deployment configuration.
