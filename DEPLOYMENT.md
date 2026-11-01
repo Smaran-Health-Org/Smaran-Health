@@ -158,6 +158,75 @@ save are both refused, and — as a positive control — that an active doctor i
 still allowed to configure the Scheduler, so the result is about `trial` rather
 than about doctors generally.
 
+### Document extraction providers
+
+Medical-document extraction is provider-agnostic. The prompt and the response
+schema live in one shared contract (`src/lib/documents/extraction-contract.ts`),
+so `DOCUMENT_PROCESSING_PROVIDER` changes only *who* reads the document, never
+*what* is asked for. Adding a provider is one adapter file plus one registry entry.
+
+| Provider | Key | PDF | Images | Notes |
+| --- | --- | --- | --- | --- |
+| Gemini | `GEMINI_API_KEY` | ✅ native `inline_data` | ✅ | Preferred default: PDF needs no conversion |
+| OpenAI | `OPENAI_API_KEY` | ✅ `input_file` | ✅ | The reference behaviour; Responses API |
+| DeepSeek | `DEEPSEEK_API_KEY` | ❌ | ✅ | Cheapest, but rejects PDFs outright |
+
+`DOCUMENT_PROCESSING_PROVIDER` is `auto` (default), `gemini`, `openai` or
+`deepseek`. `auto` tries Gemini → OpenAI → DeepSeek and skips any provider with no
+key. The configured provider goes first, and if it cannot read *that document's*
+format the registry falls through to one that can — so setting only a DeepSeek key
+still processes photos, and a PDF fails with a logged `unsupported_source` naming
+what was tried and what was readable, rather than a corrupted parse.
+
+**Verify the live wiring** (no keys needed in the environment — the script reads
+the same variables the app does):
+
+```bash
+TSX_TSCONFIG_PATH=scripts/qa/tsconfig.json npx tsx scripts/smoke-document-provider.ts
+```
+
+It prints the resolved provider, whether a PDF routes to a PDF-capable provider,
+and a real round trip through the API including Zod validation.
+
+Two measured facts behind this design, both checked against the live DeepSeek API
+rather than assumed:
+
+- `deepseek-flash` accepts images (`input_modalities: ["text","image"]`);
+  `deepseek-chat` is text-only and would answer about a document it never saw.
+  The registry's DeepSeek entry therefore pins an image-capable model.
+- DeepSeek rejects `application/pdf` with *"You have uploaded an unsupported file
+  … webp, png, jpeg, and gif"*, and its content-part union is only
+  `text` / `image_url` / `file`. It also rejects `response_format: json_schema`
+  ("unavailable now"), which is why the schema travels in the prompt and is
+  enforced by Zod downstream.
+
+> **Operational consequence:** with only `DEEPSEEK_API_KEY` configured, PDFs
+> cannot be processed — and PDF is the primary medical-document format. Set
+> `GEMINI_API_KEY` (free tier available) or `OPENAI_API_KEY` before real document
+> uploads.
+
+HEIC/HEIF is rejected at upload with an actionable message rather than accepted
+and failed later: no configured provider can read it, and the file picker no
+longer offers it.
+
+### Scheduled recovery
+
+`apps/clinical/vercel.json` declares a cron for `/api/internal/document-pipeline`,
+which drains the durable document, reconciliation, brief, transcription and draft
+queues. Vercel sends `Authorization: Bearer $CRON_SECRET` automatically, and the
+route is idempotent — it claims work rows under a row lock and processes a bounded
+slice.
+
+Until this was added the endpoint had **no scheduler at all**, so any document
+abandoned mid-flight (worker died, lease expired after 15 minutes, doctor closed
+the tab) stayed `pending` indefinitely and its brief was never built. The
+application's `after()` wake only covers the request that enqueued the work.
+
+Schedule precision depends on the plan: this is set to daily, which the Hobby plan
+honours. On Pro, tighten it (`*/5 * * * *`) to make recovery near-immediate. A
+missed run delays work; it cannot lose it, because the queue row is committed
+before the wake.
+
 ### Middleware and session paths
 
 `scripts/test-middleware-session-paths.cjs <baseUrl>` checks the four

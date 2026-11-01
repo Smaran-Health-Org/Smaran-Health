@@ -9,6 +9,7 @@ import {
   type DocumentProcessingAdapter,
   type DocumentProcessingFailureCode,
 } from "./processing-adapter";
+import type { SupportedDocumentMime } from "./file";
 
 export class DocumentProcessingError extends Error {
   constructor(public readonly code: DocumentProcessingFailureCode) {
@@ -16,6 +17,15 @@ export class DocumentProcessingError extends Error {
     this.name = "DocumentProcessingError";
   }
 }
+
+/**
+ * Chooses an adapter for the document's *actual* type.
+ *
+ * Resolution happens after the bytes have been validated, not from the MIME type
+ * stored in the database: the stored value is a claim made at upload time, and the
+ * provider is chosen on the basis of what the file really is.
+ */
+export type DocumentAdapterResolver = (mimeType: SupportedDocumentMime) => DocumentProcessingAdapter;
 
 export type ClaimedDocumentProcessing = {
   work_id: string;
@@ -36,7 +46,7 @@ function providerFailureCode(error: unknown): DocumentProcessingFailureCode {
 /** Complete an extraction already claimed by the durable service worker. */
 export async function processClaimedMedicalDocument(
   claim: ClaimedDocumentProcessing,
-  adapter: DocumentProcessingAdapter
+  resolveAdapter: DocumentAdapterResolver
 ): Promise<boolean> {
   let bytes: Uint8Array;
   try { bytes = await downloadDocumentOriginal(claim.storage_path); }
@@ -50,7 +60,12 @@ export async function processClaimedMedicalDocument(
     throw new DocumentProcessingError(code);
   }
   let evaluated: ReturnType<typeof evaluateDocumentExtraction>;
-  try { evaluated = evaluateDocumentExtraction(await adapter.process({ bytes, mimeType: actualMime })); }
+  try {
+    // Resolve now that the real type is known; a resolver failure (no capable
+    // provider) is a source problem, not a provider fault.
+    const adapter = resolveAdapter(actualMime);
+    evaluated = evaluateDocumentExtraction(await adapter.process({ bytes, mimeType: actualMime }));
+  }
   catch (error) { throw new DocumentProcessingError(providerFailureCode(error)); }
   const service = createServiceRoleClient();
   const reasons = Array.from(new Set(evaluated.needsReviewReasons.map((reason) => reason === "evidence_mismatch" ? "uncertain_content" : reason)));

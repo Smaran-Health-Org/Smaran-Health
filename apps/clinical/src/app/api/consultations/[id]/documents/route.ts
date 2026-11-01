@@ -7,7 +7,7 @@ import {
   listStaffDocuments,
   registerStaffDocument,
 } from "@/lib/db/documents";
-import { DocumentFileError } from "@/lib/documents/file";
+import { DocumentFileError, HEIC_REJECTION_MESSAGE } from "@/lib/documents/file";
 import { DocumentIngestionError, ingestDocument, parseDocumentUpload } from "@/lib/documents/ingest";
 import { badRequest, internalError, notFound, payloadTooLarge, unauthorized } from "@/lib/api/error-handler";
 import { wakeDocumentPipeline } from "@/lib/documents/pipeline";
@@ -52,6 +52,11 @@ export async function POST(
     if ((error instanceof DocumentFileError && error.kind === "size")
       || (error instanceof DocumentIngestionError && error.kind === "size")) {
       return payloadTooLarge("Choose a medical document up to 4 MB");
+    }
+    // A format no provider can read is a fixable mistake by the person uploading,
+    // so it gets its own message rather than the generic "choose a PDF" one.
+    if (error instanceof DocumentFileError && error.kind === "format") {
+      return badRequest(HEIC_REJECTION_MESSAGE);
     }
     if (error instanceof DocumentFileError || (error instanceof DocumentIngestionError && error.kind === "request")) {
       return badRequest("Choose a PDF or supported photo up to 4 MB and check its details");

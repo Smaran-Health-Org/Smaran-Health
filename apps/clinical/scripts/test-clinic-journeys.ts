@@ -8,12 +8,42 @@ import type {
   RegisterDocumentInput,
 } from "../src/lib/db/documents";
 import type { ClaimedDocumentProcessing } from "../src/lib/documents/process";
+import type { SupportedDocumentMime } from "../src/lib/documents/file";
 import { scope, pgClient, connect, type QaScope } from "./qa/pg-client";
 import {
   completeDocumentRegistration,
   DocumentOriginalAlreadyExistsError,
 } from "../src/lib/documents/ingest-workflow";
 const require = createRequire(import.meta.url);
+
+/**
+ * A stand-in document provider for the journey tests.
+ *
+ * `processClaimedMedicalDocument` now takes a resolver rather than an adapter, so
+ * the provider is chosen from the document's validated bytes instead of a value
+ * read at the start. These tests do not care which provider wins, so the mock
+ * accepts every format. Pass either a fixed extraction or a process function.
+ */
+function mockDocumentResolver(
+  source: unknown | ((input: { bytes: Uint8Array; mimeType: SupportedDocumentMime }) => Promise<unknown>),
+) {
+  const accepts = new Set<SupportedDocumentMime>([
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+  ]);
+  const processImpl =
+    typeof source === "function"
+      ? (source as (input: { bytes: Uint8Array; mimeType: SupportedDocumentMime }) => Promise<unknown>)
+      : async () => source;
+  return () => ({
+    provider: "mock",
+    modelVersion: "mock",
+    capabilities: { accepts },
+    process: processImpl,
+  });
+}
 const next = require("next/server") as typeof import("next/server");
 const modules = mock as unknown as {
   module: (
@@ -459,11 +489,7 @@ test("synthetic new-patient journey: desk registration, walk-in, direct-link int
   const work = await claim();
   assert.equal(work.document_id, original.document.id);
   assert.equal(
-    await h.process.processClaimedMedicalDocument(work, {
-      provider: "mock",
-      modelVersion: "mock",
-      process: async () => extraction,
-    }),
+    await h.process.processClaimedMedicalDocument(work, mockDocumentResolver(extraction)),
     true,
   );
   assert.equal(
@@ -623,13 +649,9 @@ test("interrupted direct start and note save recover without duplicate visits, a
   const doc = await registerDocument(h, f, first.body.id, patient.id);
   const work = await claim();
   await assert.rejects(() =>
-    h.process.processClaimedMedicalDocument(work, {
-      provider: "mock",
-      modelVersion: "mock",
-      process: async () => {
-        throw new Error("Synthetic provider unavailable");
-      },
-    }),
+    h.process.processClaimedMedicalDocument(work, mockDocumentResolver(async () => {
+      throw new Error("Synthetic provider unavailable");
+    })),
   );
   const fail = await pgClient({ session: null, role: "service_role" }).rpc(
     "fail_document_processing_work",
@@ -717,19 +739,15 @@ test("stale document workers cannot overwrite a recovered attempt; immutable ori
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const pending = h.process.processClaimedMedicalDocument(old, {
-    provider: "mock",
-    modelVersion: "mock",
-    process: async () => {
-      await gate;
-      return {
-        ...extraction,
-        pages: [
-          { pageNumber: 1, text: "Late stale mock output", confidence: 0.99 },
-        ],
-      };
-    },
-  });
+  const pending = h.process.processClaimedMedicalDocument(old, mockDocumentResolver(async () => {
+    await gate;
+    return {
+      ...extraction,
+      pages: [
+        { pageNumber: 1, text: "Late stale mock output", confidence: 0.99 },
+      ],
+    };
+  }));
   await scalar(
     "UPDATE public.document_processing_work SET processing_started_at=now()-interval '16 minutes' WHERE id=$1 RETURNING id",
     [old.work_id],
@@ -737,11 +755,7 @@ test("stale document workers cannot overwrite a recovered attempt; immutable ori
   const current = await claim();
   assert.notEqual(current.extraction_id, old.extraction_id);
   assert.equal(
-    await h.process.processClaimedMedicalDocument(current, {
-      provider: "mock",
-      modelVersion: "mock",
-      process: async () => extraction,
-    }),
+    await h.process.processClaimedMedicalDocument(current, mockDocumentResolver(extraction)),
     true,
   );
   release();

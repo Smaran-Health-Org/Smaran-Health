@@ -7,7 +7,7 @@ import {
   listPatientDocuments,
   registerPatientDocument,
 } from "@/lib/db/documents";
-import { DocumentFileError } from "@/lib/documents/file";
+import { DocumentFileError, HEIC_REJECTION_MESSAGE } from "@/lib/documents/file";
 import { DocumentIngestionError, ingestDocument, parseDocumentUpload } from "@/lib/documents/ingest";
 import { verifiedIntakeCredentials } from "@/lib/intake/verified-session";
 import { badRequest, internalError, payloadTooLarge, unauthorized } from "@/lib/api/error-handler";
@@ -87,6 +87,11 @@ export async function POST(
     if ((error instanceof DocumentFileError && error.kind === "size")
       || (error instanceof DocumentIngestionError && error.kind === "size")) {
       return payloadTooLarge("Choose a medical document up to 4 MB");
+    }
+    // Patients upload here, on their own phones, which is exactly where HEIC comes
+    // from. Tell them what to change instead of a generic rejection.
+    if (error instanceof DocumentFileError && error.kind === "format") {
+      return badRequest(HEIC_REJECTION_MESSAGE);
     }
     if (error instanceof DocumentFileError || (error instanceof DocumentIngestionError && error.kind === "request")) {
       return badRequest("Choose a PDF or supported photo up to 4 MB and check its details");

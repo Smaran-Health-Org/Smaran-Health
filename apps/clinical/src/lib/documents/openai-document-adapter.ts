@@ -1,125 +1,42 @@
 import "server-only";
-import type { DocumentProcessingAdapter, DocumentProcessingInput } from "./processing-adapter";
+import type {
+  DocumentCapabilities,
+  DocumentProcessingAdapter,
+  DocumentProcessingInput,
+} from "./processing-adapter";
 import { DocumentProcessingProviderError } from "./processing-adapter";
+import {
+  DOCUMENT_SYSTEM_PROMPT,
+  DOCUMENT_USER_INSTRUCTION,
+  isImageMime,
+  parseJsonReply,
+} from "./extraction-contract";
 import type { SupportedDocumentMime } from "./file";
 
-// OpenAI document adapter for medical-document transcription + classification.
-// Uses the OpenAI Responses API (the full API, not just chat completions):
+// OpenAI adapter. Uses the Responses API (the full API, not chat completions):
 //   - images (JPEG/PNG/WEBP) are sent inline as base64 `input_image` parts;
 //   - PDFs are sent as base64 `input_file` parts, which gpt-4o parses as both
 //     extracted text and page images.
-// HEIC/HEIF are not accepted by OpenAI and are rejected cleanly with
-// `unsupported_source` (they would need server-side conversion).
+//
+// PDF support is why this provider still matters: DeepSeek rejects PDFs outright
+// and Gemini carries them differently, so OpenAI remains the reference behaviour
+// for the document path.
+//
+// The prompt and response schema now live in ./extraction-contract.ts, so adding
+// a provider cannot quietly change what is asked for.
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 1;
 
-const DOCUMENT_RESPONSE_SCHEMA = {
-  type: "object",
-  properties: {
-    documentType: {
-      type: "string",
-      enum: ["lab_report", "prescription", "discharge_summary", "imaging_report", "procedure_report", "consultation_note", "other"],
-    },
-    classificationConfidence: { type: "number" },
-    readabilityConfidence: { type: "number" },
-    isHandwritten: { type: "boolean" },
-    isPartiallyUnreadable: { type: "boolean" },
-    documentDate: { type: "string" },
-    documentDateConfidence: { type: "number" },
-    reportIdentifier: { type: "string" },
-    reportIdentifierConfidence: { type: "number" },
-    pages: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          pageNumber: { type: "integer" },
-          text: { type: "string" },
-          confidence: { type: "number" },
-        },
-        required: ["pageNumber", "text", "confidence"],
-      },
-    },
-    uncertainItems: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          text: { type: "string" },
-          reason: { type: "string" },
-          pageNumber: { type: "integer" },
-          confidence: { type: "number" },
-        },
-        required: ["text", "reason", "pageNumber", "confidence"],
-      },
-    },
-    normalizedObservations: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          observationType: {
-            type: "string",
-            enum: ["lab", "medication", "condition", "allergy", "vital"],
-          },
-          displayName: { type: "string" },
-          valueText: { type: "string" },
-          numericValue: { type: "number" },
-          unit: { type: "string" },
-          referenceRange: { type: "string" },
-          qualifier: { type: "string" },
-          effectiveDate: { type: "string" },
-          effectiveDateText: { type: "string" },
-          effectiveDatePrecision: {
-            type: "string",
-            enum: ["unknown", "exact", "approximate"],
-          },
-          pageNumber: { type: "integer" },
-          evidenceText: { type: "string" },
-          confidence: { type: "number" },
-        },
-        required: [
-          "observationType", "displayName", "valueText", "numericValue", "unit",
-          "referenceRange", "qualifier", "effectiveDate", "effectiveDateText",
-          "effectiveDatePrecision", "pageNumber", "evidenceText", "confidence",
-        ],
-      },
-    },
-  },
-  required: [
-    "documentType", "classificationConfidence", "readabilityConfidence",
-    "isHandwritten", "isPartiallyUnreadable", "documentDate",
-    "documentDateConfidence", "reportIdentifier", "reportIdentifierConfidence",
-    "pages", "uncertainItems", "normalizedObservations",
-  ],
-} as const;
+export const OPENAI_DOCUMENT_CAPABILITIES: DocumentCapabilities = {
+  accepts: new Set<SupportedDocumentMime>([
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+  ]),
+};
 
-const SYSTEM_PROMPT = [
-  "You are a medical-document transcription and classification assistant for a specialist clinic in India.",
-  "The result is an unconfirmed AI-derived draft for doctor verification against the original.",
-  "Extract only content explicitly visible in the supplied document.",
-  "Do not diagnose, prescribe, recommend treatment, correct medication names, or invent missing text.",
-  "Preserve source wording. Mark handwriting, unreadable regions, partial pages, ambiguity, and conflicts explicitly.",
-  "Confidence values must be numbers from 0 to 1 and must decrease when text is unclear.",
-  "Return page-level transcription with the original page number. Use pageNumber 0 only for uncertain items whose page is unknown.",
-  "documentDate must be an exact visible date in YYYY-MM-DD or an empty string. Never infer a missing date.",
-  "reportIdentifier must contain only an exact visible report/accession/prescription identifier suitable for duplicate matching, or an empty string. Never use patient name, phone, address, or a generic date as this identifier.",
-  "Extract normalizedObservations only for explicitly visible labs, medicines, conditions, allergies, or vitals. Do not infer a diagnosis, indication, medication change, dose, frequency, allergy, unit, or reference range.",
-  "For each observation, preserve the visible display name and value wording. numericValue is allowed only when the exact visible value is unambiguous; otherwise use null. Use empty strings for absent optional text.",
-  "Every normalized observation must include an exact evidenceText quote and the supporting pageNumber. Omit an observation entirely if there is no reliable supporting quote or page.",
-  "For an exact visible observation date, set effectiveDate to YYYY-MM-DD, retain the visible wording in effectiveDateText, and use exact precision. For a partial/approximate visible date, keep effectiveDate empty, preserve the wording in effectiveDateText, and use approximate. If absent, leave both date fields empty and use unknown. Never invent a day.",
-  "Keep uncertain or unreadable candidate facts in uncertainItems instead of normalizedObservations.",
-  `Return a single valid JSON object matching exactly this schema, with no commentary or markdown fences:\n${JSON.stringify(DOCUMENT_RESPONSE_SCHEMA)}`,
-].join("\n");
-
-// OpenAI accepts these formats natively via the Responses API. HEIC/HEIF are
-// not accepted and need server-side conversion (see process()).
-const OPENAI_IMAGE_MIMES: ReadonlySet<SupportedDocumentMime> = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
 
 type OpenAiResponseContent = {
   type: string;
@@ -156,6 +73,7 @@ function extractOutputText(data: OpenAiResponse): string | undefined {
 
 export class OpenAiDocumentAdapter implements DocumentProcessingAdapter {
   readonly provider = "openai";
+  readonly capabilities = OPENAI_DOCUMENT_CAPABILITIES;
 
   constructor(
     public readonly modelVersion: string,
@@ -167,7 +85,7 @@ export class OpenAiDocumentAdapter implements DocumentProcessingAdapter {
     const base64 = Buffer.from(input.bytes).toString("base64");
     const dataUrl = `data:${input.mimeType};base64,${base64}`;
 
-    if (OPENAI_IMAGE_MIMES.has(input.mimeType)) {
+    if (isImageMime(input.mimeType)) {
       return [{ type: "input_image", image_url: dataUrl, detail: "high" }];
     }
     if (input.mimeType === "application/pdf") {
@@ -197,7 +115,7 @@ export class OpenAiDocumentAdapter implements DocumentProcessingAdapter {
 
     const body = {
       model: this.modelVersion,
-      instructions: SYSTEM_PROMPT,
+      instructions: DOCUMENT_SYSTEM_PROMPT,
       temperature: 0,
       max_output_tokens: 16_384,
       text: { format: { type: "json_object" } },
@@ -208,7 +126,7 @@ export class OpenAiDocumentAdapter implements DocumentProcessingAdapter {
             ...content,
             {
               type: "input_text",
-              text: "Classify, transcribe, and normalize only explicit observations. Preserve uncertainty and page-level evidence provenance.",
+              text: DOCUMENT_USER_INSTRUCTION,
             },
           ],
         },
@@ -239,7 +157,7 @@ export class OpenAiDocumentAdapter implements DocumentProcessingAdapter {
         const raw = extractOutputText(data);
         if (!raw) throw new DocumentProcessingProviderError("invalid_response");
         try {
-          return JSON.parse(raw) as unknown;
+          return parseJsonReply(raw);
         } catch {
           throw new DocumentProcessingProviderError("invalid_response");
         }
@@ -257,12 +175,4 @@ export class OpenAiDocumentAdapter implements DocumentProcessingAdapter {
     }
     throw new DocumentProcessingProviderError("provider_unavailable");
   }
-}
-
-export function configuredDocumentProcessingAdapter(): DocumentProcessingAdapter {
-  const provider = process.env.DOCUMENT_PROCESSING_PROVIDER?.trim() || "openai";
-  if (provider !== "openai") throw new DocumentProcessingProviderError("provider_unavailable");
-  const apiKey = process.env.OPENAI_API_KEY?.trim() || "";
-  const model = process.env.DOCUMENT_PROCESSING_MODEL?.trim() || "gpt-4o";
-  return new OpenAiDocumentAdapter(model, apiKey);
 }

@@ -8,15 +8,30 @@ import { attachDebugEventLogSink, pruneDebugEvents } from "@/lib/debug-log-db";
 import { debugEvent, flushDebugLog } from "@/lib/debug-log";
 import { flushSarvamLog } from "@/lib/ai/sarvam-log";
 import { DOCUMENT_EXTRACTION_SCHEMA_VERSION, DOCUMENT_PIPELINE_VERSION } from "./extraction-schema";
-import { configuredDocumentProcessingAdapter } from "./openai-document-adapter";
+import { resolveDocumentAdapter, primaryDocumentAdapter } from "./document-adapter-registry";
 import { processClaimedMedicalDocument, type ClaimedDocumentProcessing } from "./process";
 
 function metadata() {
+  // Stamp the provider that would actually be used, so an extraction record says
+  // which API produced it. Falls back to the env value when no key is configured,
+  // so a misconfigured deployment still records what was intended.
+  const fallbackProvider = process.env.DOCUMENT_PROCESSING_PROVIDER?.trim() || "auto";
+  const fallbackModel = process.env.DOCUMENT_PROCESSING_MODEL?.trim() || "";
+  let provider = fallbackProvider;
+  let modelVersion = fallbackModel || "unknown";
+  try {
+    const adapter = primaryDocumentAdapter();
+    provider = adapter.provider;
+    modelVersion = adapter.modelVersion;
+  } catch {
+    // No provider configured; the claim still needs a value, and the failure is
+    // reported per document by the resolver.
+  }
   return {
     schemaVersion: DOCUMENT_EXTRACTION_SCHEMA_VERSION,
     pipelineVersion: DOCUMENT_PIPELINE_VERSION,
-    provider: process.env.DOCUMENT_PROCESSING_PROVIDER?.trim() || "openai",
-    modelVersion: process.env.DOCUMENT_PROCESSING_MODEL?.trim() || "gpt-4o",
+    provider,
+    modelVersion,
   };
 }
 
@@ -32,7 +47,7 @@ export async function drainDocumentPipeline(limit = 8): Promise<void> {
     const row = (Array.isArray(data) ? data[0] : data) as ClaimedDocumentProcessing | null;
     if (!row) break;
     try {
-      const completed = await processClaimedMedicalDocument(row, configuredDocumentProcessingAdapter());
+      const completed = await processClaimedMedicalDocument(row, resolveDocumentAdapter);
       if (!completed) {
         console.info("document_pipeline_completion_stale", { documentId: row.document_id });
         continue;

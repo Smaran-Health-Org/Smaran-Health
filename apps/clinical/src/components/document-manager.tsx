@@ -206,7 +206,10 @@ export function DocumentManager(props: {
           <input
             type="file"
             ref={fileInputRef}
-            accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
+            // HEIC/HEIF deliberately omitted: no configured provider can read it,
+            // so offering it in the picker only leads to an upload that fails
+            // later. The server rejects it with an explanation either way.
+            accept="application/pdf,image/jpeg,image/png,image/webp"
             onChange={(event) => {
               const nextFile = event.target.files?.[0] ?? null;
               setFile(nextFile);

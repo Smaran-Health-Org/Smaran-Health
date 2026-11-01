@@ -73,17 +73,36 @@ export function documentStoragePath(input: {
   return `${input.clinicId}/${input.patientId}/${input.documentId}/original.${EXTENSIONS[input.mime]}`;
 }
 
+/**
+ * Formats we can detect but no configured provider can read.
+ *
+ * HEIC/HEIF is what an iPhone produces by default. Accepting it at upload and
+ * failing later during extraction is the worst option: the patient sees a
+ * successful upload, the doctor waits for a brief that will never arrive, and the
+ * only trace is an `unsupported_source` row nobody is watching. Rejecting it at
+ * the boundary lets the uploader be told to switch the camera to "Most
+ * Compatible" or convert the file, while they are still holding the report.
+ */
+const UNREADABLE_MIMES: ReadonlySet<SupportedDocumentMime> = new Set([
+  "image/heic",
+  "image/heif",
+]);
+
+export const HEIC_REJECTION_MESSAGE =
+  "HEIC/HEIF photos cannot be read. On iPhone, set Camera → Formats → Most Compatible, or convert the photo to JPEG, then upload again.";
+
 export function validateDocumentBytes(bytes: Uint8Array): SupportedDocumentMime {
   if (bytes.length === 0 || bytes.length > MAX_DOCUMENT_BYTES) {
     throw new DocumentFileError("size");
   }
   const mime = detectDocumentMime(bytes);
   if (!mime) throw new DocumentFileError("type");
+  if (UNREADABLE_MIMES.has(mime)) throw new DocumentFileError("format");
   return mime;
 }
 
 export class DocumentFileError extends Error {
-  constructor(public readonly kind: "size" | "type") {
+  constructor(public readonly kind: "size" | "type" | "format") {
     super("Medical document file is invalid");
     this.name = "DocumentFileError";
   }
