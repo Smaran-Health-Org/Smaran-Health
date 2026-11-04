@@ -23,8 +23,8 @@
 
 | Item | Value |
 | --- | --- |
-| Clinical app (live) | **https://smaran-health.vercel.app** (old account) |
-| Vercel project | `kshav99s-projects/smaran-health` (old account; domain released 1 Nov 2026) |
+| Clinical app (live) | **https://smaranhealth.com** (current account) |
+| Vercel project | `smaran-health/smaran-health` (current account). The old `kshav99s-projects/smaran-health` project was **deleted 4 Nov 2026**, so `smaran-health.vercel.app` no longer resolves. |
 | Supabase project | `fkdfhojrlbdckrodufkj` (old account) |
 | Vercel function region | **`bom1` (Mumbai)**, pinned in `apps/clinical/vercel.json` — co-located with Supabase `ap-south-1`. Measured database round trip ~23 ms versus ~217 ms from the previous default region. |
 | Supabase auth | signups disabled; seed accounts `doctor1@pilot.test` / `pilot123!`, `doctor2@pilot.test` / `pilot123!` |

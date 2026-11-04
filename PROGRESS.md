@@ -26,7 +26,7 @@ Records the `dev-keshav` reliability set `b08fcaf..73433c5` (11 commits). Full d
 
 ### 17–18 Aug 2026 — Deployment + AI Structured Notes + Follow-Up Memory ✅
 
-- [x] **Deployed to free-tier cloud:** Vercel (`https://smaran-health.vercel.app`) + Supabase cloud (`fkdfhojrlbdckrodufkj`). Migrations applied, private `audio` bucket, signups disabled, seeded. See `DEPLOYMENT.md`.
+- [x] **Deployed to free-tier cloud:** Vercel (`https://smaranhealth.com`) + Supabase cloud (`fkdfhojrlbdckrodufkj`). Migrations applied, private `audio` bucket, signups disabled, seeded. See `DEPLOYMENT.md`.
 - [x] **Migrated to new Smaran Health accounts (1 Nov 2026):** Vercel team `smaran-health`, Supabase project `traorcuxhkmpvxykfjjg`, custom domain `smaranhealth.com`. All 108 migrations applied via `scripts/cloud-migrate.cjs`; private `audio` + `medical-documents` buckets; DeepSeek key set.
 - [x] **Branch strategy:** `dev-local` (local iteration) and `dev-keshav` (deployable). `main` left untouched.
 - [x] **Local dev stack:** Docker + local Supabase + seed + dev server, documented in `apps/clinical/SETUP.md`.
