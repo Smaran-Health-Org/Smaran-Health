@@ -2,6 +2,7 @@
  * Trial access CLI.
  *
  *   npm run trial:grant -- --email doctor@clinic.com [--name "Dr X"] [--clinic <uuid>]
+ *   npm run trial:grant:prod -- --email doctor@clinic.com --name "Dr X"
  *   npm run trial:revoke -- --email doctor@clinic.com
  *   npm run trial:list
  *
@@ -9,13 +10,20 @@
  * points at. Deliberately separate from the app: issuing a trial is an operator
  * action, not something a doctor does to themselves.
  *
+ * `--prod` targets the deployed project instead of localhost. It reads
+ * `.env.prod.local`, which is gitignored and holds real values — `vercel env
+ * pull` is not enough on its own because it writes `[SENSITIVE]` placeholders
+ * for every secret.
+ *
  * There is no expiry. `revoke` sets `suspended`, which the middleware and every
  * page guard honour immediately; `grant` restores `trial`.
  */
 
 import { config } from "dotenv";
 import path from "node:path";
-config({ path: path.resolve(process.cwd(), ".env.local") });
+
+const isProd = process.argv.includes("--prod");
+config({ path: path.resolve(process.cwd(), isProd ? ".env.prod.local" : ".env.local") });
 config({ path: path.resolve(process.cwd(), ".env") });
 
 import { createAdminClient } from "../src/lib/supabase/admin";
@@ -30,6 +38,31 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+/**
+ * Refuses to run against the wrong project.
+ *
+ * The whole point of `--prod` is to hit the deployed database, and the most
+ * likely mistake is a missing or stale `.env.prod.local` silently falling back
+ * to localhost — which "succeeds" and creates the account where nobody can use
+ * it. Checking the host makes that failure loud.
+ */
+function assertTarget(): void {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    fail("SUPABASE_SERVICE_ROLE_KEY is missing. Check your env file.");
+  }
+  const isLocal = /localhost|127\.0\.0\.1/.test(url);
+  if (isProd && isLocal) {
+    fail(
+      `--prod was passed but NEXT_PUBLIC_SUPABASE_URL is ${url || "(empty)"}.\n` +
+        "  Create apps/clinical/.env.prod.local with the real project URL and service key."
+    );
+  }
+  if (!isProd && !isLocal) {
+    fail(`Refusing to write to ${url} without --prod. Pass --prod to confirm.`);
+  }
+}
+
 async function resolveProfile(email: string) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -42,7 +75,22 @@ async function resolveProfile(email: string) {
   return { supabase, profile: data };
 }
 
+/** Prints the exact commands that make the new credentials usable elsewhere. */
+function printNextSteps(email: string, password: string): void {
+  console.log("");
+  console.log("Next steps:");
+  console.log(`  Sign in at ${process.env.APP_URL ?? "https://www.smaranhealth.com"}/login`);
+  console.log("");
+  console.log("  To store it as a GitHub secret (CI smoke tests):");
+  console.log(`    gh secret set TEST_DOCTOR_1_EMAIL --body "${email}" --repo Smaran-Health-Org/Smaran-Health`);
+  console.log(`    gh secret set TEST_DOCTOR_1_PASSWORD --body "${password}" --repo Smaran-Health-Org/Smaran-Health`);
+  console.log("");
+  console.log("  GitHub secrets do NOT reach the running app — only CI. The account");
+  console.log("  works on the live site as soon as it exists in this project.");
+}
+
 async function grant() {
+  assertTarget();
   const email = arg("email") ?? fail("--email is required");
   const name = arg("name");
   const clinicId = arg("clinic");
@@ -60,14 +108,34 @@ async function grant() {
       .update({ access_state: "trial" })
       .eq("id", existing.id);
     if (error) fail(error.message);
+
+    // `--password` on an existing account resets it. Without this the flag was
+    // silently ignored, so re-running grant to set a known password appeared to
+    // work while the old one stayed in force.
+    const resetPassword = arg("password");
+    if (resetPassword) {
+      const { error: pwError } = await supabase.auth.admin.updateUserById(existing.id, {
+        password: resetPassword,
+      });
+      if (pwError) fail(pwError.message);
+    }
+
     console.log(`✓ ${email} restored to trial (was ${existing.access_state})`);
+    console.log(
+      resetPassword
+        ? "  Password reset to the value you passed."
+        : "  Password unchanged — reuse the one already issued, or pass --password to reset."
+    );
     return;
   }
 
+  // No clinic lookup by default: `handle_new_user` (0110) gives every new
+  // account its own clinic, which is the tenant boundary. Passing `--clinic`
+  // opts into a shared clinic instead, and then the profile must be moved.
   const { data: clinic } = clinicId
     ? await supabase.from("clinics").select("id").eq("id", clinicId).maybeSingle()
-    : await supabase.from("clinics").select("id").order("created_at").limit(1).maybeSingle();
-  if (!clinic) fail("No clinic found. Pass --clinic <uuid>.");
+    : { data: null };
+  if (clinicId && !clinic) fail(`No clinic ${clinicId}.`);
 
   const password = arg("password") ?? `trial-${Math.random().toString(36).slice(2, 10)}`;
   const { data: created, error } = await supabase.auth.admin.createUser({
@@ -81,7 +149,7 @@ async function grant() {
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
-      clinic_id: clinic.id,
+      ...(clinic ? { clinic_id: clinic.id } : {}),
       role: "doctor",
       access_state: "trial",
       owner_doctor_id: null,
@@ -90,16 +158,20 @@ async function grant() {
     .eq("id", created.user.id);
   if (profileError) fail(profileError.message);
 
-  await supabase
-    .from("clinic_memberships")
-    .upsert({ clinic_id: clinic.id, profile_id: created.user.id });
+  if (clinic) {
+    await supabase
+      .from("clinic_memberships")
+      .upsert({ clinic_id: clinic.id, profile_id: created.user.id });
+  }
 
   console.log(`✓ Trial doctor created: ${email}`);
   console.log(`  Temporary password: ${password}`);
-  console.log("  Share it out of band; they can change it after signing in.");
+  console.log(`  Clinic: ${clinic ? "shared (--clinic)" : "own personal clinic"}`);
+  printNextSteps(email, password);
 }
 
 async function revoke() {
+  assertTarget();
   const email = arg("email") ?? fail("--email is required");
   const { supabase, profile } = await resolveProfile(email);
   const { error } = await supabase
@@ -111,6 +183,7 @@ async function revoke() {
 }
 
 async function list() {
+  assertTarget();
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("profiles")
@@ -127,8 +200,14 @@ async function list() {
   }
 }
 
-const command = process.argv[2];
-if (command === "grant") await grant();
-else if (command === "revoke") await revoke();
-else if (command === "list") await list();
-else fail("Usage: trial:grant | trial:revoke | trial:list");
+// Wrapped rather than top-level await: tsx compiles this file as CJS, which
+// rejects top-level await.
+async function main(): Promise<void> {
+  const command = process.argv[2];
+  if (command === "grant") await grant();
+  else if (command === "revoke") await revoke();
+  else if (command === "list") await list();
+  else fail("Usage: trial:grant | trial:revoke | trial:list  (add --prod for the deployed project)");
+}
+
+main().catch((error) => fail(error instanceof Error ? error.message : String(error)));

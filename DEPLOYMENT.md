@@ -108,6 +108,38 @@ but is denied patient merge and Scheduler settings, and can be revoked with one
 row update (`npm run trial:revoke`). Read them in a workflow with
 `${{ secrets.TEST_DOCTOR_1_EMAIL }}`.
 
+### Issuing a trial doctor
+
+One command, against production:
+
+```bash
+cd apps/clinical
+npm run trial:grant:prod -- --email doctor@clinic.com --name "Dr. Name"
+```
+
+It prints the generated password and the exact `gh secret set` commands. The
+account works on the live site **immediately** — GitHub secrets are only for CI
+and never reach the running app.
+
+| Command | Effect |
+| --- | --- |
+| `npm run trial:grant:prod -- --email … --name …` | Creates a trial doctor with their own clinic |
+| `npm run trial:grant:prod -- --email … --password …` | Resets the password on an existing account |
+| `npm run trial:revoke:prod -- --email …` | Suspends; they land on `/access-revoked` |
+| `npm run trial:list:prod` | Lists every account and its state |
+
+Drop `:prod` to target localhost instead. The script refuses to write to a
+non-localhost URL without `--prod`, so a missing env file fails loudly rather
+than silently creating the account where nobody can use it.
+
+`--prod` reads `apps/clinical/.env.prod.local` (gitignored, real values).
+`vercel env pull` is **not** sufficient on its own — it writes `[SENSITIVE]`
+placeholders for every secret. Create the file with the project URL and service
+key from the Supabase dashboard.
+
+Pass `--clinic <uuid>` to put the doctor in an existing clinic instead of
+provisioning a personal one.
+
 The allowlist that grants trial is `TRIAL_ACCESS_ENABLED=1` plus
 `TRIAL_DOCTOR_EMAILS` on the Vercel project. The switch fails closed: an enabled
 flag with an empty list grants nobody. Adding a doctor is therefore two steps —
