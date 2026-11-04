@@ -142,16 +142,33 @@ row update (`npm run trial:revoke`). Read them in a workflow with
 
 ### Issuing a trial doctor
 
-One command, against production:
+**Fastest path — no script, no database access.** Add the doctor to
+`TRIAL_DOCTOR_EMAILS` as `email:password` and they can sign in immediately. The
+first sign-in creates the account, its own clinic, and marks it `trial`.
 
 ```bash
 cd apps/clinical
-npm run trial:grant:prod -- --email doctor@clinic.com --name "Dr. Name"
+npx vercel env add TRIAL_DOCTOR_EMAILS production \
+  --value "a@clinic.com:Passw0rd!,b@clinic.com:Other1!" \
+  --yes --scope smaran-health
+npx vercel deploy --prod --force --yes --scope smaran-health
 ```
 
-It prints the generated password and the exact `gh secret set` commands. The
-account works on the live site **immediately** — GitHub secrets are only for CI
-and never reach the running app.
+Comma-separated, so several doctors go in one edit. `TRIAL_ACCESS_ENABLED` must
+be `1`. A bare `email` (no colon) is allowlisted but not auto-created — use that
+for accounts that already exist.
+
+Trade-offs of the env path: the password sits in Vercel config, so it is only as
+secret as the project, and **changing a password means editing the variable and
+redeploying**. An existing account is never overwritten, so a doctor who changed
+their own password keeps it.
+
+**Script path** — when you want a generated password, a specific clinic, or to
+revoke:
+
+```bash
+npm run trial:grant:prod -- --email doctor@clinic.com --name "Dr. Name"
+```
 
 | Command | Effect |
 | --- | --- |

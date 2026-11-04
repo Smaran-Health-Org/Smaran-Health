@@ -7,8 +7,10 @@ import {
   isAccessUsable,
 } from "../lib/auth/capabilities";
 import {
+  findTrialEntry,
   isAllowlisted,
   parseAllowlist,
+  parseTrialEntries,
   shouldGrantTrial,
 } from "../lib/auth/trial-allowlist";
 import type { SessionContext } from "../types";
@@ -111,6 +113,52 @@ test("a domain wildcard matches the whole domain only", () => {
 
 test("a bare wildcard does not allow everything", () => {
   assert.equal(isAllowlisted("any@clinic.com", ["*"]), false);
+});
+
+// ── email:password entries ──────────────────────────────────────────────────
+
+test("an entry may carry a password after a colon", () => {
+  assert.deepEqual(parseTrialEntries("a@b.com:Secret1!"), [
+    { pattern: "a@b.com", password: "Secret1!" },
+  ]);
+});
+
+test("a password may itself contain a colon", () => {
+  assert.deepEqual(parseTrialEntries("a@b.com:p@ss:word"), [
+    { pattern: "a@b.com", password: "p@ss:word" },
+  ]);
+});
+
+test("a trailing colon is a plain entry, not an empty password", () => {
+  assert.deepEqual(parseTrialEntries("a@b.com:"), [{ pattern: "a@b.com", password: null }]);
+});
+
+test("entries without a colon stay password-less", () => {
+  assert.deepEqual(parseTrialEntries("a@b.com"), [{ pattern: "a@b.com", password: null }]);
+});
+
+test("the password is not part of the allowlist pattern", () => {
+  assert.deepEqual(parseAllowlist("a@b.com:Secret1!,c@d.com"), ["a@b.com", "c@d.com"]);
+});
+
+test("findTrialEntry matches case-insensitively and returns the password", () => {
+  const entry = findTrialEntry("A@B.com", "a@b.com:Secret1!");
+  assert.equal(entry?.password, "Secret1!");
+});
+
+test("an exact entry wins over a matching wildcard", () => {
+  const entry = findTrialEntry("a@clinic.com", "*@clinic.com,a@clinic.com:Exact1!");
+  assert.equal(entry?.password, "Exact1!");
+});
+
+test("a wildcard entry matches but carries no password", () => {
+  const entry = findTrialEntry("any@clinic.com", "*@clinic.com");
+  assert.equal(entry?.pattern, "*@clinic.com");
+  assert.equal(entry?.password, null);
+});
+
+test("an unlisted address finds no entry", () => {
+  assert.equal(findTrialEntry("x@y.com", "a@b.com:Secret1!"), null);
 });
 
 test("trial granting fails closed when the switch is on but the list is empty", () => {

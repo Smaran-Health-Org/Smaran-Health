@@ -31,10 +31,28 @@ function LoginForm() {
     const password = String(formData.get("password") ?? "");
 
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    let { error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
+    // A trial doctor on the allowlist may not have an account yet. Provisioning
+    // is server-side (it needs the service role), so it is a round trip before
+    // the retry. Only attempted on a failed sign-in, so the normal path is
+    // unchanged.
+    if (authError) {
+      const provisioned = await fetch("/api/trial/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+        .then((response) => response.ok)
+        .catch(() => false);
+
+      if (provisioned) {
+        ({ error: authError } = await supabase.auth.signInWithPassword({ email, password }));
+      }
+    }
 
     if (authError) {
       setError(authError.message);

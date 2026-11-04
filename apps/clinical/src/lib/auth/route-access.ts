@@ -6,7 +6,16 @@
  */
 
 /** Routes that must never be gated by the staff Supabase session. */
-const PUBLIC_ROUTE_PREFIXES = ["/login", "/auth/callback", "/intake", "/api/intake", "/api/internal"] as const;
+const PUBLIC_ROUTE_PREFIXES = [
+  "/login",
+  "/auth/callback",
+  "/intake",
+  "/api/intake",
+  "/api/internal",
+  // Called from the login form before a session exists, to provision an
+  // allowlisted trial doctor on their first sign-in.
+  "/api/trial",
+] as const;
 
 /**
  * The revoked-access page needs a session but must not be redirected away from
