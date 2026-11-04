@@ -148,37 +148,36 @@ first sign-in creates the account, its own clinic, and marks it `trial`.
 
 #### From the Vercel dashboard
 
+`TRIAL_DOCTOR_EMAILS` is stored as **Config**, not Secret, so its value is
+visible and editable in place — no retyping the list.
+
 1. Open **https://vercel.com/smaran-health/smaran-health/settings/environment-variables**
    (project settings, not the team-level page — the team page has no per-project
    variables).
-2. Click **Add Environment Variable**.
-3. **Key**: `TRIAL_DOCTOR_EMAILS`
-4. **Value**: the whole comma-separated list, including the new doctor. The
-   variable is stored as a **Secret**, so its current value cannot be read back —
-   you must retype the full list. Keep it in `apps/clinical/.trial-allowlist.txt`
-   (gitignored) so you always have it.
-5. Leave **Environments** on **Production**. Click **Save**.
-6. **Redeploy** — Deployments → the latest one → ⋯ → Redeploy. Env changes are
+2. Click the **TRIAL_DOCTOR_EMAILS** row to edit it.
+3. Append `,new@clinic.com:Passw0rd!` to the value. Click **Save**.
+4. **Redeploy** — Deployments → the latest one → ⋯ → Redeploy. Env changes are
    baked in at build time and do nothing until a new build runs.
 
 #### From the CLI
 
 ```bash
 cd apps/clinical
-npx vercel env add TRIAL_DOCTOR_EMAILS production \
-  --value "a@clinic.com:Passw0rd!,b@clinic.com:Other1!" \
-  --yes --scope smaran-health
-npx vercel deploy --prod --force --yes --scope smaran-health
+npm run trial:allow -- --email new@clinic.com --password "Passw0rd!"
 ```
+
+It reads the live list, appends, writes it back, and prints the redeploy command.
+`--list` shows the current entries, `--remove` takes one off. Because the value
+is Config, the script can read it — nothing is retyped and nobody is silently
+dropped.
 
 Comma-separated, so several doctors go in one edit. `TRIAL_ACCESS_ENABLED` must
 be `1`. A bare `email` (no colon) is allowlisted but not auto-created — use that
 for accounts that already exist.
 
-Trade-offs of the env path: the password sits in Vercel config, so it is only as
-secret as the project, and **changing a password means editing the variable and
-redeploying**. An existing account is never overwritten, so a doctor who changed
-their own password keeps it.
+Trade-off of Config: the passwords are visible to anyone with project access.
+That is the point — it is what makes the list editable. They are trial
+credentials, not patient data.
 
 **Script path** — when you want a generated password, a specific clinic, or to
 revoke:
