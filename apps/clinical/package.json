@@ -17,6 +17,7 @@
     "trial:grant:prod": "tsx scripts/trial-access.ts grant --prod",
     "trial:revoke:prod": "tsx scripts/trial-access.ts revoke --prod",
     "trial:list:prod": "tsx scripts/trial-access.ts list --prod",
+    "trial:allow": "tsx scripts/trial-allow.ts",
     "test:db:phase8-lock-order": "tsx --test scripts/test-phase8-lock-order.ts",
     "test:db:phase9-correction-race": "tsx --test scripts/test-phase9-correction-race.ts",
     "test:db:phase10-concurrency": "tsx --test scripts/test-phase10-concurrency.ts",

@@ -51,3 +51,6 @@ next-env.d.ts
 # supabase generated
 /supabase/.temp/
 /supabase/.branches/
+
+# trial allowlist (holds passwords)
+.trial-allowlist.txt

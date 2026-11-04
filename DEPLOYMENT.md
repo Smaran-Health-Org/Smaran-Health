@@ -146,6 +146,23 @@ row update (`npm run trial:revoke`). Read them in a workflow with
 `TRIAL_DOCTOR_EMAILS` as `email:password` and they can sign in immediately. The
 first sign-in creates the account, its own clinic, and marks it `trial`.
 
+#### From the Vercel dashboard
+
+1. Open **https://vercel.com/smaran-health/smaran-health/settings/environment-variables**
+   (project settings, not the team-level page — the team page has no per-project
+   variables).
+2. Click **Add Environment Variable**.
+3. **Key**: `TRIAL_DOCTOR_EMAILS`
+4. **Value**: the whole comma-separated list, including the new doctor. The
+   variable is stored as a **Secret**, so its current value cannot be read back —
+   you must retype the full list. Keep it in `apps/clinical/.trial-allowlist.txt`
+   (gitignored) so you always have it.
+5. Leave **Environments** on **Production**. Click **Save**.
+6. **Redeploy** — Deployments → the latest one → ⋯ → Redeploy. Env changes are
+   baked in at build time and do nothing until a new build runs.
+
+#### From the CLI
+
 ```bash
 cd apps/clinical
 npx vercel env add TRIAL_DOCTOR_EMAILS production \
