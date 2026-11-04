@@ -86,6 +86,38 @@ Confirm after any project re-creation, or previews will silently stop building.
 
 `apps/clinical/vercel.json` pins serverless functions to `bom1`, next to Supabase `ap-south-1`. If that file is dropped or its region changed, every database round trip crosses the Pacific and page latency multiplies. Confirm the region is still applied after any change to deployment configuration.
 
+### Adding an environment variable
+
+Vercel env vars are the **only** thing the running app reads. GitHub secrets are
+write-only and never reach it, so a new API key belongs here, not in GitHub.
+
+```bash
+cd apps/clinical
+npx vercel env add MY_VAR production --value "<value>" --yes --scope smaran-health
+```
+
+`--scope smaran-health` is mandatory. Without it the CLI targets the old
+`kshav99s-projects` account, which no longer has this project.
+
+| Task | Command |
+| --- | --- |
+| Add | `npx vercel env add NAME production --value "<v>" --yes --scope smaran-health` |
+| List | `npx vercel env ls production --scope smaran-health` |
+| Remove | `npx vercel env rm NAME production --yes --scope smaran-health` |
+
+Notes:
+
+- Values are stored **sensitive** by default and cannot be read back afterwards.
+  `vercel env pull` writes `[SENSITIVE]` placeholders, not real values — that is
+  why operator scripts use `apps/clinical/.env.prod.local` instead.
+- Add `--no-sensitive` only for values that are safe to expose (e.g. a public
+  feature flag).
+- **A change needs a redeploy to take effect.** Env vars are baked in at build
+  time, so `vercel deploy --prod --force --yes --scope smaran-health` from the
+  repository root afterwards.
+- `NEXT_PUBLIC_*` vars are inlined into the browser bundle. Changing one is a
+  public change, not just a server change.
+
 ### Pilot doctor accounts
 
 Three named doctor accounts exist in the production Supabase project so a pilot
